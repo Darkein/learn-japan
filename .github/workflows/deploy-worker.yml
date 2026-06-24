@@ -1,0 +1,28 @@
+name: Deploy Worker (Cloudflare)
+
+on:
+  push:
+    branches: [main, claude/japanese-learning-app-6goh2g]
+    paths:
+      - "worker/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # worker est un workspace → npm ci à la racine installe wrangler (version épinglée).
+      - run: npm ci
+      - name: wrangler deploy
+        working-directory: worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Optionnel : nécessaire seulement si le token couvre plusieurs comptes.
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

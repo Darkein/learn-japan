@@ -26,7 +26,10 @@ jobs:
           cache: npm
       - run: npm ci
       # prebuild copie le dictionnaire kuromoji dans app/public/dict avant le build Vite.
+      # VITE_WORKER_URL (variable de repo) pointe l'app vers le Worker de génération.
       - run: npm run build
+        env:
+          VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

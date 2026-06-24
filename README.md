@@ -9,8 +9,8 @@ niveau, furigana et **gloss littéral déterministes** (kuromoji), révision esp
 **Phase 0 — fondations & déploiement** ✅
 - PWA (Vite + React + TS + vite-plugin-pwa), thème *Sumi & Washi* sombre/adaptatif.
 - Furigana déterministes + gloss littéral interlinéaire.
-- SRS (FSRS) + schéma IndexedDB. Worker Cloudflare (`/generate` Gemini + `/status/:id`).
-- Déploiement auto vers GitHub Pages.
+- SRS (FSRS) + schéma IndexedDB. Worker Cloudflare (`/generate` Gemini, synchrone).
+- Déploiement auto : PWA → GitHub Pages, Worker → Cloudflare (GitHub Actions).
 
 **Phase 1 — boucle de lecture** (en cours)
 - ✅ Génération ciblée (thème / kanji / grammaire / JLPT) via le Worker → texte annoté.
@@ -41,18 +41,30 @@ par ces scripts et restent locaux (gitignorés).
 
 ## Worker (génération protégée, gratuite)
 
+Génération **synchrone** : pas de KV ni de R2 à provisionner. La seule chose à poser
+sur le Worker est la clé Gemini :
+
 ```bash
 cd worker
-npx wrangler kv namespace create STATUS     # -> renseigner l'id dans wrangler.toml
-npx wrangler r2 bucket create learn-japan-audio
 npx wrangler secret put GEMINI_API_KEY      # clé Google AI Studio (free tier)
-npx wrangler deploy
 ```
 
-Placer **Cloudflare Access** (login email, gratuit) devant le Worker, puis `REQUIRE_ACCESS="true"`.
+Le déploiement du Worker est ensuite **automatique** (workflow `deploy-worker.yml`).
 Aucune clé n'est exposée au client : seul le Worker détient `GEMINI_API_KEY`.
+Option : placer **Cloudflare Access** devant le Worker puis `REQUIRE_ACCESS="true"`.
 
-## À activer côté comptes
+## Tout automatisé depuis GitHub — réglages uniques
 
-- **GitHub Pages** : Settings → Pages → Source = **GitHub Actions**.
-- **Cloudflare** : KV + R2 + Worker + Access (voir ci-dessus).
+Deux workflows tournent à chaque push : `deploy.yml` (PWA → Pages) et
+`deploy-worker.yml` (Worker → Cloudflare). À configurer **une fois** :
+
+| Où | Quoi | Valeur |
+|---|---|---|
+| Settings → Pages | Source | **GitHub Actions** |
+| Settings → Secrets and variables → Actions → **Secrets** | `CLOUDFLARE_API_TOKEN` | token Cloudflare (perm. *Edit Cloudflare Workers*) |
+| idem → **Secrets** | `CLOUDFLARE_ACCOUNT_ID` | *(optionnel, si le token couvre plusieurs comptes)* |
+| idem → **Variables** | `VITE_WORKER_URL` | `https://learn-japan-gen.<sous-domaine>.workers.dev` |
+
+Le secret Gemini (`wrangler secret put GEMINI_API_KEY`) reste posé directement sur le
+Worker, hors GitHub. Une fois ces réglages faits, **tout se teste depuis l'URL Pages**,
+génération réelle incluse — plus aucun dev local requis.

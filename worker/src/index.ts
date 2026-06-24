@@ -1,13 +1,11 @@
-// Worker de génération — détenteur des clés (Gemini), porte d'auth, magasin de statut.
-// Le client public (PWA) n'a JAMAIS de clé : il poste une requête ici et poll /status/:id.
-// Protection : Cloudflare Access devant le Worker (login email gratuit) + REQUIRE_ACCESS.
+// Worker de génération — détenteur de la clé Gemini, porte d'auth.
+// Le client public (PWA) n'a JAMAIS de clé : il poste une requête ici et reçoit le texte.
 //
-// Phase 0 : squelette fonctionnel. Le pipeline complet (furigana déterministes côté client,
-// TTS, assemblage de pack, R2) s'étoffe en Phases 1–3.
+// Génération SYNCHRONE : pour une courte histoire, Gemini répond en quelques secondes,
+// bien dans les limites d'un Worker. Pas de KV ni de R2 → rien à provisionner.
+// (Le stockage audio R2 reviendra avec le mode voiture / TTS en Phase 3.)
 
 export interface Env {
-  STATUS: KVNamespace;
-  AUDIO: R2Bucket;
   GEMINI_API_KEY?: string;
   GEMINI_MODEL: string;
   REQUIRE_ACCESS: string;
@@ -21,12 +19,6 @@ interface GenerateRequest {
   prompt?: string;
   level?: number;
 }
-
-type Status =
-  | { state: "queued" }
-  | { state: "generating" }
-  | { state: "ready"; text: string }
-  | { state: "error"; message: string };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +54,7 @@ function buildPrompt(r: GenerateRequest): string {
 
 async function callGemini(env: Env, prompt: string): Promise<string> {
   if (!env.GEMINI_API_KEY) {
-    // Pas de clé en dev → réponse stub (le squelette reste testable hors-ligne).
+    // Pas de clé → réponse stub (le squelette reste testable hors-ligne).
     return `【stub】${prompt.slice(0, 40)}… (configurer GEMINI_API_KEY)`;
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
@@ -72,46 +64,30 @@ async function callGemini(env: Env, prompt: string): Promise<string> {
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-  const data = (await res.json()) as any;
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("Réponse Gemini vide");
+  return text.trim();
 }
 
 export default {
-  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(req: Request, env: Env): Promise<Response> {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
     if (!accessOk(req, env)) return json({ error: "unauthorized" }, 401);
 
     const url = new URL(req.url);
 
-    // GET /status/:id
-    const statusMatch = url.pathname.match(/^\/status\/([\w-]+)$/);
-    if (req.method === "GET" && statusMatch) {
-      const raw = await env.STATUS.get(statusMatch[1]);
-      return json(raw ? JSON.parse(raw) : { state: "unknown" });
-    }
-
-    // POST /generate
+    // POST /generate → { text } (synchrone)
     if (req.method === "POST" && url.pathname === "/generate") {
       const body = (await req.json().catch(() => ({}))) as GenerateRequest;
-      const id = crypto.randomUUID();
-      const set = (s: Status) =>
-        env.STATUS.put(id, JSON.stringify(s), { expirationTtl: 60 * 60 * 24 });
-      await set({ state: "queued" });
-
-      // Génération en tâche de fond ; le client poll /status/:id.
-      ctx.waitUntil(
-        (async () => {
-          try {
-            await set({ state: "generating" });
-            const text = await callGemini(env, buildPrompt(body));
-            await set({ state: "ready", text });
-          } catch (e) {
-            await set({ state: "error", message: String(e) });
-          }
-        })(),
-      );
-
-      return json({ id }, 202);
+      try {
+        const text = await callGemini(env, buildPrompt(body));
+        return json({ text });
+      } catch (e) {
+        return json({ error: String(e) }, 502);
+      }
     }
 
     if (url.pathname === "/") return json({ ok: true, service: "learn-japan-gen" });
