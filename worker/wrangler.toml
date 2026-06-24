@@ -15,6 +15,11 @@ workers_dev = true
 GEMINI_MODEL = "gemini-2.5-flash"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
+# Chaîne de repli, du plus puissant au plus léger : sur quota (429) ou échec d'un
+# modèle, le Worker bascule sur le suivant. Optionnel — sans cette var, un défaut
+# codé en dur est utilisé (2.5-pro → GEMINI_MODEL → 2.0-flash → 2.5-flash-lite).
+# MODEL_CHAIN = '[{"provider":"gemini","model":"gemini-2.5-pro","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.0-flash","keyEnv":"GEMINI_API_KEY"}]'
+
 # Génération SYNCHRONE : pas de KV ni de R2 à provisionner (revient en Phase 3 pour le TTS/R2).
 # Protection : placer Cloudflare Access (login email gratuit) DEVANT ce Worker si besoin.
 # Aucune clé n'est exposée au client : seul le Worker détient GEMINI_API_KEY.
