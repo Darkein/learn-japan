@@ -4,6 +4,49 @@
   gap: var(--sp-6);
 }
 
+/* Panneau de génération ciblée (thème / kanji / grammaire). */
+.gen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.genRow {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  flex: 1 1 8rem;
+}
+.field label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.field input,
+.field select {
+  padding: var(--sp-2);
+  background: var(--bg);
+  color: var(--text);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.genStatus {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+
 .input {
   width: 100%;
   min-height: 4.5rem;
