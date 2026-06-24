@@ -35,7 +35,7 @@ export function App() {
       text: h.storyJa,
       params: {
         level: h.level,
-        kanji: h.objectives.kanji.length ? h.objectives.kanji : undefined,
+        kanji: h.objectives.kanji.length ? h.objectives.kanji.map((k) => k.ja) : undefined,
         grammar: h.objectives.grammar.length ? h.objectives.grammar : undefined,
       },
       nonce: Date.now(),

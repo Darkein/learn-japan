@@ -106,6 +106,9 @@
   flex-wrap: wrap;
 }
 .chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
   font-size: var(--fs-xs);
   color: var(--text-muted);
   border: var(--hairline-w) solid var(--hairline);
@@ -113,18 +116,29 @@
   padding: 2px var(--sp-2);
 }
 .chipVocab {
-  font-family: var(--font-jp);
-  font-size: var(--fs-sm);
   color: var(--text);
 }
 .chipKanji {
-  font-family: var(--font-jp);
-  font-size: var(--fs-sm);
   color: var(--accent);
   border-color: var(--accent);
 }
 .chipGrammar {
   color: var(--accent-2, var(--text));
+}
+.chipJa {
+  font-family: var(--font-jp);
+  font-size: var(--fs-sm);
+}
+.chipYomi {
+  font-family: var(--font-jp);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.chipFr {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
 }
 
 .actions {
@@ -203,7 +217,36 @@
 }
 .objList dd {
   margin: 0;
+}
+.objRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.objRows li {
+  display: grid;
+  grid-template-columns: 5rem 5rem 1fr;
+  gap: var(--sp-3);
+  align-items: baseline;
+}
+.objJa {
   font-family: var(--font-jp);
+  font-size: var(--fs-md, var(--fs-sm));
+  color: var(--text);
+}
+.objYomi {
+  font-family: var(--font-jp);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.objFr {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text);
 }
 
 .error {

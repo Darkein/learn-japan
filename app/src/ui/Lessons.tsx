@@ -136,13 +136,18 @@ export function Lessons({ onOpenStory }: Props) {
 
               <div className={styles.chips}>
                 {lesson.objectives.vocab.slice(0, 5).map((v) => (
-                  <span key={`v-${v}`} className={`${styles.chip} ${styles.chipVocab}`}>
-                    {v}
+                  <span key={`v-${v.ja}`} className={`${styles.chip} ${styles.chipVocab}`}>
+                    <span className={styles.chipJa}>{v.ja}</span>
+                    {v.yomi && v.yomi !== v.ja && (
+                      <span className={styles.chipYomi}>{v.yomi}</span>
+                    )}
+                    <span className={styles.chipFr}>{v.fr}</span>
                   </span>
                 ))}
                 {lesson.objectives.kanji.map((k) => (
-                  <span key={`k-${k}`} className={`${styles.chip} ${styles.chipKanji}`}>
-                    {k}
+                  <span key={`k-${k.ja}`} className={`${styles.chip} ${styles.chipKanji}`}>
+                    <span className={styles.chipJa}>{k.ja}</span>
+                    <span className={styles.chipFr}>{k.fr}</span>
                   </span>
                 ))}
                 {lesson.objectives.grammar.slice(0, 2).map((g) => (
@@ -191,13 +196,34 @@ export function Lessons({ onOpenStory }: Props) {
                     {lesson.objectives.vocab.length > 0 && (
                       <>
                         <dt>Vocabulaire</dt>
-                        <dd>{lesson.objectives.vocab.join(" · ")}</dd>
+                        <dd>
+                          <ul className={styles.objRows}>
+                            {lesson.objectives.vocab.map((v) => (
+                              <li key={v.ja}>
+                                <span className={styles.objJa}>{v.ja}</span>
+                                {v.yomi && v.yomi !== v.ja && (
+                                  <span className={styles.objYomi}>{v.yomi}</span>
+                                )}
+                                <span className={styles.objFr}>{v.fr}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </dd>
                       </>
                     )}
                     {lesson.objectives.kanji.length > 0 && (
                       <>
                         <dt>Kanji</dt>
-                        <dd>{lesson.objectives.kanji.join(" · ")}</dd>
+                        <dd>
+                          <ul className={styles.objRows}>
+                            {lesson.objectives.kanji.map((k) => (
+                              <li key={k.ja}>
+                                <span className={styles.objJa}>{k.ja}</span>
+                                <span className={styles.objFr}>{k.fr}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </dd>
                       </>
                     )}
                     {lesson.objectives.grammar.length > 0 && (

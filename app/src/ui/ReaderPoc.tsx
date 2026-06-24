@@ -168,9 +168,16 @@ export function ReaderPoc({ incoming, onBackToLessons }: Props) {
           {lessonCtx.objectives && (lessonCtx.objectives.vocab.length > 0 || lessonCtx.objectives.kanji.length > 0) && (
             <p className={styles.bannerTarget}>
               cible :{" "}
-              <span className={styles.bannerJp}>
-                {[...lessonCtx.objectives.kanji, ...lessonCtx.objectives.vocab.slice(0, 4)].join(" · ")}
-              </span>
+              {[
+                ...lessonCtx.objectives.kanji.map((k) => ({ ja: k.ja, fr: k.fr })),
+                ...lessonCtx.objectives.vocab.slice(0, 4).map((v) => ({ ja: v.ja, fr: v.fr })),
+              ].map((it, i, arr) => (
+                <span key={`${it.ja}-${i}`}>
+                  <span className={styles.bannerJp}>{it.ja}</span>
+                  <span className={styles.bannerFr}> ({it.fr})</span>
+                  {i < arr.length - 1 ? " · " : ""}
+                </span>
+              ))}
             </p>
           )}
           <div className={styles.bannerActions}>

@@ -40,6 +40,9 @@
   font-family: var(--font-jp);
   color: var(--text);
 }
+.bannerFr {
+  color: var(--text-muted);
+}
 .bannerActions {
   display: flex;
   gap: var(--sp-2);

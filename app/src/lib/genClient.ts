@@ -62,9 +62,17 @@ export async function generateText(
 export interface LessonGenInput {
   title: string;
   level: number;
-  vocab: string[];
-  kanji: string[];
+  vocab: { ja: string; yomi?: string; fr: string }[];
+  kanji: { ja: string; fr: string }[];
   grammar: string[];
+}
+
+function fmtVocab(v: { ja: string; yomi?: string; fr: string }): string {
+  const reading = v.yomi && v.yomi !== v.ja ? ` (${v.yomi})` : "";
+  return `${v.ja}${reading} = ${v.fr}`;
+}
+function fmtKanji(k: { ja: string; fr: string }): string {
+  return `${k.ja} = ${k.fr}`;
 }
 
 export interface LessonGenOutput {
@@ -87,8 +95,8 @@ export async function generateLesson(
 ): Promise<LessonGenOutput> {
   const prompt = [
     `Produis une mini-leçon de japonais pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
-    input.vocab.length ? `Vocabulaire à introduire : ${input.vocab.join(", ")}.` : "",
-    input.kanji.length ? `Kanji à introduire : ${input.kanji.join(", ")}.` : "",
+    input.vocab.length ? `Vocabulaire à introduire : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
+    input.kanji.length ? `Kanji à introduire : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
     input.grammar.length ? `Points de grammaire : ${input.grammar.join(", ")}.` : "",
     "",
     "Réponds en DEUX parties séparées par exactement cette ligne :",

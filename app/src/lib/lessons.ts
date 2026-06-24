@@ -17,9 +17,21 @@ import {
   type LessonProgressRecord,
 } from "./db";
 
+export interface VocabEntry {
+  ja: string;
+  /** Lecture en hiragana (absente si `ja` est déjà entièrement en kana). */
+  yomi?: string;
+  fr: string;
+}
+
+export interface KanjiEntry {
+  ja: string;
+  fr: string;
+}
+
 export interface LessonObjectives {
-  vocab: string[];
-  kanji: string[];
+  vocab: VocabEntry[];
+  kanji: KanjiEntry[];
   grammar: string[];
 }
 

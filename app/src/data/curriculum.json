@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "lessons": [
     {
       "id": "n5-01-today-book",
@@ -8,8 +8,18 @@
       "title": "Le japonais aujourd'hui",
       "summary": "Première phrase : un thème, un objet, un verbe.",
       "objectives": {
-        "vocab": ["今日", "日本語", "本", "読む"],
-        "kanji": ["今", "日", "本", "語"],
+        "vocab": [
+          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" },
+          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
+          { "ja": "本", "yomi": "ほん", "fr": "livre" },
+          { "ja": "読む", "yomi": "よむ", "fr": "lire" }
+        ],
+        "kanji": [
+          { "ja": "今", "fr": "maintenant" },
+          { "ja": "日", "fr": "jour, soleil" },
+          { "ja": "本", "fr": "origine, livre" },
+          { "ja": "語", "fr": "langue, parole" }
+        ],
         "grammar": ["は — particule de thème", "を — complément d'objet", "の — lien possessif/qualificatif"]
       },
       "seed": {
@@ -24,8 +34,15 @@
       "title": "Le chat boit de l'eau",
       "summary": "Sujet animé, objet, verbe d'action.",
       "objectives": {
-        "vocab": ["猫", "水", "飲む"],
-        "kanji": ["猫", "水"],
+        "vocab": [
+          { "ja": "猫", "yomi": "ねこ", "fr": "chat" },
+          { "ja": "水", "yomi": "みず", "fr": "eau" },
+          { "ja": "飲む", "yomi": "のむ", "fr": "boire" }
+        ],
+        "kanji": [
+          { "ja": "猫", "fr": "chat" },
+          { "ja": "水", "fr": "eau" }
+        ],
         "grammar": ["が — sujet (information nouvelle)", "を — complément d'objet"]
       },
       "seed": {
@@ -40,8 +57,19 @@
       "title": "Il fait chaud",
       "summary": "Adjectifs en -い et particule d'addition も.",
       "objectives": {
-        "vocab": ["今日", "暑い", "猫", "水", "飲む"],
-        "kanji": ["今", "日", "暑", "水"],
+        "vocab": [
+          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" },
+          { "ja": "暑い", "yomi": "あつい", "fr": "chaud (climat)" },
+          { "ja": "猫", "yomi": "ねこ", "fr": "chat" },
+          { "ja": "水", "yomi": "みず", "fr": "eau" },
+          { "ja": "飲む", "yomi": "のむ", "fr": "boire" }
+        ],
+        "kanji": [
+          { "ja": "今", "fr": "maintenant" },
+          { "ja": "日", "fr": "jour, soleil" },
+          { "ja": "暑", "fr": "chaud" },
+          { "ja": "水", "fr": "eau" }
+        ],
         "grammar": ["adjectif en -い (prédicatif)", "も — aussi"]
       },
       "seed": {
@@ -56,8 +84,20 @@
       "title": "J'étudie le japonais",
       "summary": "Verbes en する et expression de soi.",
       "objectives": {
-        "vocab": ["私", "日本語", "勉強", "する"],
-        "kanji": ["私", "日", "本", "語", "勉", "強"],
+        "vocab": [
+          { "ja": "私", "yomi": "わたし", "fr": "je, moi" },
+          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
+          { "ja": "勉強", "yomi": "べんきょう", "fr": "étude" },
+          { "ja": "する", "fr": "faire" }
+        ],
+        "kanji": [
+          { "ja": "私", "fr": "je, moi" },
+          { "ja": "日", "fr": "jour, soleil" },
+          { "ja": "本", "fr": "origine, livre" },
+          { "ja": "語", "fr": "langue, parole" },
+          { "ja": "勉", "fr": "effort, application" },
+          { "ja": "強", "fr": "fort" }
+        ],
         "grammar": ["nom + する — former un verbe", "は — particule de thème"]
       },
       "seed": {
@@ -72,8 +112,18 @@
       "title": "Le professeur et l'étudiant",
       "summary": "Deux sujets, une action partagée.",
       "objectives": {
-        "vocab": ["先生", "学生", "本", "読む"],
-        "kanji": ["先", "生", "学", "本"],
+        "vocab": [
+          { "ja": "先生", "yomi": "せんせい", "fr": "professeur" },
+          { "ja": "学生", "yomi": "がくせい", "fr": "étudiant" },
+          { "ja": "本", "yomi": "ほん", "fr": "livre" },
+          { "ja": "読む", "yomi": "よむ", "fr": "lire" }
+        ],
+        "kanji": [
+          { "ja": "先", "fr": "avant, devant" },
+          { "ja": "生", "fr": "vie, naître" },
+          { "ja": "学", "fr": "étude, apprendre" },
+          { "ja": "本", "fr": "origine, livre" }
+        ],
         "grammar": ["は puis も — contraste puis addition"]
       },
       "seed": {
@@ -88,8 +138,18 @@
       "title": "Météo et saisons",
       "summary": "Décrire le temps qu'il fait.",
       "objectives": {
-        "vocab": ["今日", "天気", "暑い", "寒い"],
-        "kanji": ["今", "日", "天", "気"],
+        "vocab": [
+          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" },
+          { "ja": "天気", "yomi": "てんき", "fr": "temps, météo" },
+          { "ja": "暑い", "yomi": "あつい", "fr": "chaud (climat)" },
+          { "ja": "寒い", "yomi": "さむい", "fr": "froid (climat)" }
+        ],
+        "kanji": [
+          { "ja": "今", "fr": "maintenant" },
+          { "ja": "日", "fr": "jour, soleil" },
+          { "ja": "天", "fr": "ciel" },
+          { "ja": "気", "fr": "énergie, air, humeur" }
+        ],
         "grammar": ["adjectif en -い prédicatif", "ね — recherche d'accord"]
       }
     },
@@ -100,8 +160,17 @@
       "title": "Montagne et rivière",
       "summary": "Décrire un paysage simple.",
       "objectives": {
-        "vocab": ["山", "川", "水", "猫"],
-        "kanji": ["山", "川", "水"],
+        "vocab": [
+          { "ja": "山", "yomi": "やま", "fr": "montagne" },
+          { "ja": "川", "yomi": "かわ", "fr": "rivière, fleuve" },
+          { "ja": "水", "yomi": "みず", "fr": "eau" },
+          { "ja": "猫", "yomi": "ねこ", "fr": "chat" }
+        ],
+        "kanji": [
+          { "ja": "山", "fr": "montagne" },
+          { "ja": "川", "fr": "rivière, fleuve" },
+          { "ja": "水", "fr": "eau" }
+        ],
         "grammar": ["に — lieu statique", "と — et (énumération exhaustive)"]
       }
     },
@@ -112,8 +181,16 @@
       "title": "Manger et boire",
       "summary": "Verbes d'action quotidienne.",
       "objectives": {
-        "vocab": ["食べる", "飲む", "水", "本"],
-        "kanji": ["食", "飲"],
+        "vocab": [
+          { "ja": "食べる", "yomi": "たべる", "fr": "manger" },
+          { "ja": "飲む", "yomi": "のむ", "fr": "boire" },
+          { "ja": "水", "yomi": "みず", "fr": "eau" },
+          { "ja": "本", "yomi": "ほん", "fr": "livre" }
+        ],
+        "kanji": [
+          { "ja": "食", "fr": "manger, repas" },
+          { "ja": "飲", "fr": "boire" }
+        ],
         "grammar": ["て-forme (liaison)", "ます (registre poli)"]
       }
     },
@@ -124,8 +201,17 @@
       "title": "Parler, lire, écrire",
       "summary": "Verbes liés au langage.",
       "objectives": {
-        "vocab": ["話す", "読む", "書く", "日本語"],
-        "kanji": ["話", "読", "書"],
+        "vocab": [
+          { "ja": "話す", "yomi": "はなす", "fr": "parler" },
+          { "ja": "読む", "yomi": "よむ", "fr": "lire" },
+          { "ja": "書く", "yomi": "かく", "fr": "écrire" },
+          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" }
+        ],
+        "kanji": [
+          { "ja": "話", "fr": "conversation, parler" },
+          { "ja": "読", "fr": "lire" },
+          { "ja": "書", "fr": "écrire" }
+        ],
         "grammar": ["で — moyen / instrument", "が — sujet"]
       }
     },
@@ -136,8 +222,18 @@
       "title": "Les gens autour de moi",
       "summary": "Compter et désigner des personnes.",
       "objectives": {
-        "vocab": ["人", "先生", "学生", "私"],
-        "kanji": ["人", "先", "生", "私"],
+        "vocab": [
+          { "ja": "人", "yomi": "ひと", "fr": "personne" },
+          { "ja": "先生", "yomi": "せんせい", "fr": "professeur" },
+          { "ja": "学生", "yomi": "がくせい", "fr": "étudiant" },
+          { "ja": "私", "yomi": "わたし", "fr": "je, moi" }
+        ],
+        "kanji": [
+          { "ja": "人", "fr": "personne" },
+          { "ja": "先", "fr": "avant, devant" },
+          { "ja": "生", "fr": "vie, naître" },
+          { "ja": "私", "fr": "je, moi" }
+        ],
         "grammar": ["compteur 人 (にん)", "の possessif"]
       }
     },
@@ -148,8 +244,16 @@
       "title": "Le Japon, le pays",
       "summary": "Parler d'un lieu, d'un pays.",
       "objectives": {
-        "vocab": ["日本", "日本語", "人", "先生"],
-        "kanji": ["日", "本"],
+        "vocab": [
+          { "ja": "日本", "yomi": "にほん", "fr": "Japon" },
+          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
+          { "ja": "人", "yomi": "ひと", "fr": "personne" },
+          { "ja": "先生", "yomi": "せんせい", "fr": "professeur" }
+        ],
+        "kanji": [
+          { "ja": "日", "fr": "jour, soleil" },
+          { "ja": "本", "fr": "origine, livre" }
+        ],
         "grammar": ["へ — direction", "から — provenance"]
       }
     },
@@ -160,8 +264,18 @@
       "title": "Apprendre et mémoriser",
       "summary": "Vocabulaire de l'étude.",
       "objectives": {
-        "vocab": ["勉強", "暗記", "本", "する"],
-        "kanji": ["勉", "強", "暗", "記"],
+        "vocab": [
+          { "ja": "勉強", "yomi": "べんきょう", "fr": "étude" },
+          { "ja": "暗記", "yomi": "あんき", "fr": "mémorisation" },
+          { "ja": "本", "yomi": "ほん", "fr": "livre" },
+          { "ja": "する", "fr": "faire" }
+        ],
+        "kanji": [
+          { "ja": "勉", "fr": "effort, application" },
+          { "ja": "強", "fr": "fort" },
+          { "ja": "暗", "fr": "sombre, par cœur" },
+          { "ja": "記", "fr": "noter, inscrire" }
+        ],
         "grammar": ["て-forme + います (action en cours)"]
       }
     },
@@ -172,8 +286,17 @@
       "title": "Animaux domestiques",
       "summary": "Mini-histoire avec chat et chien.",
       "objectives": {
-        "vocab": ["猫", "犬", "水", "飲む", "食べる"],
-        "kanji": ["猫", "犬"],
+        "vocab": [
+          { "ja": "猫", "yomi": "ねこ", "fr": "chat" },
+          { "ja": "犬", "yomi": "いぬ", "fr": "chien" },
+          { "ja": "水", "yomi": "みず", "fr": "eau" },
+          { "ja": "飲む", "yomi": "のむ", "fr": "boire" },
+          { "ja": "食べる", "yomi": "たべる", "fr": "manger" }
+        ],
+        "kanji": [
+          { "ja": "猫", "fr": "chat" },
+          { "ja": "犬", "fr": "chien" }
+        ],
         "grammar": ["と — avec / et", "も — aussi"]
       }
     },
@@ -184,7 +307,12 @@
       "title": "Poser une question",
       "summary": "La particule か et le ton interrogatif.",
       "objectives": {
-        "vocab": ["日本語", "勉強", "する", "今日"],
+        "vocab": [
+          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
+          { "ja": "勉強", "yomi": "べんきょう", "fr": "étude" },
+          { "ja": "する", "fr": "faire" },
+          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" }
+        ],
         "kanji": [],
         "grammar": ["か — interrogatif", "なに/なん — quoi"]
       }
@@ -196,7 +324,12 @@
       "title": "Dire non : la négation",
       "summary": "Forme négative des verbes courants.",
       "objectives": {
-        "vocab": ["食べる", "飲む", "読む", "書く"],
+        "vocab": [
+          { "ja": "食べる", "yomi": "たべる", "fr": "manger" },
+          { "ja": "飲む", "yomi": "のむ", "fr": "boire" },
+          { "ja": "読む", "yomi": "よむ", "fr": "lire" },
+          { "ja": "書く", "yomi": "かく", "fr": "écrire" }
+        ],
         "kanji": [],
         "grammar": ["ない — négation neutre", "ません — négation polie"]
       }
