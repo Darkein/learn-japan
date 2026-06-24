@@ -52,24 +52,41 @@ function buildPrompt(r: GenerateRequest): string {
   return parts.filter(Boolean).join("\n");
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// 429 (quota), 500/503 (modèle surchargé) sont transitoires → on réessaie.
+const TRANSIENT = new Set([429, 500, 503]);
+
 async function callGemini(env: Env, prompt: string): Promise<string> {
   if (!env.GEMINI_API_KEY) {
     // Pas de clé → réponse stub (le squelette reste testable hors-ligne).
     return `【stub】${prompt.slice(0, 40)}… (configurer GEMINI_API_KEY)`;
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-  });
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  if (!text.trim()) throw new Error("Réponse Gemini vide");
-  return text.trim();
+
+  const maxAttempts = 4;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      if (!text.trim()) throw new Error("Réponse Gemini vide");
+      return text.trim();
+    }
+
+    lastErr = `Gemini HTTP ${res.status} ${(await res.text()).slice(0, 200)}`;
+    if (!TRANSIENT.has(res.status) || attempt === maxAttempts) break;
+    await sleep(500 * 2 ** (attempt - 1)); // 0,5s → 1s → 2s
+  }
+  throw new Error(lastErr || "Gemini: échec inconnu");
 }
 
 export default {
