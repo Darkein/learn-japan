@@ -58,7 +58,10 @@ export async function generateText(
   return data.text;
 }
 
-// ---------- Génération de leçon (intro FR + histoire JP) --------------------
+// ---------- Génération de leçon : cours et histoire, SÉPARÉS ----------------
+// Le cours (pédagogie) et l'histoire (matière à lire) sont deux choses distinctes :
+//  - generateLessonIntro → un CADRAGE FR qui complète le cours assemblé depuis l'inventaire ;
+//  - generateLessonStory → une HISTOIRE JP, contrainte au lexique déjà vu, sauvée en StoryRecord.
 
 export interface LessonGenInput {
   title: string;
@@ -78,50 +81,58 @@ function fmtKanji(k: { ja: string; fr: string }): string {
   return `${k.ja} = ${k.fr}`;
 }
 
-export interface LessonGenOutput {
-  intro: string;
-  storyJa: string;
+function objectivesBlock(input: LessonGenInput): string[] {
+  return [
+    input.vocab.length ? `Vocabulaire : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
+    input.kanji.length ? `Kanji : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
+    input.grammar.length ? `Grammaire : ${input.grammar.join(", ")}.` : "",
+  ];
 }
 
-const SEP = "===STORY_JA===";
-
 /**
- * Demande au Worker (Gemini) de produire une mini-leçon FR + une histoire courte JP
- * ciblant les objectifs. Pour rester compatible avec l'endpoint /generate actuel
- * (qui ne sait répondre que `{ text }`), on demande un format avec un séparateur
- * fixe et on splitte côté client. Pas de JSON imposé au modèle (plus fragile).
+ * Cadrage pédagogique FR d'une leçon. Le détail structuré (lectures des kanji, règles +
+ * exemples de grammaire, liste de vocab) est déjà rendu par l'UI depuis l'inventaire : ce
+ * cadrage apporte le liant, l'intuition et les pièges — pas la simple liste.
  */
-export async function generateLesson(
+export async function generateLessonIntro(
   input: LessonGenInput,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
-): Promise<LessonGenOutput> {
+): Promise<string> {
   const prompt = [
-    `Produis une mini-leçon de japonais pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
-    input.vocab.length ? `Vocabulaire à introduire : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
-    input.kanji.length ? `Kanji à introduire : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
-    input.grammar.length ? `Points de grammaire : ${input.grammar.join(", ")}.` : "",
-    input.known?.kanji.length
-      ? `Cohérence : en dehors des kanji cibles ci-dessus, n'emploie QUE des kanji déjà connus de l'apprenant : ${input.known.kanji.join("")}. N'introduis aucun autre kanji (préfère le kana au besoin), et reste avec du vocabulaire simple déjà vu.`
-      : "",
+    `Rédige le texte de cadrage d'une leçon de japonais pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
+    "Les éléments à enseigner sont :",
+    ...objectivesBlock(input),
     "",
-    "Réponds en DEUX parties séparées par exactement cette ligne :",
-    SEP,
-    "",
-    "Partie 1 : une explication pédagogique en FRANÇAIS (3 à 6 phrases), claire, sans jargon, qui présente les éléments ci-dessus.",
-    "Partie 2 : une COURTE histoire en JAPONAIS (2 à 4 phrases) qui utilise les éléments ci-dessus. Pas de furigana, pas de romaji, pas de traduction.",
+    "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases, paragraphes courts, **gras** autorisé pour les mots japonais clés) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique. Pas de titre, pas de liste de vocabulaire brute (elle est affichée à côté). Réponds uniquement avec ce texte FR.",
   ]
     .filter(Boolean)
     .join("\n");
 
-  const raw = await generateText({ kind: "lesson", prompt, level: input.level }, onState, opts);
-  const idx = raw.indexOf(SEP);
-  if (idx < 0) {
-    // Le modèle n'a pas respecté la consigne — repli : tout traiter comme histoire.
-    return { intro: "", storyJa: raw.trim() };
-  }
-  return {
-    intro: raw.slice(0, idx).trim(),
-    storyJa: raw.slice(idx + SEP.length).trim(),
-  };
+  return (await generateText({ kind: "lesson", prompt, level: input.level }, onState, opts)).trim();
+}
+
+/**
+ * Histoire japonaise courte ciblant les objectifs de la leçon, contrainte au lexique déjà vu.
+ * Retourne le texte JP brut ; l'appelant le sauve en StoryRecord (lié par lessonId).
+ */
+export async function generateLessonStory(
+  input: LessonGenInput,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<string> {
+  const prompt = [
+    `Écris une courte histoire en japonais pour une leçon de débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
+    "Elle doit mettre en scène ces éléments cibles :",
+    ...objectivesBlock(input),
+    input.known?.kanji.length
+      ? `Cohérence : en dehors des kanji cibles ci-dessus, n'emploie QUE des kanji déjà connus de l'apprenant : ${input.known.kanji.join("")}. N'introduis aucun autre kanji (préfère le kana au besoin), et reste avec du vocabulaire simple déjà vu.`
+      : "Reste avec du vocabulaire très simple, déjà vu.",
+    "",
+    "2 à 4 phrases. Réponds uniquement avec le texte japonais : pas de furigana, pas de romaji, pas de traduction, pas de titre.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (await generateText({ kind: "story", prompt, level: input.level }, onState, opts)).trim();
 }

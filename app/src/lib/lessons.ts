@@ -8,14 +8,17 @@
 
 import curriculumData from "../data/curriculum.json";
 import { resolveGrammar, resolveKanji, resolveVocab } from "./inventory";
+import { seedFraming } from "./seedContent";
 import {
   allLessonProgress,
   getGeneratedLesson,
   getLessonProgress,
   putGeneratedLesson,
   putLessonProgress,
+  storiesForLesson,
   type GeneratedLessonRecord,
   type LessonProgressRecord,
+  type StoryRecord,
 } from "./db";
 
 export interface VocabEntry {
@@ -46,24 +49,27 @@ export interface CurriculumEntry {
   unitId?: string;
   unitTitle?: string;
   objectives: LessonObjectives;
-  seed?: { intro: string; storyJa: string };
+  /** Identifiants bruts vers l'inventaire (pour assembler le cours structuré). */
+  introduces: Introduces;
 }
 
+/** Une leçon est « prête » dès qu'elle a au moins une histoire à lire. */
 export type LessonState = "ready" | "to-generate";
 
 export interface Lesson extends CurriculumEntry {
   state: LessonState;
-  intro?: string;
-  storyJa?: string;
-  /** "seed" si rédigé à la main, "generated" si produit par le LLM. */
-  source?: "seed" | "generated";
+  /** Cadrage rédigé/généré du cours (Markdown), complète le cours assemblé depuis l'inventaire. */
+  framing?: string;
+  framingSource?: "seed" | "generated";
+  /** Histoires rattachées (seed matérialisé + générées), via le pipeline `stories`. */
+  stories: StoryRecord[];
   completedAt?: number;
   startedAt?: number;
 }
 
 // ---- Curriculum v3 : niveau → unité → leçon, avec références à l'inventaire ----
 
-interface RawIntroduces {
+export interface Introduces {
   vocab: string[];
   kanji: string[];
   grammar: string[];
@@ -73,8 +79,7 @@ interface RawLesson {
   order: number;
   title: string;
   summary?: string;
-  introduces: RawIntroduces;
-  seed?: { intro: string; storyJa: string };
+  introduces: Introduces;
 }
 interface RawUnit {
   id: string;
@@ -91,7 +96,7 @@ interface CurriculumFileV3 {
 }
 
 /** Résout les identifiants `introduces` en objectifs affichables via l'inventaire. */
-function resolveObjectives(intro: RawIntroduces): LessonObjectives {
+function resolveObjectives(intro: Introduces): LessonObjectives {
   return {
     vocab: intro.vocab.map(resolveVocab),
     kanji: intro.kanji.map(resolveKanji),
@@ -112,7 +117,7 @@ const CURRICULUM: CurriculumEntry[] = (curriculumData as CurriculumFileV3).level
           unitId: unit.id,
           unitTitle: unit.title,
           objectives: resolveObjectives(l.introduces),
-          seed: l.seed,
+          introduces: l.introduces,
         }),
       ),
     ),
@@ -150,35 +155,26 @@ export function getCumulativeObjectives(id: string): LessonObjectives {
 }
 
 async function hydrate(entry: CurriculumEntry): Promise<Lesson> {
-  const [generated, progress] = await Promise.all([
+  const [generated, progress, stories] = await Promise.all([
     getGeneratedLesson(entry.id),
     getLessonProgress(entry.id),
+    storiesForLesson(entry.id),
   ]);
-  if (entry.seed) {
-    return {
-      ...entry,
-      state: "ready",
-      intro: entry.seed.intro,
-      storyJa: entry.seed.storyJa,
-      source: "seed",
-      completedAt: progress?.completedAt,
-      startedAt: progress?.startedAt,
-    };
-  }
-  if (generated) {
-    return {
-      ...entry,
-      state: "ready",
-      intro: generated.intro,
-      storyJa: generated.storyJa,
-      source: "generated",
-      completedAt: progress?.completedAt,
-      startedAt: progress?.startedAt,
-    };
-  }
+  // Cadrage : la prose rédigée (seed Markdown) prime, sinon le cadrage généré en cache.
+  const seeded = seedFraming(entry.id);
+  const framing = seeded ?? generated?.intro;
+  const framingSource: Lesson["framingSource"] = seeded
+    ? "seed"
+    : generated
+      ? "generated"
+      : undefined;
   return {
     ...entry,
-    state: "to-generate",
+    // Prête à lire dès qu'il existe au moins une histoire (seed matérialisé ou générée).
+    state: stories.length > 0 ? "ready" : "to-generate",
+    framing,
+    framingSource,
+    stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,
   };
@@ -194,16 +190,9 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   return hydrate(entry);
 }
 
-export async function saveGeneratedLesson(
-  id: string,
-  payload: { intro: string; storyJa: string },
-): Promise<GeneratedLessonRecord> {
-  const rec: GeneratedLessonRecord = {
-    id,
-    intro: payload.intro,
-    storyJa: payload.storyJa,
-    createdAt: Date.now(),
-  };
+/** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
+export async function saveLessonIntro(id: string, intro: string): Promise<GeneratedLessonRecord> {
+  const rec: GeneratedLessonRecord = { id, intro, createdAt: Date.now() };
   await putGeneratedLesson(rec);
   return rec;
 }

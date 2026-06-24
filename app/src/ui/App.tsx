@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { Lessons, type LessonHandoff } from "./Lessons";
+import { getCurriculumEntry } from "../lib/lessons";
+import { ensureSeedStories } from "../lib/seedContent";
+import { Lessons } from "./Lessons";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
 import { Stories } from "./Stories";
 import { Warmup } from "./Warmup";
@@ -20,31 +22,29 @@ export function App() {
   const [theme, setTheme] = useTheme();
   const [incoming, setIncoming] = useState<IncomingStory | null>(null);
 
+  // Matérialise les histoires seed (idempotent) au premier rendu.
+  useEffect(() => {
+    void ensureSeedStories();
+  }, []);
+
+  // Chemin d'ouverture unique (onglet Histoires ET leçons). Si l'histoire est rattachée à
+  // une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
   function openStory(story: StoryRecord) {
+    const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
     setIncoming({
       text: story.text,
       params: story.params,
       nonce: Date.now(),
-      lessonContext: story.lessonId ? { lessonId: story.lessonId } : undefined,
-    });
-    setTab("reader");
-  }
-
-  function openLesson(h: LessonHandoff) {
-    setIncoming({
-      text: h.storyJa,
-      params: {
-        level: h.level,
-        kanji: h.objectives.kanji.length ? h.objectives.kanji.map((k) => k.ja) : undefined,
-        grammar: h.objectives.grammar.length ? h.objectives.grammar : undefined,
-      },
-      nonce: Date.now(),
-      lessonContext: {
-        lessonId: h.lessonId,
-        title: h.title,
-        level: h.level,
-        objectives: h.objectives,
-      },
+      lessonContext: entry
+        ? {
+            lessonId: entry.id,
+            title: entry.title,
+            level: entry.level,
+            objectives: entry.objectives,
+          }
+        : story.lessonId
+          ? { lessonId: story.lessonId }
+          : undefined,
     });
     setTab("reader");
   }
@@ -89,7 +89,7 @@ export function App() {
         </button>
       </nav>
 
-      {tab === "learn" && <Lessons onOpenStory={openLesson} />}
+      {tab === "learn" && <Lessons onOpenStory={openStory} />}
 
       {tab === "review" && <Warmup />}
 

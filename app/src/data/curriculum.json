@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces` ; le contenu (intro FR + histoire JP) est soit un `seed` rédigé, soit généré à la demande. Listes JLPT non officielles (cf. README/SPEC).",
+  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces`. Le CONTENU est séparé : le cadrage du cours vit dans app/src/content/lessons/<id>.md (cours assemblé depuis l'inventaire + ce cadrage) ; les HISTOIRES vivent dans le store `stories` (StoryRecord lié par lessonId), seedées via app/src/data/seed-stories.json ou générées à la demande. Listes JLPT non officielles (cf. README/SPEC).",
   "levels": [
     {
       "level": 5,
@@ -20,10 +20,6 @@
                 "vocab": ["今日|きょう", "日本語|にほんご", "本|ほん", "読む|よむ"],
                 "kanji": ["今", "日", "本", "語", "読"],
                 "grammar": ["n5-wa-topic", "n5-wo-object", "n5-no-possessive"]
-              },
-              "seed": {
-                "intro": "Bienvenue. Une phrase japonaise typique annonce d'abord son thème (avec **は**), puis pose l'action à la fin.\n\nDans **今日は日本語の本を読む**, on lit littéralement « *Quant à aujourd'hui — un livre de japonais — (je) lis* ». Trois choses à retenir :\n\n- **は** marque le thème (« quant à… »).\n- **の** relie deux noms (« livre de japonais »).\n- **を** marque l'objet direct (ce qu'on lit).\n\nNe cherche pas la traduction mot-pour-mot français : sens le découpage.",
-                "storyJa": "今日は日本語の本を読む。"
               }
             },
             {
@@ -35,10 +31,6 @@
                 "vocab": ["猫|ねこ", "水|みず", "飲む|のむ"],
                 "kanji": ["水"],
                 "grammar": ["n5-ga-subject"]
-              },
-              "seed": {
-                "intro": "Quand on présente une **information nouvelle** (qui agit ?), on utilise **が** plutôt que は.\n\n**猫が水を飲む** = « *un chat — de l'eau — boit* ». On découvre le chat, donc が ; l'eau est l'objet, donc を.\n\nRègle utile : は pose le décor (« en ce qui concerne X »), が pointe l'acteur (« c'est X qui »).",
-                "storyJa": "猫が水を飲む。"
               }
             },
             {
@@ -50,10 +42,6 @@
                 "vocab": ["今日|きょう", "暑い|あつい", "猫|ねこ", "水|みず", "飲む|のむ"],
                 "kanji": [],
                 "grammar": ["n5-iadj-predicate", "n5-mo-also"]
-              },
-              "seed": {
-                "intro": "Les **i-adjectifs** (暑**い**, 寒**い**…) sont prédicatifs : ils peuvent finir une phrase **sans** copule.\n\n**今日は暑い** = « il fait chaud aujourd'hui ». Pas besoin de です ici (registre neutre).\n\n**も** remplace は/が pour dire « aussi ». **猫も水を飲む** = « le chat aussi boit de l'eau ».",
-                "storyJa": "今日は暑い。猫も水を飲む。"
               }
             },
             {
@@ -65,10 +53,6 @@
                 "vocab": ["私|わたし", "日本語|にほんご", "勉強|べんきょう", "する|する"],
                 "kanji": [],
                 "grammar": ["n5-suru-verb"]
-              },
-              "seed": {
-                "intro": "Beaucoup de verbes japonais se construisent avec un nom + **する** (faire) : **勉強する** (« faire de l'étude » = étudier), **話する** (« faire de la conversation »), etc.\n\n**私は日本語を勉強する** = « moi, le japonais, (j')étudie ». Le **私** (moi) est rare à l'oral — on l'omet souvent — mais il sert ici à montrer la structure.",
-                "storyJa": "私は日本語を勉強する。"
               }
             },
             {
@@ -80,10 +64,6 @@
                 "vocab": ["先生|せんせい", "学生|がくせい", "本|ほん", "読む|よむ"],
                 "kanji": ["先", "生", "学"],
                 "grammar": []
-              },
-              "seed": {
-                "intro": "On peut enchaîner deux phrases qui se font écho : la première pose un acteur avec **は**, la seconde ajoute un second avec **も** (« aussi »).\n\n**先生は本を読む。学生も本を読む。** = « Le professeur lit un livre. L'étudiant aussi lit un livre. »\n\nLe rythme de la prose japonaise repose beaucoup sur ce genre de paire.",
-                "storyJa": "先生は本を読む。学生も本を読む。"
               }
             }
           ]

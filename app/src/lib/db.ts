@@ -66,11 +66,15 @@ export interface StoryRecord {
   lessonId?: string;
 }
 
-/** Contenu de leçon produit par génération LLM (les seeds, eux, vivent dans curriculum.json). */
+/**
+ * Cadrage de cours produit par génération LLM, mis en cache localement.
+ * Ne contient PLUS l'histoire : les histoires d'une leçon sont des `StoryRecord`
+ * liés par `lessonId` (store `stories`). Le cadrage des premières leçons est rédigé
+ * dans app/src/content/lessons/<id>.md.
+ */
 export interface GeneratedLessonRecord {
   id: string; // = curriculum entry id
-  intro: string; // mini-leçon FR
-  storyJa: string; // histoire courte JP
+  intro: string; // cadrage FR du cours
   createdAt: number;
 }
 
@@ -183,6 +187,11 @@ export async function deleteStory(id: string): Promise<void> {
 export async function allStories(): Promise<StoryRecord[]> {
   const all = await (await getDB()).getAll("stories");
   return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+/** Histoires rattachées à une leçon (les plus anciennes d'abord : seed puis générées). */
+export async function storiesForLesson(lessonId: string): Promise<StoryRecord[]> {
+  const all = await (await getDB()).getAll("stories");
+  return all.filter((s) => s.lessonId === lessonId).sort((a, b) => a.createdAt - b.createdAt);
 }
 
 // Leçons générées ------------------------------------------------------------

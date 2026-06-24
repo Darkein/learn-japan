@@ -13,6 +13,9 @@ interface KanjiInvEntry {
   level: number;
   fr?: string;
   meanings: string[];
+  on?: string[];
+  kun?: string[];
+  strokes?: number;
 }
 interface VocabInvEntry {
   id: string;
@@ -82,4 +85,40 @@ export function resolveVocab(id: string): VocabEntry {
 export function resolveGrammar(id: string): string {
   const g = grammarById.get(id);
   return g ? `${g.name} — ${g.ruleFr}` : id;
+}
+
+// ---- Détails structurés pour assembler le cours d'une leçon (UI) ----
+
+export interface KanjiDetail {
+  ja: string;
+  fr: string;
+  on: string[];
+  kun: string[];
+  strokes?: number;
+}
+export interface GrammarDetail {
+  id: string;
+  name: string;
+  ruleFr: string;
+  exampleJa: string;
+}
+
+/** Détail d'un kanji (sens FR + lectures) pour le cours, ou null si hors référentiel. */
+export function kanjiDetail(id: string): KanjiDetail | null {
+  const k = kanjiById.get(id);
+  if (!k) return null;
+  return {
+    ja: id,
+    fr: k.fr ?? k.meanings[0] ?? id,
+    on: k.on ?? [],
+    kun: k.kun ?? [],
+    strokes: k.strokes,
+  };
+}
+
+/** Détail d'un point de grammaire (règle + exemple) pour le cours, ou null. */
+export function grammarDetail(id: string): GrammarDetail | null {
+  const g = grammarById.get(id);
+  if (!g) return null;
+  return { id, name: g.name, ruleFr: g.ruleFr, exampleJa: g.exampleJa };
 }

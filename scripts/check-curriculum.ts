@@ -7,7 +7,7 @@
 //  3. Intégrité des refs — tout id `introduces` (kanji/grammaire) existe dans l'inventaire ;
 //                          les vocab inconnus sont signalés (avertissement).
 //  4. Prérequis grammaire — un prérequis est introduit dans une leçon d'ordre <= celle qui en dépend.
-//  5. Référence en avant — une histoire (seed) n'emploie pas un kanji introduit PLUS TARD.
+//  5. Référence en avant — une histoire seed (seed-stories.json) n'emploie pas un kanji introduit PLUS TARD.
 //
 // Les manquements 1–4 sont des ERREURS (exit 1). Le 5 et les vocab inconnus sont des AVERTISSEMENTS.
 
@@ -31,7 +31,6 @@ interface LessonNode {
   order: number;
   title: string;
   introduces: Introduces;
-  seed?: { intro: string; storyJa: string };
 }
 interface UnitNode {
   id: string;
@@ -63,6 +62,9 @@ const kanjiInv = read<KanjiInv[]>(join(INV, "kanji.json"));
 const vocabInv = read<VocabInv[]>(join(INV, "vocab.json"));
 const grammarInv = read<GrammarInv>(join(INV, "grammar.json"));
 const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
+const seedStories = read<{ stories: Record<string, string[]> }>(
+  join(DATA, "seed-stories.json"),
+).stories;
 
 const errors: string[] = [];
 const warnings: string[] = [];
@@ -145,11 +147,11 @@ const introducedUpTo = (order: number): Set<string> => {
   return s;
 };
 for (const l of lessons) {
-  if (!l.seed?.storyJa) continue;
+  const texts = seedStories[l.id];
+  if (!texts?.length) continue;
   const known = introducedUpTo(l.order);
-  const story = [...l.seed.storyJa];
   const forward = new Set<string>();
-  for (const ch of story) {
+  for (const ch of texts.join("")) {
     if (!/[一-龯]/.test(ch)) continue; // kanji uniquement
     if (kanjiById.has(ch) && !known.has(ch)) {
       // kanji connu de l'inventaire mais pas encore introduit

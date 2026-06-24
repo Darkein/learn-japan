@@ -69,11 +69,21 @@ au service de la lecture.
 Pour un utilisateur qui démarre de zéro, le « juste-à-temps » seul ne suffit pas : il faut un fil
 conducteur. Un **curriculum** (liste ordonnée de leçons N5 → N1, statique dans le repo) sert de page
 d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décrit ses **objectifs**
-(vocab / kanji / grammaire) et peut être :
-- **prête** : intro FR + courte histoire JP rédigées (seed) ou produites par génération antérieure.
-- **à générer** : seuls les objectifs existent ; un bouton lance la génération (Worker / Gemini) qui
-  produit l'intro + l'histoire et les stocke localement.
-- **terminée** : marquée lue par l'utilisateur.
+(vocab / kanji / grammaire, par référence à l'inventaire).
+
+**Le cours et l'histoire sont deux choses distinctes** (ne pas les fusionner) :
+
+- **Le cours** (pédagogie, propre à la leçon) est **assemblé depuis l'inventaire** — pour chaque
+  point de grammaire : règle + exemple ; pour chaque kanji : sens + lectures ; liste de vocab — et
+  complété d'un **cadrage** FR rédigé (`app/src/content/lessons/<id>.md`) ou généré (cache local).
+  Le cadrage donne l'intuition et les pièges, pas la liste brute.
+- **Les histoires** (matière à lire) sont des **`StoryRecord` rattachés par `lessonId`** : une leçon
+  en a **0..N** (seedées via `seed-stories.json`, puis générées à la demande / re-roll). Elles
+  passent par le **même pipeline que toute histoire** (lecteur, furigana, SRS) et sont visibles dans
+  l'onglet **Histoires**. Ce sont aussi le **porteur naturel de l'audio** (mode voiture / podcast,
+  §11–12 : TTS par phrase, format Pimsleur).
+
+États d'une leçon : **prête** (≥ 1 histoire), **à générer** (objectifs seuls), **terminée** (lue).
 
 Une histoire générée depuis une leçon **conserve son `lessonId`** (rattachement bidirectionnel
 catalogue ↔ histoire). Le mode « génération libre / texte collé » reste accessible mais relégué en
