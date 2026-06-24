@@ -1,0 +1,84 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 44rem;
+  background: var(--surface);
+  border-top: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: var(--sp-6) var(--sp-4) var(--sp-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  animation: rise var(--dur-slow) var(--ease);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+.surface {
+  font-family: var(--font-jp);
+  font-size: var(--fs-2xl);
+}
+.reading {
+  color: var(--text-muted);
+  font-size: var(--fs-lg);
+}
+.pos {
+  margin-left: auto;
+}
+
+.meaning {
+  font-size: var(--fs-lg);
+}
+
+.statusLine {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  flex-wrap: wrap;
+}
+.action {
+  flex: 1 1 6rem;
+  padding: var(--sp-3);
+  background: transparent;
+  color: var(--text);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease);
+}
+.action:hover {
+  border-color: var(--accent);
+}
+
+.note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
+import type { ItemStatus } from "../lib/db";
+import type { AnnotatedToken } from "../lib/furigana";
 import { generateText, type GenState } from "../lib/genClient";
 import { glossString } from "../lib/gloss";
+import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Ruby } from "./Ruby";
+import { WordSheet } from "./WordSheet";
 import styles from "./ReaderPoc.module.css";
 
 const SAMPLES = ["暑いですね", "日本語を勉強する", "猫が水を飲んでいる"];
@@ -15,12 +19,21 @@ const GEN_LABEL: Record<GenState, string> = {
   unknown: "inconnu",
 };
 
-/** POC Phase 0/1 : génération ciblée (via Worker) + furigana & gloss déterministes. */
+function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>): string {
+  if (!isContent(tok.token)) return "transparent";
+  const st = statuses.get(itemIdFor(tok.token)) ?? "unknown";
+  if (st === "review") return "var(--state-review)";
+  if (st === "known") return "transparent";
+  return "var(--state-unknown)";
+}
+
+/** POC Phase 0/1 : génération ciblée + furigana & gloss déterministes + panneau mot → SRS. */
 export function ReaderPoc() {
   const [text, setText] = useState(SAMPLES[0]);
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
+  const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
   const [revealAll, setRevealAll] = useState(false);
-  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,9 +48,12 @@ export function ReaderPoc() {
   async function run(t: string) {
     setLoading(true);
     setError(null);
-    setRevealed(new Set());
+    setOpenIdx(null);
     try {
-      setResult(await analyze(t));
+      const analyzed = await analyze(t);
+      setResult(analyzed);
+      const ids = analyzed.tokens.filter((x) => isContent(x.token)).map((x) => itemIdFor(x.token));
+      setStatuses(await statusesFor(ids));
     } catch (e) {
       setError(
         "Tokenizer indisponible — vérifie que le dictionnaire kuromoji est servi sous /dict/. " +
@@ -69,12 +85,12 @@ export function ReaderPoc() {
     }
   }
 
-  function toggleWord(i: number) {
-    setRevealed((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
+  async function handleAction(action: StatusAction) {
+    if (openIdx == null || !result) return;
+    const tok = result.tokens[openIdx].token;
+    const item = await applyStatus(tok, action);
+    setStatuses((prev) => new Map(prev).set(itemIdFor(tok), item.status));
+    setOpenIdx(null);
   }
 
   const generating = genState === "queued" || genState === "generating";
@@ -86,38 +102,19 @@ export function ReaderPoc() {
         <div className={styles.genRow}>
           <div className={styles.field}>
             <label htmlFor="g-theme">Thème</label>
-            <input
-              id="g-theme"
-              value={theme}
-              placeholder="animaux, izakaya…"
-              onChange={(e) => setTheme(e.target.value)}
-            />
+            <input id="g-theme" value={theme} placeholder="animaux, izakaya…" onChange={(e) => setTheme(e.target.value)} />
           </div>
           <div className={styles.field}>
             <label htmlFor="g-kanji">Kanji</label>
-            <input
-              id="g-kanji"
-              value={kanji}
-              placeholder="猫 犬 水"
-              onChange={(e) => setKanji(e.target.value)}
-            />
+            <input id="g-kanji" value={kanji} placeholder="猫 犬 水" onChange={(e) => setKanji(e.target.value)} />
           </div>
           <div className={styles.field}>
             <label htmlFor="g-grammar">Grammaire</label>
-            <input
-              id="g-grammar"
-              value={grammar}
-              placeholder="て-forme, は/が"
-              onChange={(e) => setGrammar(e.target.value)}
-            />
+            <input id="g-grammar" value={grammar} placeholder="て-forme, は/が" onChange={(e) => setGrammar(e.target.value)} />
           </div>
           <div className={styles.field} style={{ flex: "0 0 5rem" }}>
             <label htmlFor="g-level">JLPT</label>
-            <select
-              id="g-level"
-              value={level}
-              onChange={(e) => setLevel(Number(e.target.value))}
-            >
+            <select id="g-level" value={level} onChange={(e) => setLevel(Number(e.target.value))}>
               {[5, 4, 3, 2, 1].map((n) => (
                 <option key={n} value={n}>
                   N{n}
@@ -127,11 +124,7 @@ export function ReaderPoc() {
           </div>
         </div>
         <div className={styles.controls}>
-          <button
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={generate}
-            disabled={generating}
-          >
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={generate} disabled={generating}>
             {generating ? "Génération…" : "Générer"}
           </button>
           {genState && <span className={styles.genStatus}>Statut : {GEN_LABEL[genState]}</span>}
@@ -139,12 +132,7 @@ export function ReaderPoc() {
         {genError && <p className={styles.error}>{genError}</p>}
       </div>
 
-      <textarea
-        className={styles.input}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        spellCheck={false}
-      />
+      <textarea className={styles.input} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
       <div className={styles.controls}>
         <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => run(text)}>
           Analyser
@@ -171,17 +159,18 @@ export function ReaderPoc() {
 
       {result && !loading && (
         <>
-          <p className={styles.hint}>Tape un mot pour révéler sa lecture.</p>
+          <p className={styles.hint}>Tape un mot pour l'ouvrir (lecture, sens, suivi de révision).</p>
           <div className={styles.sentence}>
             {result.tokens.map((tok, i) => (
               <span
                 key={i}
                 className={styles.word}
-                onClick={() => toggleWord(i)}
+                style={{ borderBottomColor: underlineColor(tok, statuses) }}
+                onClick={() => setOpenIdx(i)}
                 role="button"
                 tabIndex={0}
               >
-                <Ruby segments={tok.segments} reveal={revealAll || revealed.has(i)} />
+                <Ruby segments={tok.segments} reveal={revealAll} />
               </span>
             ))}
           </div>
@@ -195,6 +184,15 @@ export function ReaderPoc() {
           </div>
           <p className={styles.hint}>Gloss compact : {glossString(result.gloss)}</p>
         </>
+      )}
+
+      {openIdx != null && result && (
+        <WordSheet
+          token={result.tokens[openIdx].token}
+          status={statuses.get(itemIdFor(result.tokens[openIdx].token)) ?? "unknown"}
+          onAction={handleAction}
+          onClose={() => setOpenIdx(null)}
+        />
       )}
     </div>
   );
