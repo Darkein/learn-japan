@@ -15,6 +15,13 @@ workers_dev = true
 GEMINI_MODEL = "gemini-2.5-flash"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
+# TTS (écoute d'article / mode voiture). Voix et débit par défaut, surchargeables par
+# requête. La CLÉ est un SECRET :  wrangler secret put GOOGLE_TTS_API_KEY
+# Prérequis GCP : activer « Cloud Text-to-Speech API » puis créer une clé API restreinte
+# à cette API. Sans clé, POST /tts répond 503 → le client lit via la Web Speech API.
+TTS_VOICE = "ja-JP-Neural2-B"
+TTS_RATE = "1.0"
+
 # Chaîne de repli, du plus puissant au plus léger : sur quota (429) ou échec d'un
 # modèle, le Worker bascule sur le suivant. Optionnel — sans cette var, un défaut
 # codé en dur est utilisé (2.5-pro → GEMINI_MODEL → 2.0-flash → 2.5-flash-lite).

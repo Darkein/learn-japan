@@ -1,5 +1,6 @@
 import { kataToHira } from "../lib/kana";
 import type { ItemStatus } from "../lib/db";
+import { speakWord } from "../lib/tts";
 import { isContent, meaningFor, type StatusAction } from "../lib/vocab";
 import type { KuromojiToken } from "../lib/tokenizer";
 import styles from "./WordSheet.module.css";
@@ -53,6 +54,14 @@ export function WordSheet({
           {reading && reading !== token.surface_form && (
             <span className={styles.reading}>{reading}</span>
           )}
+          <button
+            className={styles.play}
+            onClick={() => speakWord(token.surface_form)}
+            aria-label="Écouter le mot"
+            title="Écouter"
+          >
+            🔊
+          </button>
           <span className={`meta ${styles.pos}`}>{POS_FR[token.pos] ?? token.pos}</span>
         </div>
 

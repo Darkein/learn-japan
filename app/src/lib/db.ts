@@ -94,10 +94,19 @@ interface LearnDB extends DBSchema {
   lessonProgress: { key: string; value: LessonProgressRecord };
   /** Cache de dictionnaires volumineux chargés depuis un asset statique (ex. JMdict-FR). */
   dict: { key: string; value: { id: string; map: Record<string, string>; createdAt: number } };
+  /**
+   * Cache audio TTS, par phrase (SPEC §12). Évite de re-synthétiser une phrase déjà
+   * écoutée (quota Cloud TTS) et permet l'écoute hors-ligne (fondation mode voiture).
+   * `id` = `${voice}|${rate}|${texte}`. `marks` = timepoints par token (surlignage).
+   */
+  tts: {
+    key: string;
+    value: { id: string; audio: Blob; marks: { i: number; t: number }[]; createdAt: number };
+  };
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -132,6 +141,9 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("dict")) {
           db.createObjectStore("dict", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("tts")) {
+          db.createObjectStore("tts", { keyPath: "id" });
         }
       },
     });
@@ -226,4 +238,17 @@ export async function getDictCache(id: string): Promise<Record<string, string> |
 }
 export async function putDictCache(id: string, map: Record<string, string>): Promise<void> {
   await (await getDB()).put("dict", { id, map, createdAt: Date.now() });
+}
+
+// Cache audio TTS ------------------------------------------------------------
+export interface TtsCache {
+  audio: Blob;
+  marks: { i: number; t: number }[];
+}
+export async function getTtsCache(id: string): Promise<TtsCache | undefined> {
+  const rec = await (await getDB()).get("tts", id);
+  return rec ? { audio: rec.audio, marks: rec.marks } : undefined;
+}
+export async function putTtsCache(id: string, audio: Blob, marks: { i: number; t: number }[]): Promise<void> {
+  await (await getDB()).put("tts", { id, audio, marks, createdAt: Date.now() });
 }
