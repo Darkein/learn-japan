@@ -6,6 +6,7 @@ import { generateText, type GenState } from "../lib/genClient";
 import { glossString } from "../lib/gloss";
 import { saveStory, type StoryParams } from "../lib/stories";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
+import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
 import { WordSheet } from "./WordSheet";
 import styles from "./ReaderPoc.module.css";
@@ -41,6 +42,7 @@ export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
   const [revealAll, setRevealAll] = useState(false);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const [quizOpen, setQuizOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
     setLoading(true);
     setError(null);
     setOpenIdx(null);
+    setQuizOpen(false);
     try {
       const analyzed = await analyze(t);
       setResult(analyzed);
@@ -212,6 +215,18 @@ export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
             ))}
           </div>
           <p className={styles.hint}>Gloss compact : {glossString(result.gloss)}</p>
+
+          <div className={styles.controls}>
+            <button
+              className={`${styles.btn} ${styles.btnPrimary}`}
+              onClick={() => setQuizOpen((v) => !v)}
+            >
+              {quizOpen ? "Fermer le quiz" : "Quiz de lecture"}
+            </button>
+          </div>
+          {quizOpen && (
+            <Quiz tokens={result.tokens.map((t) => t.token)} onClose={() => setQuizOpen(false)} />
+          )}
         </>
       )}
 
