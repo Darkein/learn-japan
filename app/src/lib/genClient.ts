@@ -56,3 +56,58 @@ export async function generateText(
   onState?.("ready");
   return data.text;
 }
+
+// ---------- Génération de leçon (intro FR + histoire JP) --------------------
+
+export interface LessonGenInput {
+  title: string;
+  level: number;
+  vocab: string[];
+  kanji: string[];
+  grammar: string[];
+}
+
+export interface LessonGenOutput {
+  intro: string;
+  storyJa: string;
+}
+
+const SEP = "===STORY_JA===";
+
+/**
+ * Demande au Worker (Gemini) de produire une mini-leçon FR + une histoire courte JP
+ * ciblant les objectifs. Pour rester compatible avec l'endpoint /generate actuel
+ * (qui ne sait répondre que `{ text }`), on demande un format avec un séparateur
+ * fixe et on splitte côté client. Pas de JSON imposé au modèle (plus fragile).
+ */
+export async function generateLesson(
+  input: LessonGenInput,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<LessonGenOutput> {
+  const prompt = [
+    `Produis une mini-leçon de japonais pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
+    input.vocab.length ? `Vocabulaire à introduire : ${input.vocab.join(", ")}.` : "",
+    input.kanji.length ? `Kanji à introduire : ${input.kanji.join(", ")}.` : "",
+    input.grammar.length ? `Points de grammaire : ${input.grammar.join(", ")}.` : "",
+    "",
+    "Réponds en DEUX parties séparées par exactement cette ligne :",
+    SEP,
+    "",
+    "Partie 1 : une explication pédagogique en FRANÇAIS (3 à 6 phrases), claire, sans jargon, qui présente les éléments ci-dessus.",
+    "Partie 2 : une COURTE histoire en JAPONAIS (2 à 4 phrases) qui utilise les éléments ci-dessus. Pas de furigana, pas de romaji, pas de traduction.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const raw = await generateText({ prompt, level: input.level }, onState, opts);
+  const idx = raw.indexOf(SEP);
+  if (idx < 0) {
+    // Le modèle n'a pas respecté la consigne — repli : tout traiter comme histoire.
+    return { intro: "", storyJa: raw.trim() };
+  }
+  return {
+    intro: raw.slice(0, idx).trim(),
+    storyJa: raw.slice(idx + SEP.length).trim(),
+  };
+}

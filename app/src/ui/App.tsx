@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
+import { Lessons, type LessonHandoff } from "./Lessons";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
 import { Stories } from "./Stories";
 import { Warmup } from "./Warmup";
 import { useTheme, type Theme } from "./useTheme";
 import styles from "./App.module.css";
 
-type Tab = "review" | "reader" | "stories" | "catalogue" | "about";
+type Tab = "learn" | "review" | "reader" | "stories" | "catalogue" | "about";
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: "system", label: "Auto" },
@@ -15,12 +16,36 @@ const THEMES: { id: Theme; label: string }[] = [
 ];
 
 export function App() {
-  const [tab, setTab] = useState<Tab>("reader");
+  const [tab, setTab] = useState<Tab>("learn");
   const [theme, setTheme] = useTheme();
   const [incoming, setIncoming] = useState<IncomingStory | null>(null);
 
   function openStory(story: StoryRecord) {
-    setIncoming({ text: story.text, params: story.params, nonce: Date.now() });
+    setIncoming({
+      text: story.text,
+      params: story.params,
+      nonce: Date.now(),
+      lessonContext: story.lessonId ? { lessonId: story.lessonId } : undefined,
+    });
+    setTab("reader");
+  }
+
+  function openLesson(h: LessonHandoff) {
+    setIncoming({
+      text: h.storyJa,
+      params: {
+        level: h.level,
+        kanji: h.objectives.kanji.length ? h.objectives.kanji : undefined,
+        grammar: h.objectives.grammar.length ? h.objectives.grammar : undefined,
+      },
+      nonce: Date.now(),
+      lessonContext: {
+        lessonId: h.lessonId,
+        title: h.title,
+        level: h.level,
+        objectives: h.objectives,
+      },
+    });
     setTab("reader");
   }
 
@@ -44,6 +69,9 @@ export function App() {
       </header>
 
       <nav className={styles.nav}>
+        <button aria-current={tab === "learn"} onClick={() => setTab("learn")}>
+          Apprendre
+        </button>
         <button aria-current={tab === "review"} onClick={() => setTab("review")}>
           Réviser
         </button>
@@ -61,9 +89,13 @@ export function App() {
         </button>
       </nav>
 
+      {tab === "learn" && <Lessons onOpenStory={openLesson} />}
+
       {tab === "review" && <Warmup />}
 
-      {tab === "reader" && <ReaderPoc incoming={incoming} />}
+      {tab === "reader" && (
+        <ReaderPoc incoming={incoming} onBackToLessons={() => setTab("learn")} />
+      )}
 
       {tab === "stories" && <Stories onOpen={openStory} />}
 
