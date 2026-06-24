@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { ReaderPoc } from "./ReaderPoc";
+import type { StoryRecord } from "../lib/db";
+import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
+import { Stories } from "./Stories";
 import { useTheme, type Theme } from "./useTheme";
 import styles from "./App.module.css";
 
-type Tab = "reader" | "catalogue" | "about";
+type Tab = "reader" | "stories" | "catalogue" | "about";
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: "system", label: "Auto" },
@@ -14,6 +16,12 @@ const THEMES: { id: Theme; label: string }[] = [
 export function App() {
   const [tab, setTab] = useState<Tab>("reader");
   const [theme, setTheme] = useTheme();
+  const [incoming, setIncoming] = useState<IncomingStory | null>(null);
+
+  function openStory(story: StoryRecord) {
+    setIncoming({ text: story.text, params: story.params, nonce: Date.now() });
+    setTab("reader");
+  }
 
   return (
     <div className={styles.shell}>
@@ -38,6 +46,9 @@ export function App() {
         <button aria-current={tab === "reader"} onClick={() => setTab("reader")}>
           Lecteur
         </button>
+        <button aria-current={tab === "stories"} onClick={() => setTab("stories")}>
+          Histoires
+        </button>
         <button aria-current={tab === "catalogue"} onClick={() => setTab("catalogue")}>
           Catalogue
         </button>
@@ -46,7 +57,9 @@ export function App() {
         </button>
       </nav>
 
-      {tab === "reader" && <ReaderPoc />}
+      {tab === "reader" && <ReaderPoc incoming={incoming} />}
+
+      {tab === "stories" && <Stories onOpen={openStory} />}
 
       {tab === "catalogue" && (
         <div className={styles.stub}>

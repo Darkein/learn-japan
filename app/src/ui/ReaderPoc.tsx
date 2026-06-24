@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { generateText, type GenState } from "../lib/genClient";
 import { glossString } from "../lib/gloss";
+import { saveStory, type StoryParams } from "../lib/stories";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Ruby } from "./Ruby";
 import { WordSheet } from "./WordSheet";
 import styles from "./ReaderPoc.module.css";
+
+export interface IncomingStory {
+  text: string;
+  params: StoryParams;
+  nonce: number;
+}
 
 const SAMPLES = ["暑いですね", "日本語を勉強する", "猫が水を飲んでいる"];
 
@@ -28,7 +35,7 @@ function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>):
 }
 
 /** POC Phase 0/1 : génération ciblée + furigana & gloss déterministes + panneau mot → SRS. */
-export function ReaderPoc() {
+export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
   const [text, setText] = useState(SAMPLES[0]);
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
@@ -44,6 +51,20 @@ export function ReaderPoc() {
   const [level, setLevel] = useState(5);
   const [genState, setGenState] = useState<GenState | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
+
+  // Contraintes ayant produit le texte courant (pour « Enregistrer » → « pourquoi cette histoire »).
+  const [lastParams, setLastParams] = useState<StoryParams>({});
+  const [saved, setSaved] = useState(false);
+
+  // Ouverture d'une histoire enregistrée depuis l'onglet Histoires.
+  useEffect(() => {
+    if (!incoming) return;
+    setText(incoming.text);
+    setLastParams(incoming.params);
+    setSaved(true);
+    void run(incoming.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incoming?.nonce]);
 
   async function run(t: string) {
     setLoading(true);
@@ -67,22 +88,27 @@ export function ReaderPoc() {
   async function generate() {
     setGenError(null);
     setGenState("queued");
+    const params: StoryParams = {
+      theme: theme || undefined,
+      kanji: kanji ? kanji.split(/[\s,、]+/).filter(Boolean) : undefined,
+      grammar: grammar ? grammar.split(/[\s,、]+/).filter(Boolean) : undefined,
+      level,
+    };
     try {
-      const story = await generateText(
-        {
-          theme: theme || undefined,
-          kanji: kanji ? kanji.split(/[\s,、]+/).filter(Boolean) : undefined,
-          grammar: grammar ? grammar.split(/[\s,、]+/).filter(Boolean) : undefined,
-          level,
-        },
-        setGenState,
-      );
+      const story = await generateText(params, setGenState);
       setText(story);
+      setLastParams(params);
+      setSaved(false);
       await run(story);
     } catch (e) {
       setGenError(String(e));
       setGenState("error");
     }
+  }
+
+  async function saveCurrent() {
+    await saveStory(text, lastParams);
+    setSaved(true);
   }
 
   async function handleAction(action: StatusAction) {
@@ -139,6 +165,9 @@ export function ReaderPoc() {
         </button>
         <button className={styles.btn} onClick={() => setRevealAll((v) => !v)}>
           {revealAll ? "Masquer furigana" : "Afficher furigana"}
+        </button>
+        <button className={styles.btn} onClick={saveCurrent} disabled={saved || !text.trim()}>
+          {saved ? "Enregistrée ✓" : "Enregistrer"}
         </button>
         {SAMPLES.map((s) => (
           <button

@@ -54,33 +54,52 @@ export interface ReviewLog {
   at: number; // epoch ms
 }
 
+/** Histoire générée et enregistrée pour relecture (SPEC §4, §8). */
+export interface StoryRecord {
+  id: string;
+  createdAt: number;
+  title: string;
+  text: string; // texte japonais source
+  /** « Pourquoi cette histoire » : les contraintes de génération. */
+  params: { theme?: string; kanji?: string[]; grammar?: string[]; level?: number };
+}
+
 interface LearnDB extends DBSchema {
   vocab: { key: string; value: VocabItem; indexes: { status: string } };
   kanji: { key: string; value: KanjiItem; indexes: { status: string } };
   grammar: { key: string; value: GrammarItem; indexes: { status: string } };
   reviews: { key: number; value: ReviewLog; indexes: { itemId: string } };
+  stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<LearnDB>> {
   if (!dbPromise) {
     dbPromise = openDB<LearnDB>(DB_NAME, DB_VERSION, {
+      // Upgrade additif et idempotent (gère v0 → v2 et v1 → v2).
       upgrade(db) {
-        const vocab = db.createObjectStore("vocab", { keyPath: "id" });
-        vocab.createIndex("status", "status");
-        const kanji = db.createObjectStore("kanji", { keyPath: "id" });
-        kanji.createIndex("status", "status");
-        const grammar = db.createObjectStore("grammar", { keyPath: "id" });
-        grammar.createIndex("status", "status");
-        const reviews = db.createObjectStore("reviews", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
-        reviews.createIndex("itemId", "itemId");
+        if (!db.objectStoreNames.contains("vocab")) {
+          db.createObjectStore("vocab", { keyPath: "id" }).createIndex("status", "status");
+        }
+        if (!db.objectStoreNames.contains("kanji")) {
+          db.createObjectStore("kanji", { keyPath: "id" }).createIndex("status", "status");
+        }
+        if (!db.objectStoreNames.contains("grammar")) {
+          db.createObjectStore("grammar", { keyPath: "id" }).createIndex("status", "status");
+        }
+        if (!db.objectStoreNames.contains("reviews")) {
+          db.createObjectStore("reviews", { keyPath: "id", autoIncrement: true }).createIndex(
+            "itemId",
+            "itemId",
+          );
+        }
+        if (!db.objectStoreNames.contains("stories")) {
+          db.createObjectStore("stories", { keyPath: "id" }).createIndex("createdAt", "createdAt");
+        }
       },
     });
   }
@@ -101,4 +120,36 @@ export async function allVocab(): Promise<VocabItem[]> {
 
 export async function logReview(entry: ReviewLog): Promise<void> {
   await (await getDB()).add("reviews", entry);
+}
+
+// Kanji ----------------------------------------------------------------------
+export async function putKanji(item: KanjiItem): Promise<void> {
+  await (await getDB()).put("kanji", item);
+}
+export async function getKanji(id: string): Promise<KanjiItem | undefined> {
+  return (await getDB()).get("kanji", id);
+}
+
+// Grammaire ------------------------------------------------------------------
+export async function putGrammar(item: GrammarItem): Promise<void> {
+  await (await getDB()).put("grammar", item);
+}
+export async function getGrammar(id: string): Promise<GrammarItem | undefined> {
+  return (await getDB()).get("grammar", id);
+}
+
+// Histoires ------------------------------------------------------------------
+export async function putStory(story: StoryRecord): Promise<void> {
+  await (await getDB()).put("stories", story);
+}
+export async function getStory(id: string): Promise<StoryRecord | undefined> {
+  return (await getDB()).get("stories", id);
+}
+export async function deleteStory(id: string): Promise<void> {
+  await (await getDB()).delete("stories", id);
+}
+/** Histoires, les plus récentes d'abord. */
+export async function allStories(): Promise<StoryRecord[]> {
+  const all = await (await getDB()).getAll("stories");
+  return all.sort((a, b) => b.createdAt - a.createdAt);
 }

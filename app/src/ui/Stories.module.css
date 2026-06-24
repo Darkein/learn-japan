@@ -1,0 +1,62 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+.empty {
+  color: var(--text-muted);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0;
+  border-top: var(--hairline-w) solid var(--hairline);
+}
+.row:last-child {
+  border-bottom: var(--hairline-w) solid var(--hairline);
+}
+
+.title {
+  font-family: var(--font-jp);
+  font-size: var(--fs-lg);
+}
+.date {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.chip {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+}
+
+.actions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+}
+.btn {
+  padding: var(--sp-1) var(--sp-3);
+  background: transparent;
+  color: var(--text);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+.btn:hover {
+  border-color: var(--accent);
+}
+.del:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
