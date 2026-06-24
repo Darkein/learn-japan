@@ -1,10 +1,12 @@
 // Chargeurs des données de référence.
-// - Gloss littéral : sous-ensemble JMdict-FR committé (POC ; pipeline complet via scripts).
+// - Gloss littéral : JMdict-FR complet, servi en asset statique gzippé (public/jmdict-fr.json.gz,
+//   produit par `npm run data:jmdict`), chargé à la demande, décompressé, puis mis en cache
+//   (IndexedDB). Hors bundle JS, offline après le premier chargement.
 // - Kanji : inventaire complet (app/src/data/inventory/kanji.json), produit par
 //   `npm run data:inventory` depuis kanji-data (KANJIDIC + niveaux JLPT). Sens FR prioritaire.
 
-import jmdictSample from "../data/jmdict-sample.json";
 import kanjiInv from "../data/inventory/kanji.json";
+import { getDictCache, putDictCache } from "./db";
 import type { ContentDict } from "./gloss";
 
 export interface KanjiInfo {
@@ -24,8 +26,59 @@ interface KanjiInvEntry {
   kun: string[];
 }
 
-/** Dictionnaire de contenu (forme de base → gloss français) pour le gloss littéral. */
-export const contentDict: ContentDict = jmdictSample as ContentDict;
+// --- Dictionnaire de contenu (forme → gloss français) pour le gloss littéral ---------
+const DICT_ID = "jmdict-fr";
+
+function assetUrl(): string {
+  const base =
+    typeof import.meta !== "undefined" && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : "/";
+  return `${base}jmdict-fr.json.gz`;
+}
+
+async function fetchAndDecompress(url: string): Promise<ContentDict> {
+  const res = await fetch(url);
+  if (!res.ok || !res.body) throw new Error(`JMdict-FR introuvable (${res.status})`);
+  const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
+  const text = await new Response(stream).text();
+  return JSON.parse(text) as ContentDict;
+}
+
+let dictPromise: Promise<ContentDict> | null = null;
+let loaded: ContentDict = {};
+
+/**
+ * Vue synchrone du dictionnaire déjà chargé (vide tant que `loadContentDict` n'a pas résolu).
+ * Sûr pour les usages synchrones (panneau mot) : le lecteur charge le dico via `analyze()`
+ * avant toute interaction.
+ */
+export function contentDictSnapshot(): ContentDict {
+  return loaded;
+}
+
+/**
+ * Charge (une seule fois) le dictionnaire de contenu : cache IndexedDB d'abord, sinon
+ * asset statique gzippé → décompression → parse → mise en cache. Si tout échoue, renvoie
+ * un dictionnaire vide (les mots retombent alors sur leur forme de base, jamais d'erreur).
+ */
+export function loadContentDict(): Promise<ContentDict> {
+  if (!dictPromise) {
+    dictPromise = (async () => {
+      try {
+        const cached = await getDictCache(DICT_ID);
+        if (cached) return (loaded = cached);
+        const map = await fetchAndDecompress(assetUrl());
+        await putDictCache(DICT_ID, map);
+        return (loaded = map);
+      } catch (e) {
+        console.warn("[dict] chargement JMdict-FR échoué :", e);
+        return {};
+      }
+    })();
+  }
+  return dictPromise;
+}
 
 const kanjiIndex: Map<string, KanjiInfo> = new Map(
   (kanjiInv as KanjiInvEntry[]).map((k) => [

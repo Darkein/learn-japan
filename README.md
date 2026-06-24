@@ -33,7 +33,7 @@ npm run build          # build de production -> app/dist
 
 ```bash
 npm run data:inventory # kanji-data + open-anki-jlpt-decks -> app/src/data/inventory/{kanji,vocab}.json
-npm run data:jmdict    # JMdict (fr) -> data/full/jmdict-fr.json (gloss littéral, gros fichier local)
+npm run data:jmdict    # JMdict-FR (jmdict-simplified) -> app/src/../public/jmdict-fr.json.gz (asset committé, ~0.4 Mo)
 npm run curriculum:check  # vérifie la cohérence du curriculum (couverture, prérequis, références)
 ```
 
@@ -41,6 +41,10 @@ L'**inventaire** (`app/src/data/inventory/`) est le référentiel committé : `k
 `vocab.json` sont (re)générés par `data:inventory` ; les sens **français** sont curés dans les
 overlays `kanji-fr.json` / `vocab-fr.json` (repli sur l'anglais sinon) ; `grammar.json` est curé à
 la main et n'est pas régénéré. Voir [`SPEC.md`](SPEC.md) §3.1 pour le modèle curriculum à deux couches.
+
+Le **gloss littéral** du lecteur s'appuie sur **JMdict-FR complet** (`data:jmdict` → asset gzippé
+`app/public/jmdict-fr.json.gz`, servi hors-bundle comme le dico kuromoji) : chargé à la demande,
+décompressé puis mis en cache (IndexedDB) → offline après le premier usage.
 
 > ⚠️ **Listes JLPT non officielles.** Depuis 2010, la Japan Foundation ne publie plus de
 > référentiel kanji/vocabulaire/grammaire. L'inventaire s'appuie sur des datasets ouverts (MIT) qui

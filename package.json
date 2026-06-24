@@ -13,7 +13,7 @@
     "preview": "npm run preview -w app",
     "test": "npm run test -w app",
     "data:inventory": "tsx scripts/build-inventory.ts",
-    "data:jmdict": "tsx scripts/build-jmdict-sample.ts",
+    "data:jmdict": "tsx scripts/build-jmdict.ts",
     "curriculum:check": "tsx scripts/check-curriculum.ts"
   },
   "devDependencies": {

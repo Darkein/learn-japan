@@ -92,10 +92,12 @@ interface LearnDB extends DBSchema {
   stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
   lessons: { key: string; value: GeneratedLessonRecord };
   lessonProgress: { key: string; value: LessonProgressRecord };
+  /** Cache de dictionnaires volumineux chargés depuis un asset statique (ex. JMdict-FR). */
+  dict: { key: string; value: { id: string; map: Record<string, string>; createdAt: number } };
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -127,6 +129,9 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("lessonProgress")) {
           db.createObjectStore("lessonProgress", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("dict")) {
+          db.createObjectStore("dict", { keyPath: "id" });
         }
       },
     });
@@ -213,4 +218,12 @@ export async function getLessonProgress(id: string): Promise<LessonProgressRecor
 }
 export async function allLessonProgress(): Promise<LessonProgressRecord[]> {
   return (await getDB()).getAll("lessonProgress");
+}
+
+// Cache de dictionnaire ------------------------------------------------------
+export async function getDictCache(id: string): Promise<Record<string, string> | undefined> {
+  return (await (await getDB()).get("dict", id))?.map;
+}
+export async function putDictCache(id: string, map: Record<string, string>): Promise<void> {
+  await (await getDB()).put("dict", { id, map, createdAt: Date.now() });
 }

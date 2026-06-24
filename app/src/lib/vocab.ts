@@ -1,7 +1,7 @@
 // Lien Lecteur ↔ SRS : crée/maj un item de vocabulaire à partir d'un token et applique
 // un changement de statut (connu / à revoir / oublié) en planifiant via FSRS.
 
-import { contentDict } from "./data";
+import { contentDictSnapshot } from "./data";
 import { kataToHira } from "./kana";
 import {
   getVocab,
@@ -26,9 +26,10 @@ export function itemIdFor(token: KuromojiToken): string {
   return `${token.basic_form || token.surface_form}|${reading}`;
 }
 
-/** Sens français connu (sous-ensemble JMdict) ou tiret si absent. */
+/** Sens français connu (JMdict-FR) ou tiret si absent. */
 export function meaningFor(token: KuromojiToken): string {
-  return contentDict[token.basic_form] ?? contentDict[token.surface_form] ?? "—";
+  const dict = contentDictSnapshot();
+  return dict[token.basic_form] ?? dict[token.surface_form] ?? "—";
 }
 
 /** Action de l'utilisateur dans le panneau mot. */

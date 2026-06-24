@@ -1,5 +1,5 @@
 // Pont navigateur : tokenise puis annote (furigana) et glose (littéral) une phrase.
-import { contentDict } from "./data";
+import { loadContentDict } from "./data";
 import { annotateTokens, type AnnotatedToken } from "./furigana";
 import { glossTokens, type GlossSegment } from "./gloss";
 import { tokenize } from "./tokenizer";
@@ -10,9 +10,9 @@ export interface AnalyzedSentence {
 }
 
 export async function analyze(text: string): Promise<AnalyzedSentence> {
-  const tokens = await tokenize(text);
+  const [tokens, dict] = await Promise.all([tokenize(text), loadContentDict()]);
   return {
     tokens: annotateTokens(tokens),
-    gloss: glossTokens(tokens, contentDict),
+    gloss: glossTokens(tokens, dict),
   };
 }
