@@ -37,7 +37,8 @@ function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>):
 
 /** POC Phase 0/1 : génération ciblée + furigana & gloss déterministes + panneau mot → SRS. */
 export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
-  const [text, setText] = useState(SAMPLES[0]);
+  // Le texte courant est persisté (localStorage) → restauré après un rechargement.
+  const [text, setText] = useState(() => localStorage.getItem("reader:text") ?? SAMPLES[0]);
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
   const [revealAll, setRevealAll] = useState(false);
@@ -57,6 +58,11 @@ export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
   // Contraintes ayant produit le texte courant (pour « Enregistrer » → « pourquoi cette histoire »).
   const [lastParams, setLastParams] = useState<StoryParams>({});
   const [saved, setSaved] = useState(false);
+
+  // Mémorise le texte courant pour le restaurer au prochain chargement.
+  useEffect(() => {
+    localStorage.setItem("reader:text", text);
+  }, [text]);
 
   // Ouverture d'une histoire enregistrée depuis l'onglet Histoires.
   useEffect(() => {
@@ -101,7 +107,9 @@ export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
       const story = await generateText(params, setGenState);
       setText(story);
       setLastParams(params);
-      setSaved(false);
+      // Auto-enregistrement : toute histoire générée atterrit dans l'onglet Histoires.
+      await saveStory(story, params);
+      setSaved(true);
       await run(story);
     } catch (e) {
       setGenError(String(e));
@@ -161,7 +169,15 @@ export function ReaderPoc({ incoming }: { incoming?: IncomingStory | null }) {
         {genError && <p className={styles.error}>{genError}</p>}
       </div>
 
-      <textarea className={styles.input} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
+      <textarea
+        className={styles.input}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setSaved(false);
+        }}
+        spellCheck={false}
+      />
       <div className={styles.controls}>
         <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => run(text)}>
           Analyser
