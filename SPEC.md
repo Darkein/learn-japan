@@ -75,13 +75,14 @@ d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décr
 
 - **Le cours** (pédagogie, propre à la leçon) est **assemblé depuis l'inventaire** — pour chaque
   point de grammaire : règle + exemple ; pour chaque kanji : sens + lectures ; liste de vocab — et
-  complété d'un **cadrage** FR rédigé (`app/src/content/lessons/<id>.md`) ou généré (cache local).
-  Le cadrage donne l'intuition et les pièges, pas la liste brute.
+  complété d'un **cadrage** FR **généré à la demande** (mis en cache local). La structure vient
+  toujours de l'inventaire : une leçon non générée n'est donc jamais vide, seul le paragraphe de
+  cadrage manque. Le cadrage donne l'intuition et les pièges, pas la liste brute.
 - **Les histoires** (matière à lire) sont des **`StoryRecord` rattachés par `lessonId`** : une leçon
-  en a **0..N** (seedées via `seed-stories.json`, puis générées à la demande / re-roll). Elles
-  passent par le **même pipeline que toute histoire** (lecteur, furigana, SRS) et sont visibles dans
-  l'onglet **Histoires**. Ce sont aussi le **porteur naturel de l'audio** (mode voiture / podcast,
-  §11–12 : TTS par phrase, format Pimsleur).
+  en a **0..N**, **générées depuis l'app** (à la demande / re-roll). Elles passent par le **même
+  pipeline que toute histoire** (lecteur, furigana, SRS) et sont visibles dans l'onglet
+  **Histoires**. Ce sont aussi le **porteur naturel de l'audio** (mode voiture / podcast, §11–12 :
+  TTS par phrase, format Pimsleur).
 
 États d'une leçon : **prête** (≥ 1 histoire), **à générer** (objectifs seuls), **terminée** (lue).
 

@@ -7,9 +7,8 @@
 //  3. Intégrité des refs — tout id `introduces` (kanji/grammaire) existe dans l'inventaire ;
 //                          les vocab inconnus sont signalés (avertissement).
 //  4. Prérequis grammaire — un prérequis est introduit dans une leçon d'ordre <= celle qui en dépend.
-//  5. Référence en avant — une histoire seed (seed-stories.json) n'emploie pas un kanji introduit PLUS TARD.
 //
-// Les manquements 1–4 sont des ERREURS (exit 1). Le 5 et les vocab inconnus sont des AVERTISSEMENTS.
+// Les manquements 1–4 sont des ERREURS (exit 1). Les vocab inconnus sont des AVERTISSEMENTS.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -62,9 +61,6 @@ const kanjiInv = read<KanjiInv[]>(join(INV, "kanji.json"));
 const vocabInv = read<VocabInv[]>(join(INV, "vocab.json"));
 const grammarInv = read<GrammarInv>(join(INV, "grammar.json"));
 const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
-const seedStories = read<{ stories: Record<string, string[]> }>(
-  join(DATA, "seed-stories.json"),
-).stories;
 
 const errors: string[] = [];
 const warnings: string[] = [];
@@ -138,29 +134,6 @@ for (const g of grammarInv.items) {
     else if (reqOrd > ord)
       errors.push(`[prérequis] « ${g.id} » (leçon ordre ${ord}) exige « ${req} » introduit plus tard (ordre ${reqOrd})`);
   }
-}
-
-// --- 5 : pas de référence en avant (au niveau kanji) ---
-const introducedUpTo = (order: number): Set<string> => {
-  const s = new Set<string>();
-  for (const l of lessons) if (l.order <= order) for (const k of l.introduces.kanji) s.add(k);
-  return s;
-};
-for (const l of lessons) {
-  const texts = seedStories[l.id];
-  if (!texts?.length) continue;
-  const known = introducedUpTo(l.order);
-  const forward = new Set<string>();
-  for (const ch of texts.join("")) {
-    if (!/[一-龯]/.test(ch)) continue; // kanji uniquement
-    if (kanjiById.has(ch) && !known.has(ch)) {
-      // kanji connu de l'inventaire mais pas encore introduit
-      const introLesson = kanjiIntro.get(ch)?.[0];
-      if (introLesson) forward.add(`${ch}→${introLesson}`);
-    }
-  }
-  if (forward.size)
-    warnings.push(`[avance] ${l.id} emploie des kanji introduits plus tard : ${[...forward].join(", ")}`);
 }
 
 // --- Rapport ---

@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { getCurriculumEntry } from "../lib/lessons";
-import { ensureSeedStories } from "../lib/seedContent";
 import { Lessons } from "./Lessons";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
 import { Stories } from "./Stories";
@@ -21,11 +20,6 @@ export function App() {
   const [tab, setTab] = useState<Tab>("learn");
   const [theme, setTheme] = useTheme();
   const [incoming, setIncoming] = useState<IncomingStory | null>(null);
-
-  // Matérialise les histoires seed (idempotent) au premier rendu.
-  useEffect(() => {
-    void ensureSeedStories();
-  }, []);
 
   // Chemin d'ouverture unique (onglet Histoires ET leçons). Si l'histoire est rattachée à
   // une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.

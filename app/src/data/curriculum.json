@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces`. Le CONTENU est séparé : le cadrage du cours vit dans app/src/content/lessons/<id>.md (cours assemblé depuis l'inventaire + ce cadrage) ; les HISTOIRES vivent dans le store `stories` (StoryRecord lié par lessonId), seedées via app/src/data/seed-stories.json ou générées à la demande. Listes JLPT non officielles (cf. README/SPEC).",
+  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces` : pas de contenu rédigé ici. Le COURS est assemblé depuis l'inventaire (grammaire : règle + exemple ; kanji : lectures ; vocab) + un cadrage FR généré à la demande ; les HISTOIRES sont des StoryRecord liés par lessonId, générées depuis l'app. Listes JLPT non officielles (cf. README/SPEC).",
   "levels": [
     {
       "level": 5,

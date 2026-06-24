@@ -8,7 +8,6 @@
 
 import curriculumData from "../data/curriculum.json";
 import { resolveGrammar, resolveKanji, resolveVocab } from "./inventory";
-import { seedFraming } from "./seedContent";
 import {
   allLessonProgress,
   getGeneratedLesson,
@@ -58,9 +57,8 @@ export type LessonState = "ready" | "to-generate";
 
 export interface Lesson extends CurriculumEntry {
   state: LessonState;
-  /** Cadrage rédigé/généré du cours (Markdown), complète le cours assemblé depuis l'inventaire. */
+  /** Cadrage généré du cours (Markdown), complète le cours assemblé depuis l'inventaire. */
   framing?: string;
-  framingSource?: "seed" | "generated";
   /** Histoires rattachées (seed matérialisé + générées), via le pipeline `stories`. */
   stories: StoryRecord[];
   completedAt?: number;
@@ -160,20 +158,11 @@ async function hydrate(entry: CurriculumEntry): Promise<Lesson> {
     getLessonProgress(entry.id),
     storiesForLesson(entry.id),
   ]);
-  // Cadrage : la prose rédigée (seed Markdown) prime, sinon le cadrage généré en cache.
-  const seeded = seedFraming(entry.id);
-  const framing = seeded ?? generated?.intro;
-  const framingSource: Lesson["framingSource"] = seeded
-    ? "seed"
-    : generated
-      ? "generated"
-      : undefined;
   return {
     ...entry,
-    // Prête à lire dès qu'il existe au moins une histoire (seed matérialisé ou générée).
+    // Prête à lire dès qu'il existe au moins une histoire générée.
     state: stories.length > 0 ? "ready" : "to-generate",
-    framing,
-    framingSource,
+    framing: generated?.intro,
     stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,

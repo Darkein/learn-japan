@@ -69,8 +69,7 @@ export interface StoryRecord {
 /**
  * Cadrage de cours produit par génération LLM, mis en cache localement.
  * Ne contient PLUS l'histoire : les histoires d'une leçon sont des `StoryRecord`
- * liés par `lessonId` (store `stories`). Le cadrage des premières leçons est rédigé
- * dans app/src/content/lessons/<id>.md.
+ * liés par `lessonId` (store `stories`).
  */
 export interface GeneratedLessonRecord {
   id: string; // = curriculum entry id
