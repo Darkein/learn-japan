@@ -1,9 +1,10 @@
-// Chargeurs des données de référence. En Phase 0 : sous-ensembles committés (POC).
-// Le pipeline complet (KanjiDic2 / JMdict-fr) est produit par les scripts dans /scripts
-// et chargé à la demande dans une phase ultérieure.
+// Chargeurs des données de référence.
+// - Gloss littéral : sous-ensemble JMdict-FR committé (POC ; pipeline complet via scripts).
+// - Kanji : inventaire complet (app/src/data/inventory/kanji.json), produit par
+//   `npm run data:inventory` depuis kanji-data (KANJIDIC + niveaux JLPT). Sens FR prioritaire.
 
 import jmdictSample from "../data/jmdict-sample.json";
-import kanjiSample from "../data/kanji-sample.json";
+import kanjiInv from "../data/inventory/kanji.json";
 import type { ContentDict } from "./gloss";
 
 export interface KanjiInfo {
@@ -14,11 +15,30 @@ export interface KanjiInfo {
   jlpt: number | null;
 }
 
+interface KanjiInvEntry {
+  id: string;
+  level: number;
+  fr?: string;
+  meanings: string[];
+  on: string[];
+  kun: string[];
+}
+
 /** Dictionnaire de contenu (forme de base → gloss français) pour le gloss littéral. */
 export const contentDict: ContentDict = jmdictSample as ContentDict;
 
 const kanjiIndex: Map<string, KanjiInfo> = new Map(
-  (kanjiSample as KanjiInfo[]).map((k) => [k.kanji, k]),
+  (kanjiInv as KanjiInvEntry[]).map((k) => [
+    k.id,
+    {
+      kanji: k.id,
+      // sens FR curé en tête (sinon repli sur les sens anglais de l'inventaire)
+      meanings: k.fr ? [k.fr, ...k.meanings] : k.meanings,
+      on: k.on,
+      kun: k.kun,
+      jlpt: k.level,
+    },
+  ]),
 );
 
 /** Infos d'un kanji isolé (composition/lectures viennent plus tard de KanjiDic/KRADFILE). */

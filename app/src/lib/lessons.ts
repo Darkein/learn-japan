@@ -7,6 +7,7 @@
 // - terminée : marquée lue ; n'empêche pas de la relire.
 
 import curriculumData from "../data/curriculum.json";
+import { resolveGrammar, resolveKanji, resolveVocab } from "./inventory";
 import {
   allLessonProgress,
   getGeneratedLesson,
@@ -41,6 +42,9 @@ export interface CurriculumEntry {
   level: number;
   title: string;
   summary?: string;
+  /** Unité (chunk) à laquelle appartient la leçon. */
+  unitId?: string;
+  unitTitle?: string;
   objectives: LessonObjectives;
   seed?: { intro: string; storyJa: string };
 }
@@ -57,14 +61,63 @@ export interface Lesson extends CurriculumEntry {
   startedAt?: number;
 }
 
-interface CurriculumFile {
+// ---- Curriculum v3 : niveau → unité → leçon, avec références à l'inventaire ----
+
+interface RawIntroduces {
+  vocab: string[];
+  kanji: string[];
+  grammar: string[];
+}
+interface RawLesson {
+  id: string;
+  order: number;
+  title: string;
+  summary?: string;
+  introduces: RawIntroduces;
+  seed?: { intro: string; storyJa: string };
+}
+interface RawUnit {
+  id: string;
+  title: string;
+  lessons: RawLesson[];
+}
+interface RawLevel {
+  level: number;
+  units: RawUnit[];
+}
+interface CurriculumFileV3 {
   version: number;
-  lessons: CurriculumEntry[];
+  levels: RawLevel[];
 }
 
-const CURRICULUM = (curriculumData as CurriculumFile).lessons
-  .slice()
-  .sort((a, b) => a.order - b.order);
+/** Résout les identifiants `introduces` en objectifs affichables via l'inventaire. */
+function resolveObjectives(intro: RawIntroduces): LessonObjectives {
+  return {
+    vocab: intro.vocab.map(resolveVocab),
+    kanji: intro.kanji.map(resolveKanji),
+    grammar: intro.grammar.map(resolveGrammar),
+  };
+}
+
+const CURRICULUM: CurriculumEntry[] = (curriculumData as CurriculumFileV3).levels
+  .flatMap((lvl) =>
+    lvl.units.flatMap((unit) =>
+      unit.lessons.map(
+        (l): CurriculumEntry => ({
+          id: l.id,
+          order: l.order,
+          level: lvl.level,
+          title: l.title,
+          summary: l.summary,
+          unitId: unit.id,
+          unitTitle: unit.title,
+          objectives: resolveObjectives(l.introduces),
+          seed: l.seed,
+        }),
+      ),
+    ),
+  )
+  .sort((a, b) => a.level !== b.level ? b.level - a.level : a.order - b.order);
 
 export function getCurriculum(): CurriculumEntry[] {
   return CURRICULUM;
@@ -72,6 +125,28 @@ export function getCurriculum(): CurriculumEntry[] {
 
 export function getCurriculumEntry(id: string): CurriculumEntry | undefined {
   return CURRICULUM.find((c) => c.id === id);
+}
+
+/**
+ * Lexique cumulé connu à la leçon `id` : union des objectifs de toutes les leçons
+ * déjà vues (niveau supérieur, ou même niveau d'ordre <= celui de la leçon). Sert à
+ * contraindre la génération pour qu'une histoire n'emploie que du vocabulaire déjà introduit.
+ */
+export function getCumulativeObjectives(id: string): LessonObjectives {
+  const target = getCurriculumEntry(id);
+  if (!target) return { vocab: [], kanji: [], grammar: [] };
+  const seen = CURRICULUM.filter(
+    (c) => c.level > target.level || (c.level === target.level && c.order <= target.order),
+  );
+  const vocab = new Map<string, VocabEntry>();
+  const kanji = new Map<string, KanjiEntry>();
+  const grammar = new Set<string>();
+  for (const c of seen) {
+    for (const v of c.objectives.vocab) vocab.set(v.ja + "|" + (v.yomi ?? ""), v);
+    for (const k of c.objectives.kanji) kanji.set(k.ja, k);
+    for (const g of c.objectives.grammar) grammar.add(g);
+  }
+  return { vocab: [...vocab.values()], kanji: [...kanji.values()], grammar: [...grammar] };
 }
 
 async function hydrate(entry: CurriculumEntry): Promise<Lesson> {

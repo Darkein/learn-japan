@@ -12,7 +12,7 @@ export interface Env {
 }
 
 interface GenerateRequest {
-  kind?: "story";
+  kind?: "story" | "lesson";
   theme?: string;
   kanji?: string[];
   grammar?: string[];
@@ -40,6 +40,9 @@ function accessOk(req: Request, env: Env): boolean {
 }
 
 function buildPrompt(r: GenerateRequest): string {
+  // Génération de leçon : le client a déjà composé un prompt complet (intro FR + histoire JP,
+  // avec son propre format de réponse). On le transmet tel quel, sans le réécrire.
+  if (r.kind === "lesson" && r.prompt) return r.prompt;
   const parts = [
     "Écris une courte histoire en japonais adaptée à un apprenant.",
     r.level ? `Niveau JLPT visé : N${r.level}.` : "",

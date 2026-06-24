@@ -79,6 +79,29 @@ Une histoire générée depuis une leçon **conserve son `lessonId`** (rattachem
 catalogue ↔ histoire). Le mode « génération libre / texte collé » reste accessible mais relégué en
 **mode avancé** dans le Lecteur, hors du chemin du débutant.
 
+#### Modèle à deux couches (référentiel + curriculum)
+
+Pour garantir **complétude** et **montée en difficulté cohérente** sans que l'utilisateur (qui
+apprend le japonais) ait à valider quoi que ce soit, le curriculum repose sur deux couches :
+
+1. **Référentiel / inventaire** (`app/src/data/inventory/`) — le « quoi », complet et sourcé :
+   `kanji.json`, `vocab.json` (datasets ouverts, cf. README) et `grammar.json` (curé). Chaque item
+   a un **id stable** et un **niveau JLPT**. Les sens **français** sont curés dans des overlays
+   (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais.
+2. **Curriculum** (`curriculum.json`, v3) — le « dans quel ordre » : **niveau → unité → leçon**.
+   Chaque leçon **référence** l'inventaire via `introduces: { vocab, kanji, grammar }` (listes
+   d'ids) au lieu de redéclarer le contenu → source unique de vérité, zéro doublon.
+
+**Cohérence vérifiée mécaniquement** par `npm run curriculum:check` (et en CI) : couverture
+(chaque kanji/point de grammaire N5 introduit par exactement une leçon), intégrité des références,
+respect des **prérequis** de grammaire (un prérequis précède ce qui en dépend), et absence de
+**référence en avant** (une histoire n'emploie pas un kanji enseigné plus tard).
+
+**Vocabulaire hors-niveau.** Une histoire peut contenir des mots d'un niveau supérieur : ils
+restent **lisibles** (furigana + gloss déterministes) sans être imposés comme cibles SRS. La
+génération reçoit en outre le **lexique cumulé** déjà vu (leçons précédentes) pour éviter
+d'introduire des kanji non encore enseignés.
+
 ## 4. Génération des histoires
 
 - Histoires au **niveau adapté**, dans un **genre choisi** (policier, tranche de vie, fantastique…)

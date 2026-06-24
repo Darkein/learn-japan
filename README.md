@@ -29,15 +29,25 @@ npm test               # tests unitaires (furigana / gloss / SRS / kana)
 npm run build          # build de production -> app/dist
 ```
 
-### Données de référence (optionnel, réseau requis)
+### Données de référence (réseau requis)
 
 ```bash
-npm run data:kanji     # KanjiDic2 -> data/full/kanji.json
-npm run data:jmdict    # JMdict (fr) -> data/full/jmdict-fr.json
+npm run data:inventory # kanji-data + open-anki-jlpt-decks -> app/src/data/inventory/{kanji,vocab}.json
+npm run data:jmdict    # JMdict (fr) -> data/full/jmdict-fr.json (gloss littéral, gros fichier local)
+npm run curriculum:check  # vérifie la cohérence du curriculum (couverture, prérequis, références)
 ```
 
-Un sous-ensemble committé (`app/src/data/*.json`) suffit au POC ; les jeux complets sont produits
-par ces scripts et restent locaux (gitignorés).
+L'**inventaire** (`app/src/data/inventory/`) est le référentiel committé : `kanji.json` et
+`vocab.json` sont (re)générés par `data:inventory` ; les sens **français** sont curés dans les
+overlays `kanji-fr.json` / `vocab-fr.json` (repli sur l'anglais sinon) ; `grammar.json` est curé à
+la main et n'est pas régénéré. Voir [`SPEC.md`](SPEC.md) §3.1 pour le modèle curriculum à deux couches.
+
+> ⚠️ **Listes JLPT non officielles.** Depuis 2010, la Japan Foundation ne publie plus de
+> référentiel kanji/vocabulaire/grammaire. L'inventaire s'appuie sur des datasets ouverts (MIT) qui
+> reconstruisent ces listes d'après le consensus des manuels (Genki, Minna no Nihongo) et les listes
+> communautaires (Tanos / Jonathan Waller) : sources de
+> [kanji](https://github.com/davidluzgouveia/kanji-data) et de
+> [vocabulaire](https://github.com/jamsinclair/open-anki-jlpt-decks).
 
 ## Worker (génération protégée, gratuite)
 

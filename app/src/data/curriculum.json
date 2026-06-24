@@ -1,338 +1,389 @@
 {
-  "version": 2,
-  "lessons": [
+  "version": 3,
+  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces` ; le contenu (intro FR + histoire JP) est soit un `seed` rédigé, soit généré à la demande. Listes JLPT non officielles (cf. README/SPEC).",
+  "levels": [
     {
-      "id": "n5-01-today-book",
-      "order": 1,
       "level": 5,
-      "title": "Le japonais aujourd'hui",
-      "summary": "Première phrase : un thème, un objet, un verbe.",
-      "objectives": {
-        "vocab": [
-          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" },
-          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
-          { "ja": "本", "yomi": "ほん", "fr": "livre" },
-          { "ja": "読む", "yomi": "よむ", "fr": "lire" }
-        ],
-        "kanji": [
-          { "ja": "今", "fr": "maintenant" },
-          { "ja": "日", "fr": "jour, soleil" },
-          { "ja": "本", "fr": "origine, livre" },
-          { "ja": "語", "fr": "langue, parole" }
-        ],
-        "grammar": ["は — particule de thème", "を — complément d'objet", "の — lien possessif/qualificatif"]
-      },
-      "seed": {
-        "intro": "Bienvenue. Une phrase japonaise typique annonce d'abord son thème (avec **は**), puis pose l'action à la fin.\n\nDans **今日は日本語の本を読む**, on lit littéralement « *Quant à aujourd'hui — un livre de japonais — (je) lis* ». Trois choses à retenir :\n\n- **は** marque le thème (« quant à… »).\n- **の** relie deux noms (« livre de japonais »).\n- **を** marque l'objet direct (ce qu'on lit).\n\nNe cherche pas la traduction mot-pour-mot français : sens le découpage.",
-        "storyJa": "今日は日本語の本を読む。"
-      }
+      "title": "N5 — Débutant",
+      "units": [
+        {
+          "id": "n5-u1-foundations",
+          "title": "Premières phrases",
+          "summary": "Thème, objet, action : la charpente de la phrase japonaise.",
+          "lessons": [
+            {
+              "id": "n5-01-today-book",
+              "order": 1,
+              "title": "Le japonais aujourd'hui",
+              "summary": "Première phrase : un thème, un objet, un verbe.",
+              "introduces": {
+                "vocab": ["今日|きょう", "日本語|にほんご", "本|ほん", "読む|よむ"],
+                "kanji": ["今", "日", "本", "語", "読"],
+                "grammar": ["n5-wa-topic", "n5-wo-object", "n5-no-possessive"]
+              },
+              "seed": {
+                "intro": "Bienvenue. Une phrase japonaise typique annonce d'abord son thème (avec **は**), puis pose l'action à la fin.\n\nDans **今日は日本語の本を読む**, on lit littéralement « *Quant à aujourd'hui — un livre de japonais — (je) lis* ». Trois choses à retenir :\n\n- **は** marque le thème (« quant à… »).\n- **の** relie deux noms (« livre de japonais »).\n- **を** marque l'objet direct (ce qu'on lit).\n\nNe cherche pas la traduction mot-pour-mot français : sens le découpage.",
+                "storyJa": "今日は日本語の本を読む。"
+              }
+            },
+            {
+              "id": "n5-02-cat-water",
+              "order": 2,
+              "title": "Le chat boit de l'eau",
+              "summary": "Sujet animé, objet, verbe d'action.",
+              "introduces": {
+                "vocab": ["猫|ねこ", "水|みず", "飲む|のむ"],
+                "kanji": ["水"],
+                "grammar": ["n5-ga-subject"]
+              },
+              "seed": {
+                "intro": "Quand on présente une **information nouvelle** (qui agit ?), on utilise **が** plutôt que は.\n\n**猫が水を飲む** = « *un chat — de l'eau — boit* ». On découvre le chat, donc が ; l'eau est l'objet, donc を.\n\nRègle utile : は pose le décor (« en ce qui concerne X »), が pointe l'acteur (« c'est X qui »).",
+                "storyJa": "猫が水を飲む。"
+              }
+            },
+            {
+              "id": "n5-03-hot-day",
+              "order": 3,
+              "title": "Il fait chaud",
+              "summary": "Adjectifs en -い et particule d'addition も.",
+              "introduces": {
+                "vocab": ["今日|きょう", "暑い|あつい", "猫|ねこ", "水|みず", "飲む|のむ"],
+                "kanji": [],
+                "grammar": ["n5-iadj-predicate", "n5-mo-also"]
+              },
+              "seed": {
+                "intro": "Les **i-adjectifs** (暑**い**, 寒**い**…) sont prédicatifs : ils peuvent finir une phrase **sans** copule.\n\n**今日は暑い** = « il fait chaud aujourd'hui ». Pas besoin de です ici (registre neutre).\n\n**も** remplace は/が pour dire « aussi ». **猫も水を飲む** = « le chat aussi boit de l'eau ».",
+                "storyJa": "今日は暑い。猫も水を飲む。"
+              }
+            },
+            {
+              "id": "n5-04-study-japanese",
+              "order": 4,
+              "title": "J'étudie le japonais",
+              "summary": "Verbes en する et expression de soi.",
+              "introduces": {
+                "vocab": ["私|わたし", "日本語|にほんご", "勉強|べんきょう", "する|する"],
+                "kanji": [],
+                "grammar": ["n5-suru-verb"]
+              },
+              "seed": {
+                "intro": "Beaucoup de verbes japonais se construisent avec un nom + **する** (faire) : **勉強する** (« faire de l'étude » = étudier), **話する** (« faire de la conversation »), etc.\n\n**私は日本語を勉強する** = « moi, le japonais, (j')étudie ». Le **私** (moi) est rare à l'oral — on l'omet souvent — mais il sert ici à montrer la structure.",
+                "storyJa": "私は日本語を勉強する。"
+              }
+            },
+            {
+              "id": "n5-05-teacher-student",
+              "order": 5,
+              "title": "Le professeur et l'étudiant",
+              "summary": "Deux sujets, une action partagée.",
+              "introduces": {
+                "vocab": ["先生|せんせい", "学生|がくせい", "本|ほん", "読む|よむ"],
+                "kanji": ["先", "生", "学"],
+                "grammar": []
+              },
+              "seed": {
+                "intro": "On peut enchaîner deux phrases qui se font écho : la première pose un acteur avec **は**, la seconde ajoute un second avec **も** (« aussi »).\n\n**先生は本を読む。学生も本を読む。** = « Le professeur lit un livre. L'étudiant aussi lit un livre. »\n\nLe rythme de la prose japonaise repose beaucoup sur ce genre de paire.",
+                "storyJa": "先生は本を読む。学生も本を読む。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u2-describe",
+          "title": "Décrire le monde",
+          "summary": "Météo, nature et premières actions polies.",
+          "lessons": [
+            {
+              "id": "n5-06-weather",
+              "order": 6,
+              "title": "Météo et saisons",
+              "summary": "Décrire le temps qu'il fait.",
+              "introduces": {
+                "vocab": ["今日|きょう", "天気|てんき", "暑い|あつい", "寒い|さむい", "雨|あめ"],
+                "kanji": ["天", "気", "雨"],
+                "grammar": ["n5-ne-particle", "n5-iadj-attributive"]
+              }
+            },
+            {
+              "id": "n5-07-mountain-river",
+              "order": 7,
+              "title": "Montagne et rivière",
+              "summary": "Situer des éléments dans un paysage.",
+              "introduces": {
+                "vocab": ["山|やま", "川|かわ", "水|みず", "猫|ねこ"],
+                "kanji": ["山", "川"],
+                "grammar": ["n5-ni-location", "n5-to-and"]
+              }
+            },
+            {
+              "id": "n5-08-eating",
+              "order": 8,
+              "title": "Manger et boire",
+              "summary": "Verbes d'action quotidienne au registre poli.",
+              "introduces": {
+                "vocab": ["食べる|たべる", "飲む|のむ", "水|みず", "本|ほん"],
+                "kanji": ["食"],
+                "grammar": ["n5-te-form", "n5-masu-polite"]
+              }
+            },
+            {
+              "id": "n5-09-talking",
+              "order": 9,
+              "title": "Parler, lire, écrire",
+              "summary": "Verbes liés au langage et moyen avec で.",
+              "introduces": {
+                "vocab": ["話す|はなす", "読む|よむ", "書く|かく", "聞く|きく", "日本語|にほんご"],
+                "kanji": ["話", "書", "聞"],
+                "grammar": ["n5-de-means"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u3-people-places",
+          "title": "Gens et lieux",
+          "summary": "Désigner les personnes, les pays, ce qui existe.",
+          "lessons": [
+            {
+              "id": "n5-10-people",
+              "order": 10,
+              "title": "Les gens autour de moi",
+              "summary": "Désigner des personnes ; ce qui existe (ある/いる).",
+              "introduces": {
+                "vocab": ["人|ひと", "男|おとこ", "女|おんな", "子供|こども"],
+                "kanji": ["人", "男", "女", "子"],
+                "grammar": ["n5-aru", "n5-iru"]
+              }
+            },
+            {
+              "id": "n5-11-japan-country",
+              "order": 11,
+              "title": "Le Japon, le pays",
+              "summary": "Parler d'un lieu, d'une provenance, d'une direction.",
+              "introduces": {
+                "vocab": ["日本|にほん", "国|くに", "学校|がっこう", "名前|なまえ"],
+                "kanji": ["国", "名", "校"],
+                "grammar": ["n5-e-direction", "n5-kara-from"]
+              }
+            },
+            {
+              "id": "n5-12-memorizing",
+              "order": 12,
+              "title": "Apprendre et mémoriser",
+              "summary": "Vocabulaire de l'étude ; action en cours.",
+              "introduces": {
+                "vocab": ["勉強|べんきょう", "暗記|あんき", "本|ほん", "見る|みる"],
+                "kanji": ["見"],
+                "grammar": ["n5-teiru-progressive"]
+              }
+            },
+            {
+              "id": "n5-13-animals",
+              "order": 13,
+              "title": "Animaux domestiques",
+              "summary": "Mini-histoire avec chat et chien ; accompagnement avec と.",
+              "introduces": {
+                "vocab": ["猫|ねこ", "犬|いぬ", "水|みず", "飲む|のむ", "食べる|たべる"],
+                "kanji": [],
+                "grammar": ["n5-to-with"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u4-question-negation",
+          "title": "Questions et négation",
+          "summary": "Demander, et dire que non.",
+          "lessons": [
+            {
+              "id": "n5-14-question-particle",
+              "order": 14,
+              "title": "Poser une question",
+              "summary": "La particule か et le mot interrogatif « quoi ».",
+              "introduces": {
+                "vocab": ["何|なに", "日本語|にほんご", "勉強|べんきょう", "する|する"],
+                "kanji": ["何"],
+                "grammar": ["n5-ka-question", "n5-nani-what"]
+              }
+            },
+            {
+              "id": "n5-15-negation",
+              "order": 15,
+              "title": "Dire non : la négation",
+              "summary": "Forme négative neutre et polie des verbes courants.",
+              "introduces": {
+                "vocab": ["食べる|たべる", "飲む|のむ", "読む|よむ", "書く|かく"],
+                "kanji": [],
+                "grammar": ["n5-nai-negative", "n5-masen-negative"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u5-counting",
+          "title": "Compter",
+          "summary": "Les nombres, l'argent, les compteurs.",
+          "lessons": [
+            {
+              "id": "n5-16-numbers-1-5",
+              "order": 16,
+              "title": "Les nombres (1 à 5)",
+              "summary": "Premiers chiffres ; démonstratifs これ/それ/あれ ; です.",
+              "introduces": {
+                "vocab": ["一|いち", "二|に", "三|さん", "四|よん", "五|ご"],
+                "kanji": ["一", "二", "三", "四", "五"],
+                "grammar": ["n5-numbers", "n5-kosoado-kore", "n5-desu-copula"]
+              }
+            },
+            {
+              "id": "n5-17-numbers-6-10",
+              "order": 17,
+              "title": "Les nombres (6 à 10)",
+              "summary": "Suite des chiffres ; passé poli ; copule neutre だ.",
+              "introduces": {
+                "vocab": ["六|ろく", "七|なな", "八|はち", "九|きゅう", "十|じゅう"],
+                "kanji": ["六", "七", "八", "九", "十"],
+                "grammar": ["n5-ni-time", "n5-mashita-past", "n5-da-copula"]
+              }
+            },
+            {
+              "id": "n5-18-big-numbers",
+              "order": 18,
+              "title": "Grands nombres et argent",
+              "summary": "Centaines, milliers, le yen ; passés (neutre et négatif poli).",
+              "introduces": {
+                "vocab": ["百|ひゃく", "千|せん", "円|えん"],
+                "kanji": ["百", "千", "万", "円"],
+                "grammar": ["n5-ta-past", "n5-masen-deshita"]
+              }
+            },
+            {
+              "id": "n5-19-days-elements",
+              "order": 19,
+              "title": "Jours et éléments",
+              "summary": "Les jours de la semaine ; compteurs (人 et つ).",
+              "introduces": {
+                "vocab": ["月|つき", "火|ひ", "木|き", "金|かね", "水|みず"],
+                "kanji": ["月", "火", "木", "金", "土"],
+                "grammar": ["n5-counter-nin", "n5-counter-tsu"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u6-time-space",
+          "title": "Le temps et l'espace",
+          "summary": "Heures, moments, et orientation dans l'espace.",
+          "lessons": [
+            {
+              "id": "n5-20-time",
+              "order": 20,
+              "title": "L'heure et le moment",
+              "summary": "Année, heure, matin et après-midi ; destination に, limite まで.",
+              "introduces": {
+                "vocab": ["年|とし", "時間|じかん", "今|いま", "午前|ごぜん", "午後|ごご"],
+                "kanji": ["年", "時", "間", "午", "半"],
+                "grammar": ["n5-ni-direction", "n5-made-until"]
+              }
+            },
+            {
+              "id": "n5-21-routine",
+              "order": 21,
+              "title": "Avant, après, chaque jour",
+              "summary": "Repères temporels ; lieu d'action で, démonstratifs この/ここ, « où ».",
+              "introduces": {
+                "vocab": ["前|まえ", "後ろ|うしろ", "毎日|まいにち"],
+                "kanji": ["前", "後", "毎"],
+                "grammar": ["n5-de-place", "n5-kosoado-kono", "n5-kosoado-koko", "n5-doko-where"]
+              }
+            },
+            {
+              "id": "n5-22-directions-1",
+              "order": 22,
+              "title": "Se repérer (1)",
+              "summary": "Haut, bas, dedans, dehors, droite ; adjectifs (négatif, passé, -な).",
+              "introduces": {
+                "vocab": ["上|うえ", "下|した", "中|なか", "外|そと", "右|みぎ"],
+                "kanji": ["上", "下", "中", "外", "右"],
+                "grammar": ["n5-iadj-negative", "n5-iadj-past", "n5-naadj"]
+              }
+            },
+            {
+              "id": "n5-23-directions-2",
+              "order": 23,
+              "title": "Les points cardinaux",
+              "summary": "Gauche et les quatre directions ; demandes et désirs.",
+              "introduces": {
+                "vocab": ["左|ひだり", "東|ひがし", "西|にし", "南|みなみ", "北|きた"],
+                "kanji": ["左", "東", "西", "南", "北"],
+                "grammar": ["n5-te-kudasai", "n5-tai-want", "n5-mashou"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u7-qualify",
+          "title": "Qualifier et nuancer",
+          "summary": "Tailles, qualités, questions fines et particules de fin.",
+          "lessons": [
+            {
+              "id": "n5-24-size",
+              "order": 24,
+              "title": "Grand, petit, haut, long",
+              "summary": "Adjectifs de dimension ; « qui », « quand », ほしい, よ.",
+              "introduces": {
+                "vocab": ["大きい|おおきい", "小さい|ちいさい", "高い|たかい", "長い|ながい"],
+                "kanji": ["大", "小", "高", "長"],
+                "grammar": ["n5-dare-who", "n5-itsu-when", "n5-tai-hoshii", "n5-yo-particle"]
+              }
+            },
+            {
+              "id": "n5-25-motion",
+              "order": 25,
+              "title": "Aller, venir, entrer, sortir",
+              "summary": "Verbes de mouvement et de pause ; connecteurs そして / でも.",
+              "introduces": {
+                "vocab": ["行く|いく", "来る|くる", "出る|でる", "入る|はいる", "休む|やすむ"],
+                "kanji": ["行", "来", "出", "入", "休"],
+                "grammar": ["n5-soshite", "n5-demo"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u8-daily",
+          "title": "Famille et quotidien",
+          "summary": "Les proches et les objets du quotidien — derniers kanji N5.",
+          "lessons": [
+            {
+              "id": "n5-26-family",
+              "order": 26,
+              "title": "La famille",
+              "summary": "Père, mère, amis.",
+              "introduces": {
+                "vocab": ["父|ちち", "母|はは", "友達|ともだち"],
+                "kanji": ["父", "母", "友"],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-27-around-town",
+              "order": 27,
+              "title": "Dans la ville",
+              "summary": "Voiture, train, couleurs — clôture du N5.",
+              "introduces": {
+                "vocab": ["車|くるま", "電車|でんしゃ", "白い|しろい"],
+                "kanji": ["車", "電", "白"],
+                "grammar": []
+              }
+            }
+          ]
+        }
+      ]
     },
-    {
-      "id": "n5-02-cat-water",
-      "order": 2,
-      "level": 5,
-      "title": "Le chat boit de l'eau",
-      "summary": "Sujet animé, objet, verbe d'action.",
-      "objectives": {
-        "vocab": [
-          { "ja": "猫", "yomi": "ねこ", "fr": "chat" },
-          { "ja": "水", "yomi": "みず", "fr": "eau" },
-          { "ja": "飲む", "yomi": "のむ", "fr": "boire" }
-        ],
-        "kanji": [
-          { "ja": "猫", "fr": "chat" },
-          { "ja": "水", "fr": "eau" }
-        ],
-        "grammar": ["が — sujet (information nouvelle)", "を — complément d'objet"]
-      },
-      "seed": {
-        "intro": "Quand on présente une **information nouvelle** (qui agit ?), on utilise **が** plutôt que は.\n\n**猫が水を飲む** = « *un chat — de l'eau — boit* ». On découvre le chat, donc が ; l'eau est l'objet, donc を.\n\nRègle utile : は pose le décor (« en ce qui concerne X »), が pointe l'acteur (« c'est X qui »).",
-        "storyJa": "猫が水を飲む。"
-      }
-    },
-    {
-      "id": "n5-03-hot-day",
-      "order": 3,
-      "level": 5,
-      "title": "Il fait chaud",
-      "summary": "Adjectifs en -い et particule d'addition も.",
-      "objectives": {
-        "vocab": [
-          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" },
-          { "ja": "暑い", "yomi": "あつい", "fr": "chaud (climat)" },
-          { "ja": "猫", "yomi": "ねこ", "fr": "chat" },
-          { "ja": "水", "yomi": "みず", "fr": "eau" },
-          { "ja": "飲む", "yomi": "のむ", "fr": "boire" }
-        ],
-        "kanji": [
-          { "ja": "今", "fr": "maintenant" },
-          { "ja": "日", "fr": "jour, soleil" },
-          { "ja": "暑", "fr": "chaud" },
-          { "ja": "水", "fr": "eau" }
-        ],
-        "grammar": ["adjectif en -い (prédicatif)", "も — aussi"]
-      },
-      "seed": {
-        "intro": "Les **i-adjectifs** (暑**い**, 寒**い**…) sont prédicatifs : ils peuvent finir une phrase **sans** copule.\n\n**今日は暑い** = « il fait chaud aujourd'hui ». Pas besoin de です ici (registre neutre).\n\n**も** remplace は/が pour dire « aussi ». **猫も水を飲む** = « le chat aussi boit de l'eau ».",
-        "storyJa": "今日は暑い。猫も水を飲む。"
-      }
-    },
-    {
-      "id": "n5-04-study-japanese",
-      "order": 4,
-      "level": 5,
-      "title": "J'étudie le japonais",
-      "summary": "Verbes en する et expression de soi.",
-      "objectives": {
-        "vocab": [
-          { "ja": "私", "yomi": "わたし", "fr": "je, moi" },
-          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
-          { "ja": "勉強", "yomi": "べんきょう", "fr": "étude" },
-          { "ja": "する", "fr": "faire" }
-        ],
-        "kanji": [
-          { "ja": "私", "fr": "je, moi" },
-          { "ja": "日", "fr": "jour, soleil" },
-          { "ja": "本", "fr": "origine, livre" },
-          { "ja": "語", "fr": "langue, parole" },
-          { "ja": "勉", "fr": "effort, application" },
-          { "ja": "強", "fr": "fort" }
-        ],
-        "grammar": ["nom + する — former un verbe", "は — particule de thème"]
-      },
-      "seed": {
-        "intro": "Beaucoup de verbes japonais se construisent avec un nom + **する** (faire) : **勉強する** (« faire de l'étude » = étudier), **話する** (« faire de la conversation »), etc.\n\n**私は日本語を勉強する** = « moi, le japonais, (j')étudie ». Le **私** (moi) est rare à l'oral — on l'omet souvent — mais il sert ici à montrer la structure.",
-        "storyJa": "私は日本語を勉強する。"
-      }
-    },
-    {
-      "id": "n5-05-teacher-student",
-      "order": 5,
-      "level": 5,
-      "title": "Le professeur et l'étudiant",
-      "summary": "Deux sujets, une action partagée.",
-      "objectives": {
-        "vocab": [
-          { "ja": "先生", "yomi": "せんせい", "fr": "professeur" },
-          { "ja": "学生", "yomi": "がくせい", "fr": "étudiant" },
-          { "ja": "本", "yomi": "ほん", "fr": "livre" },
-          { "ja": "読む", "yomi": "よむ", "fr": "lire" }
-        ],
-        "kanji": [
-          { "ja": "先", "fr": "avant, devant" },
-          { "ja": "生", "fr": "vie, naître" },
-          { "ja": "学", "fr": "étude, apprendre" },
-          { "ja": "本", "fr": "origine, livre" }
-        ],
-        "grammar": ["は puis も — contraste puis addition"]
-      },
-      "seed": {
-        "intro": "On peut enchaîner deux phrases qui se font écho : la première pose un acteur avec **は**, la seconde ajoute un second avec **も** (« aussi »).\n\n**先生は本を読む。学生も本を読む。** = « Le professeur lit un livre. L'étudiant aussi lit un livre. »\n\nLe rythme de la prose japonaise repose beaucoup sur ce genre de paire.",
-        "storyJa": "先生は本を読む。学生も本を読む。"
-      }
-    },
-    {
-      "id": "n5-06-weather",
-      "order": 6,
-      "level": 5,
-      "title": "Météo et saisons",
-      "summary": "Décrire le temps qu'il fait.",
-      "objectives": {
-        "vocab": [
-          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" },
-          { "ja": "天気", "yomi": "てんき", "fr": "temps, météo" },
-          { "ja": "暑い", "yomi": "あつい", "fr": "chaud (climat)" },
-          { "ja": "寒い", "yomi": "さむい", "fr": "froid (climat)" }
-        ],
-        "kanji": [
-          { "ja": "今", "fr": "maintenant" },
-          { "ja": "日", "fr": "jour, soleil" },
-          { "ja": "天", "fr": "ciel" },
-          { "ja": "気", "fr": "énergie, air, humeur" }
-        ],
-        "grammar": ["adjectif en -い prédicatif", "ね — recherche d'accord"]
-      }
-    },
-    {
-      "id": "n5-07-mountain-river",
-      "order": 7,
-      "level": 5,
-      "title": "Montagne et rivière",
-      "summary": "Décrire un paysage simple.",
-      "objectives": {
-        "vocab": [
-          { "ja": "山", "yomi": "やま", "fr": "montagne" },
-          { "ja": "川", "yomi": "かわ", "fr": "rivière, fleuve" },
-          { "ja": "水", "yomi": "みず", "fr": "eau" },
-          { "ja": "猫", "yomi": "ねこ", "fr": "chat" }
-        ],
-        "kanji": [
-          { "ja": "山", "fr": "montagne" },
-          { "ja": "川", "fr": "rivière, fleuve" },
-          { "ja": "水", "fr": "eau" }
-        ],
-        "grammar": ["に — lieu statique", "と — et (énumération exhaustive)"]
-      }
-    },
-    {
-      "id": "n5-08-eating",
-      "order": 8,
-      "level": 5,
-      "title": "Manger et boire",
-      "summary": "Verbes d'action quotidienne.",
-      "objectives": {
-        "vocab": [
-          { "ja": "食べる", "yomi": "たべる", "fr": "manger" },
-          { "ja": "飲む", "yomi": "のむ", "fr": "boire" },
-          { "ja": "水", "yomi": "みず", "fr": "eau" },
-          { "ja": "本", "yomi": "ほん", "fr": "livre" }
-        ],
-        "kanji": [
-          { "ja": "食", "fr": "manger, repas" },
-          { "ja": "飲", "fr": "boire" }
-        ],
-        "grammar": ["て-forme (liaison)", "ます (registre poli)"]
-      }
-    },
-    {
-      "id": "n5-09-talking",
-      "order": 9,
-      "level": 5,
-      "title": "Parler, lire, écrire",
-      "summary": "Verbes liés au langage.",
-      "objectives": {
-        "vocab": [
-          { "ja": "話す", "yomi": "はなす", "fr": "parler" },
-          { "ja": "読む", "yomi": "よむ", "fr": "lire" },
-          { "ja": "書く", "yomi": "かく", "fr": "écrire" },
-          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" }
-        ],
-        "kanji": [
-          { "ja": "話", "fr": "conversation, parler" },
-          { "ja": "読", "fr": "lire" },
-          { "ja": "書", "fr": "écrire" }
-        ],
-        "grammar": ["で — moyen / instrument", "が — sujet"]
-      }
-    },
-    {
-      "id": "n5-10-people",
-      "order": 10,
-      "level": 5,
-      "title": "Les gens autour de moi",
-      "summary": "Compter et désigner des personnes.",
-      "objectives": {
-        "vocab": [
-          { "ja": "人", "yomi": "ひと", "fr": "personne" },
-          { "ja": "先生", "yomi": "せんせい", "fr": "professeur" },
-          { "ja": "学生", "yomi": "がくせい", "fr": "étudiant" },
-          { "ja": "私", "yomi": "わたし", "fr": "je, moi" }
-        ],
-        "kanji": [
-          { "ja": "人", "fr": "personne" },
-          { "ja": "先", "fr": "avant, devant" },
-          { "ja": "生", "fr": "vie, naître" },
-          { "ja": "私", "fr": "je, moi" }
-        ],
-        "grammar": ["compteur 人 (にん)", "の possessif"]
-      }
-    },
-    {
-      "id": "n5-11-japan-country",
-      "order": 11,
-      "level": 5,
-      "title": "Le Japon, le pays",
-      "summary": "Parler d'un lieu, d'un pays.",
-      "objectives": {
-        "vocab": [
-          { "ja": "日本", "yomi": "にほん", "fr": "Japon" },
-          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
-          { "ja": "人", "yomi": "ひと", "fr": "personne" },
-          { "ja": "先生", "yomi": "せんせい", "fr": "professeur" }
-        ],
-        "kanji": [
-          { "ja": "日", "fr": "jour, soleil" },
-          { "ja": "本", "fr": "origine, livre" }
-        ],
-        "grammar": ["へ — direction", "から — provenance"]
-      }
-    },
-    {
-      "id": "n5-12-memorizing",
-      "order": 12,
-      "level": 5,
-      "title": "Apprendre et mémoriser",
-      "summary": "Vocabulaire de l'étude.",
-      "objectives": {
-        "vocab": [
-          { "ja": "勉強", "yomi": "べんきょう", "fr": "étude" },
-          { "ja": "暗記", "yomi": "あんき", "fr": "mémorisation" },
-          { "ja": "本", "yomi": "ほん", "fr": "livre" },
-          { "ja": "する", "fr": "faire" }
-        ],
-        "kanji": [
-          { "ja": "勉", "fr": "effort, application" },
-          { "ja": "強", "fr": "fort" },
-          { "ja": "暗", "fr": "sombre, par cœur" },
-          { "ja": "記", "fr": "noter, inscrire" }
-        ],
-        "grammar": ["て-forme + います (action en cours)"]
-      }
-    },
-    {
-      "id": "n5-13-animals",
-      "order": 13,
-      "level": 5,
-      "title": "Animaux domestiques",
-      "summary": "Mini-histoire avec chat et chien.",
-      "objectives": {
-        "vocab": [
-          { "ja": "猫", "yomi": "ねこ", "fr": "chat" },
-          { "ja": "犬", "yomi": "いぬ", "fr": "chien" },
-          { "ja": "水", "yomi": "みず", "fr": "eau" },
-          { "ja": "飲む", "yomi": "のむ", "fr": "boire" },
-          { "ja": "食べる", "yomi": "たべる", "fr": "manger" }
-        ],
-        "kanji": [
-          { "ja": "猫", "fr": "chat" },
-          { "ja": "犬", "fr": "chien" }
-        ],
-        "grammar": ["と — avec / et", "も — aussi"]
-      }
-    },
-    {
-      "id": "n5-14-question-particle",
-      "order": 14,
-      "level": 5,
-      "title": "Poser une question",
-      "summary": "La particule か et le ton interrogatif.",
-      "objectives": {
-        "vocab": [
-          { "ja": "日本語", "yomi": "にほんご", "fr": "japonais (langue)" },
-          { "ja": "勉強", "yomi": "べんきょう", "fr": "étude" },
-          { "ja": "する", "fr": "faire" },
-          { "ja": "今日", "yomi": "きょう", "fr": "aujourd'hui" }
-        ],
-        "kanji": [],
-        "grammar": ["か — interrogatif", "なに/なん — quoi"]
-      }
-    },
-    {
-      "id": "n5-15-negation",
-      "order": 15,
-      "level": 5,
-      "title": "Dire non : la négation",
-      "summary": "Forme négative des verbes courants.",
-      "objectives": {
-        "vocab": [
-          { "ja": "食べる", "yomi": "たべる", "fr": "manger" },
-          { "ja": "飲む", "yomi": "のむ", "fr": "boire" },
-          { "ja": "読む", "yomi": "よむ", "fr": "lire" },
-          { "ja": "書く", "yomi": "かく", "fr": "écrire" }
-        ],
-        "kanji": [],
-        "grammar": ["ない — négation neutre", "ません — négation polie"]
-      }
-    }
+    { "level": 4, "title": "N4 — Élémentaire (à venir)", "units": [] },
+    { "level": 3, "title": "N3 — Intermédiaire (à venir)", "units": [] },
+    { "level": 2, "title": "N2 — Intermédiaire supérieur (à venir)", "units": [] },
+    { "level": 1, "title": "N1 — Avancé (à venir)", "units": [] }
   ]
 }

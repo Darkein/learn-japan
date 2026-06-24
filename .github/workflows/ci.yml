@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Cohérence du curriculum (couverture kanji/grammaire, prérequis, références).
+      # L'inventaire est committé → aucun accès réseau nécessaire ici.
+      - name: Curriculum coherence
+        run: npm run curriculum:check
+      # Typecheck de l'app (et du Worker) + tests unitaires.
+      - name: Typecheck app
+        run: npx tsc -p tsconfig.json --noEmit
+        working-directory: app
+      - name: Typecheck worker
+        run: npx tsc -p tsconfig.json --noEmit
+        working-directory: worker
+      - name: Unit tests
+        run: npm test

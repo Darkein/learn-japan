@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { generateLesson, type GenState } from "../lib/genClient";
 import {
+  getCumulativeObjectives,
   listLessons,
   markLessonStarted,
   saveGeneratedLesson,
@@ -55,6 +56,10 @@ export function Lessons({ onOpenStory }: Props) {
     const setState = (s: GenState) => setGenStates((p) => ({ ...p, [lesson.id]: s }));
     setState("queued");
     try {
+      const targetKanji = new Set(lesson.objectives.kanji.map((k) => k.ja));
+      const knownKanji = getCumulativeObjectives(lesson.id)
+        .kanji.map((k) => k.ja)
+        .filter((k) => !targetKanji.has(k));
       const out = await generateLesson(
         {
           title: lesson.title,
@@ -62,6 +67,7 @@ export function Lessons({ onOpenStory }: Props) {
           vocab: lesson.objectives.vocab,
           kanji: lesson.objectives.kanji,
           grammar: lesson.objectives.grammar,
+          known: { kanji: knownKanji },
         },
         setState,
       );

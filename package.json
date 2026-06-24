@@ -12,8 +12,9 @@
     "build": "npm run build -w app",
     "preview": "npm run preview -w app",
     "test": "npm run test -w app",
-    "data:kanji": "tsx scripts/build-kanji.ts",
-    "data:jmdict": "tsx scripts/build-jmdict-sample.ts"
+    "data:inventory": "tsx scripts/build-inventory.ts",
+    "data:jmdict": "tsx scripts/build-jmdict-sample.ts",
+    "curriculum:check": "tsx scripts/check-curriculum.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

@@ -4,6 +4,7 @@
 import { WORKER_URL } from "./config";
 
 export interface GenParams {
+  kind?: "story" | "lesson";
   theme?: string;
   kanji?: string[];
   grammar?: string[];
@@ -65,6 +66,8 @@ export interface LessonGenInput {
   vocab: { ja: string; yomi?: string; fr: string }[];
   kanji: { ja: string; fr: string }[];
   grammar: string[];
+  /** Lexique cumulé déjà connu (leçons précédentes) — contraint l'histoire à du déjà-vu. */
+  known?: { kanji: string[] };
 }
 
 function fmtVocab(v: { ja: string; yomi?: string; fr: string }): string {
@@ -98,6 +101,9 @@ export async function generateLesson(
     input.vocab.length ? `Vocabulaire à introduire : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
     input.kanji.length ? `Kanji à introduire : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
     input.grammar.length ? `Points de grammaire : ${input.grammar.join(", ")}.` : "",
+    input.known?.kanji.length
+      ? `Cohérence : en dehors des kanji cibles ci-dessus, n'emploie QUE des kanji déjà connus de l'apprenant : ${input.known.kanji.join("")}. N'introduis aucun autre kanji (préfère le kana au besoin), et reste avec du vocabulaire simple déjà vu.`
+      : "",
     "",
     "Réponds en DEUX parties séparées par exactement cette ligne :",
     SEP,
@@ -108,7 +114,7 @@ export async function generateLesson(
     .filter(Boolean)
     .join("\n");
 
-  const raw = await generateText({ prompt, level: input.level }, onState, opts);
+  const raw = await generateText({ kind: "lesson", prompt, level: input.level }, onState, opts);
   const idx = raw.indexOf(SEP);
   if (idx < 0) {
     // Le modèle n'a pas respecté la consigne — repli : tout traiter comme histoire.
