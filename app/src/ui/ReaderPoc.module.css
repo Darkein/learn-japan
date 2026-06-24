@@ -1,0 +1,80 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.input {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  padding: var(--sp-3);
+  background: var(--surface);
+  color: var(--text);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-jp);
+  font-size: var(--fs-lg);
+  line-height: 1.8;
+}
+
+.controls {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: var(--sp-2) var(--sp-4);
+  background: transparent;
+  color: var(--text);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease);
+}
+.btn:hover {
+  border-color: var(--accent);
+}
+.btnPrimary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sentence {
+  font-family: var(--font-jp);
+  font-size: var(--fs-2xl);
+  line-height: 2;
+  letter-spacing: 0.02em;
+}
+
+/* Un mot tappable : pas de boîte, soulignement filet discret au survol. */
+.word {
+  cursor: pointer;
+  border-bottom: var(--hairline-w) solid transparent;
+  transition: border-color var(--dur) var(--ease);
+}
+.word:hover {
+  border-bottom-color: var(--state-unknown);
+}
+
+.glossLine {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.9;
+}
+.glossGram {
+  color: var(--accent-2);
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.error {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}

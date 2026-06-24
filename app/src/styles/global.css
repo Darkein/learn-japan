@@ -1,0 +1,74 @@
+@import "./theme.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 var(--sp-4);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Libellés méta : petites capitales, espacés (cf. DESIGN.md §4). */
+.meta {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Filet de séparation standard. */
+.hairline {
+  border: none;
+  border-top: var(--hairline-w) solid var(--hairline);
+}
+
+/* Ruby / furigana (DESIGN.md §5). */
+ruby {
+  ruby-align: center;
+}
+rt {
+  font-size: 0.5em;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

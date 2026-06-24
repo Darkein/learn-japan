@@ -1,0 +1,74 @@
+.shell {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-16);
+  min-height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-4);
+  border-bottom: var(--hairline-w) solid var(--hairline);
+}
+
+.brand {
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
+  margin: 0;
+}
+.brand .jp {
+  color: var(--accent);
+  margin-left: var(--sp-2);
+  font-size: var(--fs-lg);
+}
+
+.themeToggle {
+  display: inline-flex;
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.themeToggle button {
+  padding: var(--sp-1) var(--sp-3);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+.themeToggle button[aria-pressed="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nav {
+  display: flex;
+  gap: var(--sp-4);
+  margin: var(--sp-6) 0 var(--sp-8);
+}
+.nav button {
+  background: transparent;
+  border: none;
+  padding: var(--sp-1) 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid transparent;
+}
+.nav button[aria-current="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.stub {
+  color: var(--text-muted);
+}
+.stub h2 {
+  color: var(--text);
+}

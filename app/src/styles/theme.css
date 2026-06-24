@@ -1,0 +1,84 @@
+/* Tokens — dérivés de DESIGN.md (source de vérité). Dark par défaut, washi en clair.
+   Ne pas écrire de couleur/ombre/espacement en dur ailleurs : tout passe par ces variables. */
+
+:root {
+  /* Couleur — DARK (défaut) */
+  --bg: #15130f;
+  --surface: #1e1b16;
+  --surface-2: #272219;
+  --text: #e8e2d4;
+  --text-muted: #9c9584;
+  --accent: #d8503c; /* 朱 vermillon */
+  --accent-2: #7c8fc0; /* 藍 indigo */
+  --hairline: rgba(232, 226, 212, 0.1);
+
+  /* États de révision (teintes douces, jamais fluo) */
+  --state-unknown: rgba(124, 143, 192, 0.55);
+  --state-review: rgba(216, 80, 60, 0.7);
+  --state-known: transparent;
+
+  /* Typographie */
+  --font-serif: "Source Serif 4", "Noto Serif JP", Georgia, serif;
+  --font-sans: "Inter", system-ui, "Noto Sans JP", sans-serif;
+  --font-jp: "Noto Serif JP", "Source Serif 4", serif;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem;
+  --fs-2xl: 2.25rem;
+  --fs-3xl: 3rem;
+
+  /* Espacement (4px) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  --radius-sm: 4px;
+  --radius: 6px;
+  --hairline-w: 1px;
+
+  /* Mouvement */
+  --dur: 140ms;
+  --dur-slow: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  color-scheme: dark;
+}
+
+/* LIGHT — washi : appliqué si le système est clair OU si l'utilisateur force "light". */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f7f3ec;
+    --surface: #ffffff;
+    --surface-2: #f0eadf;
+    --text: #1a1815;
+    --text-muted: #6f6857;
+    --accent: #c0392b;
+    --accent-2: #2e4374;
+    --hairline: rgba(26, 24, 21, 0.12);
+    --state-unknown: rgba(46, 67, 116, 0.5);
+    --state-review: rgba(192, 57, 43, 0.65);
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f7f3ec;
+  --surface: #ffffff;
+  --surface-2: #f0eadf;
+  --text: #1a1815;
+  --text-muted: #6f6857;
+  --accent: #c0392b;
+  --accent-2: #2e4374;
+  --hairline: rgba(26, 24, 21, 0.12);
+  --state-unknown: rgba(46, 67, 116, 0.5);
+  --state-review: rgba(192, 57, 43, 0.65);
+  color-scheme: light;
+}

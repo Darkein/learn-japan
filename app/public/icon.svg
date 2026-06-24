@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Learn Japan">
+  <rect width="512" height="512" rx="96" fill="#15130F"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#D8503C" stroke-width="22"/>
+  <g fill="#E8E2D4">
+    <rect x="236" y="150" width="40" height="212" rx="6"/>
+    <rect x="180" y="206" width="152" height="34" rx="6"/>
+    <rect x="180" y="286" width="152" height="34" rx="6"/>
+  </g>
+</svg>

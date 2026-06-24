@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#15130F" />
+    <title>Learn Japan</title>
+    <!-- Applique le thème avant le rendu pour éviter le flash (dark par défaut, suit le système). -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme") || "system";
+          if (t !== "system") document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "learn-japan",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lecteur de japonais extensif et adaptatif (PWA, local-first)",
+  "workspaces": [
+    "app",
+    "worker"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w app",
+    "build": "npm run build -w app",
+    "preview": "npm run preview -w app",
+    "test": "npm run test -w app",
+    "data:kanji": "tsx scripts/build-kanji.ts",
+    "data:jmdict": "tsx scripts/build-jmdict-sample.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

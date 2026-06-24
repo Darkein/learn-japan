@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Vite / PWA
+app/dev-dist/
+app/public/dict/
+
+# Generated data: small curated samples are committed under data/,
+# full datasets are produced by scripts and stay local.
+data/full/
+*.xml
+*.gz
+!app/public/**/*.gz
+
+# Local env / secrets — never commit
+.env
+.env.*
+.dev.vars
+worker/.dev.vars

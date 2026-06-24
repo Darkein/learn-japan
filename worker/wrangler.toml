@@ -1,0 +1,23 @@
+name = "learn-japan-gen"
+main = "src/index.ts"
+compatibility_date = "2024-11-27"
+
+# Statut des requêtes de génération (queued/generating/ready/error).
+# Renseigner l'id après `wrangler kv namespace create STATUS` (ou via le MCP Cloudflare).
+[[kv_namespaces]]
+binding = "STATUS"
+id = "REMPLIR_APRES_PROVISIONING"
+
+# Stockage audio (packs TTS). Créer le bucket puis renseigner le nom.
+[[r2_buckets]]
+binding = "AUDIO"
+bucket_name = "learn-japan-audio"
+
+[vars]
+# Modèle texte gratuit (free tier Gemini). La clé est un SECRET, pas une var :
+#   wrangler secret put GEMINI_API_KEY
+GEMINI_MODEL = "gemini-2.5-flash"
+REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
+
+# Protection : placer Cloudflare Access (login email gratuit) DEVANT ce Worker.
+# Aucune clé n'est exposée au client : seul le Worker détient GEMINI_API_KEY.
