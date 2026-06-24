@@ -129,6 +129,9 @@ export async function putKanji(item: KanjiItem): Promise<void> {
 export async function getKanji(id: string): Promise<KanjiItem | undefined> {
   return (await getDB()).get("kanji", id);
 }
+export async function allKanji(): Promise<KanjiItem[]> {
+  return (await getDB()).getAll("kanji");
+}
 
 // Grammaire ------------------------------------------------------------------
 export async function putGrammar(item: GrammarItem): Promise<void> {
@@ -136,6 +139,9 @@ export async function putGrammar(item: GrammarItem): Promise<void> {
 }
 export async function getGrammar(id: string): Promise<GrammarItem | undefined> {
   return (await getDB()).get("grammar", id);
+}
+export async function allGrammar(): Promise<GrammarItem[]> {
+  return (await getDB()).getAll("grammar");
 }
 
 // Histoires ------------------------------------------------------------------

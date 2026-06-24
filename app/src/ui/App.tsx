@@ -2,10 +2,11 @@ import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
 import { Stories } from "./Stories";
+import { Warmup } from "./Warmup";
 import { useTheme, type Theme } from "./useTheme";
 import styles from "./App.module.css";
 
-type Tab = "reader" | "stories" | "catalogue" | "about";
+type Tab = "review" | "reader" | "stories" | "catalogue" | "about";
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: "system", label: "Auto" },
@@ -43,6 +44,9 @@ export function App() {
       </header>
 
       <nav className={styles.nav}>
+        <button aria-current={tab === "review"} onClick={() => setTab("review")}>
+          Réviser
+        </button>
         <button aria-current={tab === "reader"} onClick={() => setTab("reader")}>
           Lecteur
         </button>
@@ -56,6 +60,8 @@ export function App() {
           À propos
         </button>
       </nav>
+
+      {tab === "review" && <Warmup />}
 
       {tab === "reader" && <ReaderPoc incoming={incoming} />}
 
