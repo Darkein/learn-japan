@@ -2,6 +2,10 @@ name = "learn-japan-gen"
 main = "src/index.ts"
 compatibility_date = "2024-11-27"
 
+# Compte Cloudflare (non secret) → wrangler n'a plus besoin d'interroger /memberships
+# (ce que le token restreint ne peut pas faire).
+account_id = "8329b0294a47ab8cf1b2556fd98c79b8"
+
 # Workers.dev activé → URL publique https://learn-japan-gen.<sous-domaine>.workers.dev
 workers_dev = true
 
