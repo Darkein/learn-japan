@@ -33,16 +33,19 @@ corrects hors-ligne ; le Worker répond derrière Access.
 
 ## Phase 1 — Lecteur MVP (boucle fermée)
 **But : lire une histoire générée et voir le SRS se mettre à jour.**
+- **Curriculum d'accueil** (SPEC §3.1) : onglet « Apprendre » par défaut, liste ordonnée de leçons
+  N5 (seed manuel + génération à la demande pour les suivantes). Histoires liées par `lessonId`.
 - Pipeline génération (mode aléatoire, 2–3 mots cibles) : Gemini (texte + trad fluide + grammaire) →
-  tokenisation → **furigana déterministes** → **gloss littéral**.
+  tokenisation → **furigana déterministes** → **gloss littéral aligné mot-à-mot** (colonnes par token).
 - Lecteur : **furigana au tap**, **panneau mot** (lecture/sens/gloss/audio/composition/mnémonique),
-  **gloss littéral** sous la phrase (toggle), **trad fluide** au tap.
+  **gloss littéral** sous chaque mot (toggle masquer), **trad fluide** au tap, **génération libre
+  reléguée en Mode avancé**.
 - **Écouter un mot** : timepoints SSML (mot en phrase) + repli Web Speech.
 - Quiz minimal (compréhension + lecture kanji) → **MAJ FSRS**.
 - Échauffement de révision (items urgents).
 
 **Vérif** : session complète (échauffement → lecture → quiz) ; les bonnes/mauvaises réponses
-décalent les échéances SRS.
+décalent les échéances SRS ; un débutant peut suivre le curriculum sans toucher au Mode avancé.
 
 ## Phase 2 — Catalogue + tags + génération ciblée
 **But : réviser et générer à la demande, sur ce qu'on choisit.**

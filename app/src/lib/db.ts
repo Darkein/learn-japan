@@ -62,6 +62,23 @@ export interface StoryRecord {
   text: string; // texte japonais source
   /** « Pourquoi cette histoire » : les contraintes de génération. */
   params: { theme?: string; kanji?: string[]; grammar?: string[]; level?: number };
+  /** Rattachement optionnel à une leçon du curriculum (SPEC §3). */
+  lessonId?: string;
+}
+
+/** Contenu de leçon produit par génération LLM (les seeds, eux, vivent dans curriculum.json). */
+export interface GeneratedLessonRecord {
+  id: string; // = curriculum entry id
+  intro: string; // mini-leçon FR
+  storyJa: string; // histoire courte JP
+  createdAt: number;
+}
+
+/** Progression locale d'une leçon (commencée, terminée). */
+export interface LessonProgressRecord {
+  id: string; // = curriculum entry id
+  completedAt?: number;
+  startedAt?: number;
 }
 
 interface LearnDB extends DBSchema {
@@ -70,10 +87,12 @@ interface LearnDB extends DBSchema {
   grammar: { key: string; value: GrammarItem; indexes: { status: string } };
   reviews: { key: number; value: ReviewLog; indexes: { itemId: string } };
   stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
+  lessons: { key: string; value: GeneratedLessonRecord };
+  lessonProgress: { key: string; value: LessonProgressRecord };
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -99,6 +118,12 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("stories")) {
           db.createObjectStore("stories", { keyPath: "id" }).createIndex("createdAt", "createdAt");
+        }
+        if (!db.objectStoreNames.contains("lessons")) {
+          db.createObjectStore("lessons", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("lessonProgress")) {
+          db.createObjectStore("lessonProgress", { keyPath: "id" });
         }
       },
     });
@@ -158,4 +183,26 @@ export async function deleteStory(id: string): Promise<void> {
 export async function allStories(): Promise<StoryRecord[]> {
   const all = await (await getDB()).getAll("stories");
   return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// Leçons générées ------------------------------------------------------------
+export async function putGeneratedLesson(rec: GeneratedLessonRecord): Promise<void> {
+  await (await getDB()).put("lessons", rec);
+}
+export async function getGeneratedLesson(id: string): Promise<GeneratedLessonRecord | undefined> {
+  return (await getDB()).get("lessons", id);
+}
+export async function deleteGeneratedLesson(id: string): Promise<void> {
+  await (await getDB()).delete("lessons", id);
+}
+
+// Progression des leçons -----------------------------------------------------
+export async function putLessonProgress(rec: LessonProgressRecord): Promise<void> {
+  await (await getDB()).put("lessonProgress", rec);
+}
+export async function getLessonProgress(id: string): Promise<LessonProgressRecord | undefined> {
+  return (await getDB()).get("lessonProgress", id);
+}
+export async function allLessonProgress(): Promise<LessonProgressRecord[]> {
+  return (await getDB()).getAll("lessonProgress");
 }

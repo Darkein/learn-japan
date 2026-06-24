@@ -64,6 +64,21 @@ une histoire, une **mini-leçon** le présente :
 L'apprentissage se fait **juste avant l'exposition en contexte**. Pas de cours formel séparé ; léger,
 au service de la lecture.
 
+### 3.1 Curriculum — porte d'entrée du débutant
+
+Pour un utilisateur qui démarre de zéro, le « juste-à-temps » seul ne suffit pas : il faut un fil
+conducteur. Un **curriculum** (liste ordonnée de leçons N5 → N1, statique dans le repo) sert de page
+d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décrit ses **objectifs**
+(vocab / kanji / grammaire) et peut être :
+- **prête** : intro FR + courte histoire JP rédigées (seed) ou produites par génération antérieure.
+- **à générer** : seuls les objectifs existent ; un bouton lance la génération (Worker / Gemini) qui
+  produit l'intro + l'histoire et les stocke localement.
+- **terminée** : marquée lue par l'utilisateur.
+
+Une histoire générée depuis une leçon **conserve son `lessonId`** (rattachement bidirectionnel
+catalogue ↔ histoire). Le mode « génération libre / texte collé » reste accessible mais relégué en
+**mode avancé** dans le Lecteur, hors du chemin du débutant.
+
 ## 4. Génération des histoires
 
 - Histoires au **niveau adapté**, dans un **genre choisi** (policier, tranche de vie, fantastique…)

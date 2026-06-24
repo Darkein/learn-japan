@@ -38,6 +38,10 @@
   border-radius: var(--radius-sm);
   padding: 2px var(--sp-2);
 }
+.lessonChip {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 .actions {
   display: flex;
