@@ -4,13 +4,21 @@ PWA local-first, hors-ligne, mobile-first, à usage personnel. Lecture d'histoir
 niveau, furigana et **gloss littéral déterministes** (kuromoji), révision espacée **FSRS**, et un
 **mode voiture** audio. Voir [`SPEC.md`](SPEC.md), [`ROADMAP.md`](ROADMAP.md), [`DESIGN.md`](DESIGN.md).
 
-## État : Phase 0 (fondations & déploiement)
+## État
 
-- ✅ Squelette PWA (Vite + React + TS + vite-plugin-pwa), thème *Sumi & Washi* sombre/adaptatif.
-- ✅ Furigana déterministes + gloss littéral interlinéaire (POC dans l'onglet **Lecteur**).
-- ✅ SRS (FSRS) + schéma IndexedDB.
-- ✅ Worker Cloudflare (squelette : `/generate` Gemini + `/status/:id`).
-- ✅ Déploiement auto vers GitHub Pages.
+**Phase 0 — fondations & déploiement** ✅
+- PWA (Vite + React + TS + vite-plugin-pwa), thème *Sumi & Washi* sombre/adaptatif.
+- Furigana déterministes + gloss littéral interlinéaire.
+- SRS (FSRS) + schéma IndexedDB. Worker Cloudflare (`/generate` Gemini + `/status/:id`).
+- Déploiement auto vers GitHub Pages.
+
+**Phase 1 — boucle de lecture** (en cours)
+- ✅ Génération ciblée (thème / kanji / grammaire / JLPT) via le Worker → texte annoté.
+- ✅ Panneau mot (tap) → SRS : connu / à revoir / oublié, persistance + soulignement par statut.
+- ✅ Quiz de lecture déterministe (lecture de kanji + particule) → pistes kanji & grammaire.
+- ✅ Histoires persistées + « pourquoi cette histoire » (onglet **Histoires**).
+- ✅ Échauffement SRS des éléments dus (onglet **Réviser**).
+- ⏳ À venir : compréhension QCM (LLM), mode voiture (TTS), catalogue/tags (Phase 2).
 
 ## Développement
 
