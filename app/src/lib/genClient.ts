@@ -104,7 +104,14 @@ export async function generateLessonIntro(
     "Les éléments à enseigner sont :",
     ...objectivesBlock(input),
     "",
-    "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases minimum, paragraphes courts, **gras** autorisé pour les mots japonais clés) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique. Pas de titre, pas de liste de vocabulaire brute (elle est affichée à côté). Réponds uniquement avec ce texte FR.",
+    "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases minimum) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique.",
+    "",
+    "Mise en forme — n'utilise QUE ces balises Markdown, aucune autre :",
+    "- des paragraphes courts séparés par une ligne vide (aère le texte, ne fais pas un seul bloc compact) ;",
+    "- **gras** pour les mots japonais clés et *italique* pour une nuance ou une lecture ;",
+    "- des listes à puces (lignes commençant par « - ») pour énumérer des exemples ou des pièges.",
+    "N'emploie aucune autre syntaxe : pas de titre (#), pas de tableau, pas de lien, pas de bloc de code, pas de citation. Pas de liste de vocabulaire brute (elle est affichée à côté).",
+    "Réponds uniquement avec ce texte FR.",
   ]
     .filter(Boolean)
     .join("\n");
