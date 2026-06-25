@@ -4,7 +4,7 @@ interface Props {
   /** Titre optionnel affiché dans la barre supérieure (titre de la leçon / histoire). */
   title?: string;
   onBack: () => void;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 /**
