@@ -24,7 +24,8 @@ TTS_RATE = "1.0"
 
 # Chaîne de repli, du plus puissant au plus léger : sur quota (429) ou échec d'un
 # modèle, le Worker bascule sur le suivant. Optionnel — sans cette var, un défaut
-# codé en dur est utilisé (2.5-pro → GEMINI_MODEL → 2.0-flash → 2.5-flash-lite).
+# codé en dur est utilisé (2.5-pro → GEMINI_MODEL → 3.5-flash → 3-flash →
+# 2.5-flash → 2.0-flash → 3.1-flash-lite → 2.5-flash-lite).
 # MODEL_CHAIN = '[{"provider":"gemini","model":"gemini-2.5-pro","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.0-flash","keyEnv":"GEMINI_API_KEY"}]'
 
 # Génération SYNCHRONE : pas de KV ni de R2 à provisionner (revient en Phase 3 pour le TTS/R2).

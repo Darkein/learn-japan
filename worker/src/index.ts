@@ -99,7 +99,19 @@ function resolveChain(env: Env): ModelEntry[] {
     }
   }
   const primary = env.GEMINI_MODEL || "gemini-2.5-flash";
-  const models = [...new Set(["gemini-2.5-pro", primary, "gemini-2.0-flash", "gemini-2.5-flash-lite"])];
+  // Du plus puissant au plus léger, par palier (pro → flash → flash-lite), la
+  // génération la plus récente d'abord dans chaque palier. `primary` (le modèle
+  // configuré) est inséré juste après le pro ; le Set dédoublonne si besoin.
+  const models = [...new Set([
+    "gemini-2.5-pro",
+    primary,
+    "gemini-3.5-flash",
+    "gemini-3-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+  ])];
   return models.map((model) => ({ provider: "gemini", model, keyEnv: "GEMINI_API_KEY" }));
 }
 
