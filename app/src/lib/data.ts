@@ -39,9 +39,15 @@ function assetUrl(): string {
 
 async function fetchAndDecompress(url: string): Promise<ContentDict> {
   const res = await fetch(url);
-  if (!res.ok || !res.body) throw new Error(`JMdict-FR introuvable (${res.status})`);
-  const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
-  const text = await new Response(stream).text();
+  if (!res.ok) throw new Error(`JMdict-FR introuvable (${res.status})`);
+  const buf = new Uint8Array(await res.arrayBuffer());
+  // Selon l'hébergeur, l'asset .gz peut arriver en octets gzip bruts ou DÉJÀ décompressé
+  // (si le serveur a posé `Content-Encoding: gzip`, le navigateur l'a déballé tout seul).
+  // On ne décompresse que si l'en-tête gzip (magic 0x1f 0x8b) est présent.
+  const isGzip = buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+  const text = isGzip
+    ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text()
+    : new TextDecoder().decode(buf);
   return JSON.parse(text) as ContentDict;
 }
 
