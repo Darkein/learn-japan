@@ -1,0 +1,130 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0;
+  border-top: var(--hairline-w) solid var(--hairline);
+}
+.card:last-child {
+  border-bottom: var(--hairline-w) solid var(--hairline);
+}
+.cardSelected .title {
+  color: var(--accent);
+}
+
+/* Zone cliquable (tête + résumé) qui ouvre le cours, rendue comme un bouton neutre. */
+.cardOpen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.order {
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.title {
+  flex: 1 1 auto;
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  color: var(--text);
+  transition: color var(--dur) var(--ease);
+}
+.cardOpen:hover .title {
+  color: var(--accent);
+}
+.level {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--sp-2);
+}
+
+.badge {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: var(--hairline-w) solid transparent;
+}
+.badgeReady {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.badgeTodo {
+  color: var(--text-muted);
+  border-color: var(--hairline);
+}
+.badgeDone {
+  color: var(--state-known, var(--text-muted));
+  border-color: var(--hairline);
+  opacity: 0.8;
+}
+
+.summary {
+  color: var(--text-muted);
+  margin: 0;
+}
+.objSummary {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.actions {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--sp-1);
+}
+.btn {
+  padding: var(--sp-2) var(--sp-4);
+  background: transparent;
+  color: var(--text);
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  transition: border-color var(--dur) var(--ease);
+}
+.btn:hover {
+  border-color: var(--accent);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btnPrimary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.meta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}
