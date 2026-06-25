@@ -2,7 +2,12 @@ name: Deploy PWA to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/japanese-learning-app-6goh2g]
+    branches: [main]
+  # Aperçu avant merge : une PR ouverte/mise à jour publie son build sur le site
+  # GitHub Pages (unique). La PR « remplace la page actuelle » ; à la fusion, main
+  # redéploie le même contenu. Pas de sous-dossier, pas d'URL d'aperçu séparée.
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
