@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { dueCards } from "../lib/warmup";
-import { LessonCard } from "./LessonCard";
+import { LessonList } from "./LessonList";
 import styles from "./Home.module.css";
 
 interface Props {
   onOpenStory: (story: StoryRecord) => void;
+  onOpenCourse: (lesson: Lesson) => void;
   onStartReview: () => void;
   onGoCatalogue: () => void;
 }
@@ -15,7 +16,7 @@ interface Props {
  * Accueil « à faire » : fil conducteur qui se remplit progressivement. Met en avant la
  * révision due (contextuelle), la leçon à continuer et la prochaine leçon à découvrir.
  */
-export function Home({ onOpenStory, onStartReview, onGoCatalogue }: Props) {
+export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dueCount, setDueCount] = useState(0);
 
@@ -59,16 +60,12 @@ export function Home({ onOpenStory, onStartReview, onGoCatalogue }: Props) {
       )}
 
       {todo.length > 0 ? (
-        <ol className={styles.list}>
-          {todo.map((lesson) => (
-            <LessonCard
-              key={lesson.id}
-              lesson={lesson}
-              onOpenStory={onOpenStory}
-              onChanged={() => void refresh()}
-            />
-          ))}
-        </ol>
+        <LessonList
+          lessons={todo}
+          onOpenStory={onOpenStory}
+          onOpenCourse={onOpenCourse}
+          onChanged={() => void refresh()}
+        />
       ) : (
         <p className={styles.empty}>
           Tout est à jour — bravo ! Explore le <button className={styles.link} onClick={onGoCatalogue}>catalogue</button> pour aller plus loin.

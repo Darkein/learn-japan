@@ -32,14 +32,6 @@
   border-bottom-color: var(--accent);
 }
 
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 /* Filtres (niveau, statut) : groupes de boutons segmentés. */
 .filters {
   display: flex;

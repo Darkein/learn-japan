@@ -8,6 +8,24 @@
 .card:last-child {
   border-bottom: var(--hairline-w) solid var(--hairline);
 }
+.cardSelected .title {
+  color: var(--accent);
+}
+
+/* Zone cliquable (tête + résumé) qui ouvre le cours, rendue comme un bouton neutre. */
+.cardOpen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
 
 .cardHead {
   display: flex;
@@ -26,6 +44,10 @@
   font-family: var(--font-serif);
   font-size: var(--fs-lg);
   color: var(--text);
+  transition: color var(--dur) var(--ease);
+}
+.cardOpen:hover .title {
+  color: var(--accent);
 }
 .level {
   font-size: var(--fs-xs);
@@ -61,46 +83,11 @@
   color: var(--text-muted);
   margin: 0;
 }
-
-.chips {
-  display: flex;
-  gap: var(--sp-2);
-  flex-wrap: wrap;
-}
-.chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--sp-2);
+.objSummary {
+  margin: 0;
   font-size: var(--fs-xs);
   color: var(--text-muted);
-  border: var(--hairline-w) solid var(--hairline);
-  border-radius: var(--radius-sm);
-  padding: 2px var(--sp-2);
-}
-.chipVocab {
-  color: var(--text);
-}
-.chipKanji {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.chipGrammar {
-  color: var(--accent-2, var(--text));
-}
-.chipJa {
-  font-family: var(--font-jp);
-  font-size: var(--fs-sm);
-}
-.chipYomi {
-  font-family: var(--font-jp);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  font-style: italic;
-}
-.chipFr {
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
+  letter-spacing: 0.02em;
 }
 
 .actions {
@@ -135,95 +122,6 @@
 .meta {
   font-size: var(--fs-sm);
   color: var(--text-muted);
-}
-
-.panel {
-  margin-top: var(--sp-3);
-  padding: var(--sp-4);
-  border: var(--hairline-w) solid var(--hairline);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
-.panelH3 {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.md p {
-  margin: 0 0 var(--sp-2);
-  line-height: 1.6;
-}
-.md p:last-child {
-  margin-bottom: 0;
-}
-
-.objList {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--sp-2) var(--sp-4);
-  margin: 0;
-}
-.objList dt {
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.objList dd {
-  margin: 0;
-}
-.objRows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
-.objList .objRows li {
-  display: grid;
-  grid-template-columns: 5rem 5rem 1fr;
-  gap: var(--sp-3);
-  align-items: baseline;
-}
-.objJa {
-  font-family: var(--font-jp);
-  font-size: var(--fs-md, var(--fs-sm));
-  color: var(--text);
-}
-.objYomi {
-  font-family: var(--font-jp);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  font-style: italic;
-}
-.objFr {
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  color: var(--text);
-}
-
-.storyRow {
-  display: flex;
-  gap: var(--sp-3);
-  align-items: baseline;
-  justify-content: space-between;
-}
-.storyText {
-  flex: 1 1 auto;
-  font-family: var(--font-jp);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .error {

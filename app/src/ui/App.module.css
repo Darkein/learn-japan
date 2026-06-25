@@ -5,6 +5,13 @@
   min-height: 100%;
 }
 
+/* Catalogue : élargi sur desktop pour loger la vue splittée (liste + cours). */
+@media (min-width: 60rem) {
+  .shellCatalogue {
+    max-width: min(76rem, 94vw);
+  }
+}
+
 .header {
   display: flex;
   align-items: baseline;

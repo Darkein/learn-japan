@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { getCurriculumEntry } from "../lib/lessons";
+import { getCurriculumEntry, type Lesson } from "../lib/lessons";
 import { Catalogue } from "./Catalogue";
+import { CourseDetail } from "./CourseDetail";
 import { Histoires } from "./Histoires";
 import { Home } from "./Home";
 import { ReaderPage } from "./ReaderPage";
@@ -29,6 +30,8 @@ export function App() {
   const [theme, setTheme] = useTheme();
   const [reader, setReader] = useState<IncomingStory | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  // Cours ouvert en page dédiée (mobile / écran étroit ; le split desktop est géré dans LessonList).
+  const [course, setCourse] = useState<Lesson | null>(null);
   // Force le rafraîchissement des données de l'onglet courant au retour d'une page de lecture.
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -56,6 +59,7 @@ export function App() {
   function back() {
     setReader(null);
     setReviewing(false);
+    setCourse(null);
     setRefreshKey((n) => n + 1);
   }
 
@@ -78,9 +82,18 @@ export function App() {
       </div>
     );
   }
+  if (course) {
+    return (
+      <div className={styles.shell}>
+        <ReaderPage title={course.title} onBack={back}>
+          <CourseDetail lesson={course} onOpenStory={openStory} onChanged={() => undefined} />
+        </ReaderPage>
+      </div>
+    );
+  }
 
   return (
-    <div className={styles.shell}>
+    <div className={`${styles.shell} ${tab === "catalogue" ? styles.shellCatalogue : ""}`}>
       <header className={styles.header}>
         <h1 className={styles.brand}>
           Learn Japan<span className={styles.jp}>日本語</span>
@@ -106,12 +119,13 @@ export function App() {
         {tab === "home" && (
           <Home
             onOpenStory={openStory}
+            onOpenCourse={setCourse}
             onStartReview={() => setReviewing(true)}
             onGoCatalogue={() => setTab("catalogue")}
           />
         )}
         {tab === "stories" && <Histoires onOpen={openStory} />}
-        {tab === "catalogue" && <Catalogue onOpenStory={openStory} />}
+        {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={setCourse} />}
       </div>
 
       <footer className={styles.footer}>

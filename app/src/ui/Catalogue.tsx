@@ -12,7 +12,7 @@ import {
   allVocabInv,
 } from "../lib/inventory";
 import { listLessons, type Lesson } from "../lib/lessons";
-import { LessonCard } from "./LessonCard";
+import { LessonList } from "./LessonList";
 import styles from "./Catalogue.module.css";
 
 type Section = "lessons" | "kanji" | "vocab" | "grammar";
@@ -42,10 +42,11 @@ const MAX_ROWS = 400;
 
 interface Props {
   onOpenStory: (story: StoryRecord) => void;
+  onOpenCourse: (lesson: Lesson) => void;
 }
 
 /** Catalogue : parcours complet (leçons) + inventaire navigable (kanji / vocab / grammaire). */
-export function Catalogue({ onOpenStory }: Props) {
+export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
   const [section, setSection] = useState<Section>("lessons");
   const [level, setLevel] = useState<number>(0); // 0 = tous
   const [status, setStatus] = useState<ItemStatus | "all">("all");
@@ -105,16 +106,13 @@ export function Catalogue({ onOpenStory }: Props) {
         lessons === null ? (
           <p className={styles.empty}>Chargement…</p>
         ) : (
-          <ol className={styles.list}>
-            {lessons.map((lesson) => (
-              <LessonCard
-                key={lesson.id}
-                lesson={lesson}
-                onOpenStory={onOpenStory}
-                onChanged={() => void refresh()}
-              />
-            ))}
-          </ol>
+          <LessonList
+            lessons={lessons}
+            split
+            onOpenStory={onOpenStory}
+            onOpenCourse={onOpenCourse}
+            onChanged={() => void refresh()}
+          />
         )
       ) : (
         <>
