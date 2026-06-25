@@ -3,7 +3,6 @@ import type { StoryRecord } from "../lib/db";
 import { grammarDetail, kanjiDetail } from "../lib/inventory";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
 import { STATE_LABEL, useLessonGen } from "./useLessonGen";
-import styles from "./CourseDetail.module.css";
 
 interface Props {
   lesson: Lesson;
@@ -34,43 +33,54 @@ export function CourseDetail({ lesson, onOpenStory, onChanged }: Props) {
   }
 
   return (
-    <div className={styles.detail}>
+    <div className="flex flex-col gap-4">
       <Cours lesson={lesson} />
 
       {ready ? (
         <>
-          <h3 className={styles.h3}>Histoires</h3>
-          <ul className={styles.objRows}>
+          <h3 className="font-sans text-xs uppercase tracking-widest text-muted">Histoires</h3>
+          <ul className="flex list-none flex-col gap-1">
             {stories.map((s) => (
-              <li key={s.id} className={styles.storyRow}>
-                <span className={styles.storyText}>{s.text}</span>
-                <button className={styles.btn} onClick={() => void read(s)}>
+              <li key={s.id} className="flex items-baseline justify-between gap-3">
+                <span className="flex-1 truncate font-jp text-muted">{s.text}</span>
+                <button
+                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => void read(s)}
+                >
                   Lire →
                 </button>
               </li>
             ))}
           </ul>
-          <div className={styles.actions}>
-            <button className={styles.btn} onClick={() => void anotherStory()} disabled={busy}>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <button
+              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void anotherStory()}
+              disabled={busy}
+            >
               {busy ? "Génération…" : "Générer une autre histoire"}
             </button>
-            {genState && busy && <span className={styles.meta}>Statut : {STATE_LABEL[genState]}</span>}
+            {genState && busy && (
+              <span className="text-sm text-muted">Statut : {STATE_LABEL[genState]}</span>
+            )}
           </div>
         </>
       ) : (
-        <div className={styles.actions}>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
           <button
-            className={`${styles.btn} ${styles.btnPrimary}`}
+            className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => void start()}
             disabled={busy}
           >
             {busy ? "Génération…" : "Commencer la leçon"}
           </button>
-          {genState && busy && <span className={styles.meta}>Statut : {STATE_LABEL[genState]}</span>}
+          {genState && busy && (
+            <span className="text-sm text-muted">Statut : {STATE_LABEL[genState]}</span>
+          )}
         </div>
       )}
 
-      {error && <p className={styles.error}>{error}</p>}
+      {error && <p className="text-sm text-accent">{error}</p>}
     </div>
   );
 }
@@ -81,37 +91,36 @@ function Cours({ lesson }: { lesson: Lesson }) {
   const kanji = lesson.introduces.kanji.map(kanjiDetail).filter((k) => k !== null);
   return (
     <div>
-      <h3 className={styles.h3}>Le cours</h3>
+      <h3 className="font-sans text-sm uppercase tracking-widest text-muted mb-2">Le cours</h3>
       {lesson.framing && <Markdown text={lesson.framing} />}
 
-      {grammar.length > 0 && (
-        <dl className={styles.objList}>
-          <dt>Grammaire</dt>
-          <dd>
-            <ul className={styles.objRows}>
-              {grammar.map((g) => (
-                <li key={g.id}>
-                  <span className={styles.objJa}>{g.name}</span>
-                  <span className={styles.objFr}>
-                    {g.ruleFr} <em>ex. {g.exampleJa}</em>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </dd>
-        </dl>
-      )}
-
-      <dl className={styles.objList}>
+      <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2">
+        {grammar.length > 0 && (
+          <>
+            <dt className="font-sans text-xs uppercase tracking-wider text-muted">Grammaire</dt>
+            <dd className="m-0">
+              <ul className="flex list-none flex-col gap-1">
+                {grammar.map((g) => (
+                  <li key={g.id} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
+                    <span className="font-jp text-sm text-text">{g.name}</span>
+                    <span className="font-sans text-sm text-text">
+                      {g.ruleFr} <em>ex. {g.exampleJa}</em>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
         {kanji.length > 0 && (
           <>
-            <dt>Kanji</dt>
-            <dd>
-              <ul className={styles.objRows}>
+            <dt className="font-sans text-xs uppercase tracking-wider text-muted">Kanji</dt>
+            <dd className="m-0">
+              <ul className="flex list-none flex-col gap-1">
                 {kanji.map((k) => (
-                  <li key={k.ja}>
-                    <span className={styles.objJa}>{k.ja}</span>
-                    <span className={styles.objFr}>
+                  <li key={k.ja} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
+                    <span className="font-jp text-sm text-text">{k.ja}</span>
+                    <span className="font-sans text-sm text-text">
                       {k.fr}
                       {(k.on.length > 0 || k.kun.length > 0) && (
                         <em> — {[...k.kun, ...k.on].slice(0, 4).join("・")}</em>
@@ -125,14 +134,18 @@ function Cours({ lesson }: { lesson: Lesson }) {
         )}
         {lesson.objectives.vocab.length > 0 && (
           <>
-            <dt>Vocabulaire</dt>
-            <dd>
-              <ul className={styles.objRows}>
+            <dt className="font-sans text-xs uppercase tracking-wider text-muted">Vocabulaire</dt>
+            <dd className="m-0">
+              <ul className="flex list-none flex-col gap-1">
                 {lesson.objectives.vocab.map((v) => (
-                  <li key={v.ja}>
-                    <span className={styles.objJa}>{v.ja}</span>
-                    {v.yomi && v.yomi !== v.ja && <span className={styles.objYomi}>{v.yomi}</span>}
-                    <span className={styles.objFr}>{v.fr}</span>
+                  <li key={v.ja} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
+                    <span className="font-jp text-sm text-text">
+                      {v.ja}
+                      {v.yomi && v.yomi !== v.ja && (
+                        <span className="ml-2 font-jp text-xs italic text-muted">{v.yomi}</span>
+                      )}
+                    </span>
+                    <span className="font-sans text-sm text-text">{v.fr}</span>
                   </li>
                 ))}
               </ul>
@@ -148,7 +161,7 @@ function Cours({ lesson }: { lesson: Lesson }) {
 function Markdown({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/);
   return (
-    <div className={styles.md}>
+    <div className="space-y-2">
       {paragraphs.map((para, i) => (
         <p key={i}>{inlineBold(para)}</p>
       ))}

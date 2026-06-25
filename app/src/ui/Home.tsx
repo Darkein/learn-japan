@@ -3,7 +3,6 @@ import type { StoryRecord } from "../lib/db";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { dueCards } from "../lib/warmup";
 import { LessonList } from "./LessonList";
-import styles from "./Home.module.css";
 
 interface Props {
   onOpenStory: (story: StoryRecord) => void;
@@ -29,7 +28,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
     void refresh();
   }, []);
 
-  if (!lessons) return <p className={styles.empty}>Chargement…</p>;
+  if (!lessons) return <p className="text-muted">Chargement…</p>;
 
   const done = lessons.filter((l) => l.completedAt).length;
   const inProgress = lessons.filter((l) => l.startedAt && !l.completedAt);
@@ -37,23 +36,26 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
   const todo = [...inProgress, ...(next ? [next] : [])];
 
   return (
-    <div className={styles.wrap}>
-      <header className={styles.intro}>
-        <h2 className={styles.h2}>Aujourd'hui</h2>
-        <p className={styles.progress}>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <h2 className="font-serif text-xl">Aujourd'hui</h2>
+        <p className="m-0 text-sm text-muted">
           {done}/{lessons.length} leçon{lessons.length > 1 ? "s" : ""} terminée{done > 1 ? "s" : ""}
         </p>
       </header>
 
       {dueCount > 0 && (
-        <section className={styles.review}>
-          <div className={styles.reviewText}>
-            <span className={styles.reviewKicker}>Révision</span>
-            <span className={styles.reviewCount}>
+        <section className="flex items-center justify-between gap-4 rounded-r-sm border-y border-r border-l-4 border-hairline border-l-accent bg-surface p-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-widest text-muted">Révision</span>
+            <span className="font-serif text-lg text-text">
               {dueCount} élément{dueCount > 1 ? "s" : ""} à réviser
             </span>
           </div>
-          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={onStartReview}>
+          <button
+            className="cursor-pointer whitespace-nowrap rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors"
+            onClick={onStartReview}
+          >
             Réviser maintenant
           </button>
         </section>
@@ -67,12 +69,22 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
           onChanged={() => void refresh()}
         />
       ) : (
-        <p className={styles.empty}>
-          Tout est à jour — bravo ! Explore le <button className={styles.link} onClick={onGoCatalogue}>catalogue</button> pour aller plus loin.
+        <p className="text-muted">
+          Tout est à jour — bravo ! Explore le{" "}
+          <button
+            className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
+            onClick={onGoCatalogue}
+          >
+            catalogue
+          </button>{" "}
+          pour aller plus loin.
         </p>
       )}
 
-      <button className={styles.link} onClick={onGoCatalogue}>
+      <button
+        className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
+        onClick={onGoCatalogue}
+      >
         Voir tout le parcours →
       </button>
     </div>

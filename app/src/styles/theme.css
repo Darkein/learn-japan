@@ -1,5 +1,6 @@
-/* Tokens — dérivés de DESIGN.md (source de vérité). Dark par défaut, washi en clair.
-   Ne pas écrire de couleur/ombre/espacement en dur ailleurs : tout passe par ces variables. */
+/* Couleurs runtime — dérivées de DESIGN.md (source de vérité). Dark par défaut, washi en clair.
+   Seules les couleurs vivent ici (elles changent selon le thème) ; les tokens statiques
+   (typo, espacement, rayons, mouvement) sont définis via @theme dans global.css. */
 
 :root {
   /* Couleur — DARK (défaut) */
@@ -16,38 +17,6 @@
   --state-unknown: rgba(124, 143, 192, 0.55);
   --state-review: rgba(216, 80, 60, 0.7);
   --state-known: transparent;
-
-  /* Typographie */
-  --font-serif: "Source Serif 4", "Noto Serif JP", Georgia, serif;
-  --font-sans: "Inter", system-ui, "Noto Sans JP", sans-serif;
-  --font-jp: "Noto Serif JP", "Source Serif 4", serif;
-
-  --fs-xs: 0.75rem;
-  --fs-sm: 0.875rem;
-  --fs-base: 1rem;
-  --fs-lg: 1.25rem;
-  --fs-xl: 1.625rem;
-  --fs-2xl: 2.25rem;
-  --fs-3xl: 3rem;
-
-  /* Espacement (4px) */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-6: 24px;
-  --sp-8: 32px;
-  --sp-12: 48px;
-  --sp-16: 64px;
-
-  --radius-sm: 4px;
-  --radius: 6px;
-  --hairline-w: 1px;
-
-  /* Mouvement */
-  --dur: 140ms;
-  --dur-slow: 180ms;
-  --ease: cubic-bezier(0.2, 0, 0.2, 1);
 
   color-scheme: dark;
 }

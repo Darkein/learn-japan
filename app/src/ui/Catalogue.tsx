@@ -13,7 +13,6 @@ import {
 } from "../lib/inventory";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { LessonList } from "./LessonList";
-import styles from "./Catalogue.module.css";
 
 type Section = "lessons" | "kanji" | "vocab" | "grammar";
 
@@ -88,14 +87,14 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
   }
 
   return (
-    <div className={styles.wrap}>
-      <nav className={styles.sections}>
+    <div className="flex flex-col gap-6">
+      <nav className="flex flex-wrap gap-4 border-b border-hairline pb-2">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
             aria-current={section === s.id}
             onClick={() => setSection(s.id)}
-            className={styles.section}
+            className="cursor-pointer border-b-2 border-transparent py-1 font-sans text-sm tracking-wide text-muted aria-[current=true]:border-accent aria-[current=true]:text-text"
           >
             {s.label}
           </button>
@@ -104,7 +103,7 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
 
       {section === "lessons" ? (
         lessons === null ? (
-          <p className={styles.empty}>Chargement…</p>
+          <p className="text-muted">Chargement…</p>
         ) : (
           <LessonList
             lessons={lessons}
@@ -116,20 +115,42 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
         )
       ) : (
         <>
-          <div className={styles.filters}>
-            <div className={styles.filterGroup} role="group" aria-label="Niveau JLPT">
-              <button aria-pressed={level === 0} onClick={() => setLevel(0)}>
+          <div className="flex flex-wrap items-center gap-4">
+            <div
+              className="inline-flex overflow-hidden rounded-sm border border-hairline"
+              role="group"
+              aria-label="Niveau JLPT"
+            >
+              <button
+                className="cursor-pointer border-l border-hairline px-3 py-1 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text"
+                aria-pressed={level === 0}
+                onClick={() => setLevel(0)}
+              >
                 Tous
               </button>
               {LEVELS.map((n) => (
-                <button key={n} aria-pressed={level === n} onClick={() => setLevel(n)}>
+                <button
+                  key={n}
+                  className="cursor-pointer border-l border-hairline px-3 py-1 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text"
+                  aria-pressed={level === n}
+                  onClick={() => setLevel(n)}
+                >
                   N{n}
                 </button>
               ))}
             </div>
-            <div className={styles.filterGroup} role="group" aria-label="Statut">
+            <div
+              className="inline-flex overflow-hidden rounded-sm border border-hairline"
+              role="group"
+              aria-label="Statut"
+            >
               {STATUS_FILTERS.map((f) => (
-                <button key={f.id} aria-pressed={status === f.id} onClick={() => setStatus(f.id)}>
+                <button
+                  key={f.id}
+                  className="cursor-pointer border-l border-hairline px-3 py-1 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text"
+                  aria-pressed={status === f.id}
+                  onClick={() => setStatus(f.id)}
+                >
                   {f.label}
                 </button>
               ))}
@@ -137,7 +158,7 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
           </div>
 
           {statusMaps === null ? (
-            <p className={styles.empty}>Chargement…</p>
+            <p className="text-muted">Chargement…</p>
           ) : (
             <InventoryRows
               section={section}
@@ -164,16 +185,26 @@ interface RowsProps {
 }
 
 function StatusTag({ status }: { status: ItemStatus }) {
+  const dot =
+    status === "unknown"
+      ? "bg-state-unknown"
+      : status === "review"
+        ? "bg-state-review"
+        : "bg-accent-2";
   return (
-    <span className={styles.statusTag} data-status={status}>
-      <span className={styles.dot} />
+    <span className="inline-flex items-center justify-self-end gap-2 whitespace-nowrap text-xs tracking-wide text-muted">
+      <span className={`h-2 w-2 rounded-full border border-transparent ${dot}`} />
       {STATUS_LABEL[status]}
     </span>
   );
 }
 
 function LevelTag({ level }: { level: number }) {
-  return <span className={styles.levelTag}>N{level}</span>;
+  return (
+    <span className="justify-self-end rounded-sm border border-hairline px-2 text-xs text-muted">
+      N{level}
+    </span>
+  );
 }
 
 function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
@@ -182,10 +213,15 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
     return (
       <List count={items.length}>
         {items.slice(0, MAX_ROWS).map((k) => (
-          <li key={k.id} className={styles.row}>
-            <span className={styles.ja}>{k.ja}</span>
-            <span className={styles.reading}>{[...k.kun, ...k.on].slice(0, 4).join("・")}</span>
-            <span className={styles.fr}>{k.fr}</span>
+          <li
+            key={k.id}
+            className="grid grid-cols-[2.5rem_1fr_1.5fr_auto_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+          >
+            <span className="font-jp text-lg text-text">{k.ja}</span>
+            <span className="font-jp text-sm text-muted">
+              {[...k.kun, ...k.on].slice(0, 4).join("・")}
+            </span>
+            <span className="font-sans text-sm text-text">{k.fr}</span>
             <LevelTag level={k.level} />
             <StatusTag status={statusOf("kanji", k.id)} />
           </li>
@@ -198,10 +234,13 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
     return (
       <List count={items.length}>
         {items.slice(0, MAX_ROWS).map((v) => (
-          <li key={v.id} className={styles.rowVocab}>
-            <span className={styles.ja}>{v.ja}</span>
-            <span className={styles.reading}>{v.yomi ?? ""}</span>
-            <span className={styles.fr}>{v.fr}</span>
+          <li
+            key={v.id}
+            className="grid grid-cols-[7rem_6rem_1fr_auto_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+          >
+            <span className="font-jp text-lg text-text">{v.ja}</span>
+            <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
+            <span className="font-sans text-sm text-text">{v.fr}</span>
             <LevelTag level={v.level} />
             <StatusTag status={statusOf("vocab", v.id)} />
           </li>
@@ -213,10 +252,13 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
   return (
     <List count={items.length}>
       {items.slice(0, MAX_ROWS).map((g) => (
-        <li key={g.id} className={styles.rowGrammar}>
-          <span className={styles.ja}>{g.name}</span>
-          <span className={styles.fr}>
-            {g.ruleFr} <em className={styles.example}>ex. {g.exampleJa}</em>
+        <li
+          key={g.id}
+          className="grid grid-cols-[1fr_2fr_auto_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+        >
+          <span className="font-jp text-lg text-text">{g.name}</span>
+          <span className="font-sans text-sm text-text">
+            {g.ruleFr} <em className="text-muted">ex. {g.exampleJa}</em>
           </span>
           <LevelTag level={g.level} />
           <StatusTag status={statusOf("grammar", g.id)} />
@@ -229,14 +271,14 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
 function List({ count, children }: { count: number; children: ReactNode }) {
   return (
     <>
-      <p className={styles.count}>
+      <p className="m-0 text-xs uppercase tracking-wider text-muted">
         {count} élément{count > 1 ? "s" : ""}
         {count > MAX_ROWS ? ` · ${MAX_ROWS} affichés` : ""}
       </p>
       {count === 0 ? (
-        <p className={styles.empty}>Aucun élément pour ce filtre.</p>
+        <p className="text-muted">Aucun élément pour ce filtre.</p>
       ) : (
-        <ul className={styles.invList}>{children}</ul>
+        <ul className="flex list-none flex-col">{children}</ul>
       )}
     </>
   );

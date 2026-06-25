@@ -3,7 +3,6 @@ import { buildQuiz, type QuizQuestion } from "../lib/quiz";
 import { applyKanji, applyParticle } from "../lib/quizSrs";
 import type { SrsGrade } from "../lib/srs";
 import type { KuromojiToken } from "../lib/tokenizer";
-import styles from "./Quiz.module.css";
 
 const GRADES: { id: SrsGrade; label: string }[] = [
   { id: "again", label: "Raté" },
@@ -21,9 +20,12 @@ export function Quiz({ tokens, onClose }: { tokens: KuromojiToken[]; onClose: ()
 
   if (questions.length === 0) {
     return (
-      <div className={styles.panel}>
-        <p className={styles.feedback}>Pas de question générable pour ce texte.</p>
-        <button className={`${styles.btn} ${styles.ghost}`} onClick={onClose}>
+      <div className="flex flex-col gap-4 rounded-md border border-hairline bg-surface px-4 py-6">
+        <p className="text-sm text-muted">Pas de question générable pour ce texte.</p>
+        <button
+          className="cursor-pointer self-start rounded-sm border border-hairline px-4 py-2 text-text"
+          onClick={onClose}
+        >
           Fermer
         </button>
       </div>
@@ -32,11 +34,14 @@ export function Quiz({ tokens, onClose }: { tokens: KuromojiToken[]; onClose: ()
 
   if (i >= questions.length) {
     return (
-      <div className={styles.panel}>
-        <p className={styles.summary}>
+      <div className="flex flex-col gap-4 rounded-md border border-hairline bg-surface px-4 py-6">
+        <p className="text-lg">
           Quiz terminé — {score}/{questions.length} réussis. Les résultats ont nourri le SRS.
         </p>
-        <button className={styles.btn} onClick={onClose}>
+        <button
+          className="cursor-pointer self-start rounded-sm bg-accent px-4 py-2 text-white"
+          onClick={onClose}
+        >
           Terminer
         </button>
       </div>
@@ -66,26 +71,34 @@ export function Quiz({ tokens, onClose }: { tokens: KuromojiToken[]; onClose: ()
   }
 
   return (
-    <div className={styles.panel}>
-      <span className={styles.progress}>
+    <div className="flex flex-col gap-4 rounded-md border border-hairline bg-surface px-4 py-6">
+      <span className="text-xs uppercase tracking-wider text-muted">
         Question {i + 1} / {questions.length}
       </span>
 
       {q.kind === "kanji-reading" ? (
         <>
-          <div className={styles.prompt}>
-            {q.surface} {revealed && <span className={styles.reading}>（{q.reading}）</span>}
+          <div className="font-jp text-2xl">
+            {q.surface}{" "}
+            {revealed && <span className="font-jp text-accent">（{q.reading}）</span>}
           </div>
           {!revealed ? (
-            <button className={styles.btn} onClick={() => setRevealed(true)}>
+            <button
+              className="cursor-pointer self-start rounded-sm bg-accent px-4 py-2 text-white"
+              onClick={() => setRevealed(true)}
+            >
               Révéler la lecture
             </button>
           ) : (
             <>
-              <span className={styles.feedback}>À quel point la connaissais-tu ?</span>
-              <div className={styles.grades}>
+              <span className="text-sm text-muted">À quel point la connaissais-tu ?</span>
+              <div className="flex flex-wrap gap-2">
                 {GRADES.map((g) => (
-                  <button key={g.id} className={styles.grade} onClick={() => gradeKanji(q, g.id)}>
+                  <button
+                    key={g.id}
+                    className="grow basis-20 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                    onClick={() => gradeKanji(q, g.id)}
+                  >
                     {g.label}
                   </button>
                 ))}
@@ -95,23 +108,23 @@ export function Quiz({ tokens, onClose }: { tokens: KuromojiToken[]; onClose: ()
         </>
       ) : (
         <>
-          <div className={styles.prompt}>
+          <div className="font-jp text-2xl">
             {q.before}
-            <span className={styles.blank}>{picked ?? "◯"}</span>
+            <span className="border-b-2 border-accent px-2 text-accent">{picked ?? "◯"}</span>
             {q.after}
           </div>
-          <div className={styles.choices}>
+          <div className="flex flex-wrap gap-3">
             {q.choices.map((c) => {
               const cls =
                 picked && c === q.answer
-                  ? styles.correct
+                  ? "border-accent-2 text-accent-2"
                   : picked === c && c !== q.answer
-                    ? styles.wrong
+                    ? "border-accent text-accent"
                     : "";
               return (
                 <button
                   key={c}
-                  className={`${styles.choice} ${cls}`}
+                  className={`grow basis-16 cursor-pointer rounded-sm border border-hairline bg-bg p-3 font-jp text-lg text-text transition-colors hover:border-accent ${cls}`}
                   onClick={() => pickParticle(q, c)}
                   disabled={!!picked}
                 >
@@ -122,10 +135,13 @@ export function Quiz({ tokens, onClose }: { tokens: KuromojiToken[]; onClose: ()
           </div>
           {picked && (
             <>
-              <span className={styles.feedback}>
+              <span className="text-sm text-muted">
                 {picked === q.answer ? "Correct." : `Réponse : ${q.answer}`}
               </span>
-              <button className={styles.btn} onClick={next}>
+              <button
+                className="cursor-pointer self-start rounded-sm bg-accent px-4 py-2 text-white"
+                onClick={next}
+              >
                 Suivant
               </button>
             </>

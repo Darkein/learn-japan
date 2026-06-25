@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { allStories, deleteStory, type StoryRecord } from "../lib/db";
 import { getCurriculum } from "../lib/lessons";
 import { GeneratePanel } from "./GeneratePanel";
-import styles from "./Histoires.module.css";
 
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
@@ -40,41 +39,55 @@ export function Histoires({ onOpen }: Props) {
   }
 
   return (
-    <div className={styles.wrap}>
+    <div className="flex flex-col gap-6">
       {stories === null ? (
-        <p className={styles.empty}>Chargement…</p>
+        <p className="text-muted">Chargement…</p>
       ) : stories.length === 0 ? (
-        <p className={styles.empty}>
+        <p className="text-muted">
           Pas encore d'histoire — démarre une leçon dans <strong>Apprendre</strong>, ou génère-en une
           ci-dessous.
         </p>
       ) : (
-        <div className={styles.list}>
+        <div className="flex flex-col">
           {stories.map((s) => {
             const lesson = s.lessonId ? lessonTitles.get(s.lessonId) : undefined;
             return (
-              <div key={s.id} className={styles.row}>
-                <span className={styles.title}>{s.title}</span>
-                <span className={styles.date}>{new Date(s.createdAt).toLocaleString("fr-FR")}</span>
+              <div
+                key={s.id}
+                className="flex flex-col gap-2 border-t border-hairline py-4 last:border-b"
+              >
+                <span className="font-jp text-lg">{s.title}</span>
+                <span className="text-xs text-muted">
+                  {new Date(s.createdAt).toLocaleString("fr-FR")}
+                </span>
                 {(lesson || chips(s.params).length > 0) && (
-                  <div className={styles.chips}>
+                  <div className="flex flex-wrap gap-2">
                     {lesson && (
-                      <span className={`${styles.chip} ${styles.lessonChip}`}>
+                      <span className="rounded-sm border border-accent px-2 py-0.5 text-xs text-accent">
                         Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
                       </span>
                     )}
                     {chips(s.params).map((c) => (
-                      <span key={c} className={styles.chip}>
+                      <span
+                        key={c}
+                        className="rounded-sm border border-hairline px-2 py-0.5 text-xs text-muted"
+                      >
                         {c}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className={styles.actions}>
-                  <button className={styles.btn} onClick={() => onOpen(s)}>
+                <div className="mt-1 flex gap-3">
+                  <button
+                    className="cursor-pointer rounded-sm border border-hairline px-3 py-1 text-sm text-text transition-colors hover:border-accent"
+                    onClick={() => onOpen(s)}
+                  >
                     Ouvrir
                   </button>
-                  <button className={`${styles.btn} ${styles.del}`} onClick={() => void remove(s.id)}>
+                  <button
+                    className="cursor-pointer rounded-sm border border-hairline px-3 py-1 text-sm text-text transition-colors hover:border-accent hover:text-accent"
+                    onClick={() => void remove(s.id)}
+                  >
                     Supprimer
                   </button>
                 </div>

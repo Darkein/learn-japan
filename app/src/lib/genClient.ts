@@ -100,11 +100,11 @@ export async function generateLessonIntro(
   opts: { timeoutMs?: number } = {},
 ): Promise<string> {
   const prompt = [
-    `Rédige le texte de cadrage d'une leçon de japonais pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
+    `Rédige une leçon de japonais au format Markdown pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
     "Les éléments à enseigner sont :",
     ...objectivesBlock(input),
     "",
-    "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases, paragraphes courts, **gras** autorisé pour les mots japonais clés) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique. Pas de titre, pas de liste de vocabulaire brute (elle est affichée à côté). Réponds uniquement avec ce texte FR.",
+    "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases minimum, paragraphes courts, **gras** autorisé pour les mots japonais clés) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique. Pas de titre, pas de liste de vocabulaire brute (elle est affichée à côté). Réponds uniquement avec ce texte FR.",
   ]
     .filter(Boolean)
     .join("\n");

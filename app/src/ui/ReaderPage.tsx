@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import styles from "./ReaderPage.module.css";
 
 interface Props {
   /** Titre optionnel affiché dans la barre supérieure (titre de la leçon / histoire). */
@@ -15,14 +14,17 @@ interface Props {
  */
 export function ReaderPage({ title, onBack, children }: Props) {
   return (
-    <div className={styles.page}>
-      <div className={styles.bar}>
-        <button className={styles.back} onClick={onBack}>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-baseline gap-4 border-b border-hairline pb-3">
+        <button
+          className="cursor-pointer py-1 font-sans text-sm tracking-wide text-muted transition-colors hover:text-text"
+          onClick={onBack}
+        >
           ← Retour
         </button>
-        {title && <span className={styles.title}>{title}</span>}
+        {title && <span className="flex-1 font-serif text-lg text-text">{title}</span>}
       </div>
-      <div className={styles.body}>{children}</div>
+      <div className="flex flex-col">{children}</div>
     </div>
   );
 }

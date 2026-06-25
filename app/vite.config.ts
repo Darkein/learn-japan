@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 // Déployé sous https://<user>.github.io/learn-japan/ → base = '/learn-japan/'.
@@ -10,6 +11,7 @@ export default defineConfig({
   base: BASE,
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
       // Le dictionnaire kuromoji (~12 Mo) est volumineux : on l'EXCLUT du precache

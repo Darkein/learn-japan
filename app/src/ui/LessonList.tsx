@@ -4,7 +4,6 @@ import type { Lesson } from "../lib/lessons";
 import { CourseDetail } from "./CourseDetail";
 import { LessonCard } from "./LessonCard";
 import { useMediaQuery } from "./useMediaQuery";
-import styles from "./LessonList.module.css";
 
 interface Props {
   lessons: Lesson[];
@@ -31,7 +30,7 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, spli
 
   if (!effectiveSplit) {
     return (
-      <ol className={styles.list}>
+      <ol className="list-none">
         {lessons.map((lesson) => (
           <LessonCard
             key={lesson.id}
@@ -46,8 +45,8 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, spli
   }
 
   return (
-    <div className={styles.split}>
-      <ol className={styles.list}>
+    <div className="grid grid-cols-3 items-start gap-6">
+      <ol className="list-none border-r border-hairline pr-6">
         {lessons.map((lesson) => (
           <LessonCard
             key={lesson.id}
@@ -59,7 +58,7 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, spli
           />
         ))}
       </ol>
-      <div className={styles.pane}>
+      <div className="col-span-2 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
         {selected ? (
           <CourseDetail
             key={selected.id}
@@ -68,7 +67,7 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, spli
             onChanged={onChanged}
           />
         ) : (
-          <p className={styles.placeholder}>Sélectionne une leçon pour voir le cours.</p>
+          <p className="m-0 text-sm text-muted">Sélectionne une leçon pour voir le cours.</p>
         )}
       </div>
     </div>

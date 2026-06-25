@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SrsGrade } from "../lib/srs";
 import { dueCards, gradeCard, type WarmupCard } from "../lib/warmup";
-import styles from "./Warmup.module.css";
 
 const GRADES: { id: SrsGrade; label: string }[] = [
   { id: "again", label: "Raté" },
@@ -25,17 +24,15 @@ export function Warmup() {
     void dueCards().then(setCards);
   }, []);
 
-  if (!cards) return <p className={styles.empty}>Chargement…</p>;
+  if (!cards) return <p className="text-muted">Chargement…</p>;
   if (cards.length === 0)
     return (
-      <p className={styles.empty}>
+      <p className="text-muted">
         Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici.
       </p>
     );
   if (i >= cards.length)
-    return (
-      <p className={styles.empty}>Échauffement terminé — {cards.length} élément(s) revus. 🎴</p>
-    );
+    return <p className="text-muted">Échauffement terminé — {cards.length} élément(s) revus. 🎴</p>;
 
   const card = cards[i];
 
@@ -46,26 +43,33 @@ export function Warmup() {
   }
 
   return (
-    <div className={styles.panel}>
-      <span className={styles.progress}>
+    <div className="flex flex-col gap-4">
+      <span className="text-xs uppercase tracking-wider text-muted">
         Échauffement {i + 1} / {cards.length} ·{" "}
-        <span className={styles.track}>{TRACK_FR[card.track]}</span>
+        <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
-      <div className={styles.card}>
-        <div className={styles.front}>{card.front}</div>
+      <div className="flex flex-col items-center gap-4 rounded-md border border-hairline bg-surface px-4 py-12 text-center">
+        <div className="font-jp text-3xl">{card.front}</div>
         {revealed ? (
           <>
-            <div className={styles.back}>{card.back}</div>
-            <div className={styles.grades}>
+            <div className="font-jp text-xl text-muted">{card.back}</div>
+            <div className="flex flex-wrap justify-center gap-2">
               {GRADES.map((g) => (
-                <button key={g.id} className={styles.grade} onClick={() => grade(g.id)}>
+                <button
+                  key={g.id}
+                  className="grow basis-20 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                  onClick={() => grade(g.id)}
+                >
                   {g.label}
                 </button>
               ))}
             </div>
           </>
         ) : (
-          <button className={styles.btn} onClick={() => setRevealed(true)}>
+          <button
+            className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
+            onClick={() => setRevealed(true)}
+          >
             Révéler
           </button>
         )}

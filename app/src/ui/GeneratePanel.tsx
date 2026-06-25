@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { generateText, type GenState } from "../lib/genClient";
 import { saveStory, type StoryParams } from "../lib/stories";
-import styles from "./GeneratePanel.module.css";
 
 const GEN_LABEL: Record<GenState, string> = {
   queued: "en file…",
@@ -58,24 +57,26 @@ export function GeneratePanel({ onGenerated }: Props) {
   }
 
   return (
-    <div className={styles.panel}>
-      <span className={styles.kicker}>Générer une histoire</span>
-      <div className={styles.row}>
-        <div className={styles.field}>
-          <label htmlFor="g-theme">Thème</label>
-          <input id="g-theme" value={theme} placeholder="animaux, izakaya…" onChange={(e) => setTheme(e.target.value)} />
+    <div className="flex flex-col gap-3 rounded-sm border border-hairline bg-surface p-4">
+      <span className="font-sans text-xs uppercase tracking-widest text-muted">
+        Générer une histoire
+      </span>
+      <div className="flex flex-wrap gap-3">
+        <div className="flex grow basis-32 flex-col gap-1">
+          <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-theme">Thème</label>
+          <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-theme" value={theme} placeholder="animaux, izakaya…" onChange={(e) => setTheme(e.target.value)} />
         </div>
-        <div className={styles.field}>
-          <label htmlFor="g-kanji">Kanji</label>
-          <input id="g-kanji" value={kanji} placeholder="猫 犬 水" onChange={(e) => setKanji(e.target.value)} />
+        <div className="flex grow basis-32 flex-col gap-1">
+          <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-kanji">Kanji</label>
+          <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-kanji" value={kanji} placeholder="猫 犬 水" onChange={(e) => setKanji(e.target.value)} />
         </div>
-        <div className={styles.field}>
-          <label htmlFor="g-grammar">Grammaire</label>
-          <input id="g-grammar" value={grammar} placeholder="て-forme, は/が" onChange={(e) => setGrammar(e.target.value)} />
+        <div className="flex grow basis-32 flex-col gap-1">
+          <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-grammar">Grammaire</label>
+          <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-grammar" value={grammar} placeholder="て-forme, は/が" onChange={(e) => setGrammar(e.target.value)} />
         </div>
-        <div className={styles.field} style={{ flex: "0 0 5rem" }}>
-          <label htmlFor="g-level">JLPT</label>
-          <select id="g-level" value={level} onChange={(e) => setLevel(Number(e.target.value))}>
+        <div className="flex shrink-0 grow-0 basis-20 flex-col gap-1">
+          <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-level">JLPT</label>
+          <select className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-level" value={level} onChange={(e) => setLevel(Number(e.target.value))}>
             {[5, 4, 3, 2, 1].map((n) => (
               <option key={n} value={n}>
                 N{n}
@@ -84,25 +85,35 @@ export function GeneratePanel({ onGenerated }: Props) {
           </select>
         </div>
       </div>
-      <div className={styles.controls}>
-        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={generate} disabled={generating}>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={generate}
+          disabled={generating}
+        >
           {generating ? "Génération…" : "Générer"}
         </button>
-        {genState && <span className={styles.status}>Statut : {GEN_LABEL[genState]}</span>}
+        {genState && <span className="text-sm text-muted">Statut : {GEN_LABEL[genState]}</span>}
       </div>
-      {error && <p className={styles.error}>{error}</p>}
+      {error && <p className="text-sm text-accent">{error}</p>}
 
-      <details className={styles.advanced}>
-        <summary className={styles.summary}>Coller un texte japonais</summary>
+      <details className="border-t border-hairline pt-3">
+        <summary className="cursor-pointer select-none text-sm tracking-wide text-muted hover:text-text">
+          Coller un texte japonais
+        </summary>
         <textarea
-          className={styles.input}
+          className="mt-3 min-h-[4.5rem] w-full resize-y rounded-sm border border-hairline bg-bg p-3 font-jp text-lg leading-[1.8] text-text"
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           spellCheck={false}
           placeholder="Colle ici une phrase ou un texte japonais libre…"
         />
-        <div className={styles.controls}>
-          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={openPasted} disabled={!paste.trim()}>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={openPasted}
+            disabled={!paste.trim()}
+          >
             Lire ce texte
           </button>
         </div>

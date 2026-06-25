@@ -9,7 +9,6 @@ import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } fro
 import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
 import { WordSheet } from "./WordSheet";
-import styles from "./ReaderPoc.module.css";
 
 export interface LessonContext {
   lessonId: string;
@@ -105,30 +104,38 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
   }
 
   return (
-    <div className={styles.wrap}>
+    <div className="flex flex-col gap-6">
       {lessonCtx && (
-        <aside className={styles.banner}>
-          <div className={styles.bannerHead}>
-            <span className={styles.bannerKicker}>Leçon{lessonCtx.level ? ` · N${lessonCtx.level}` : ""}</span>
-            {lessonCtx.title && <span className={styles.bannerTitle}>{lessonCtx.title}</span>}
+        <aside className="flex flex-col gap-2 rounded-r-sm border-l-4 border-l-accent bg-surface px-4 py-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <span className="text-xs uppercase tracking-widest text-muted">
+              Leçon{lessonCtx.level ? ` · N${lessonCtx.level}` : ""}
+            </span>
+            {lessonCtx.title && (
+              <span className="font-serif text-lg text-text">{lessonCtx.title}</span>
+            )}
           </div>
           {lessonCtx.objectives && (lessonCtx.objectives.vocab.length > 0 || lessonCtx.objectives.kanji.length > 0) && (
-            <p className={styles.bannerTarget}>
+            <p className="m-0 text-sm text-muted">
               cible :{" "}
               {[
                 ...lessonCtx.objectives.kanji.map((k) => ({ ja: k.ja, fr: k.fr })),
                 ...lessonCtx.objectives.vocab.slice(0, 4).map((v) => ({ ja: v.ja, fr: v.fr })),
               ].map((it, i, arr) => (
                 <span key={`${it.ja}-${i}`}>
-                  <span className={styles.bannerJp}>{it.ja}</span>
-                  <span className={styles.bannerFr}> ({it.fr})</span>
+                  <span className="font-jp text-text">{it.ja}</span>
+                  <span className="text-muted"> ({it.fr})</span>
                   {i < arr.length - 1 ? " · " : ""}
                 </span>
               ))}
             </p>
           )}
-          <div className={styles.bannerActions}>
-            <button className={styles.btn} onClick={() => void markDone()} disabled={lessonDone}>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void markDone()}
+              disabled={lessonDone}
+            >
               {lessonDone ? "Marquée terminée ✓" : "Marquer comme terminée"}
             </button>
           </div>
@@ -137,24 +144,27 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
 
       {result && !loading && (
         <>
-          <p className={styles.hint}>Tape un mot pour ouvrir lecture, sens et suivi de révision.</p>
-          <div className={styles.sentence}>
+          <p className="text-sm text-muted">Tape un mot pour ouvrir lecture, sens et suivi de révision.</p>
+          <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
             {result.tokens.map((tok, i) => {
               const g = result.gloss[i];
+              const active = i === player.currentTokenIndex;
               return (
                 <span
                   key={i}
-                  className={`${styles.wordCell} ${i === player.currentTokenIndex ? styles.wordActive : ""}`}
+                  className="inline-flex cursor-pointer flex-col items-center gap-0.5 border-b-2 border-transparent pb-0.5 transition-colors hover:border-state-unknown"
                   style={{ borderBottomColor: underlineColor(tok, statuses) }}
                   onClick={() => setOpenIdx(i)}
                   role="button"
                   tabIndex={0}
                 >
-                  <span className={styles.wordJa}>
+                  <span
+                    className={`font-jp text-2xl ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
+                  >
                     <Ruby segments={tok.segments} reveal={revealFurigana} />
                   </span>
                   <span
-                    className={`${styles.wordGloss} ${g.grammatical ? styles.glossGram : ""}`}
+                    className={`max-w-40 text-center font-sans text-xs leading-tight text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
                     style={{ visibility: revealGloss ? "visible" : "hidden" }}
                   >
                     {g.gloss}
@@ -164,9 +174,9 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
             })}
           </div>
 
-          <div className={styles.controls}>
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              className={`${styles.btn} ${player.playing ? styles.btnPrimary : ""}`}
+              className={`cursor-pointer rounded-sm border px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50 ${player.playing ? "border-accent bg-accent text-white" : "border-hairline"}`}
               onClick={player.toggle}
               disabled={player.loading || sentences.length === 0}
             >
@@ -176,21 +186,27 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
                   ? "⏸ Pause"
                   : "▶ Écouter l'article"}
             </button>
-            <button className={styles.btn} onClick={() => setRevealFurigana((v) => !v)}>
+            <button
+              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setRevealFurigana((v) => !v)}
+            >
               {revealFurigana ? "Masquer furigana" : "Afficher furigana"}
             </button>
-            <button className={styles.btn} onClick={() => setRevealGloss((v) => !v)}>
+            <button
+              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setRevealGloss((v) => !v)}
+            >
               {revealGloss ? "Masquer gloss" : "Afficher gloss"}
             </button>
             <button
-              className={`${styles.btn} ${styles.btnPrimary}`}
+              className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => setQuizOpen((v) => !v)}
             >
               {quizOpen ? "Fermer le quiz" : "Quiz de lecture"}
             </button>
           </div>
 
-          {player.error && <p className={styles.error}>Audio indisponible : {player.error}</p>}
+          {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
 
           {quizOpen && (
             <Quiz tokens={result.tokens.map((t) => t.token)} onClose={() => setQuizOpen(false)} />
@@ -198,8 +214,8 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
         </>
       )}
 
-      {loading && <p className={styles.hint}>Chargement du tokenizer…</p>}
-      {error && <p className={styles.error}>{error}</p>}
+      {loading && <p className="text-sm text-muted">Chargement du tokenizer…</p>}
+      {error && <p className="text-sm text-accent">{error}</p>}
 
       {openIdx != null && result && (
         <WordSheet
