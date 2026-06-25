@@ -8,6 +8,9 @@
 // l'audio + les timepoints. Le client met en cache localement (IndexedDB) → pas de R2.
 
 export interface Env {
+  // Clé Gemini principale (SECRET). Des clés additionnelles GEMINI_API_KEY_2,
+  // _3, … (jusqu'à _10) sont lues dynamiquement → répartir le quota / repli sur
+  // un autre projet quand le premier est à 429. Voir geminiKeyEnvs().
   GEMINI_API_KEY?: string;
   GEMINI_MODEL: string;
   // Chaîne de repli (JSON) : [{ provider, model, keyEnv }], du plus puissant au
@@ -88,6 +91,18 @@ interface ModelEntry {
   keyEnv: string;
 }
 
+/**
+ * Noms des variables d'env portant une clé Gemini, dans l'ordre de préférence :
+ * GEMINI_API_KEY puis GEMINI_API_KEY_2, _3, … (ajouter une clé = répartir le
+ * quota / un repli quand un projet est à 429). Seules les clés non vides comptent.
+ */
+function geminiKeyEnvs(env: Env): string[] {
+  const rec = env as unknown as Record<string, string | undefined>;
+  const names = ["GEMINI_API_KEY"];
+  for (let i = 2; i <= 10; i++) names.push(`GEMINI_API_KEY_${i}`);
+  return names.filter((n) => (rec[n] ?? "").trim().length > 0);
+}
+
 /** Chaîne de modèles, du plus puissant au plus léger. `MODEL_CHAIN` (JSON) prime. */
 function resolveChain(env: Env): ModelEntry[] {
   if (env.MODEL_CHAIN) {
@@ -112,7 +127,15 @@ function resolveChain(env: Env): ModelEntry[] {
     "gemini-3.1-flash-lite",
     "gemini-2.5-flash-lite",
   ])];
-  return models.map((model) => ({ provider: "gemini", model, keyEnv: "GEMINI_API_KEY" }));
+  // Au moins GEMINI_API_KEY même absente → laisse generate() détecter l'absence
+  // de clé et répondre le stub. Sinon : toutes les clés configurées.
+  const keyEnvs = geminiKeyEnvs(env);
+  const envs = keyEnvs.length ? keyEnvs : ["GEMINI_API_KEY"];
+  // Modèle d'abord, clés ensuite : un 429 est par projet/clé → on change de clé
+  // pour GARDER le meilleur modèle avant de dégrader vers un modèle plus léger.
+  return models.flatMap((model) =>
+    envs.map((keyEnv) => ({ provider: "gemini" as const, model, keyEnv })),
+  );
 }
 
 function keyFor(env: Env, entry: ModelEntry): string | undefined {

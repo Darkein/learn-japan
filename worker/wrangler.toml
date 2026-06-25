@@ -12,6 +12,9 @@ workers_dev = true
 [vars]
 # Modèle texte gratuit (free tier Gemini). La clé est un SECRET, pas une var :
 #   wrangler secret put GEMINI_API_KEY
+# Clés additionnelles (autres projets Google AI) pour répartir le quota et servir
+# de repli sur 429 : wrangler secret put GEMINI_API_KEY_2  (puis _3, … jusqu'à _10).
+# Le Worker, pour chaque modèle, essaie toutes les clés avant de dégrader de modèle.
 GEMINI_MODEL = "gemini-2.5-flash"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
