@@ -107,10 +107,11 @@ export async function generateLessonIntro(
     "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases minimum) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique.",
     "",
     "Mise en forme — n'utilise QUE ces balises Markdown, aucune autre :",
+    "- de courts titres de section avec « ## » (ou « ### ») pour séparer les idées (ex. « ## L'intuition », « ## Un piège ») ;",
     "- des paragraphes courts séparés par une ligne vide (aère le texte, ne fais pas un seul bloc compact) ;",
     "- **gras** pour les mots japonais clés et *italique* pour une nuance ou une lecture ;",
     "- des listes à puces (lignes commençant par « - ») pour énumérer des exemples ou des pièges.",
-    "N'emploie aucune autre syntaxe : pas de titre (#), pas de tableau, pas de lien, pas de bloc de code, pas de citation. Pas de liste de vocabulaire brute (elle est affichée à côté).",
+    "N'emploie aucune autre syntaxe : pas de titre de niveau 1 (#), pas de tableau, pas de lien, pas de bloc de code, pas de citation. Pas de liste de vocabulaire brute (elle est affichée à côté).",
     "Réponds uniquement avec ce texte FR.",
   ]
     .filter(Boolean)

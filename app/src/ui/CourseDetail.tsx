@@ -159,17 +159,29 @@ function Cours({ lesson }: { lesson: Lesson }) {
 
 // Rendu minimaliste sans dépendance externe. Balises Markdown autorisées (et
 // seules prises en compte) — voir aussi le prompt de génération qui les impose :
+//   - titres de section : ligne débutant par « ## » ou « ### » ;
 //   - paragraphes : séparés par une ligne vide ;
 //   - retour à la ligne simple : conservé (<br/>) à l'intérieur d'un paragraphe ;
 //   - listes à puces : lignes débutant par « - » ou « * » ;
 //   - **gras** et *italique* en ligne.
 function Markdown({ text }: { text: string }) {
-  // Découpe en blocs sur les lignes vides ; chaque bloc est une liste ou un paragraphe.
+  // Découpe en blocs sur les lignes vides ; chaque bloc est un titre, une liste ou un paragraphe.
   const blocks = text.trim().split(/\n{2,}/);
   return (
     <div className="space-y-2">
       {blocks.map((block, i) => {
         const lines = block.split("\n");
+        const heading = block.match(/^(#{2,3})\s+(.*)$/);
+        if (heading && lines.length === 1) {
+          return (
+            <h4
+              key={i}
+              className="mt-3 font-sans text-xs uppercase tracking-wider text-muted first:mt-0"
+            >
+              {inline(heading[2])}
+            </h4>
+          );
+        }
         const isList = lines.every((l) => /^\s*[-*]\s+/.test(l));
         if (isList) {
           return (
