@@ -1,23 +1,28 @@
-import { useState } from "react";
-import type { StoryRecord } from "../lib/db";
-import { getCurriculumEntry, type Lesson } from "../lib/lessons";
+import { useEffect, useState } from "react";
+import { getStory, type StoryRecord } from "../lib/db";
+import { getCurriculumEntry, getLesson, type Lesson } from "../lib/lessons";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
 import { Histoires } from "./Histoires";
 import { Home } from "./Home";
 import { ReaderPage } from "./ReaderPage";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
+import {
+  currentLocation,
+  navigate,
+  tabForRoute,
+  useHashRoute,
+  type Tab,
+} from "./useHashRoute";
 import { Warmup } from "./Warmup";
 import { useTheme, type Theme } from "./useTheme";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6 pb-16";
 
-type Tab = "home" | "stories" | "catalogue";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "home", label: "Apprendre" },
-  { id: "stories", label: "Histoires" },
-  { id: "catalogue", label: "Catalogue" },
+const TABS: { id: Tab; label: string; path: string }[] = [
+  { id: "home", label: "Apprendre", path: "/" },
+  { id: "stories", label: "Histoires", path: "/histoires" },
+  { id: "catalogue", label: "Catalogue", path: "/catalogue" },
 ];
 
 const THEMES: { id: Theme; label: string }[] = [
@@ -26,55 +31,106 @@ const THEMES: { id: Theme; label: string }[] = [
   { id: "dark", label: "Sombre" },
 ];
 
+// Construit le contexte de lecture à partir d'une histoire enregistrée. Si l'histoire est
+// rattachée à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
+function buildIncoming(story: StoryRecord): IncomingStory {
+  const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
+  return {
+    text: story.text,
+    params: story.params,
+    nonce: Date.now(),
+    lessonContext: entry
+      ? {
+          lessonId: entry.id,
+          title: entry.title,
+          level: entry.level,
+          objectives: entry.objectives,
+        }
+      : story.lessonId
+        ? { lessonId: story.lessonId }
+        : undefined,
+  };
+}
+
 export function App() {
-  const [tab, setTab] = useState<Tab>("home");
+  const route = useHashRoute();
   const [theme, setTheme] = useTheme();
-  const [reader, setReader] = useState<IncomingStory | null>(null);
-  const [reviewing, setReviewing] = useState(false);
-  // Cours ouvert en page dédiée (mobile / écran étroit ; le split desktop est géré dans LessonList).
+  // Données des sous-pages, résolues depuis l'id contenu dans l'URL (rechargement direct possible).
+  const [reader, setReader] = useState<{ id: string; incoming: IncomingStory } | null>(null);
   const [course, setCourse] = useState<Lesson | null>(null);
   // Force le rafraîchissement des données de l'onglet courant au retour d'une page de lecture.
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Chemin d'ouverture unique (Apprendre, Histoires, Catalogue). Si l'histoire est rattachée
-  // à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
+  const tab = tabForRoute(route);
+
+  // Résolution asynchrone des sous-pages : l'URL ne contient qu'un id, on recharge l'objet
+  // complet depuis IndexedDB / le curriculum. Couvre le rechargement direct d'une page profonde.
+  useEffect(() => {
+    let cancelled = false;
+
+    if (route.kind === "reader") {
+      if (reader?.id !== route.id) {
+        getStory(route.id).then((story) => {
+          if (cancelled) return;
+          if (story) setReader({ id: story.id, incoming: buildIncoming(story) });
+          else navigate("/"); // histoire introuvable (purge) → retour accueil
+        });
+      }
+    } else if (reader) {
+      setReader(null);
+    }
+
+    if (route.kind === "course") {
+      if (course?.id !== route.id) {
+        getLesson(route.id).then((lesson) => {
+          if (cancelled) return;
+          if (lesson) setCourse(lesson);
+          else navigate("/");
+        });
+      }
+    } else if (course) {
+      setCourse(null);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.kind, (route as { id?: string }).id]);
+
+  // Ouverture d'une histoire : on enregistre l'origine (`from`) pour un retour fidèle au
+  // rechargement, et on pré-remplit l'état pour éviter un flash de chargement.
   function openStory(story: StoryRecord) {
-    const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
-    setReader({
-      text: story.text,
-      params: story.params,
-      nonce: Date.now(),
-      lessonContext: entry
-        ? {
-            lessonId: entry.id,
-            title: entry.title,
-            level: entry.level,
-            objectives: entry.objectives,
-          }
-        : story.lessonId
-          ? { lessonId: story.lessonId }
-          : undefined,
-    });
+    setReader({ id: story.id, incoming: buildIncoming(story) });
+    navigate(`/lecture/${encodeURIComponent(story.id)}?from=${encodeURIComponent(currentLocation())}`);
+  }
+
+  function openCourse(lesson: Lesson) {
+    setCourse(lesson);
+    navigate(`/cours/${encodeURIComponent(lesson.id)}?from=${encodeURIComponent(currentLocation())}`);
+  }
+
+  function startReview() {
+    navigate(`/revision?from=${encodeURIComponent(currentLocation())}`);
   }
 
   function back() {
-    setReader(null);
-    setReviewing(false);
-    setCourse(null);
+    const from = "from" in route ? route.from : "/";
     setRefreshKey((n) => n + 1);
+    navigate(from);
   }
 
   // Pages dédiées : remplacent le shell à onglets (navigation simple, page lisible).
-  if (reader) {
+  if (route.kind === "reader" && reader) {
     return (
       <div className={SHELL}>
-        <ReaderPage title={reader.lessonContext?.title ?? "Lecture"} onBack={back}>
-          <ReaderPoc incoming={reader} onComplete={back} />
+        <ReaderPage title={reader.incoming.lessonContext?.title ?? "Lecture"} onBack={back}>
+          <ReaderPoc incoming={reader.incoming} onComplete={back} />
         </ReaderPage>
       </div>
     );
   }
-  if (reviewing) {
+  if (route.kind === "review") {
     return (
       <div className={SHELL}>
         <ReaderPage title="Révision" onBack={back}>
@@ -83,12 +139,21 @@ export function App() {
       </div>
     );
   }
-  if (course) {
+  if (route.kind === "course" && course) {
     return (
       <div className={SHELL}>
         <ReaderPage title={course.title} onBack={back}>
           <CourseDetail lesson={course} onOpenStory={openStory} onChanged={() => undefined} />
         </ReaderPage>
+      </div>
+    );
+  }
+  // Sous-page demandée mais données pas encore résolues (rechargement direct) : on évite
+  // d'afficher brièvement le shell à onglets en attendant getStory/getLesson.
+  if (route.kind === "reader" || route.kind === "course") {
+    return (
+      <div className={SHELL}>
+        <ReaderPage title="Chargement…" onBack={back} />
       </div>
     );
   }
@@ -123,7 +188,7 @@ export function App() {
             key={t.id}
             className="cursor-pointer border-b-2 border-transparent py-1 font-sans text-sm tracking-wide text-muted aria-[current=true]:border-accent aria-[current=true]:text-text"
             aria-current={tab === t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => navigate(t.path)}
           >
             {t.label}
           </button>
@@ -134,13 +199,13 @@ export function App() {
         {tab === "home" && (
           <Home
             onOpenStory={openStory}
-            onOpenCourse={setCourse}
-            onStartReview={() => setReviewing(true)}
-            onGoCatalogue={() => setTab("catalogue")}
+            onOpenCourse={openCourse}
+            onStartReview={startReview}
+            onGoCatalogue={() => navigate("/catalogue")}
           />
         )}
         {tab === "stories" && <Histoires onOpen={openStory} />}
-        {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={setCourse} />}
+        {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={openCourse} />}
       </div>
 
       <footer className="mt-16 border-t border-hairline pt-4 text-xs leading-relaxed text-muted">
