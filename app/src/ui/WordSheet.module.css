@@ -45,6 +45,19 @@
   color: var(--text-muted);
   font-size: var(--fs-lg);
 }
+.play {
+  background: transparent;
+  border: var(--hairline-w) solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+  cursor: pointer;
+  font-size: var(--fs-md);
+  line-height: 1;
+  transition: border-color var(--dur) var(--ease);
+}
+.play:hover {
+  border-color: var(--accent);
+}
 .pos {
   margin-left: auto;
 }

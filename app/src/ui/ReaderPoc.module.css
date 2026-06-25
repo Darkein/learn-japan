@@ -173,6 +173,12 @@
 .wordCell:hover {
   border-bottom-color: var(--state-unknown);
 }
+/* Mot actuellement prononcé pendant la lecture audio. */
+.wordActive .wordJa {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: var(--radius-sm);
+  box-decoration-break: clone;
+}
 .wordJa {
   font-family: var(--font-jp);
   font-size: var(--fs-2xl);

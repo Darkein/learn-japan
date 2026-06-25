@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { generateText, type GenState } from "../lib/genClient";
 import { markLessonCompleted, type LessonObjectives } from "../lib/lessons";
 import { saveStory, type StoryParams } from "../lib/stories";
+import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
@@ -71,6 +72,11 @@ export function ReaderPoc({ incoming, onBackToLessons }: Props) {
   const [saved, setSaved] = useState(false);
   const [lessonCtx, setLessonCtx] = useState<LessonContext | null>(null);
   const [lessonDone, setLessonDone] = useState(false);
+
+  // Lecture audio de l'article : phrases dérivées des tokens (réf. stable tant que
+  // l'analyse ne change pas → le player se réinitialise à chaque nouvel article).
+  const sentences = useMemo(() => (result ? splitSentences(result.tokens) : []), [result]);
+  const player = useArticlePlayer(sentences);
 
   // Mémorise le texte courant pour le restaurer au prochain chargement.
   useEffect(() => {
@@ -206,7 +212,7 @@ export function ReaderPoc({ incoming, onBackToLessons }: Props) {
               return (
                 <span
                   key={i}
-                  className={styles.wordCell}
+                  className={`${styles.wordCell} ${i === player.currentTokenIndex ? styles.wordActive : ""}`}
                   style={{ borderBottomColor: underlineColor(tok, statuses) }}
                   onClick={() => setOpenIdx(i)}
                   role="button"
@@ -227,6 +233,17 @@ export function ReaderPoc({ incoming, onBackToLessons }: Props) {
           </div>
 
           <div className={styles.controls}>
+            <button
+              className={`${styles.btn} ${player.playing ? styles.btnPrimary : ""}`}
+              onClick={player.toggle}
+              disabled={player.loading || sentences.length === 0}
+            >
+              {player.loading
+                ? "Chargement…"
+                : player.playing
+                  ? "⏸ Pause"
+                  : "▶ Écouter l'article"}
+            </button>
             <button className={styles.btn} onClick={() => setRevealFurigana((v) => !v)}>
               {revealFurigana ? "Masquer furigana" : "Afficher furigana"}
             </button>
@@ -245,6 +262,8 @@ export function ReaderPoc({ incoming, onBackToLessons }: Props) {
               </button>
             )}
           </div>
+
+          {player.error && <p className={styles.error}>Audio indisponible : {player.error}</p>}
 
           {quizOpen && (
             <Quiz tokens={result.tokens.map((t) => t.token)} onClose={() => setQuizOpen(false)} />

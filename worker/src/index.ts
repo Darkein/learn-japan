@@ -3,7 +3,9 @@
 //
 // Génération SYNCHRONE : pour une courte histoire, Gemini répond en quelques secondes,
 // bien dans les limites d'un Worker. Pas de KV ni de R2 → rien à provisionner.
-// (Le stockage audio R2 reviendra avec le mode voiture / TTS en Phase 3.)
+//
+// TTS SYNCHRONE aussi (POST /tts) : on synthétise une phrase à la demande et on renvoie
+// l'audio + les timepoints. Le client met en cache localement (IndexedDB) → pas de R2.
 
 export interface Env {
   GEMINI_API_KEY?: string;
@@ -12,6 +14,12 @@ export interface Env {
   // plus léger. Optionnel — un défaut codé en dur prend le relais (resolveChain).
   MODEL_CHAIN?: string;
   REQUIRE_ACCESS: string;
+  // TTS (mode voiture / écoute d'article). Clé Google Cloud Text-to-Speech : un
+  // SECRET (wrangler secret put GOOGLE_TTS_API_KEY). Sans elle, /tts répond 503 et
+  // le client bascule sur la Web Speech API du navigateur.
+  GOOGLE_TTS_API_KEY?: string;
+  TTS_VOICE?: string;
+  TTS_RATE?: string;
 }
 
 interface GenerateRequest {
@@ -21,6 +29,14 @@ interface GenerateRequest {
   grammar?: string[];
   prompt?: string;
   level?: number;
+}
+
+interface TtsRequest {
+  // Surfaces des tokens d'UNE phrase, dans l'ordre. Un repère SSML est inséré
+  // avant chaque segment → on récupère l'horodatage de chaque mot (surlignage).
+  segments?: string[];
+  voice?: string;
+  rate?: number;
 }
 
 const CORS = {
@@ -160,6 +176,82 @@ async function generate(env: Env, prompt: string): Promise<string> {
   throw new Error(`Tous les modèles ont échoué : ${errors.join(" | ")}`);
 }
 
+// ---------- TTS (Google Cloud Text-to-Speech) -------------------------------
+
+const DEFAULT_TTS_VOICE = "ja-JP-Neural2-B";
+
+/** Échappe les caractères réservés XML pour une insertion sûre dans le SSML. */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/** SSML d'une phrase : un <mark name="tN"/> avant chaque token → timepoints par mot. */
+function buildSsml(segments: string[]): string {
+  const body = segments
+    .map((seg, i) => `<mark name="t${i}"/>${escapeXml(seg)}`)
+    .join("");
+  return `<speak>${body}</speak>`;
+}
+
+interface TtsResult {
+  audio: string; // MP3 en base64
+  marks: { i: number; t: number }[]; // i = index token, t = secondes
+}
+
+/**
+ * Synthétise une phrase via Cloud TTS (v1beta1 pour les timepoints SSML), avec le
+ * même backoff exponentiel sur transitoires que la génération de texte.
+ */
+async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
+  const key = env.GOOGLE_TTS_API_KEY;
+  if (!key) throw new Error("tts_unconfigured");
+
+  const segments = (body.segments ?? []).filter((s) => s.length > 0);
+  if (!segments.length) throw new Error("segments vides");
+
+  const voice = body.voice || env.TTS_VOICE || DEFAULT_TTS_VOICE;
+  const rate = body.rate ?? Number(env.TTS_RATE ?? "1") ?? 1;
+  const url = `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${key}`;
+  const payload = JSON.stringify({
+    input: { ssml: buildSsml(segments) },
+    voice: { languageCode: "ja-JP", name: voice },
+    audioConfig: { audioEncoding: "MP3", speakingRate: rate },
+    enableTimePointing: ["SSML_MARK"],
+  });
+
+  const maxAttempts = 4;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as {
+        audioContent?: string;
+        timepoints?: { markName?: string; timeSeconds?: number }[];
+      };
+      if (!data.audioContent) throw new Error("Réponse TTS sans audio");
+      const marks = (data.timepoints ?? [])
+        .map((tp) => ({ i: Number((tp.markName ?? "t0").slice(1)), t: tp.timeSeconds ?? 0 }))
+        .sort((a, b) => a.t - b.t);
+      return { audio: data.audioContent, marks };
+    }
+
+    lastErr = `HTTP ${res.status} ${(await res.text()).slice(0, 200)}`;
+    if (!TRANSIENT.has(res.status) || attempt === maxAttempts) break;
+    await sleep(500 * 2 ** (attempt - 1));
+  }
+  throw new Error(`TTS : ${lastErr || "échec inconnu"}`);
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
@@ -174,6 +266,18 @@ export default {
         const text = await generate(env, buildPrompt(body));
         return json({ text });
       } catch (e) {
+        return json({ error: String(e) }, 502);
+      }
+    }
+
+    // POST /tts → { audio (base64 MP3), marks } (synthèse d'une phrase + timepoints)
+    if (req.method === "POST" && url.pathname === "/tts") {
+      const body = (await req.json().catch(() => ({}))) as TtsRequest;
+      try {
+        return json(await synthesize(env, body));
+      } catch (e) {
+        // Clé absente → 503 explicite : le client bascule sur la Web Speech API.
+        if (String(e).includes("tts_unconfigured")) return json({ error: "tts_unconfigured" }, 503);
         return json({ error: String(e) }, 502);
       }
     }
