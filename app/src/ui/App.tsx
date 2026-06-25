@@ -1,14 +1,22 @@
 import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { getCurriculumEntry } from "../lib/lessons";
-import { Lessons } from "./Lessons";
+import { Catalogue } from "./Catalogue";
+import { Histoires } from "./Histoires";
+import { Home } from "./Home";
+import { ReaderPage } from "./ReaderPage";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
-import { Stories } from "./Stories";
 import { Warmup } from "./Warmup";
 import { useTheme, type Theme } from "./useTheme";
 import styles from "./App.module.css";
 
-type Tab = "learn" | "review" | "reader" | "stories" | "catalogue" | "about";
+type Tab = "home" | "stories" | "catalogue";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "home", label: "Apprendre" },
+  { id: "stories", label: "Histoires" },
+  { id: "catalogue", label: "Catalogue" },
+];
 
 const THEMES: { id: Theme; label: string }[] = [
   { id: "system", label: "Auto" },
@@ -17,15 +25,18 @@ const THEMES: { id: Theme; label: string }[] = [
 ];
 
 export function App() {
-  const [tab, setTab] = useState<Tab>("learn");
+  const [tab, setTab] = useState<Tab>("home");
   const [theme, setTheme] = useTheme();
-  const [incoming, setIncoming] = useState<IncomingStory | null>(null);
+  const [reader, setReader] = useState<IncomingStory | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  // Force le rafraîchissement des données de l'onglet courant au retour d'une page de lecture.
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Chemin d'ouverture unique (onglet Histoires ET leçons). Si l'histoire est rattachée à
-  // une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
+  // Chemin d'ouverture unique (Apprendre, Histoires, Catalogue). Si l'histoire est rattachée
+  // à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
   function openStory(story: StoryRecord) {
     const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
-    setIncoming({
+    setReader({
       text: story.text,
       params: story.params,
       nonce: Date.now(),
@@ -40,7 +51,32 @@ export function App() {
           ? { lessonId: story.lessonId }
           : undefined,
     });
-    setTab("reader");
+  }
+
+  function back() {
+    setReader(null);
+    setReviewing(false);
+    setRefreshKey((n) => n + 1);
+  }
+
+  // Pages dédiées : remplacent le shell à onglets (navigation simple, page lisible).
+  if (reader) {
+    return (
+      <div className={styles.shell}>
+        <ReaderPage title={reader.lessonContext?.title ?? "Lecture"} onBack={back}>
+          <ReaderPoc incoming={reader} onComplete={back} />
+        </ReaderPage>
+      </div>
+    );
+  }
+  if (reviewing) {
+    return (
+      <div className={styles.shell}>
+        <ReaderPage title="Révision" onBack={back}>
+          <Warmup />
+        </ReaderPage>
+      </div>
+    );
   }
 
   return (
@@ -51,11 +87,7 @@ export function App() {
         </h1>
         <div className={styles.themeToggle} role="group" aria-label="Thème">
           {THEMES.map((t) => (
-            <button
-              key={t.id}
-              aria-pressed={theme === t.id}
-              onClick={() => setTheme(t.id)}
-            >
+            <button key={t.id} aria-pressed={theme === t.id} onClick={() => setTheme(t.id)}>
               {t.label}
             </button>
           ))}
@@ -63,55 +95,29 @@ export function App() {
       </header>
 
       <nav className={styles.nav}>
-        <button aria-current={tab === "learn"} onClick={() => setTab("learn")}>
-          Apprendre
-        </button>
-        <button aria-current={tab === "review"} onClick={() => setTab("review")}>
-          Réviser
-        </button>
-        <button aria-current={tab === "reader"} onClick={() => setTab("reader")}>
-          Lecteur
-        </button>
-        <button aria-current={tab === "stories"} onClick={() => setTab("stories")}>
-          Histoires
-        </button>
-        <button aria-current={tab === "catalogue"} onClick={() => setTab("catalogue")}>
-          Catalogue
-        </button>
-        <button aria-current={tab === "about"} onClick={() => setTab("about")}>
-          À propos
-        </button>
+        {TABS.map((t) => (
+          <button key={t.id} aria-current={tab === t.id} onClick={() => setTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
       </nav>
 
-      {tab === "learn" && <Lessons onOpenStory={openStory} />}
+      <div key={refreshKey}>
+        {tab === "home" && (
+          <Home
+            onOpenStory={openStory}
+            onStartReview={() => setReviewing(true)}
+            onGoCatalogue={() => setTab("catalogue")}
+          />
+        )}
+        {tab === "stories" && <Histoires onOpen={openStory} />}
+        {tab === "catalogue" && <Catalogue onOpenStory={openStory} />}
+      </div>
 
-      {tab === "review" && <Warmup />}
-
-      {tab === "reader" && (
-        <ReaderPoc incoming={incoming} onBackToLessons={() => setTab("learn")} />
-      )}
-
-      {tab === "stories" && <Stories onOpen={openStory} />}
-
-      {tab === "catalogue" && (
-        <div className={styles.stub}>
-          <h2>Catalogue</h2>
-          <p>
-            Bibliothèque navigable des kanji / vocab / grammaire (statut, JLPT, tags) — arrive en
-            Phase 2.
-          </p>
-        </div>
-      )}
-
-      {tab === "about" && (
-        <div className={styles.stub}>
-          <h2>À propos</h2>
-          <p>
-            Lecteur de japonais extensif et adaptatif, local-first et hors-ligne. Furigana et gloss
-            littéral déterministes (kuromoji), révision espacée FSRS. Voir SPEC.md / ROADMAP.md.
-          </p>
-        </div>
-      )}
+      <footer className={styles.footer}>
+        Lecteur de japonais extensif et adaptatif, local-first et hors-ligne — furigana et gloss
+        déterministes (kuromoji), révision espacée FSRS. Voir SPEC.md / ROADMAP.md.
+      </footer>
     </div>
   );
 }

@@ -1,9 +1,16 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
 .list {
   display: flex;
   flex-direction: column;
-}
-.empty {
-  color: var(--text-muted);
 }
 
 .row {

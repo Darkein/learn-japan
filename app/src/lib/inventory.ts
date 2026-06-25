@@ -122,3 +122,67 @@ export function grammarDetail(id: string): GrammarDetail | null {
   if (!g) return null;
   return { id, name: g.name, ruleFr: g.ruleFr, exampleJa: g.exampleJa };
 }
+
+// ---- Inventaire complet (catalogue navigable) ------------------------------
+// Listes plates de tout le référentiel, triées par niveau (N5 → N1), pour le
+// Catalogue. L'UI les joint au statut local (IndexedDB) pour afficher l'avancement.
+
+export interface InvKanji {
+  /** = identifiant du store `kanji` en base (le caractère lui-même). */
+  id: string;
+  ja: string;
+  fr: string;
+  on: string[];
+  kun: string[];
+  level: number;
+}
+export interface InvVocab {
+  /** = identifiant `surface|reading` (clé du store `vocab`). */
+  id: string;
+  ja: string;
+  yomi?: string;
+  fr: string;
+  level: number;
+}
+export interface InvGrammar {
+  /** = identifiant du store `grammar` en base. */
+  id: string;
+  name: string;
+  ruleFr: string;
+  exampleJa: string;
+  level: number;
+}
+
+const byLevelThen = <T extends { level: number }>(key: (x: T) => string) =>
+  (a: T, b: T): number => (a.level !== b.level ? b.level - a.level : key(a).localeCompare(key(b)));
+
+export function allKanjiInv(): InvKanji[] {
+  return [...kanjiById.values()]
+    .map((k) => ({
+      id: k.id,
+      ja: k.id,
+      fr: k.fr ?? k.meanings[0] ?? k.id,
+      on: k.on ?? [],
+      kun: k.kun ?? [],
+      level: k.level,
+    }))
+    .sort(byLevelThen((x) => x.ja));
+}
+
+export function allVocabInv(): InvVocab[] {
+  return [...vocabById.values()]
+    .map((v) => ({
+      id: v.id,
+      ja: v.surface,
+      yomi: v.reading && v.reading !== v.surface ? v.reading : undefined,
+      fr: v.fr ?? vocabFr[v.id] ?? v.meanings[0] ?? "",
+      level: v.level,
+    }))
+    .sort(byLevelThen((x) => x.ja));
+}
+
+export function allGrammarInv(): InvGrammar[] {
+  return [...grammarById.values()]
+    .map((g) => ({ id: g.id, name: g.name, ruleFr: g.ruleFr, exampleJa: g.exampleJa, level: g.level }))
+    .sort(byLevelThen((x) => x.name));
+}

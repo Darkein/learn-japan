@@ -66,9 +66,11 @@
   border-bottom-color: var(--accent);
 }
 
-.stub {
+.footer {
+  margin-top: var(--sp-16);
+  padding-top: var(--sp-4);
+  border-top: var(--hairline-w) solid var(--hairline);
   color: var(--text-muted);
-}
-.stub h2 {
-  color: var(--text);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
 }
