@@ -72,7 +72,8 @@ export async function generateText(
 
 // ---------- Génération de leçon : cours et histoire, SÉPARÉS ----------------
 // Le cours (pédagogie) et l'histoire (matière à lire) sont deux choses distinctes :
-//  - generateLessonIntro → un CADRAGE FR qui complète le cours assemblé depuis l'inventaire ;
+//  - generateLessonIntro → une LEÇON FR rédigée (corps pédagogique) qui complète le détail
+//    structuré assemblé depuis l'inventaire ;
 //  - generateLessonStory → une HISTOIRE JP, contrainte au lexique déjà vu, sauvée en StoryRecord.
 // Dans les deux cas, le client n'envoie que la matière structurée (titre, niveau, vocab,
 // kanji, grammaire) ; la mise en forme du prompt est faite par le Worker.

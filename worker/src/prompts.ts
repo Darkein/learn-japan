@@ -135,10 +135,12 @@ function buildStoryPrompt(r: GenerateRequest): string {
 }
 
 /**
- * Cadrage pédagogique FR d'une leçon. Volontairement COURT et centré sur la seule
- * GRAMMAIRE : le détail structuré (lectures des kanji, règles + exemples, liste de vocab)
- * est déjà rendu par l'UI depuis l'inventaire. Vocabulaire et kanji ne sont fournis ici
- * que comme matière à exemples — ils ne doivent être ni listés ni expliqués.
+ * Leçon de grammaire FR développée. C'est le corps pédagogique du cours : une vraie
+ * leçon qui enseigne et démontre (intuition, exemples travaillés, nuances de registre,
+ * pièges), et non un simple cadrage de quelques phrases. Le détail structuré (lectures
+ * des kanji, règles brèves, liste de vocab) reste rendu à part par l'UI depuis
+ * l'inventaire : vocabulaire et kanji ne sont fournis ici que comme matière à exemples —
+ * ils ne doivent être ni redressés en liste ni expliqués mot à mot.
  */
 export function buildLessonIntroPrompt(r: GenerateRequest): string {
   const level = cleanLevel(r.level);
@@ -148,20 +150,22 @@ export function buildLessonIntroPrompt(r: GenerateRequest): string {
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
 
   const grammar = grammarList.length
-    ? `Points de grammaire à expliquer : ${grammarList.join(", ")}.`
-    : "Cette leçon n'introduit pas de nouveau point de grammaire ; présente brièvement son thème.";
+    ? `Point(s) de grammaire à enseigner : ${grammarList.join(", ")}.`
+    : "Cette leçon n'introduit pas de nouveau point de grammaire ; développe une explication claire et illustrée de son thème.";
   const exampleMaterial = [
-    vocab.length ? `Vocabulaire disponible pour illustrer : ${vocab.map(fmtVocab).join(", ")}.` : "",
-    kanji.length ? `Kanji disponibles pour illustrer : ${kanji.map(fmtKanji).join(", ")}.` : "",
+    vocab.length ? `Vocabulaire disponible pour bâtir des exemples : ${vocab.map(fmtVocab).join(", ")}.` : "",
+    kanji.length ? `Kanji disponibles pour bâtir des exemples : ${kanji.map(fmtKanji).join(", ")}.` : "",
   ].filter(Boolean);
 
   return [
-    `Rédige le cadrage d'une leçon de japonais (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown.`,
+    `Rédige une véritable leçon de grammaire japonaise (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown. Une vraie leçon qui enseigne et démontre — pas une simple introduction ni un résumé.`,
     grammar,
     ...exampleMaterial,
     "",
-    "Explique UNIQUEMENT la grammaire ci-dessus : l'intuition, comment l'employer, et un piège fréquent. Tu peux t'appuyer sur le vocabulaire/kanji fournis pour un mini-exemple, mais NE les liste PAS et NE les explique PAS (ils sont déjà affichés à côté).",
-    "Sois bref : 2 à 4 phrases courtes (ce cadrage doit rester plus court que les sections affichées en dessous). **gras** autorisé pour les mots japonais clés. Pas de titre, pas de liste. Réponds uniquement avec ce texte FR.",
+    "Enseigne UNIQUEMENT la grammaire ci-dessus, mais en profondeur : l'intuition de départ, comment et quand l'employer, les nuances de registre (poli / neutre, oral / écrit) et l'erreur fréquente du francophone débutant. Construis l'explication progressivement, du cas le plus simple vers les subtilités.",
+    "Démontre chaque point avec PLUSIEURS exemples concrets en japonais. Présente chaque exemple sur trois lignes consécutives : la phrase japonaise, puis sa lecture en romaji, puis sa traduction française ; isole chaque exemple par une ligne vide. Ajoute au besoin un contre-exemple (tournure fautive) en expliquant pourquoi elle est fausse.",
+    "Tu peux puiser dans le vocabulaire et les kanji fournis pour tes exemples, mais NE dresse PAS la liste du vocabulaire et NE l'explique PAS mot à mot (il est déjà affiché à côté) : sers-t'en seulement comme matière à phrases.",
+    "Structure avec des sous-titres Markdown « ## » dès qu'il y a plusieurs idées, des paragraphes courts, et **gras** pour les mots japonais clés. Pas de tableau. Vise une leçon riche mais lisible (environ 4 à 8 paragraphes, exemples compris). Réponds uniquement avec cette leçon en français.",
   ]
     .filter(Boolean)
     .join("\n");
