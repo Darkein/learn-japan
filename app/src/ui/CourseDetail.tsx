@@ -173,27 +173,67 @@ function Cours({ lesson }: { lesson: Lesson }) {
   );
 }
 
-// Rendu minimaliste : **gras** + paragraphes. Aucune dépendance externe.
+// Rendu minimaliste sans dépendance externe. Balises Markdown autorisées (et
+// seules prises en compte) — voir aussi le prompt de génération qui les impose :
+//   - titres de section : ligne débutant par « ## » ou « ### » ;
+//   - paragraphes : séparés par une ligne vide ;
+//   - retour à la ligne simple : conservé (<br/>) à l'intérieur d'un paragraphe ;
+//   - listes à puces : lignes débutant par « - » ou « * » ;
+//   - **gras** et *italique* en ligne.
 function Markdown({ text }: { text: string }) {
-  const paragraphs = text.split(/\n{2,}/);
+  // Découpe en blocs sur les lignes vides ; chaque bloc est un titre, une liste ou un paragraphe.
+  const blocks = text.trim().split(/\n{2,}/);
   return (
     <div className="space-y-2">
-      {paragraphs.map((para, i) => (
-        <p key={i}>{inlineBold(para)}</p>
-      ))}
+      {blocks.map((block, i) => {
+        const lines = block.split("\n");
+        const heading = block.match(/^(#{2,3})\s+(.*)$/);
+        if (heading && lines.length === 1) {
+          return (
+            <h4
+              key={i}
+              className="mt-3 font-sans text-xs uppercase tracking-wider text-muted first:mt-0"
+            >
+              {inline(heading[2])}
+            </h4>
+          );
+        }
+        const isList = lines.every((l) => /^\s*[-*]\s+/.test(l));
+        if (isList) {
+          return (
+            <ul key={i} className="ml-4 list-disc space-y-1">
+              {lines.map((l, j) => (
+                <li key={j}>{inline(l.replace(/^\s*[-*]\s+/, ""))}</li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={i}>
+            {lines.map((l, j) => (
+              <span key={j}>
+                {j > 0 && <br />}
+                {inline(l)}
+              </span>
+            ))}
+          </p>
+        );
+      })}
     </div>
   );
 }
 
-function inlineBold(text: string): ReactNode {
+// Inline autorisé : **gras** et *italique*. Le reste est rendu tel quel.
+function inline(text: string): ReactNode {
   const parts: ReactNode[] = [];
-  const re = /\*\*([^*]+)\*\*/g;
+  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = re.exec(text)) != null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    parts.push(<strong key={key++}>{m[1]}</strong>);
+    if (m[1] !== undefined) parts.push(<strong key={key++}>{m[1]}</strong>);
+    else parts.push(<em key={key++}>{m[2]}</em>);
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
