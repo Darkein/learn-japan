@@ -73,11 +73,14 @@ d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décr
 
 **Le cours et l'histoire sont deux choses distinctes** (ne pas les fusionner) :
 
-- **Le cours** (pédagogie, propre à la leçon) est **assemblé depuis l'inventaire** — pour chaque
-  point de grammaire : règle + exemple ; pour chaque kanji : sens + lectures ; liste de vocab — et
-  complété d'un **cadrage** FR **généré à la demande** (mis en cache local). La structure vient
-  toujours de l'inventaire : une leçon non générée n'est donc jamais vide, seul le paragraphe de
-  cadrage manque. Le cadrage donne l'intuition et les pièges, pas la liste brute.
+- **Le cours** (pédagogie, propre à la leçon) combine deux couches : une **leçon FR rédigée**
+  **générée à la demande** (mise en cache local) qui constitue le corps pédagogique — une vraie
+  leçon développée (intuition, exemples travaillés JP / lecture / traduction, nuances de registre,
+  pièges fréquents) ; et, en dessous, le **détail structuré assemblé depuis l'inventaire** — pour
+  chaque point de grammaire : règle + exemple ; pour chaque kanji : sens + lectures ; liste de
+  vocab. La structure vient toujours de l'inventaire : une leçon non générée n'est donc jamais
+  vide, seule la leçon rédigée manque. Celle-ci enseigne et démontre — elle ne redresse pas la
+  liste brute du vocabulaire (déjà affichée à côté).
 - **Les histoires** (matière à lire) sont des **`StoryRecord` rattachés par `lessonId`** : une leçon
   en a **0..N**, **générées depuis l'app** (à la demande / re-roll). Elles passent par le **même
   pipeline que toute histoire** (lecteur, furigana, SRS) et sont visibles dans l'onglet

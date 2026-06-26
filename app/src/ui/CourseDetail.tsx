@@ -223,7 +223,9 @@ function Markdown({ text }: { text: string }) {
   );
 }
 
-// Inline autorisé : **gras** et *italique*. Le reste est rendu tel quel.
+// Inline autorisé : **gras** et *italique*. Le reste est rendu tel quel. Les passages
+// japonais (kana/kanji), nombreux dans les exemples d'une leçon, sont rendus dans la
+// police JP pour rester lisibles au milieu du texte français.
 function inline(text: string): ReactNode {
   const parts: ReactNode[] = [];
   const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
@@ -231,11 +233,32 @@ function inline(text: string): ReactNode {
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = re.exec(text)) != null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    if (m[1] !== undefined) parts.push(<strong key={key++}>{m[1]}</strong>);
-    else parts.push(<em key={key++}>{m[2]}</em>);
+    if (m.index > last) parts.push(...withJp(text.slice(last, m.index), `t${key}`));
+    if (m[1] !== undefined) parts.push(<strong key={key++}>{withJp(m[1], `b${key}`)}</strong>);
+    else parts.push(<em key={key++}>{withJp(m[2], `i${key}`)}</em>);
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(text.slice(last));
+  if (last < text.length) parts.push(...withJp(text.slice(last), `t${key}`));
   return parts;
+}
+
+// Enveloppe les suites de caractères japonais (hiragana, katakana, kanji) dans la police
+// JP, en laissant le texte français tel quel.
+const CJK = /[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]+/g;
+function withJp(text: string, keyBase: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = CJK.exec(text)) != null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(
+      <span key={`${keyBase}-${key++}`} className="font-jp">
+        {m[0]}
+      </span>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
 }

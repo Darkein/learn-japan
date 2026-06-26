@@ -19,14 +19,20 @@ const lesson: GenerateRequest = {
 describe("buildLessonIntroPrompt", () => {
   const prompt = buildLessonIntroPrompt(lesson);
 
-  it("reste court et borné (2 à 4 phrases, plus 5-9 phrases sans plafond)", () => {
-    expect(prompt).toContain("2 à 4 phrases courtes");
-    expect(prompt).not.toContain("5 à 9 phrases");
+  it("demande une vraie leçon développée (plus un simple cadrage bref)", () => {
+    expect(prompt).toContain("véritable leçon de grammaire");
+    expect(prompt).toContain("pas une simple introduction");
+    expect(prompt).not.toContain("2 à 4 phrases courtes");
   });
 
-  it("n'explique QUE la grammaire (vocab/kanji = simple matière à exemples)", () => {
-    expect(prompt).toContain("Explique UNIQUEMENT la grammaire");
-    expect(prompt).toContain("NE les liste PAS et NE les explique PAS");
+  it("exige plusieurs exemples travaillés (JP / lecture / traduction)", () => {
+    expect(prompt).toContain("PLUSIEURS exemples");
+    expect(prompt).toContain("trois lignes consécutives");
+  });
+
+  it("n'enseigne QUE la grammaire (vocab/kanji = simple matière à exemples)", () => {
+    expect(prompt).toContain("Enseigne UNIQUEMENT la grammaire");
+    expect(prompt).toContain("NE dresse PAS la liste du vocabulaire");
   });
 });
 

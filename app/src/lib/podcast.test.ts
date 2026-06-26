@@ -104,6 +104,19 @@ describe("buildPodcastScript", () => {
     expect(story[jaIdx + 1].text).toBe("Il y a un chat.");
   });
 
+  it("dans le cours, parle les exemples JP en voix japonaise et saute la lecture romaji", () => {
+    const withExample = lesson({
+      ...base,
+      framing: "La copule です marque la politesse.\n\n弁護士です。\nBengoshi desu.\nJe suis avocat.",
+    });
+    const cours = buildPodcastScript(withExample, {}).filter((s) => s.chapter === "cours");
+    expect(cours[0]).toMatchObject({ lang: "fr", text: "La copule です marque la politesse." });
+    expect(cours[1]).toMatchObject({ lang: "ja", text: "弁護士です。" });
+    // La lecture romaji « Bengoshi desu. » est sautée ; reste la traduction FR.
+    expect(cours.some((s) => s.text === "Bengoshi desu.")).toBe(false);
+    expect(cours[2]).toMatchObject({ lang: "fr", text: "Je suis avocat." });
+  });
+
   it("sépare la transition de fin et le titre en deux segments", () => {
     const script = buildPodcastScript(base, { nextLessonTitle: "Couleurs" });
     const transIdx = script.findIndex((s) => s.text === "Passons à la leçon suivante :");

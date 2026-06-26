@@ -14,6 +14,7 @@ import {
   type StoryRecord,
 } from "./db";
 import { generateStoryTranslation } from "./genClient";
+import { isKana, isKanji } from "./kana";
 import {
   addLessonStory,
   ensureLessonFraming,
@@ -153,6 +154,57 @@ function stripMarkdown(s: string): string {
 }
 
 /**
+ * Vrai si la LIGNE est une phrase japonaise (à dominante kana/kanji), par opposition à une
+ * ligne française qui ne contiendrait qu'un mot japonais inline (ex. « La copule です … »).
+ * Sert à router la voix TTS : seules les lignes à dominante JP passent en voix japonaise.
+ */
+function isJapaneseLine(s: string): boolean {
+  let ja = 0;
+  let latin = 0;
+  for (const ch of s) {
+    if (isKana(ch) || isKanji(ch)) ja++;
+    else if (/[A-Za-zÀ-ÿ]/.test(ch)) latin++;
+  }
+  return ja > 0 && ja >= latin;
+}
+
+/**
+ * Transforme la leçon FR (Markdown, avec exemples japonais) en segments parlés :
+ *  - prose française → un segment FR par paragraphe (les mots JP inline restent dans le flux FR) ;
+ *  - exemple « phrase JP / lecture romaji / traduction FR » → la phrase JP (voix japonaise)
+ *    puis sa traduction FR ; la ligne romaji du milieu est sautée (redondante avec le TTS JA).
+ * Une ligne française coincée entre une phrase JP et une autre ligne française est considérée
+ * comme la lecture romaji et n'est donc pas lue.
+ */
+function coursSegments(framing: string): RawSegment[] {
+  const out: RawSegment[] = [];
+  for (const block of framing.split(/\n{2,}/)) {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    if (!lines.some(isJapaneseLine)) {
+      // Prose pure : un seul segment FR pour tout le paragraphe.
+      const text = stripMarkdown(lines.join(" "));
+      if (text) out.push({ chapter: "cours", lang: "fr", text, label: "Cours" });
+      continue;
+    }
+    // Bloc d'exemple : ligne par ligne, en routant la voix selon la langue.
+    lines.forEach((line, i) => {
+      if (isJapaneseLine(line)) {
+        const text = stripMarkdown(line);
+        if (text) out.push({ chapter: "cours", lang: "ja", text, label: "Cours" });
+        return;
+      }
+      const prevJa = i > 0 && isJapaneseLine(lines[i - 1]);
+      const nextFr = i < lines.length - 1 && !isJapaneseLine(lines[i + 1]);
+      if (prevJa && nextFr) return; // lecture romaji entre la phrase JP et sa traduction → sautée
+      const text = stripMarkdown(line);
+      if (text) out.push({ chapter: "cours", lang: "fr", text, label: "Cours" });
+    });
+  }
+  return out;
+}
+
+/**
  * Segment « titre » atomique, séparé des phrases de transition (qui sont fixes) pour que
  * l'un et l'autre soient réutilisables/cacheables indépendamment.
  */
@@ -169,12 +221,8 @@ export interface ScriptNav {
 export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): PodcastSegment[] {
   const raw: RawSegment[] = [];
 
-  // 1. Cours — cadrage FR (grammaire), un segment par paragraphe.
-  if (lesson.framing) {
-    for (const para of lesson.framing.split(/\n{2,}/).map(stripMarkdown).filter(Boolean)) {
-      raw.push({ chapter: "cours", lang: "fr", text: para, label: "Cours" });
-    }
-  }
+  // 1. Cours — leçon FR (grammaire) parlée, segmentée pour gérer les exemples japonais.
+  if (lesson.framing) raw.push(...coursSegments(lesson.framing));
 
   // 2. Quiz — vocabulaire de la leçon.
   if (lesson.objectives.vocab.length) {
