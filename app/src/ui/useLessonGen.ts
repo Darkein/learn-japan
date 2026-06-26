@@ -7,6 +7,7 @@ import {
   markLessonStarted,
   type Lesson,
 } from "../lib/lessons";
+import { useNotify } from "./useNotify";
 
 export const STATE_LABEL: Record<GenState, string> = {
   queued: "en file…",
@@ -30,10 +31,13 @@ interface Options {
 export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAdded }: Options) {
   const [genState, setGenState] = useState<GenState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { notify } = useNotify();
 
   const busy = genState === "queued" || genState === "generating";
 
-  // Première génération : cadrage du cours (si absent) + une première histoire, puis lecture.
+  // Première génération : cadrage du cours (si absent) + une première histoire. On ne
+  // redirige plus de force vers l'histoire : un bandeau signale qu'elle est prête et
+  // laisse l'utilisateur l'ouvrir quand il le souhaite (il peut se balader entre-temps).
   async function start() {
     setError(null);
     setGenState("queued");
@@ -42,7 +46,10 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
       const story = await addLessonStory(lesson, setGenState);
       onChanged();
       if (story.lessonId) await markLessonStarted(story.lessonId);
-      onOpenStory(story);
+      notify({
+        message: `Leçon « ${lesson.title} » prête.`,
+        action: { label: "Lire →", onClick: () => onOpenStory(story) },
+      });
     } catch (e) {
       setError(String(e));
       setGenState("error");
@@ -57,6 +64,10 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
       const story = await addLessonStory(lesson, setGenState);
       onStoryAdded?.(story);
       onChanged();
+      notify({
+        message: "Nouvelle histoire prête.",
+        action: { label: "Lire →", onClick: () => onOpenStory(story) },
+      });
     } catch (e) {
       setError(String(e));
       setGenState("error");
