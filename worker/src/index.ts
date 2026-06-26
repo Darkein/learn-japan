@@ -6,6 +6,13 @@
 //
 // TTS SYNCHRONE aussi (POST /tts) : on synthétise une phrase à la demande et on renvoie
 // l'audio + les timepoints. Le client met en cache localement (IndexedDB) → pas de R2.
+//
+// SÉCURITÉ — le client ne pilote PLUS le prompt : il poste seulement des paramètres
+// structurés ({ kind, level, theme, … }), et c'est le Worker qui compose le prompt depuis
+// des gabarits fixes (voir prompts.ts). Aucune instruction libre ne transite → l'endpoint
+// ne peut pas être détourné en proxy LLM générique « hors japonais ».
+
+import { composePrompt, type GenerateRequest } from "./prompts";
 
 export interface Env {
   // Clé Gemini principale (SECRET). Des clés additionnelles GEMINI_API_KEY_2,
@@ -23,15 +30,6 @@ export interface Env {
   GOOGLE_TTS_API_KEY?: string;
   TTS_VOICE?: string;
   TTS_RATE?: string;
-}
-
-interface GenerateRequest {
-  kind?: "story" | "lesson";
-  theme?: string;
-  kanji?: string[];
-  grammar?: string[];
-  prompt?: string;
-  level?: number;
 }
 
 interface TtsRequest {
@@ -64,23 +62,6 @@ function json(body: unknown, status = 200): Response {
 function accessOk(req: Request, env: Env): boolean {
   if (env.REQUIRE_ACCESS !== "true") return true;
   return req.headers.has("Cf-Access-Jwt-Assertion");
-}
-
-function buildPrompt(r: GenerateRequest): string {
-  // Le client a déjà composé un prompt complet (cadrage FR ou histoire JP, avec sa
-  // propre consigne de longueur et de format) → on le transmet tel quel.
-  if (r.prompt) return r.prompt;
-  // Sinon : génération libre (lecteur) à partir de paramètres simples.
-  const parts = [
-    "Écris un petit texte en japonais (court récit, brève ou dialogue) adapté à un apprenant.",
-    r.level ? `Niveau JLPT visé : N${r.level}.` : "",
-    r.theme ? `Thème : ${r.theme}.` : "",
-    r.kanji?.length ? `Mets en avant ces kanji : ${r.kanji.join(" ")}.` : "",
-    r.grammar?.length ? `Illustre ces points de grammaire : ${r.grammar.join(", ")}.` : "",
-    "Vise environ 150 à 300 caractères japonais, en 2 à 4 courts paragraphes.",
-    "Réponds uniquement avec le texte japonais (pas de furigana, pas de traduction).",
-  ];
-  return parts.filter(Boolean).join("\n");
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -313,8 +294,16 @@ export default {
     // POST /generate → { text } (synchrone)
     if (req.method === "POST" && url.pathname === "/generate") {
       const body = (await req.json().catch(() => ({}))) as GenerateRequest;
+      // Composition + validation des entrées AVANT l'appel modèle : un `kind` inconnu
+      // ou une requête malformée est un 400 (faute du client), pas un 502 (panne amont).
+      let prompt: string;
       try {
-        const text = await generate(env, buildPrompt(body));
+        prompt = composePrompt(body);
+      } catch (e) {
+        return json({ error: String(e) }, 400);
+      }
+      try {
+        const text = await generate(env, prompt);
         return json({ text });
       } catch (e) {
         return json({ error: String(e) }, 502);
