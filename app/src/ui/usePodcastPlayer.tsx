@@ -18,6 +18,7 @@ import { getCurriculum, getLesson, markLessonStarted } from "../lib/lessons";
 import {
   generatePodcastPack,
   getPodcastPack,
+  PACK_VERSION,
   type PodcastSegment,
 } from "../lib/podcast";
 import { synthesizeText, TtsUnconfiguredError } from "../lib/ttsClient";
@@ -241,15 +242,18 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         const idx = order.findIndex((c) => c.id === lessonId);
         const nextEntry = idx >= 0 ? order[idx + 1] : undefined;
 
+        // Pack réutilisé seulement s'il est à jour ; sinon régénéré (correctifs de format).
+        const existing = await getPodcastPack(lessonId);
         const pack =
-          (await getPodcastPack(lessonId)) ??
-          (await generatePodcastPack(
-            lessonId,
-            { nextLessonTitle: nextEntry?.title },
-            (msg) => {
-              if (token === loadTokenRef.current) patch({ preparing: msg });
-            },
-          ));
+          existing && existing.version === PACK_VERSION
+            ? existing
+            : await generatePodcastPack(
+                lessonId,
+                { nextLessonTitle: nextEntry?.title },
+                (msg) => {
+                  if (token === loadTokenRef.current) patch({ preparing: msg });
+                },
+              );
         if (token !== loadTokenRef.current) return; // chargement obsolète (fermé/relancé)
 
         await markLessonStarted(lessonId);

@@ -244,6 +244,7 @@ export async function generateStoryTranslation(
     `Voici une histoire en japonais découpée en ${n} phrases numérotées.`,
     "Donne d'abord un titre court en français, sur une ligne préfixée par « TITRE: ».",
     `Puis traduis CHAQUE phrase en français naturel, une traduction par ligne, dans l'ordre, préfixée par son numéro (« 1. », « 2. », … jusqu'à « ${n}. »). Exactement ${n} lignes de traduction, aucune fusion, aucune phrase sautée.`,
+    "Traduis en français PUR : n'inclus AUCUN caractère japonais (kanji/kana), AUCUNE transcription en romaji et AUCUNE glose entre parenthèses (pas de « le chat (猫) », pas de « (neko) »). Traduis tout, y compris les noms communs. Le titre suit la même règle.",
     "Ne renvoie rien d'autre.",
     "",
     numbered,

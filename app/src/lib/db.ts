@@ -80,6 +80,8 @@ export interface PodcastRecord {
   id: string; // = curriculum entry id (lessonId)
   segments: PodcastSegment[];
   createdAt: number;
+  /** Version du format de pack (régénération si obsolète). */
+  version?: number;
 }
 
 /**

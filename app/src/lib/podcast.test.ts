@@ -3,6 +3,8 @@ import type { Lesson } from "./lessons";
 import {
   buildPodcastScript,
   buildVocabQuizzes,
+  cleanFrench,
+  containsJa,
   QUIZ_PAUSE_MS,
   splitJaSentences,
   titleSegment,
@@ -31,14 +33,21 @@ describe("buildVocabQuizzes", () => {
   const segs = buildVocabQuizzes(vocab);
 
   it("alterne les directions FR↔JP pour la variété", () => {
-    // mot 0 → production (question FR), mot 1 → compréhension (question JA).
+    // mot 0 → production : question FR « Comment dit-on chat ? » puis réponse JA.
     expect(segs[0].lang).toBe("fr");
     expect(segs[0].text).toContain("chat");
-    expect(segs[2].lang).toBe("ja"); // question du 2e mot (compréhension)
-    expect(segs[2].text).toBe("みず");
   });
 
-  it("insère un blanc de réponse après chaque question", () => {
+  it("amorce la compréhension par une phrase FR avant le mot japonais", () => {
+    // mot 1 (compréhension) : amorce FR + mot JA (avec le blanc) + réponse FR.
+    const carrier = segs.find((s) => s.text === "Que veut dire ce mot ?");
+    expect(carrier).toBeDefined();
+    expect(carrier!.lang).toBe("fr");
+    const word = segs.find((s) => s.lang === "ja" && s.text === "みず");
+    expect(word!.pauseAfterMs).toBe(QUIZ_PAUSE_MS); // le blanc suit le mot à traduire
+  });
+
+  it("insère un blanc de réponse après chaque question (un par mot)", () => {
     const questions = segs.filter((s) => s.pauseAfterMs);
     expect(questions).toHaveLength(3);
     expect(questions.every((q) => q.pauseAfterMs === QUIZ_PAUSE_MS)).toBe(true);
@@ -117,5 +126,25 @@ describe("titleSegment", () => {
   it("est un segment FR atomique réutilisable", () => {
     const t = titleSegment("Mon titre", "histoire");
     expect(t).toEqual({ chapter: "histoire", lang: "fr", text: "Mon titre", label: "Mon titre" });
+  });
+});
+
+describe("containsJa / cleanFrench", () => {
+  it("détecte le japonais (kana/kanji)", () => {
+    expect(containsJa("le chat 猫")).toBe(true);
+    expect(containsJa("ねこ")).toBe(true);
+    expect(containsJa("le chat")).toBe(false);
+  });
+
+  it("retire les gloses japonaises entre parenthèses", () => {
+    expect(cleanFrench("Le chat (猫, neko) boit de l'eau.")).toBe("Le chat boit de l'eau.");
+  });
+
+  it("retire un caractère japonais isolé et nettoie les espaces", () => {
+    expect(cleanFrench("Il y a un chat 猫 .")).toBe("Il y a un chat.");
+  });
+
+  it("laisse intact un texte déjà en français pur", () => {
+    expect(cleanFrench("Le matin, il a faim.")).toBe("Le matin, il a faim.");
   });
 });

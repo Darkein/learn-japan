@@ -43,6 +43,40 @@ type RawSegment = Omit<PodcastSegment, "id">;
 /** Durée du blanc de réponse d'un quiz (« comment dit-on chat ? » → 5 s → « neko »). */
 export const QUIZ_PAUSE_MS = 5000;
 
+/**
+ * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
+ * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
+ */
+export const PACK_VERSION = 2;
+
+// ---------- Français pur (anti double-lecture) ------------------------------
+
+// Plages japonaises : hiragana, katakana, katakana demi-largeur, CJK unifiés.
+const JA_CHARS = /[぀-ヿｦ-ﾟ㐀-鿿]/;
+
+/** Vrai si le texte contient au moins un caractère japonais. */
+export function containsJa(s: string): boolean {
+  return JA_CHARS.test(s);
+}
+
+/**
+ * Nettoie une traduction française pour la lecture vocale : retire les gloses japonaises
+ * (mot japonais / romaji entre parenthèses) et tout caractère japonais résiduel, afin que
+ * la voix française ne répète pas un mot déjà prononcé en japonais (ex. « le chat (猫, neko) »).
+ */
+export function cleanFrench(s: string): string {
+  return s
+    // Parenthèses contenant du japonais → supprimées en entier (« (猫, neko) »).
+    .replace(/[（(][^)）]*[぀-ヿｦ-ﾟ㐀-鿿][^)）]*[)）]/g, "")
+    // Caractères japonais isolés résiduels.
+    .replace(new RegExp(JA_CHARS.source, "g"), "")
+    // Parenthèses vidées et espaces parasites avant ponctuation.
+    .replace(/[（(]\s*[)）]/g, "")
+    .replace(/\s+([,.;:!?»])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // ---------- Découpage des phrases japonaises --------------------------------
 
 const JA_SENTENCE_END = /[。！？．!?]/;
@@ -93,7 +127,8 @@ export function buildVocabQuizzes(vocab: VocabEntry[]): RawSegment[] {
         segs.push({ chapter: "quiz", lang: "fr", text: `Comment dit-on « ${v.fr} » en japonais ?`, pauseAfterMs: QUIZ_PAUSE_MS, label });
         segs.push({ chapter: "quiz", lang: "ja", text: ja });
         break;
-      case 1: // compréhension JP → FR
+      case 1: // compréhension JP → FR : amorce FR + mot japonais (voix JA) + réponse FR
+        segs.push({ chapter: "quiz", lang: "fr", text: "Que veut dire ce mot ?" });
         segs.push({ chapter: "quiz", lang: "ja", text: ja, pauseAfterMs: QUIZ_PAUSE_MS, label });
         segs.push({ chapter: "quiz", lang: "fr", text: `Cela signifie « ${v.fr} ».` });
         break;
@@ -173,12 +208,27 @@ export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): Podcast
 
 // ---------- Traduction d'histoire (préalable à l'assemblage) -----------------
 
-/** S'assure qu'une histoire a sa traduction FR alignée + son titre FR (génère sinon). */
+/** Une traduction est exploitable si elle est présente, complète et SANS japonais résiduel. */
+function translationIsClean(story: StoryRecord): boolean {
+  if (!story.translation?.length || !story.titleFr) return false;
+  return !containsJa(story.titleFr) && !story.translation.some(containsJa);
+}
+
+/**
+ * S'assure qu'une histoire a une traduction FR alignée + un titre FR, **en français pur**.
+ * Régénère si elle manque OU si une ancienne traduction contient encore du japonais
+ * (auto-réparation des packs générés avant le durcissement du prompt). Nettoie en plus
+ * défensivement (`cleanFrench`) pour ne jamais relire un mot déjà prononcé en japonais.
+ */
 export async function ensureStoryTranslation(story: StoryRecord): Promise<StoryRecord> {
-  if (story.translation?.length && story.titleFr) return story;
+  if (translationIsClean(story)) return story;
   const ja = splitJaSentences(story.text);
   const { titleFr, sentences } = await generateStoryTranslation(ja, story.params.level ?? 5);
-  const updated: StoryRecord = { ...story, titleFr, translation: sentences };
+  const updated: StoryRecord = {
+    ...story,
+    titleFr: cleanFrench(titleFr),
+    translation: sentences.map(cleanFrench),
+  };
   await putStory(updated);
   return updated;
 }
@@ -213,10 +263,9 @@ export async function generatePodcastPack(
   }
 
   for (const story of lesson.stories) {
-    if (!story.translation?.length || !story.titleFr) {
-      onProgress?.("Traduction de l'histoire…");
-      await ensureStoryTranslation(story);
-    }
+    // ensureStoryTranslation décide elle-même (manquante ou « sale » → régénère).
+    onProgress?.("Traduction de l'histoire…");
+    await ensureStoryTranslation(story);
   }
   lesson = (await getLesson(lessonId))!; // re-hydrate avec traductions/titres à jour
 
@@ -236,7 +285,7 @@ export async function generatePodcastPack(
     }
   }
 
-  const rec: PodcastRecord = { id: lessonId, segments, createdAt: Date.now() };
+  const rec: PodcastRecord = { id: lessonId, segments, createdAt: Date.now(), version: PACK_VERSION };
   await putPodcast(rec);
   return rec;
 }
