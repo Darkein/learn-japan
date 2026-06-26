@@ -1,13 +1,12 @@
 import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { generateLessonIntro, generateLessonStory, type GenState } from "../lib/genClient";
+import { type GenState } from "../lib/genClient";
 import {
-  getCumulativeObjectives,
+  addLessonStory,
+  ensureLessonFraming,
   markLessonStarted,
-  saveLessonIntro,
   type Lesson,
 } from "../lib/lessons";
-import { saveStory } from "../lib/stories";
 
 export const STATE_LABEL: Record<GenState, string> = {
   queued: "en file…",
@@ -16,35 +15,6 @@ export const STATE_LABEL: Record<GenState, string> = {
   error: "erreur",
   unknown: "inconnu",
 };
-
-// Génère (et sauve) une nouvelle histoire pour la leçon, contrainte au lexique déjà vu.
-async function addStory(lesson: Lesson, setState: (s: GenState) => void): Promise<StoryRecord> {
-  const targetKanji = new Set(lesson.objectives.kanji.map((k) => k.ja));
-  const knownKanji = getCumulativeObjectives(lesson.id)
-    .kanji.map((k) => k.ja)
-    .filter((k) => !targetKanji.has(k));
-  const text = await generateLessonStory(
-    {
-      title: lesson.title,
-      level: lesson.level,
-      vocab: lesson.objectives.vocab,
-      kanji: lesson.objectives.kanji,
-      grammar: lesson.objectives.grammar,
-      known: { kanji: knownKanji },
-    },
-    setState,
-  );
-  if (!text.trim()) throw new Error("Histoire vide reçue.");
-  return saveStory(
-    text,
-    {
-      level: lesson.level,
-      kanji: lesson.objectives.kanji.length ? lesson.objectives.kanji.map((k) => k.ja) : undefined,
-      grammar: lesson.objectives.grammar.length ? lesson.objectives.grammar : undefined,
-    },
-    lesson.id,
-  );
-}
 
 interface Options {
   onChanged: () => void;
@@ -68,20 +38,8 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
     setError(null);
     setGenState("queued");
     try {
-      if (!lesson.framing) {
-        const intro = await generateLessonIntro(
-          {
-            title: lesson.title,
-            level: lesson.level,
-            vocab: lesson.objectives.vocab,
-            kanji: lesson.objectives.kanji,
-            grammar: lesson.objectives.grammar,
-          },
-          setGenState,
-        );
-        if (intro) await saveLessonIntro(lesson.id, intro);
-      }
-      const story = await addStory(lesson, setGenState);
+      await ensureLessonFraming(lesson, setGenState);
+      const story = await addLessonStory(lesson, setGenState);
       onChanged();
       if (story.lessonId) await markLessonStarted(story.lessonId);
       onOpenStory(story);
@@ -96,7 +54,7 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
     setError(null);
     setGenState("queued");
     try {
-      const story = await addStory(lesson, setGenState);
+      const story = await addLessonStory(lesson, setGenState);
       onStoryAdded?.(story);
       onChanged();
     } catch (e) {

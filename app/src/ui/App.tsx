@@ -5,6 +5,8 @@ import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
 import { Histoires } from "./Histoires";
 import { Home } from "./Home";
+import { PodcastPlayer } from "./PodcastPlayer";
+import { PodcastProvider } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
 import {
@@ -53,6 +55,17 @@ function buildIncoming(story: StoryRecord): IncomingStory {
 }
 
 export function App() {
+  // Le lecteur podcast est porté ici (au-dessus du routage) pour persister entre les
+  // onglets et les pages, et la barre est rendue par-dessus tout le contenu.
+  return (
+    <PodcastProvider>
+      <AppShell />
+      <PodcastPlayer />
+    </PodcastProvider>
+  );
+}
+
+function AppShell() {
   const route = useHashRoute();
   const [theme, setTheme] = useTheme();
   // Données des sous-pages, résolues depuis l'id contenu dans l'URL (rechargement direct possible).
