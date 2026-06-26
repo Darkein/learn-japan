@@ -9,6 +9,7 @@ import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
+import { NotificationBanner, NotificationProvider } from "./useNotify";
 import {
   currentLocation,
   navigate,
@@ -58,10 +59,13 @@ export function App() {
   // Le lecteur podcast est porté ici (au-dessus du routage) pour persister entre les
   // onglets et les pages, et la barre est rendue par-dessus tout le contenu.
   return (
-    <PodcastProvider>
-      <AppShell />
-      <PodcastPlayer />
-    </PodcastProvider>
+    <NotificationProvider>
+      <PodcastProvider>
+        <AppShell />
+        <PodcastPlayer />
+      </PodcastProvider>
+      <NotificationBanner />
+    </NotificationProvider>
   );
 }
 

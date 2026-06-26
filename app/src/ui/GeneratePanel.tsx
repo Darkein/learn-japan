@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { generateText, type GenState } from "../lib/genClient";
 import { saveStory, type StoryParams } from "../lib/stories";
+import { useNotify } from "./useNotify";
 
 const GEN_LABEL: Record<GenState, string> = {
   queued: "en file…",
@@ -12,13 +13,15 @@ const GEN_LABEL: Record<GenState, string> = {
 };
 
 interface Props {
-  /** Appelée avec l'histoire enregistrée → l'appelant navigue vers la page de lecture. */
+  /** Ouvre une histoire dans la page de lecture (collage, ou action d'un bandeau). */
   onGenerated: (story: StoryRecord) => void;
 }
 
 /**
  * Génération ciblée d'une histoire (thème / kanji / grammaire / niveau) et collage de
- * texte libre. Enregistre l'histoire puis la remonte pour ouverture dans le lecteur.
+ * texte libre. La génération ne redirige plus de force : elle enregistre l'histoire et
+ * signale par un bandeau qu'elle est prête (ouverture sur demande). Le collage, lui, est
+ * une action explicite et ouvre directement le lecteur.
  */
 export function GeneratePanel({ onGenerated }: Props) {
   const [theme, setTheme] = useState("");
@@ -28,6 +31,7 @@ export function GeneratePanel({ onGenerated }: Props) {
   const [paste, setPaste] = useState("");
   const [genState, setGenState] = useState<GenState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { notify } = useNotify();
 
   const generating = genState === "queued" || genState === "generating";
 
@@ -43,7 +47,10 @@ export function GeneratePanel({ onGenerated }: Props) {
     try {
       const text = await generateText(params, setGenState);
       const story = await saveStory(text, params);
-      onGenerated(story);
+      notify({
+        message: "Histoire générée.",
+        action: { label: "Ouvrir →", onClick: () => onGenerated(story) },
+      });
     } catch (e) {
       setError(String(e));
       setGenState("error");
