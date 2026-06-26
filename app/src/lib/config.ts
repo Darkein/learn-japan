@@ -7,3 +7,12 @@ const FALLBACK_WORKER_URL = "https://learn-japan-gen.learn-japan-gen.workers.dev
 export const WORKER_URL = (
   import.meta.env.VITE_WORKER_URL ?? FALLBACK_WORKER_URL
 ).replace(/\/+$/, "");
+
+// Voix Cloud TTS par langue. Le japonais sert au lecteur d'article et aux réponses de quiz ;
+// le français sert au mode podcast (cadrage, transitions, quiz, phrases traduites).
+export const TTS_VOICES = {
+  ja: { voice: "ja-JP-Neural2-B", languageCode: "ja-JP" },
+  fr: { voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
+} as const;
+
+export type TtsLang = keyof typeof TTS_VOICES;

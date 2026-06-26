@@ -38,8 +38,13 @@ interface TtsRequest {
   // Surfaces des tokens d'UNE phrase, dans l'ordre. Un repère SSML est inséré
   // avant chaque segment → on récupère l'horodatage de chaque mot (surlignage).
   segments?: string[];
+  // Alternative à `segments` : un texte entier à synthétiser sans timepoints (mode
+  // podcast — transitions, quiz, phrases FR). Ignoré si `segments` est fourni.
+  text?: string;
   voice?: string;
   rate?: number;
+  // Langue BCP-47 (défaut ja-JP). Détermine la voix par défaut si `voice` est absent.
+  languageCode?: string;
 }
 
 const CORS = {
@@ -214,6 +219,12 @@ async function generate(env: Env, prompt: string): Promise<string> {
 // ---------- TTS (Google Cloud Text-to-Speech) -------------------------------
 
 const DEFAULT_TTS_VOICE = "ja-JP-Neural2-B";
+const DEFAULT_FR_VOICE = "fr-FR-Neural2-A";
+
+/** Voix Cloud TTS par défaut selon la langue (BCP-47). */
+function defaultVoiceFor(languageCode: string): string {
+  return languageCode.toLowerCase().startsWith("fr") ? DEFAULT_FR_VOICE : DEFAULT_TTS_VOICE;
+}
 
 /** Échappe les caractères réservés XML pour une insertion sûre dans le SSML. */
 function escapeXml(s: string): string {
@@ -246,17 +257,22 @@ async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
   const key = env.GOOGLE_TTS_API_KEY;
   if (!key) throw new Error("tts_unconfigured");
 
+  // Deux modes : `segments` (phrase tokenisée → timepoints par mot, pour le lecteur
+  // d'article) ou `text` (texte entier sans timepoints, pour le podcast).
   const segments = (body.segments ?? []).filter((s) => s.length > 0);
-  if (!segments.length) throw new Error("segments vides");
+  const plainText = (body.text ?? "").trim();
+  if (!segments.length && !plainText) throw new Error("texte vide");
+  const useMarks = segments.length > 0;
 
-  const voice = body.voice || env.TTS_VOICE || DEFAULT_TTS_VOICE;
+  const languageCode = body.languageCode || "ja-JP";
+  const voice = body.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
   const rate = body.rate ?? Number(env.TTS_RATE ?? "1") ?? 1;
   const url = `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${key}`;
   const payload = JSON.stringify({
-    input: { ssml: buildSsml(segments) },
-    voice: { languageCode: "ja-JP", name: voice },
+    input: useMarks ? { ssml: buildSsml(segments) } : { text: plainText },
+    voice: { languageCode, name: voice },
     audioConfig: { audioEncoding: "MP3", speakingRate: rate },
-    enableTimePointing: ["SSML_MARK"],
+    ...(useMarks ? { enableTimePointing: ["SSML_MARK"] } : {}),
   });
 
   const maxAttempts = 4;

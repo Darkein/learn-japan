@@ -3,6 +3,7 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Card } from "ts-fsrs";
+import type { PodcastSegment } from "./podcast";
 
 /** Compétences suivies pour le vocabulaire (SPEC §2.2). */
 export type Skill = "written" | "oral" | "production";
@@ -64,6 +65,23 @@ export interface StoryRecord {
   params: { theme?: string; kanji?: string[]; grammar?: string[]; level?: number };
   /** Rattachement optionnel à une leçon du curriculum (SPEC §3). */
   lessonId?: string;
+  /** Titre français court (mode podcast : annoncé à l'oral). */
+  titleFr?: string;
+  /** Traduction FR alignée phrase par phrase sur le découpage JP (mode podcast). */
+  translation?: string[];
+}
+
+/**
+ * Pack podcast pré-généré d'une leçon (SPEC §11) : le script (segments cours/quiz/histoire)
+ * mis en cache. Les blobs audio vivent dans le store `tts` (préchauffé à la génération) →
+ * écoute hors-ligne sans dupliquer l'audio.
+ */
+export interface PodcastRecord {
+  id: string; // = curriculum entry id (lessonId)
+  segments: PodcastSegment[];
+  createdAt: number;
+  /** Version du format de pack (régénération si obsolète). */
+  version?: number;
 }
 
 /**
@@ -92,6 +110,8 @@ interface LearnDB extends DBSchema {
   stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
   lessons: { key: string; value: GeneratedLessonRecord };
   lessonProgress: { key: string; value: LessonProgressRecord };
+  /** Packs podcast pré-générés (script), clé = lessonId (SPEC §11). */
+  podcasts: { key: string; value: PodcastRecord };
   /** Cache de dictionnaires volumineux chargés depuis un asset statique (ex. JMdict-FR). */
   dict: { key: string; value: { id: string; map: Record<string, string>; createdAt: number } };
   /**
@@ -106,7 +126,7 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -144,6 +164,9 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("tts")) {
           db.createObjectStore("tts", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("podcasts")) {
+          db.createObjectStore("podcasts", { keyPath: "id" });
         }
       },
     });
@@ -219,6 +242,17 @@ export async function getGeneratedLesson(id: string): Promise<GeneratedLessonRec
 }
 export async function deleteGeneratedLesson(id: string): Promise<void> {
   await (await getDB()).delete("lessons", id);
+}
+
+// Packs podcast ---------------------------------------------------------------
+export async function putPodcast(rec: PodcastRecord): Promise<void> {
+  await (await getDB()).put("podcasts", rec);
+}
+export async function getPodcast(id: string): Promise<PodcastRecord | undefined> {
+  return (await getDB()).get("podcasts", id);
+}
+export async function deletePodcast(id: string): Promise<void> {
+  await (await getDB()).delete("podcasts", id);
 }
 
 // Progression des leçons -----------------------------------------------------

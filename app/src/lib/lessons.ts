@@ -7,7 +7,9 @@
 // - terminée : marquée lue ; n'empêche pas de la relire.
 
 import curriculumData from "../data/curriculum.json";
+import { generateLessonIntro, generateLessonStory, type GenState } from "./genClient";
 import { resolveGrammar, resolveKanji, resolveVocab } from "./inventory";
+import { saveStory } from "./stories";
 import {
   allLessonProgress,
   getGeneratedLesson,
@@ -204,4 +206,65 @@ export async function markLessonCompleted(id: string): Promise<void> {
 
 export async function allProgress(): Promise<LessonProgressRecord[]> {
   return allLessonProgress();
+}
+
+// ---- Génération de contenu d'une leçon (partagée UI / podcast) --------------
+
+/** S'assure que le cadrage du cours existe (le génère et le met en cache sinon). */
+export async function ensureLessonFraming(
+  lesson: Lesson,
+  onState?: (s: GenState) => void,
+): Promise<string | undefined> {
+  if (lesson.framing) return lesson.framing;
+  const intro = await generateLessonIntro(
+    {
+      title: lesson.title,
+      level: lesson.level,
+      vocab: lesson.objectives.vocab,
+      kanji: lesson.objectives.kanji,
+      grammar: lesson.objectives.grammar,
+    },
+    onState,
+  );
+  if (intro) {
+    await saveLessonIntro(lesson.id, intro);
+    lesson.framing = intro; // confort de l'appelant (objet en mémoire à jour)
+  }
+  return intro;
+}
+
+/**
+ * Génère (et sauve) une nouvelle histoire pour la leçon, contrainte au lexique déjà vu
+ * (kanji des leçons précédentes, hors cibles de la leçon courante). Partagée par la
+ * génération interactive (UI) et la pré-génération du pack podcast.
+ */
+export async function addLessonStory(
+  lesson: Lesson,
+  onState?: (s: GenState) => void,
+): Promise<StoryRecord> {
+  const targetKanji = new Set(lesson.objectives.kanji.map((k) => k.ja));
+  const knownKanji = getCumulativeObjectives(lesson.id)
+    .kanji.map((k) => k.ja)
+    .filter((k) => !targetKanji.has(k));
+  const text = await generateLessonStory(
+    {
+      title: lesson.title,
+      level: lesson.level,
+      vocab: lesson.objectives.vocab,
+      kanji: lesson.objectives.kanji,
+      grammar: lesson.objectives.grammar,
+      known: { kanji: knownKanji },
+    },
+    onState,
+  );
+  if (!text.trim()) throw new Error("Histoire vide reçue.");
+  return saveStory(
+    text,
+    {
+      level: lesson.level,
+      kanji: lesson.objectives.kanji.length ? lesson.objectives.kanji.map((k) => k.ja) : undefined,
+      grammar: lesson.objectives.grammar.length ? lesson.objectives.grammar : undefined,
+    },
+    lesson.id,
+  );
 }

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { StoryRecord } from "../lib/db";
 import { grammarDetail, kanjiDetail } from "../lib/inventory";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
+import { usePodcastPlayer } from "./usePodcastPlayer";
 import { STATE_LABEL, useLessonGen } from "./useLessonGen";
 
 interface Props {
@@ -24,6 +25,8 @@ export function CourseDetail({ lesson, onOpenStory, onChanged }: Props) {
     onOpenStory,
     onStoryAdded: (s) => setStories((prev) => [...prev, s]),
   });
+  const podcast = usePodcastPlayer();
+  const podcastBusy = podcast.active && podcast.preparing !== null;
 
   const ready = lesson.state === "ready";
 
@@ -35,6 +38,19 @@ export function CourseDetail({ lesson, onOpenStory, onChanged }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <Cours lesson={lesson} />
+
+      <div>
+        <button
+          className="cursor-pointer rounded-sm border border-accent px-4 py-2 text-sm text-accent transition-colors hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => podcast.startLesson(lesson.id)}
+          disabled={podcastBusy}
+        >
+          {podcastBusy ? `Préparation… ${podcast.preparing ?? ""}` : "▶ Mode podcast (écouter la leçon)"}
+        </button>
+        <p className="mt-1 text-xs text-muted">
+          Cadrage parlé, quiz audio, puis l'histoire en écoute bilingue (japonais / français).
+        </p>
+      </div>
 
       {ready ? (
         <>

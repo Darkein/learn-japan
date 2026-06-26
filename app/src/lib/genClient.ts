@@ -90,33 +90,39 @@ function objectivesBlock(input: LessonGenInput): string[] {
 }
 
 /**
- * Cadrage pédagogique FR d'une leçon. Le détail structuré (lectures des kanji, règles +
- * exemples de grammaire, liste de vocab) est déjà rendu par l'UI depuis l'inventaire : ce
- * cadrage apporte le liant, l'intuition et les pièges — pas la simple liste.
+ * Cadrage pédagogique FR d'une leçon. Volontairement COURT et centré sur la seule
+ * GRAMMAIRE : le détail structuré (lectures des kanji, règles + exemples, liste de vocab)
+ * est déjà rendu par l'UI depuis l'inventaire. Le vocabulaire et les kanji ne sont fournis
+ * ici que comme matière à exemples — ils ne doivent être ni listés ni expliqués.
  */
+export function buildLessonIntroPrompt(input: LessonGenInput): string {
+  const grammar = input.grammar.length
+    ? `Points de grammaire à expliquer : ${input.grammar.join(", ")}.`
+    : "Cette leçon n'introduit pas de nouveau point de grammaire ; présente brièvement son thème.";
+  // Vocab/kanji fournis UNIQUEMENT comme matière à exemples, jamais à lister/expliquer.
+  const exampleMaterial = [
+    input.vocab.length ? `Vocabulaire disponible pour illustrer : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
+    input.kanji.length ? `Kanji disponibles pour illustrer : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
+  ].filter(Boolean);
+
+  return [
+    `Rédige le cadrage d'une leçon de japonais (niveau JLPT N${input.level}) intitulée « ${input.title} », en FRANÇAIS et au format Markdown.`,
+    grammar,
+    ...exampleMaterial,
+    "",
+    "Explique UNIQUEMENT la grammaire ci-dessus : l'intuition, comment l'employer, et un piège fréquent. Tu peux t'appuyer sur le vocabulaire/kanji fournis pour un mini-exemple, mais NE les liste PAS et NE les explique PAS (ils sont déjà affichés à côté).",
+    "Sois bref : 2 à 4 phrases courtes (ce cadrage doit rester plus court que les sections affichées en dessous). **gras** autorisé pour les mots japonais clés. Pas de titre, pas de liste. Réponds uniquement avec ce texte FR.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export async function generateLessonIntro(
   input: LessonGenInput,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
 ): Promise<string> {
-  const prompt = [
-    `Rédige une leçon de japonais au format Markdown pour un débutant (niveau JLPT N${input.level}) intitulée « ${input.title} ».`,
-    "Les éléments à enseigner sont :",
-    ...objectivesBlock(input),
-    "",
-    "Écris une explication pédagogique en FRANÇAIS (5 à 9 phrases minimum) : donne l'intuition, relie les éléments entre eux, illustre par un mini-exemple, et signale un piège fréquent. Ne te contente pas d'énumérer : explique.",
-    "",
-    "Mise en forme — n'utilise QUE ces balises Markdown, aucune autre :",
-    "- de courts titres de section avec « ## » (ou « ### ») pour séparer les idées (ex. « ## L'intuition », « ## Un piège ») ;",
-    "- des paragraphes courts séparés par une ligne vide (aère le texte, ne fais pas un seul bloc compact) ;",
-    "- **gras** pour les mots japonais clés et *italique* pour une nuance ou une lecture ;",
-    "- des listes à puces (lignes commençant par « - ») pour énumérer des exemples ou des pièges.",
-    "N'emploie aucune autre syntaxe : pas de titre de niveau 1 (#), pas de tableau, pas de lien, pas de bloc de code, pas de citation. Pas de liste de vocabulaire brute (elle est affichée à côté).",
-    "Réponds uniquement avec ce texte FR.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
+  const prompt = buildLessonIntroPrompt(input);
   return (await generateText({ kind: "lesson", prompt, level: input.level }, onState, opts)).trim();
 }
 
@@ -125,12 +131,14 @@ export async function generateLessonIntro(
  * plancher minimum garanti. `level` est le numéro JLPT : 5 = N5 … 1 = N1.
  */
 function storyLength(level: number): { min: number; max: number } {
+  // Planchers relevés pour garantir au moins 2-3 paragraphes consistants (N5 ne doit plus
+  // se réduire à 3 phrases). La longueur reste croissante du N5 au N1.
   const table: Record<number, { min: number; max: number }> = {
-    5: { min: 80, max: 150 },
-    4: { min: 120, max: 220 },
-    3: { min: 180, max: 300 },
-    2: { min: 260, max: 400 },
-    1: { min: 350, max: 550 },
+    5: { min: 240, max: 360 },
+    4: { min: 300, max: 450 },
+    3: { min: 360, max: 540 },
+    2: { min: 420, max: 620 },
+    1: { min: 500, max: 750 },
   };
   return table[level] ?? table[3];
 }
@@ -140,13 +148,9 @@ function storyLength(level: number): { min: number; max: number } {
  * leçon, dont la longueur s'adapte au niveau. Privilégie le lexique déjà vu sans
  * l'imposer. Retourne le texte JP brut ; l'appelant le sauve en StoryRecord (lessonId).
  */
-export async function generateLessonStory(
-  input: LessonGenInput,
-  onState?: (s: GenState) => void,
-  opts: { timeoutMs?: number } = {},
-): Promise<string> {
+export function buildLessonStoryPrompt(input: LessonGenInput): string {
   const len = storyLength(input.level);
-  const prompt = [
+  return [
     `Écris un texte en japonais pour une leçon de niveau JLPT N${input.level} intitulée « ${input.title} ».`,
     "Format libre — court récit, brève (news), dialogue ou scène du quotidien — du moment que c'est cohérent, naturel et formateur.",
     "Il doit mettre en scène ces éléments cibles :",
@@ -155,12 +159,19 @@ export async function generateLessonStory(
       ? `Privilégie au maximum le lexique et les kanji déjà connus de l'apprenant : ${input.known.kanji.join("")}. Tu peux introduire un peu de vocabulaire nouveau si c'est nécessaire au naturel du texte, mais reste simple et préfère le déjà-vu (kana au besoin).`
       : "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
     "",
-    `Longueur : un petit article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), en 2 à 4 courts paragraphes.`,
+    `Longueur : un article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), structuré en au moins 2 à 3 paragraphes (sépare les paragraphes par une ligne vide ; ajoute-en si l'histoire le demande).`,
     "Réponds uniquement avec le texte japonais : pas de furigana, pas de romaji, pas de traduction, pas de titre.",
   ]
     .filter(Boolean)
     .join("\n");
+}
 
+export async function generateLessonStory(
+  input: LessonGenInput,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<string> {
+  const prompt = buildLessonStoryPrompt(input);
   return (
     await generateText(
       { kind: "story", prompt, level: input.level },
@@ -169,4 +180,78 @@ export async function generateLessonStory(
       { timeoutMs: opts.timeoutMs ?? 120_000 },
     )
   ).trim();
+}
+
+// ---------- Traduction d'histoire (mode podcast : alternance JP / FR) --------
+// Pour l'écoute bilingue (SPEC §11), il faut une traduction FR alignée PHRASE PAR PHRASE
+// sur le découpage JP. On passe les phrases déjà découpées et on exige le même nombre de
+// lignes FR → alignement garanti. On obtient aussi un titre FR court (annoncé à l'oral).
+
+export interface StoryTranslation {
+  titleFr: string;
+  /** Une traduction par phrase JP, dans le même ordre (longueur = jaSentences.length). */
+  sentences: string[];
+}
+
+/** Extrait le titre et les N traductions du texte renvoyé par le modèle (robuste au bruit). */
+export function parseStoryTranslation(raw: string, n: number): StoryTranslation {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let titleFr = "";
+  const numbered: string[] = new Array(n).fill("");
+  const others: string[] = [];
+  for (const line of lines) {
+    const t = line.match(/^TITRE\s*[:：]\s*(.+)$/i);
+    if (t) {
+      titleFr = titleFr || t[1].trim();
+      continue;
+    }
+    const m = line.match(/^\[?(\d+)\]?[.)、．]\s*(.+)$/);
+    if (m) {
+      const idx = Number(m[1]) - 1;
+      if (idx >= 0 && idx < n && !numbered[idx]) numbered[idx] = m[2].trim();
+      else others.push(line);
+    } else {
+      others.push(line);
+    }
+  }
+
+  // Repli : si la numérotation n'a pas rempli toutes les phrases, on complète dans l'ordre
+  // avec les lignes restantes (hors titre).
+  let oi = 0;
+  for (let i = 0; i < n; i++) {
+    if (!numbered[i] && oi < others.length) numbered[i] = others[oi++];
+  }
+  if (!titleFr) titleFr = others[oi] ?? "Histoire";
+  return { titleFr, sentences: numbered };
+}
+
+/** Traduit une histoire (phrases JP pré-découpées) en FR aligné + un titre FR court. */
+export async function generateStoryTranslation(
+  jaSentences: string[],
+  level: number,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<StoryTranslation> {
+  const n = jaSentences.length;
+  if (n === 0) return { titleFr: "Histoire", sentences: [] };
+
+  const numbered = jaSentences.map((s, i) => `[${i + 1}] ${s}`).join("\n");
+  const prompt = [
+    `Voici une histoire en japonais découpée en ${n} phrases numérotées.`,
+    "Donne d'abord un titre court en français, sur une ligne préfixée par « TITRE: ».",
+    `Puis traduis CHAQUE phrase en français naturel, une traduction par ligne, dans l'ordre, préfixée par son numéro (« 1. », « 2. », … jusqu'à « ${n}. »). Exactement ${n} lignes de traduction, aucune fusion, aucune phrase sautée.`,
+    "Traduis en français PUR : n'inclus AUCUN caractère japonais (kanji/kana), AUCUNE transcription en romaji et AUCUNE glose entre parenthèses (pas de « le chat (猫) », pas de « (neko) »). Traduis tout, y compris les noms communs. Le titre suit la même règle.",
+    "Ne renvoie rien d'autre.",
+    "",
+    numbered,
+  ].join("\n");
+
+  const raw = await generateText({ kind: "story", prompt, level }, onState, {
+    timeoutMs: opts.timeoutMs ?? 120_000,
+  });
+  return parseStoryTranslation(raw, n);
 }
