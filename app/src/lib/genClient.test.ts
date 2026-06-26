@@ -1,45 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildLessonIntroPrompt,
-  buildLessonStoryPrompt,
-  parseStoryTranslation,
-  type LessonGenInput,
-} from "./genClient";
+import { parseStoryTranslation } from "./genClient";
 
-const input: LessonGenInput = {
-  title: "Les animaux",
-  level: 5,
-  vocab: [{ ja: "猫", yomi: "ねこ", fr: "chat" }],
-  kanji: [{ ja: "猫", fr: "chat" }],
-  grammar: ["n5-wa-topic"],
-};
-
-describe("buildLessonIntroPrompt", () => {
-  const prompt = buildLessonIntroPrompt(input);
-
-  it("reste court et borné (2 à 4 phrases, plus 5-9 phrases sans plafond)", () => {
-    expect(prompt).toContain("2 à 4 phrases courtes");
-    expect(prompt).not.toContain("5 à 9 phrases");
-  });
-
-  it("n'explique QUE la grammaire (vocab/kanji = simple matière à exemples)", () => {
-    expect(prompt).toContain("Explique UNIQUEMENT la grammaire");
-    expect(prompt).toContain("NE les liste PAS et NE les explique PAS");
-  });
-});
-
-describe("buildLessonStoryPrompt", () => {
-  it("demande au moins 2 à 3 paragraphes (plus seulement 2 à 4 courts paragraphes)", () => {
-    const prompt = buildLessonStoryPrompt(input);
-    expect(prompt).toContain("au moins 2 à 3 paragraphes");
-    expect(prompt).not.toContain("2 à 4 courts paragraphes");
-  });
-
-  it("relève le plancher de longueur N5 (>= 240 caractères)", () => {
-    const prompt = buildLessonStoryPrompt(input);
-    expect(prompt).toContain("240");
-  });
-});
+// La composition des prompts (cadrage, histoire, traduction) vit désormais côté Worker
+// — voir worker/src/prompts.test.ts. Le client ne fait plus que parser la réponse.
 
 describe("parseStoryTranslation", () => {
   it("extrait le titre et aligne les traductions numérotées", () => {

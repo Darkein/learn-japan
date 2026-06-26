@@ -1,15 +1,27 @@
-// Client de génération : poste une requête ciblée au Worker, qui répond directement.
+// Client de génération : poste une requête CIBLÉE au Worker, qui répond directement.
 // Le Worker (et lui seul) appelle Gemini avec la clé secrète → rien à voler côté client.
+//
+// SÉCURITÉ — le client n'envoie QUE des paramètres structurés (kind + champs). C'est le
+// Worker qui compose le prompt depuis des gabarits fixes (voir worker/src/prompts.ts) :
+// aucune instruction libre ne transite, donc l'endpoint ne peut pas être détourné en
+// proxy LLM générique « hors japonais ».
 
 import { WORKER_URL } from "./config";
 
 export interface GenParams {
-  kind?: "story" | "lesson";
+  kind?: "story" | "lesson-intro" | "lesson-story" | "story-translation";
+  level?: number;
+  // kind: "story" (génération libre du lecteur)
   theme?: string;
   kanji?: string[];
   grammar?: string[];
-  prompt?: string;
-  level?: number;
+  // kind: "lesson-intro" | "lesson-story"
+  title?: string;
+  vocab?: { ja: string; yomi?: string; fr: string }[];
+  kanjiGloss?: { ja: string; fr: string }[];
+  knownKanji?: string[];
+  // kind: "story-translation"
+  sentences?: string[];
 }
 
 export type GenState = "queued" | "generating" | "ready" | "error" | "unknown";
@@ -62,6 +74,8 @@ export async function generateText(
 // Le cours (pédagogie) et l'histoire (matière à lire) sont deux choses distinctes :
 //  - generateLessonIntro → un CADRAGE FR qui complète le cours assemblé depuis l'inventaire ;
 //  - generateLessonStory → une HISTOIRE JP, contrainte au lexique déjà vu, sauvée en StoryRecord.
+// Dans les deux cas, le client n'envoie que la matière structurée (titre, niveau, vocab,
+// kanji, grammaire) ; la mise en forme du prompt est faite par le Worker.
 
 export interface LessonGenInput {
   title: string;
@@ -73,97 +87,25 @@ export interface LessonGenInput {
   known?: { kanji: string[] };
 }
 
-function fmtVocab(v: { ja: string; yomi?: string; fr: string }): string {
-  const reading = v.yomi && v.yomi !== v.ja ? ` (${v.yomi})` : "";
-  return `${v.ja}${reading} = ${v.fr}`;
-}
-function fmtKanji(k: { ja: string; fr: string }): string {
-  return `${k.ja} = ${k.fr}`;
-}
-
-function objectivesBlock(input: LessonGenInput): string[] {
-  return [
-    input.vocab.length ? `Vocabulaire : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
-    input.kanji.length ? `Kanji : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
-    input.grammar.length ? `Grammaire : ${input.grammar.join(", ")}.` : "",
-  ];
-}
-
-/**
- * Cadrage pédagogique FR d'une leçon. Volontairement COURT et centré sur la seule
- * GRAMMAIRE : le détail structuré (lectures des kanji, règles + exemples, liste de vocab)
- * est déjà rendu par l'UI depuis l'inventaire. Le vocabulaire et les kanji ne sont fournis
- * ici que comme matière à exemples — ils ne doivent être ni listés ni expliqués.
- */
-export function buildLessonIntroPrompt(input: LessonGenInput): string {
-  const grammar = input.grammar.length
-    ? `Points de grammaire à expliquer : ${input.grammar.join(", ")}.`
-    : "Cette leçon n'introduit pas de nouveau point de grammaire ; présente brièvement son thème.";
-  // Vocab/kanji fournis UNIQUEMENT comme matière à exemples, jamais à lister/expliquer.
-  const exampleMaterial = [
-    input.vocab.length ? `Vocabulaire disponible pour illustrer : ${input.vocab.map(fmtVocab).join(", ")}.` : "",
-    input.kanji.length ? `Kanji disponibles pour illustrer : ${input.kanji.map(fmtKanji).join(", ")}.` : "",
-  ].filter(Boolean);
-
-  return [
-    `Rédige le cadrage d'une leçon de japonais (niveau JLPT N${input.level}) intitulée « ${input.title} », en FRANÇAIS et au format Markdown.`,
-    grammar,
-    ...exampleMaterial,
-    "",
-    "Explique UNIQUEMENT la grammaire ci-dessus : l'intuition, comment l'employer, et un piège fréquent. Tu peux t'appuyer sur le vocabulaire/kanji fournis pour un mini-exemple, mais NE les liste PAS et NE les explique PAS (ils sont déjà affichés à côté).",
-    "Sois bref : 2 à 4 phrases courtes (ce cadrage doit rester plus court que les sections affichées en dessous). **gras** autorisé pour les mots japonais clés. Pas de titre, pas de liste. Réponds uniquement avec ce texte FR.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 export async function generateLessonIntro(
   input: LessonGenInput,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
 ): Promise<string> {
-  const prompt = buildLessonIntroPrompt(input);
-  return (await generateText({ kind: "lesson", prompt, level: input.level }, onState, opts)).trim();
-}
-
-/**
- * Longueur cible (caractères JP) d'une histoire, croissante du N5 au N1 avec un
- * plancher minimum garanti. `level` est le numéro JLPT : 5 = N5 … 1 = N1.
- */
-function storyLength(level: number): { min: number; max: number } {
-  // Planchers relevés pour garantir au moins 2-3 paragraphes consistants (N5 ne doit plus
-  // se réduire à 3 phrases). La longueur reste croissante du N5 au N1.
-  const table: Record<number, { min: number; max: number }> = {
-    5: { min: 240, max: 360 },
-    4: { min: 300, max: 450 },
-    3: { min: 360, max: 540 },
-    2: { min: 420, max: 620 },
-    1: { min: 500, max: 750 },
-  };
-  return table[level] ?? table[3];
-}
-
-/**
- * Petit texte japonais (mini-article / brève / dialogue) ciblant les objectifs de la
- * leçon, dont la longueur s'adapte au niveau. Privilégie le lexique déjà vu sans
- * l'imposer. Retourne le texte JP brut ; l'appelant le sauve en StoryRecord (lessonId).
- */
-export function buildLessonStoryPrompt(input: LessonGenInput): string {
-  const len = storyLength(input.level);
-  return [
-    `Écris un texte en japonais pour une leçon de niveau JLPT N${input.level} intitulée « ${input.title} ».`,
-    "Format libre — court récit, brève (news), dialogue ou scène du quotidien — du moment que c'est cohérent, naturel et formateur.",
-    "Il doit mettre en scène ces éléments cibles :",
-    ...objectivesBlock(input),
-    input.known?.kanji.length
-      ? `Privilégie au maximum le lexique et les kanji déjà connus de l'apprenant : ${input.known.kanji.join("")}. Tu peux introduire un peu de vocabulaire nouveau si c'est nécessaire au naturel du texte, mais reste simple et préfère le déjà-vu (kana au besoin).`
-      : "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
-    "",
-    `Longueur : un article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), structuré en au moins 2 à 3 paragraphes (sépare les paragraphes par une ligne vide ; ajoute-en si l'histoire le demande).`,
-    "Réponds uniquement avec le texte japonais : pas de furigana, pas de romaji, pas de traduction, pas de titre.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return (
+    await generateText(
+      {
+        kind: "lesson-intro",
+        title: input.title,
+        level: input.level,
+        vocab: input.vocab,
+        kanjiGloss: input.kanji,
+        grammar: input.grammar,
+      },
+      onState,
+      opts,
+    )
+  ).trim();
 }
 
 export async function generateLessonStory(
@@ -171,10 +113,17 @@ export async function generateLessonStory(
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
 ): Promise<string> {
-  const prompt = buildLessonStoryPrompt(input);
   return (
     await generateText(
-      { kind: "story", prompt, level: input.level },
+      {
+        kind: "lesson-story",
+        title: input.title,
+        level: input.level,
+        vocab: input.vocab,
+        kanjiGloss: input.kanji,
+        grammar: input.grammar,
+        knownKanji: input.known?.kanji,
+      },
       onState,
       // Génération plus longue (texte plus volumineux + repli éventuel de modèle).
       { timeoutMs: opts.timeoutMs ?? 120_000 },
@@ -184,8 +133,9 @@ export async function generateLessonStory(
 
 // ---------- Traduction d'histoire (mode podcast : alternance JP / FR) --------
 // Pour l'écoute bilingue (SPEC §11), il faut une traduction FR alignée PHRASE PAR PHRASE
-// sur le découpage JP. On passe les phrases déjà découpées et on exige le même nombre de
-// lignes FR → alignement garanti. On obtient aussi un titre FR court (annoncé à l'oral).
+// sur le découpage JP. On passe les phrases déjà découpées au Worker, qui exige le même
+// nombre de lignes FR → alignement garanti. On obtient aussi un titre FR court (annoncé
+// à l'oral). Le parsing de la réponse reste côté client (parseStoryTranslation).
 
 export interface StoryTranslation {
   titleFr: string;
@@ -239,19 +189,10 @@ export async function generateStoryTranslation(
   const n = jaSentences.length;
   if (n === 0) return { titleFr: "Histoire", sentences: [] };
 
-  const numbered = jaSentences.map((s, i) => `[${i + 1}] ${s}`).join("\n");
-  const prompt = [
-    `Voici une histoire en japonais découpée en ${n} phrases numérotées.`,
-    "Donne d'abord un titre court en français, sur une ligne préfixée par « TITRE: ».",
-    `Puis traduis CHAQUE phrase en français naturel, une traduction par ligne, dans l'ordre, préfixée par son numéro (« 1. », « 2. », … jusqu'à « ${n}. »). Exactement ${n} lignes de traduction, aucune fusion, aucune phrase sautée.`,
-    "Traduis en français PUR : n'inclus AUCUN caractère japonais (kanji/kana), AUCUNE transcription en romaji et AUCUNE glose entre parenthèses (pas de « le chat (猫) », pas de « (neko) »). Traduis tout, y compris les noms communs. Le titre suit la même règle.",
-    "Ne renvoie rien d'autre.",
-    "",
-    numbered,
-  ].join("\n");
-
-  const raw = await generateText({ kind: "story", prompt, level }, onState, {
-    timeoutMs: opts.timeoutMs ?? 120_000,
-  });
+  const raw = await generateText(
+    { kind: "story-translation", sentences: jaSentences, level },
+    onState,
+    { timeoutMs: opts.timeoutMs ?? 120_000 },
+  );
   return parseStoryTranslation(raw, n);
 }
