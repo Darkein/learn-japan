@@ -9,7 +9,7 @@
 import { WORKER_URL } from "./config";
 
 export interface GenParams {
-  kind?: "story" | "lesson-intro" | "lesson-story" | "story-translation";
+  kind?: "story" | "lesson-intro" | "lesson-story" | "story-translation" | "comprehension-qcm";
   level?: number;
   // kind: "story" (génération libre du lecteur)
   theme?: string;
@@ -196,4 +196,107 @@ export async function generateStoryTranslation(
     { timeoutMs: opts.timeoutMs ?? 120_000 },
   );
   return parseStoryTranslation(raw, n);
+}
+
+// ---------- QCM de compréhension (LLM) --------------------------------------
+// Vérifie qu'on a compris le SENS d'une histoire : 4 questions FR à choix multiple,
+// chacune taguée du point de grammaire qu'elle teste ([G1], [G2]…) → notation SRS
+// par point (piste « compréhension »). Le Worker compose le prompt ; ce module ne
+// fait que poster les paramètres structurés et parser le texte renvoyé.
+
+export interface ComprehensionQuestion {
+  /** Énoncé en français. */
+  question: string;
+  /** Propositions en français, déjà mélangées. */
+  options: string[];
+  /** Index de la bonne proposition dans `options`. */
+  answerIndex: number;
+  /** Point de grammaire testé (résolu depuis le tag [Gk]) ; absent si compréhension générale. */
+  targetGrammarId?: string;
+}
+
+/** Mélange un tableau (Fisher-Yates) en renvoyant aussi le nouvel index d'un élément suivi. */
+function shuffleTracking<T>(items: T[], trackedIndex: number): { items: T[]; index: number } {
+  const arr = items.slice();
+  let tracked = trackedIndex;
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    if (i === tracked) tracked = j;
+    else if (j === tracked) tracked = i;
+  }
+  return { items: arr, index: tracked };
+}
+
+/**
+ * Extrait les questions du QCM renvoyé par le modèle (robuste au bruit). Une ligne
+ * « N. [Gk] énoncé » ouvre une question ; les lignes « + … » / « - … » sont ses
+ * propositions (« + » = bonne réponse). `grammarIds` (ordonné) résout le tag [Gk] → id
+ * (k=0 ou absent ⇒ pas de point précis). Les questions sans bonne réponse ou avec moins
+ * de deux propositions sont ignorées.
+ */
+export function parseComprehensionQcm(
+  raw: string,
+  grammarIds: string[] = [],
+): ComprehensionQuestion[] {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  interface Draft {
+    question: string;
+    targetGrammarId?: string;
+    options: string[];
+    correct: number;
+  }
+  const drafts: Draft[] = [];
+  let cur: Draft | null = null;
+
+  for (const line of lines) {
+    const q = line.match(/^\[?(\d+)\]?(?:[.)、．]|\s)\s*(?:\[\s*[Gg]\s*(\d+)\s*\]\s*)?(.+)$/);
+    if (q) {
+      cur = { question: q[3].trim(), options: [], correct: -1 };
+      const gk = q[2] ? Number(q[2]) : 0;
+      if (gk >= 1 && gk <= grammarIds.length) cur.targetGrammarId = grammarIds[gk - 1];
+      drafts.push(cur);
+      continue;
+    }
+    const o = line.match(/^([+\-*•])\s*(.+)$/);
+    if (o && cur) {
+      const good = o[1] === "+" || o[1] === "*";
+      if (good && cur.correct < 0) cur.correct = cur.options.length;
+      cur.options.push(o[2].trim());
+    }
+  }
+
+  const out: ComprehensionQuestion[] = [];
+  for (const d of drafts) {
+    if (d.options.length < 2 || d.correct < 0) continue;
+    const { items, index } = shuffleTracking(d.options, d.correct);
+    out.push({
+      question: d.question,
+      options: items,
+      answerIndex: index,
+      targetGrammarId: d.targetGrammarId,
+    });
+  }
+  return out;
+}
+
+/** Génère un QCM de compréhension à partir des phrases JP + des points de grammaire. */
+export async function generateComprehensionQcm(
+  jaSentences: string[],
+  level: number,
+  grammar: { ids: string[]; labels: string[] },
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<ComprehensionQuestion[]> {
+  if (jaSentences.length === 0) return [];
+  const raw = await generateText(
+    { kind: "comprehension-qcm", sentences: jaSentences, level, grammar: grammar.labels },
+    onState,
+    { timeoutMs: opts.timeoutMs ?? 120_000 },
+  );
+  return parseComprehensionQcm(raw, grammar.ids);
 }

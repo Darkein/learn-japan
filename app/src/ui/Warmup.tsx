@@ -13,6 +13,7 @@ const TRACK_FR: Record<WarmupCard["track"], string> = {
   vocab: "vocabulaire",
   kanji: "kanji",
   grammar: "grammaire",
+  comprehension: "compréhension",
 };
 
 export function Warmup() {

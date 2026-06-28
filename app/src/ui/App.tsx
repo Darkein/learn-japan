@@ -39,6 +39,7 @@ const THEMES: { id: Theme; label: string }[] = [
 function buildIncoming(story: StoryRecord): IncomingStory {
   const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
   return {
+    id: story.id,
     text: story.text,
     params: story.params,
     nonce: Date.now(),
@@ -48,6 +49,7 @@ function buildIncoming(story: StoryRecord): IncomingStory {
           title: entry.title,
           level: entry.level,
           objectives: entry.objectives,
+          grammarIds: entry.introduces.grammar,
         }
       : story.lessonId
         ? { lessonId: story.lessonId }

@@ -6,6 +6,7 @@ import { markLessonCompleted, type LessonObjectives } from "../lib/lessons";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
+import { Comprehension } from "./Comprehension";
 import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
 import { WordSheet } from "./WordSheet";
@@ -15,9 +16,13 @@ export interface LessonContext {
   title?: string;
   level?: number;
   objectives?: LessonObjectives;
+  /** Ids des points de grammaire (même ordre que `objectives.grammar`) → notation SRS du QCM. */
+  grammarIds?: string[];
 }
 
 export interface IncomingStory {
+  /** Identifiant de l'histoire en base (cache du QCM de compréhension). Absent si non enregistrée. */
+  id?: string;
   text: string;
   params: StoryParams;
   nonce: number;
@@ -46,6 +51,7 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
   const [revealGloss, setRevealGloss] = useState(true);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
+  const [compOpen, setCompOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +79,7 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
     setError(null);
     setOpenIdx(null);
     setQuizOpen(false);
+    setCompOpen(false);
     try {
       const analyzed = await analyze(t);
       setResult(analyzed);
@@ -204,12 +211,32 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
             >
               {quizOpen ? "Fermer le quiz" : "Quiz de lecture"}
             </button>
+            <button
+              className="cursor-pointer rounded-sm border border-accent px-4 py-2 text-accent transition-colors hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setCompOpen((v) => !v)}
+            >
+              {compOpen ? "Fermer le QCM" : "QCM de compréhension"}
+            </button>
           </div>
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
 
           {quizOpen && (
             <Quiz tokens={result.tokens.map((t) => t.token)} onClose={() => setQuizOpen(false)} />
+          )}
+
+          {compOpen && (
+            <Comprehension
+              storyId={incoming.id}
+              text={incoming.text}
+              level={incoming.params.level ?? lessonCtx?.level ?? 5}
+              grammar={
+                lessonCtx
+                  ? { ids: lessonCtx.grammarIds ?? [], labels: lessonCtx.objectives?.grammar ?? [] }
+                  : undefined
+              }
+              onClose={() => setCompOpen(false)}
+            />
           )}
         </>
       )}

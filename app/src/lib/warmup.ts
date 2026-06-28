@@ -2,12 +2,15 @@
 // triés par urgence — recall rapide avant la lecture.
 
 import {
+  allComprehension,
   allGrammar,
   allKanji,
   allVocab,
+  getComprehensionItem,
   getGrammar,
   getKanji,
   getVocab,
+  putComprehensionItem,
   putGrammar,
   putKanji,
   putVocab,
@@ -16,7 +19,7 @@ import { isDue, review, type SrsGrade } from "./srs";
 
 export interface WarmupCard {
   key: string;
-  track: "vocab" | "kanji" | "grammar";
+  track: "vocab" | "kanji" | "grammar" | "comprehension";
   id: string;
   front: string; // indice montré
   back: string; // réponse révélée
@@ -65,6 +68,18 @@ export async function dueCards(now: Date = new Date(), max = 15): Promise<Warmup
       });
     }
   }
+  for (const c of await allComprehension()) {
+    if (c.card && isDue(c.card, now)) {
+      out.push({
+        key: `comprehension:${c.id}`,
+        track: "comprehension",
+        id: c.id,
+        front: `Compréhension — ${c.name}`,
+        back: c.rule || "—",
+        due: c.card.due.getTime(),
+      });
+    }
+  }
 
   return out.sort((a, b) => a.due - b.due).slice(0, max);
 }
@@ -81,6 +96,11 @@ export async function gradeCard(card: WarmupCard, grade: SrsGrade, now: Date = n
     if (!k?.card) return;
     k.card = review(k.card, grade, now);
     await putKanji(k);
+  } else if (card.track === "comprehension") {
+    const c = await getComprehensionItem(card.id);
+    if (!c?.card) return;
+    c.card = review(c.card, grade, now);
+    await putComprehensionItem(c);
   } else {
     const g = await getGrammar(card.id);
     if (!g?.card) return;
