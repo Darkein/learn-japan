@@ -46,3 +46,12 @@ export function hasKanji(s: string): boolean {
   for (const ch of s) if (isKanji(ch)) return true;
   return false;
 }
+
+/**
+ * Normalise une réponse pour le rappel actif (cloze à saisir) : katakana → hiragana,
+ * espaces retirés, bornes nettoyées. Comparaison robuste saisie ↔ réponse attendue ; les
+ * kanji sont laissés intacts (sert aussi à valider un mot tapé en kanji côté vocab).
+ */
+export function normalizeReading(s: string): string {
+  return kataToHira(s).replace(/\s+/g, "").trim();
+}

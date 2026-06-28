@@ -9,6 +9,7 @@ import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } fro
 import { Comprehension } from "./Comprehension";
 import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
+import { SentenceBuilder } from "./SentenceBuilder";
 import { StoryTranslation } from "./StoryTranslation";
 import { WordSheet } from "./WordSheet";
 
@@ -54,6 +55,7 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
   const [quizOpen, setQuizOpen] = useState(false);
   const [compOpen, setCompOpen] = useState(false);
   const [transOpen, setTransOpen] = useState(false);
+  const [buildOpen, setBuildOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +85,7 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
     setQuizOpen(false);
     setCompOpen(false);
     setTransOpen(false);
+    setBuildOpen(false);
     try {
       const analyzed = await analyze(t);
       setResult(analyzed);
@@ -226,6 +229,12 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
             >
               {transOpen ? "Masquer la traduction" : "Traduction française"}
             </button>
+            <button
+              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setBuildOpen((v) => !v)}
+            >
+              {buildOpen ? "Fermer la reconstruction" : "Reconstruire les phrases"}
+            </button>
           </div>
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
@@ -250,6 +259,14 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
 
           {transOpen && (
             <StoryTranslation
+              storyId={incoming.id}
+              text={incoming.text}
+              level={incoming.params.level ?? lessonCtx?.level ?? 5}
+            />
+          )}
+
+          {buildOpen && (
+            <SentenceBuilder
               storyId={incoming.id}
               text={incoming.text}
               level={incoming.params.level ?? lessonCtx?.level ?? 5}

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { normalizeReading } from "../lib/kana";
 import type { SrsGrade } from "../lib/srs";
 import { dueCards, gradeCard, type WarmupCard } from "../lib/warmup";
 
@@ -20,10 +21,21 @@ export function Warmup() {
   const [cards, setCards] = useState<WarmupCard[] | null>(null);
   const [i, setI] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  // Rappel actif (mode "type") : saisie + résultat de la vérification (null tant que non validé).
+  const [entry, setEntry] = useState("");
+  const [correct, setCorrect] = useState<boolean | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void dueCards().then(setCards);
   }, []);
+
+  const card = cards && i < cards.length ? cards[i] : null;
+
+  // À chaque nouvelle carte en mode "type", on (re)met le focus sur le champ.
+  useEffect(() => {
+    if (card?.mode === "type" && correct === null) inputRef.current?.focus();
+  }, [card, correct]);
 
   if (!cards) return <p className="text-muted">Chargement…</p>;
   if (cards.length === 0)
@@ -32,15 +44,25 @@ export function Warmup() {
         Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici.
       </p>
     );
-  if (i >= cards.length)
+  if (i >= cards.length || !card)
     return <p className="text-muted">Échauffement terminé — {cards.length} élément(s) revus. 🎴</p>;
 
-  const card = cards[i];
+  function nextCard() {
+    setRevealed(false);
+    setEntry("");
+    setCorrect(null);
+    setI((n) => n + 1);
+  }
 
   async function grade(g: SrsGrade) {
-    await gradeCard(card, g);
-    setRevealed(false);
-    setI((n) => n + 1);
+    await gradeCard(card!, g);
+    nextCard();
+  }
+
+  function check() {
+    if (!card?.answers) return;
+    const ok = card.answers.includes(normalizeReading(entry));
+    setCorrect(ok);
   }
 
   return (
@@ -51,7 +73,75 @@ export function Warmup() {
       </span>
       <div className="flex flex-col items-center gap-4 rounded-md border border-hairline bg-surface px-4 py-12 text-center">
         <div className="font-jp text-3xl">{card.front}</div>
-        {revealed ? (
+
+        {card.mode === "type" ? (
+          correct === null ? (
+            <>
+              {card.prompt && <span className="text-sm text-muted">{card.prompt}</span>}
+              <input
+                ref={inputRef}
+                className="w-full max-w-xs rounded-sm border border-hairline bg-bg px-3 py-2 text-center font-jp text-xl text-text outline-none focus:border-accent"
+                value={entry}
+                onChange={(e) => setEntry(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && entry.trim()) check();
+                }}
+                lang="ja"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                aria-label={card.prompt ?? "Réponse"}
+              />
+              <div className="flex flex-wrap justify-center gap-2">
+                <button
+                  className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={check}
+                  disabled={!entry.trim()}
+                >
+                  Vérifier
+                </button>
+                <button
+                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent"
+                  onClick={() => setCorrect(false)}
+                >
+                  Je ne sais pas
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={`text-sm ${correct ? "text-accent-2" : "text-accent"}`}>
+                {correct ? "✓ Correct" : "✗ Raté"}
+              </div>
+              <div className="font-jp text-xl text-muted">{card.back}</div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {correct ? (
+                  <>
+                    <button
+                      className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                      onClick={() => grade("good")}
+                    >
+                      Bien
+                    </button>
+                    <button
+                      className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                      onClick={() => grade("easy")}
+                    >
+                      Facile
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
+                    onClick={() => grade("again")}
+                  >
+                    Continuer
+                  </button>
+                )}
+              </div>
+            </>
+          )
+        ) : revealed ? (
           <>
             <div className="font-jp text-xl text-muted">{card.back}</div>
             <div className="flex flex-wrap justify-center gap-2">
