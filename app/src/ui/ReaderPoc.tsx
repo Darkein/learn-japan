@@ -9,6 +9,7 @@ import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } fro
 import { Comprehension } from "./Comprehension";
 import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
+import { StoryTranslation } from "./StoryTranslation";
 import { WordSheet } from "./WordSheet";
 
 export interface LessonContext {
@@ -52,6 +53,7 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const [compOpen, setCompOpen] = useState(false);
+  const [transOpen, setTransOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +82,7 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
     setOpenIdx(null);
     setQuizOpen(false);
     setCompOpen(false);
+    setTransOpen(false);
     try {
       const analyzed = await analyze(t);
       setResult(analyzed);
@@ -217,6 +220,12 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
             >
               {compOpen ? "Fermer le QCM" : "QCM de compréhension"}
             </button>
+            <button
+              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setTransOpen((v) => !v)}
+            >
+              {transOpen ? "Masquer la traduction" : "Traduction française"}
+            </button>
           </div>
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
@@ -236,6 +245,14 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
                   : undefined
               }
               onClose={() => setCompOpen(false)}
+            />
+          )}
+
+          {transOpen && (
+            <StoryTranslation
+              storyId={incoming.id}
+              text={incoming.text}
+              level={incoming.params.level ?? lessonCtx?.level ?? 5}
             />
           )}
         </>
