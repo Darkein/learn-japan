@@ -1,0 +1,64 @@
+// Cache R2 de TOUT ce que le Worker génère (texte Gemini, audio Cloud TTS).
+//
+// But : économiser le quota (« tokens ») des API amont. Une génération est une fonction
+// PURE de sa requête normalisée — même requête ⇒ même contenu. On stocke donc le résultat
+// dans R2 sous une clé = empreinte SHA-256 de la requête, et tout appel identique ultérieur
+// est servi depuis R2 SANS rappeler Gemini / Cloud TTS. La pré-génération en lot
+// (scripts/pregenerate.ts) remplit ce cache d'avance → l'app lit du déjà-fait.
+//
+// Le binding R2 est OPTIONNEL : sans bucket configuré, le Worker fonctionne comme avant
+// (génération à la volée, sans cache) — utile en dev/test et tant que R2 n'est pas posé.
+
+/** Empreinte hex SHA-256 (Web Crypto, dispo dans le Worker et en Node 22). */
+export async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Clé R2 d'une génération de texte : préfixe lisible (`gen/<kind>/`) + empreinte du
+ * prompt déjà composé et normalisé. Le prompt étant déterministe pour une requête donnée
+ * (voir prompts.ts), deux requêtes équivalentes partagent la même clé → même cache.
+ */
+export async function genCacheKey(kind: string, prompt: string): Promise<string> {
+  return `gen/${kind}/${await sha256Hex(prompt)}.json`;
+}
+
+/**
+ * Clé R2 d'une synthèse vocale : empreinte des paramètres EFFECTIFS (texte/segments + voix
+ * + débit + langue résolus). Deux requêtes qui aboutissent au même audio partagent la clé.
+ */
+export async function ttsCacheKey(parts: {
+  ssml?: string;
+  text?: string;
+  voice: string;
+  rate: number;
+  languageCode: string;
+}): Promise<string> {
+  const norm = JSON.stringify({
+    s: parts.ssml ?? "",
+    t: parts.text ?? "",
+    v: parts.voice,
+    r: parts.rate,
+    l: parts.languageCode,
+  });
+  return `tts/${await sha256Hex(norm)}.json`;
+}
+
+/** Lit une valeur JSON du cache R2, ou null (absence / binding non configuré / JSON cassé). */
+export async function cacheGet<T>(bucket: R2Bucket | undefined, key: string): Promise<T | null> {
+  if (!bucket) return null;
+  const obj = await bucket.get(key);
+  if (!obj) return null;
+  return (await obj.json().catch(() => null)) as T | null;
+}
+
+/** Écrit une valeur JSON dans le cache R2 (no-op si binding absent). */
+export async function cachePut(bucket: R2Bucket | undefined, key: string, value: unknown): Promise<void> {
+  if (!bucket) return;
+  await bucket.put(key, JSON.stringify(value), {
+    httpMetadata: { contentType: "application/json; charset=utf-8" },
+  });
+}
