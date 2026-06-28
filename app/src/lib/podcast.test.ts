@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Lesson } from "./lessons";
 import {
+  buildComprehensionAudio,
   buildPodcastScript,
   buildVocabQuizzes,
   cleanFrench,
+  COMP_PAUSE_MS,
   containsJa,
   QUIZ_PAUSE_MS,
   splitJaSentences,
@@ -132,6 +134,85 @@ describe("buildPodcastScript", () => {
   it("attribue des ids uniques", () => {
     const script = buildPodcastScript(base, { nextLessonTitle: "x" });
     expect(new Set(script.map((s) => s.id)).size).toBe(script.length);
+  });
+});
+
+describe("buildComprehensionAudio", () => {
+  const questions = [
+    { question: "Que fait le chat ?", options: ["Il dort.", "Il boit.", "Il mange.", "Il part."], answerIndex: 1 },
+    { question: "Où est-il ?", options: ["Dehors.", "Dedans."], answerIndex: 0 },
+  ];
+  const segs = buildComprehensionAudio(questions);
+
+  it("ouvre par une intro et énonce chaque question numérotée", () => {
+    expect(segs[0]).toMatchObject({ chapter: "comprehension", lang: "fr", label: "Compréhension" });
+    expect(segs.some((s) => s.text === "Question 1. Que fait le chat ?")).toBe(true);
+    expect(segs.some((s) => s.text === "Question 2. Où est-il ?")).toBe(true);
+  });
+
+  it("lit les options préfixées A, B, C… et un blanc après la dernière", () => {
+    expect(segs.some((s) => s.text === "A : Il dort.")).toBe(true);
+    expect(segs.some((s) => s.text === "B : Il boit.")).toBe(true);
+    // Le blanc de réflexion suit la dernière option (« D : Il part. »).
+    const last = segs.find((s) => s.text === "D : Il part.");
+    expect(last!.pauseAfterMs).toBe(COMP_PAUSE_MS);
+  });
+
+  it("annonce la bonne réponse en citant l'option correcte", () => {
+    expect(segs.some((s) => s.text === "Bonne réponse : B. Il boit.")).toBe(true);
+    expect(segs.some((s) => s.text === "Bonne réponse : A. Dehors.")).toBe(true);
+  });
+
+  it("est entièrement en français et ne produit rien sans question", () => {
+    expect(segs.every((s) => s.lang === "fr")).toBe(true);
+    expect(buildComprehensionAudio([])).toEqual([]);
+  });
+});
+
+describe("buildPodcastScript — déroulé avec QCM de compréhension", () => {
+  const withQcm = lesson({
+    stories: [
+      {
+        id: "s1",
+        createdAt: 1,
+        title: "猫の話",
+        text: "猫がいる。水を飲む。",
+        params: { level: 5 },
+        titleFr: "Le chat",
+        translation: ["Il y a un chat.", "Il boit de l'eau."],
+        comprehension: [
+          { question: "Qui boit ?", options: ["Le chat.", "Le chien."], answerIndex: 0 },
+        ],
+      },
+    ],
+  });
+
+  it("ordonne japonais seul → compréhension → bilingue", () => {
+    const script = buildPodcastScript(withQcm, {});
+    const firstComp = script.findIndex((s) => s.chapter === "comprehension");
+    const lastComp = script.map((s) => s.chapter).lastIndexOf("comprehension");
+    expect(firstComp).toBeGreaterThan(-1);
+
+    // Avant le QCM : aucune traduction FR de l'histoire (passe japonais seul).
+    const before = script.slice(0, firstComp).filter((s) => s.chapter === "histoire");
+    expect(before.some((s) => s.text === "Il y a un chat.")).toBe(false);
+    expect(before.some((s) => s.lang === "ja" && s.text === "猫がいる。")).toBe(true);
+
+    // Après le QCM : la passe bilingue ré-alterne JP puis FR.
+    const after = script.slice(lastComp + 1).filter((s) => s.chapter === "histoire");
+    const jaIdx = after.findIndex((s) => s.text === "猫がいる。");
+    expect(after[jaIdx + 1]).toMatchObject({ lang: "fr", text: "Il y a un chat." });
+  });
+
+  it("repli sans QCM : lecture bilingue unique (pas de chapitre compréhension)", () => {
+    const noQcm = lesson({
+      stories: [{ ...withQcm.stories[0], comprehension: undefined }],
+    });
+    const script = buildPodcastScript(noQcm, {});
+    expect(script.some((s) => s.chapter === "comprehension")).toBe(false);
+    const story = script.filter((s) => s.chapter === "histoire");
+    const jaIdx = story.findIndex((s) => s.text === "猫がいる。");
+    expect(story[jaIdx + 1]).toMatchObject({ lang: "fr", text: "Il y a un chat." });
   });
 });
 

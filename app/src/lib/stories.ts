@@ -1,5 +1,10 @@
 // Sauvegarde / liste des histoires générées (relecture, « pourquoi cette histoire »).
-import { putStory, type StoryRecord } from "./db";
+import { getStory, putStory, type StoryRecord } from "./db";
+import {
+  generateComprehensionQcm,
+  type ComprehensionQuestion,
+  type GenState,
+} from "./genClient";
 
 export type StoryParams = StoryRecord["params"];
 
@@ -40,4 +45,40 @@ export async function saveStory(
   };
   await putStory(story);
   return story;
+}
+
+/** Découpe un texte japonais en phrases (sur la ponctuation finale 。．！？), pour la génération. */
+function splitJaSentences(text: string): string[] {
+  return text
+    .replace(/\s*\n+\s*/g, " ")
+    .split(/(?<=[。．！？!?])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * QCM de compréhension d'une histoire, avec cache : si l'histoire en a déjà un en base,
+ * on le renvoie tel quel (pas de régénération) ; sinon on génère depuis le texte + les
+ * points de grammaire de la leçon, puis on persiste sur le `StoryRecord` (quand connu).
+ * Pour une histoire non enregistrée (lecteur libre), on génère sans mettre en cache.
+ */
+export async function ensureComprehensionQuiz(
+  storyId: string | undefined,
+  text: string,
+  level: number,
+  grammar: { ids: string[]; labels: string[] },
+  onState?: (s: GenState) => void,
+): Promise<ComprehensionQuestion[]> {
+  if (storyId) {
+    const existing = await getStory(storyId);
+    if (existing?.comprehension && existing.comprehension.length > 0) {
+      return existing.comprehension;
+    }
+  }
+  const questions = await generateComprehensionQcm(splitJaSentences(text), level, grammar, onState);
+  if (storyId && questions.length > 0) {
+    const story = await getStory(storyId);
+    if (story) await putStory({ ...story, comprehension: questions });
+  }
+  return questions;
 }

@@ -10,6 +10,7 @@ const CHAPTER_LABEL: Record<PodcastSegment["chapter"], string> = {
   cours: "Cours",
   quiz: "Quiz",
   histoire: "Histoire",
+  comprehension: "Compréhension",
 };
 
 /** Libellé court d'un segment pour la tracklist. */

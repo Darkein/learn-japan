@@ -3,6 +3,7 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Card } from "ts-fsrs";
+import type { ComprehensionQuestion } from "./genClient";
 import type { PodcastSegment } from "./podcast";
 
 /** Compétences suivies pour le vocabulaire (SPEC §2.2). */
@@ -49,10 +50,24 @@ export interface GrammarItem {
 export interface ReviewLog {
   id?: number;
   itemId: string;
-  track: "vocab" | "kanji" | "grammar";
+  track: "vocab" | "kanji" | "grammar" | "comprehension";
   skill?: Skill;
   grade: string;
   at: number; // epoch ms
+}
+
+/**
+ * Item de la piste « compréhension » (SPEC §5) : une carte FSRS DÉDIÉE à la compréhension
+ * d'un point de grammaire, distincte de sa carte de reconnaissance (store `grammar`).
+ * Alimentée par le QCM de compréhension (une question ratée replanifie ce point).
+ * `id` = identifiant du point de grammaire dans l'inventaire.
+ */
+export interface ComprehensionItem {
+  id: string;
+  name: string;
+  rule: string;
+  status: ItemStatus;
+  card?: Card;
 }
 
 /** Histoire générée et enregistrée pour relecture (SPEC §4, §8). */
@@ -69,6 +84,8 @@ export interface StoryRecord {
   titleFr?: string;
   /** Traduction FR alignée phrase par phrase sur le découpage JP (mode podcast). */
   translation?: string[];
+  /** QCM de compréhension (LLM) mis en cache pour ne pas régénérer à chaque ouverture. */
+  comprehension?: ComprehensionQuestion[];
 }
 
 /**
@@ -106,6 +123,8 @@ interface LearnDB extends DBSchema {
   vocab: { key: string; value: VocabItem; indexes: { status: string } };
   kanji: { key: string; value: KanjiItem; indexes: { status: string } };
   grammar: { key: string; value: GrammarItem; indexes: { status: string } };
+  /** Piste « compréhension » : carte FSRS dédiée par point de grammaire. */
+  comprehension: { key: string; value: ComprehensionItem; indexes: { status: string } };
   reviews: { key: number; value: ReviewLog; indexes: { itemId: string } };
   stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
   lessons: { key: string; value: GeneratedLessonRecord };
@@ -126,7 +145,7 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -143,6 +162,9 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("grammar")) {
           db.createObjectStore("grammar", { keyPath: "id" }).createIndex("status", "status");
+        }
+        if (!db.objectStoreNames.contains("comprehension")) {
+          db.createObjectStore("comprehension", { keyPath: "id" }).createIndex("status", "status");
         }
         if (!db.objectStoreNames.contains("reviews")) {
           db.createObjectStore("reviews", { keyPath: "id", autoIncrement: true }).createIndex(
@@ -210,6 +232,17 @@ export async function getGrammar(id: string): Promise<GrammarItem | undefined> {
 }
 export async function allGrammar(): Promise<GrammarItem[]> {
   return (await getDB()).getAll("grammar");
+}
+
+// Compréhension (piste dédiée) -----------------------------------------------
+export async function putComprehensionItem(item: ComprehensionItem): Promise<void> {
+  await (await getDB()).put("comprehension", item);
+}
+export async function getComprehensionItem(id: string): Promise<ComprehensionItem | undefined> {
+  return (await getDB()).get("comprehension", id);
+}
+export async function allComprehension(): Promise<ComprehensionItem[]> {
+  return (await getDB()).getAll("comprehension");
 }
 
 // Histoires ------------------------------------------------------------------

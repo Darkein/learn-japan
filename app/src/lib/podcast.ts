@@ -8,12 +8,13 @@
 
 import {
   getPodcast,
+  getStory,
   putPodcast,
   putStory,
   type PodcastRecord,
   type StoryRecord,
 } from "./db";
-import { generateStoryTranslation } from "./genClient";
+import { generateStoryTranslation, type ComprehensionQuestion } from "./genClient";
 import { isKana, isKanji } from "./kana";
 import {
   addLessonStory,
@@ -22,9 +23,10 @@ import {
   type Lesson,
   type VocabEntry,
 } from "./lessons";
+import { ensureComprehensionQuiz } from "./stories";
 import { synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
-export type PodcastChapter = "cours" | "quiz" | "histoire";
+export type PodcastChapter = "cours" | "quiz" | "histoire" | "comprehension";
 
 export interface PodcastSegment {
   id: string;
@@ -44,11 +46,14 @@ type RawSegment = Omit<PodcastSegment, "id">;
 /** Durée du blanc de réponse d'un quiz (« comment dit-on chat ? » → 5 s → « neko »). */
 export const QUIZ_PAUSE_MS = 5000;
 
+/** Blanc de réflexion d'une question de compréhension (4 options à soupeser → plus long). */
+export const COMP_PAUSE_MS = 8000;
+
 /**
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 2;
+export const PACK_VERSION = 3;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -142,6 +147,42 @@ export function buildVocabQuizzes(vocab: VocabEntry[]): RawSegment[] {
   return segs;
 }
 
+// ---------- Quiz de compréhension (audio, passif) ---------------------------
+
+const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
+/**
+ * Segments audio d'un QCM de compréhension (LLM) : intro, puis par question l'énoncé,
+ * les options « A : … », « B : … »…, un blanc de réflexion (`COMP_PAUSE_MS`) après la
+ * dernière option, et l'annonce de la bonne réponse. Tout en français (mode voiture,
+ * passif : pas de saisie → pas de SRS ici, comme le quiz vocab).
+ */
+export function buildComprehensionAudio(questions: ComprehensionQuestion[]): RawSegment[] {
+  if (questions.length === 0) return [];
+  const segs: RawSegment[] = [
+    { chapter: "comprehension", lang: "fr", text: "Petit quiz de compréhension sur l'histoire.", label: "Compréhension" },
+  ];
+  questions.forEach((q, qi) => {
+    segs.push({ chapter: "comprehension", lang: "fr", text: `Question ${qi + 1}. ${q.question}`, label: `Question ${qi + 1}` });
+    q.options.forEach((opt, oi) => {
+      const last = oi === q.options.length - 1;
+      segs.push({
+        chapter: "comprehension",
+        lang: "fr",
+        text: `${OPTION_LETTERS[oi] ?? oi + 1} : ${opt}`,
+        ...(last ? { pauseAfterMs: COMP_PAUSE_MS } : {}),
+      });
+    });
+    const letter = OPTION_LETTERS[q.answerIndex] ?? String(q.answerIndex + 1);
+    segs.push({
+      chapter: "comprehension",
+      lang: "fr",
+      text: `Bonne réponse : ${letter}. ${q.options[q.answerIndex]}`,
+    });
+  });
+  return segs;
+}
+
 // ---------- Assemblage du script --------------------------------------------
 
 /** Allège un paragraphe Markdown pour la lecture vocale (retire **gras**, #, etc.). */
@@ -230,13 +271,28 @@ export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): Podcast
     raw.push(...buildVocabQuizzes(lesson.objectives.vocab));
   }
 
-  // 3. Histoire(s) — transition + titre (segments distincts), puis alternance JP / FR.
+  // 3. Histoire(s) — transition + titre (segments distincts). Si un QCM de compréhension
+  //    existe : 1re écoute en japonais SEUL → QCM → 2e écoute japonais + français (la
+  //    compréhension n'aurait aucun sens si le français était lu d'emblée). Sinon : repli
+  //    sur la lecture bilingue unique (pas de double lecture inutile).
   lesson.stories.forEach((story, s) => {
     const intro = s === 0 ? "Voici une histoire en rapport avec la leçon :" : "Voici l'histoire suivante :";
     raw.push({ chapter: "histoire", lang: "fr", text: intro, label: `Histoire ${s + 1}` });
     raw.push(titleSegment(story.titleFr ?? story.title, "histoire"));
     const ja = splitJaSentences(story.text);
     const fr = story.translation ?? [];
+    const questions = story.comprehension ?? [];
+
+    if (questions.length > 0) {
+      // 1re écoute : japonais seul.
+      raw.push({ chapter: "histoire", lang: "fr", text: "D'abord, écoutez l'histoire en japonais.", label: "Japonais" });
+      ja.forEach((sentence) => raw.push({ chapter: "histoire", lang: "ja", text: sentence }));
+      // QCM de compréhension audio.
+      raw.push(...buildComprehensionAudio(questions));
+      // 2e écoute : japonais puis français.
+      raw.push({ chapter: "histoire", lang: "fr", text: "Réécoutons, en japonais puis en français.", label: "Japonais + français" });
+    }
+
     ja.forEach((sentence, k) => {
       raw.push({ chapter: "histoire", lang: "ja", text: sentence });
       if (fr[k]) raw.push({ chapter: "histoire", lang: "fr", text: fr[k] });
@@ -281,6 +337,28 @@ export async function ensureStoryTranslation(story: StoryRecord): Promise<StoryR
   return updated;
 }
 
+/**
+ * Traduction FR fluide d'une histoire (titre + phrases alignées), avec cache partagé sur le
+ * `StoryRecord` (mêmes champs que le podcast). Réutilisée par le lecteur texte pour afficher la
+ * « vraie » traduction (≠ gloss mot-à-mot) après le quiz. Histoire non enregistrée (lecteur
+ * libre) → génère sans persister.
+ */
+export async function ensureStoryTranslationById(
+  storyId: string | undefined,
+  text: string,
+  level: number,
+): Promise<{ titleFr: string; sentences: string[] }> {
+  if (storyId) {
+    const story = await getStory(storyId);
+    if (story) {
+      const updated = await ensureStoryTranslation(story);
+      return { titleFr: updated.titleFr ?? "", sentences: updated.translation ?? [] };
+    }
+  }
+  const { titleFr, sentences } = await generateStoryTranslation(splitJaSentences(text), level);
+  return { titleFr: cleanFrench(titleFr), sentences: sentences.map(cleanFrench) };
+}
+
 // ---------- Pré-génération du pack -------------------------------------------
 
 export interface PackProgress {
@@ -315,7 +393,21 @@ export async function generatePodcastPack(
     onProgress?.("Traduction de l'histoire…");
     await ensureStoryTranslation(story);
   }
-  lesson = (await getLesson(lessonId))!; // re-hydrate avec traductions/titres à jour
+
+  // QCM de compréhension par histoire (best-effort) : peuple le cache `StoryRecord.comprehension`
+  // avant l'assemblage → la passe « japonais seul + quiz + bilingue » s'active. En cas d'échec
+  // (hors-ligne / clé absente), on poursuit sans : l'histoire retombe sur la lecture bilingue.
+  const grammar = { ids: lesson.introduces.grammar, labels: lesson.objectives.grammar };
+  for (const story of lesson.stories) {
+    onProgress?.("Quiz de compréhension…");
+    try {
+      await ensureComprehensionQuiz(story.id, story.text, story.params.level ?? lesson.level, grammar);
+    } catch {
+      // QCM indisponible → repli sur la passe bilingue unique (sans chapitre Compréhension).
+    }
+  }
+
+  lesson = (await getLesson(lessonId))!; // re-hydrate avec traductions/titres/QCM à jour
 
   const segments = buildPodcastScript(lesson, nav);
 

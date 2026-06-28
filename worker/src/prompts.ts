@@ -17,7 +17,12 @@ export interface KanjiItem {
   fr: string;
 }
 
-export type GenKind = "story" | "lesson-intro" | "lesson-story" | "story-translation";
+export type GenKind =
+  | "story"
+  | "lesson-intro"
+  | "lesson-story"
+  | "story-translation"
+  | "comprehension-qcm";
 
 /** Requête de génération : UNIQUEMENT des paramètres structurés (aucun prompt brut). */
 export interface GenerateRequest {
@@ -239,6 +244,46 @@ export function buildStoryTranslationPrompt(r: GenerateRequest): string {
 }
 
 /**
+ * QCM de compréhension d'une histoire JP (déjà découpée en phrases) : 4 questions en
+ * FRANÇAIS testant le SENS du récit, chacune taguée du point de grammaire qu'elle
+ * vérifie. Le client ne reçoit QUE du texte : il poste les phrases + la liste ordonnée
+ * des points de grammaire de la leçon (« nom — règle »), le Worker les numérote G1, G2…
+ * Le parsing du QCM reste côté client (parseComprehensionQcm).
+ */
+export function buildComprehensionQcmPrompt(r: GenerateRequest): string {
+  const level = cleanLevel(r.level);
+  const sentences = cleanList(r.sentences, LIMITS.sentenceList, LIMITS.sentence);
+  const grammar = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
+  const story = sentences.join(" ");
+  const grammarBlock = grammar.length
+    ? grammar.map((g, i) => `G${i + 1}. ${g}`).join("\n")
+    : "(aucun point de grammaire fourni)";
+
+  return [
+    `Voici une histoire en japonais (niveau JLPT N${level}) :`,
+    story,
+    "",
+    "Points de grammaire de la leçon (référence pour le tag de chaque question) :",
+    grammarBlock,
+    "",
+    "Rédige un QCM de COMPRÉHENSION en FRANÇAIS pour vérifier que l'apprenant a compris le SENS de cette histoire (qui fait quoi, où, quand, pourquoi) — surtout PAS une simple traduction mot à mot.",
+    "Donne exactement 4 questions. Chaque question a 4 propositions de réponse en français, dont une seule correcte.",
+    grammar.length
+      ? "Tague chaque question avec le point de grammaire qu'elle sollicite le plus, sous la forme [G1], [G2]… selon la liste ci-dessus ; utilise [G0] si la question ne porte sur aucun point précis."
+      : "Préfixe chaque question par [G0] (aucun point de grammaire de référence).",
+    "",
+    "Format STRICT, sans aucune autre ligne : pour chaque question, une ligne « N. [Gk] question », puis ses 4 propositions, une par ligne, préfixées par « + » pour la bonne réponse et « - » pour les trois mauvaises. Exemple :",
+    "1. [G2] Pourquoi le chat est-il content ?",
+    "+ Parce qu'il a mangé.",
+    "- Parce qu'il a dormi.",
+    "- Parce qu'il a plu.",
+    "- Parce qu'il est parti.",
+    "",
+    "Questions ET propositions uniquement en français (aucun kanji/kana/romaji). Réponds uniquement avec le QCM.",
+  ].join("\n");
+}
+
+/**
  * Point d'entrée : à partir d'une requête structurée, compose le prompt correspondant.
  * Lève si `kind` est inconnu → le Worker répond 400 (aucune génération « passe-partout »).
  */
@@ -250,6 +295,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildLessonStoryPrompt(req);
     case "story-translation":
       return buildStoryTranslationPrompt(req);
+    case "comprehension-qcm":
+      return buildComprehensionQcmPrompt(req);
     case "story":
     case undefined:
       return buildStoryPrompt(req);
