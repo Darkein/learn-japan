@@ -55,8 +55,7 @@ décompressé puis mis en cache (IndexedDB) → offline après le premier usage.
 
 ## Worker (génération protégée, gratuite)
 
-Génération **synchrone** : pas de KV ni de R2 à provisionner. La seule chose à poser
-sur le Worker est la clé Gemini :
+Génération **synchrone**. La seule clé indispensable à poser sur le Worker est Gemini :
 
 ```bash
 cd worker
@@ -66,6 +65,36 @@ npx wrangler secret put GEMINI_API_KEY      # clé Google AI Studio (free tier)
 Le déploiement du Worker est ensuite **automatique** (workflow `deploy-worker.yml`).
 Aucune clé n'est exposée au client : seul le Worker détient `GEMINI_API_KEY`.
 Option : placer **Cloudflare Access** devant le Worker puis `REQUIRE_ACCESS="true"`.
+
+### Cache R2 + pré-génération en lot (économiser les « tokens »)
+
+Tout ce que le Worker génère (textes Gemini **et** audio Cloud TTS) est **mis en cache sur
+R2** sous une clé déterministe : un appel identique ultérieur est servi depuis R2 **sans
+rappeler** l'API amont → on économise le quota. Deux buckets, déclarés dans `wrangler.toml` :
+`learn-japan-content` (`GEN_CACHE`, textes) et `learn-japan-audio` (`TTS_CACHE`, audio).
+Les créer une fois si besoin :
+
+```bash
+npx wrangler r2 bucket create learn-japan-content
+npx wrangler r2 bucket create learn-japan-audio
+```
+
+> Le token `CLOUDFLARE_API_TOKEN` du déploiement doit alors couvrir **Workers R2 Storage**
+> (en plus d'*Edit Cloudflare Workers*) pour que `wrangler deploy` accepte les bindings.
+> Les bindings sont **optionnels** : sans bucket, le Worker génère à la volée, sans cache.
+
+Pour **remplir** ce cache d'avance (l'app sert alors du déjà-fait), un batch parcourt tout
+le curriculum et génère cours + histoire + traduction + QCM de chaque leçon :
+
+```bash
+npm run content:batch                  # tout le curriculum (idempotent : un 2ᵉ passage est gratuit)
+npm run content:batch -- --level 5     # un seul niveau
+npm run content:batch -- --limit 3     # essai rapide (3 leçons)
+npm run content:batch -- --refresh     # ignore le cache et régénère
+```
+
+Le batch ne parle qu'au Worker (aucune clé en local). Cible par défaut l'URL déployée ;
+surchargeable via `WORKER_URL=https://…`.
 
 ## Tout automatisé depuis GitHub — réglages uniques
 

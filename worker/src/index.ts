@@ -13,6 +13,7 @@
 // ne peut pas être détourné en proxy LLM générique « hors japonais ».
 
 import { composePrompt, type GenerateRequest } from "./prompts";
+import { cacheGet, cachePut, genCacheKey, ttsCacheKey } from "./cache";
 
 export interface Env {
   // Clé Gemini principale (SECRET). Des clés additionnelles GEMINI_API_KEY_2,
@@ -30,6 +31,12 @@ export interface Env {
   GOOGLE_TTS_API_KEY?: string;
   TTS_VOICE?: string;
   TTS_RATE?: string;
+  // Cache R2 de TOUT le contenu généré (économise le quota amont). OPTIONNELS : sans
+  // binding, le Worker génère à la volée sans cache (voir cache.ts).
+  //   GEN_CACHE → textes Gemini (bucket learn-japan-content)
+  //   TTS_CACHE → audio Cloud TTS  (bucket learn-japan-audio)
+  GEN_CACHE?: R2Bucket;
+  TTS_CACHE?: R2Bucket;
 }
 
 interface TtsRequest {
@@ -126,6 +133,11 @@ function resolveChain(env: Env): ModelEntry[] {
 
 function keyFor(env: Env, entry: ModelEntry): string | undefined {
   return (env as unknown as Record<string, string | undefined>)[entry.keyEnv];
+}
+
+/** Au moins une clé Gemini configurée ? Sinon generate() renvoie un stub (à NE PAS cacher). */
+function hasAnyKey(env: Env): boolean {
+  return resolveChain(env).some((e) => keyFor(env, e));
 }
 
 /** Config de génération : assez de tokens pour un petit article, sans gaspiller en « thinking ». */
@@ -234,7 +246,7 @@ interface TtsResult {
  * Synthétise une phrase via Cloud TTS (v1beta1 pour les timepoints SSML), avec le
  * même backoff exponentiel sur transitoires que la génération de texte.
  */
-async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
+async function synthesize(env: Env, body: TtsRequest, refresh = false): Promise<TtsResult> {
   const key = env.GOOGLE_TTS_API_KEY;
   if (!key) throw new Error("tts_unconfigured");
 
@@ -248,9 +260,18 @@ async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
   const languageCode = body.languageCode || "ja-JP";
   const voice = body.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
   const rate = body.rate ?? Number(env.TTS_RATE ?? "1") ?? 1;
+  const ssml = useMarks ? buildSsml(segments) : undefined;
+
+  // Cache R2 de l'audio (économise le quota Cloud TTS). Clé = paramètres effectifs résolus.
+  const cacheKey = await ttsCacheKey({ ssml, text: useMarks ? undefined : plainText, voice, rate, languageCode });
+  if (!refresh) {
+    const hit = await cacheGet<TtsResult>(env.TTS_CACHE, cacheKey);
+    if (hit?.audio) return hit;
+  }
+
   const url = `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${key}`;
   const payload = JSON.stringify({
-    input: useMarks ? { ssml: buildSsml(segments) } : { text: plainText },
+    input: useMarks ? { ssml } : { text: plainText },
     voice: { languageCode, name: voice },
     audioConfig: { audioEncoding: "MP3", speakingRate: rate },
     ...(useMarks ? { enableTimePointing: ["SSML_MARK"] } : {}),
@@ -274,7 +295,9 @@ async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
       const marks = (data.timepoints ?? [])
         .map((tp) => ({ i: Number((tp.markName ?? "t0").slice(1)), t: tp.timeSeconds ?? 0 }))
         .sort((a, b) => a.t - b.t);
-      return { audio: data.audioContent, marks };
+      const result: TtsResult = { audio: data.audioContent, marks };
+      await cachePut(env.TTS_CACHE, cacheKey, result);
+      return result;
     }
 
     lastErr = `HTTP ${res.status} ${(await res.text()).slice(0, 200)}`;
@@ -291,9 +314,9 @@ export default {
 
     const url = new URL(req.url);
 
-    // POST /generate → { text } (synchrone)
+    // POST /generate → { text, cached } (synchrone, avec cache R2)
     if (req.method === "POST" && url.pathname === "/generate") {
-      const body = (await req.json().catch(() => ({}))) as GenerateRequest;
+      const body = (await req.json().catch(() => ({}))) as GenerateRequest & { refresh?: boolean };
       // Composition + validation des entrées AVANT l'appel modèle : un `kind` inconnu
       // ou une requête malformée est un 400 (faute du client), pas un 502 (panne amont).
       let prompt: string;
@@ -302,9 +325,21 @@ export default {
       } catch (e) {
         return json({ error: String(e) }, 400);
       }
+
+      // Cache R2 : même prompt ⇒ même contenu → on sert le déjà-généré sans rappeler Gemini.
+      // `refresh` (corps ou ?refresh=1) force une régénération (et rafraîchit le cache).
+      const refresh = body.refresh === true || url.searchParams.get("refresh") === "1";
+      const key = await genCacheKey(body.kind ?? "story", prompt);
+      if (!refresh) {
+        const hit = await cacheGet<{ text: string }>(env.GEN_CACHE, key);
+        if (hit?.text) return json({ text: hit.text, cached: true });
+      }
+
       try {
         const text = await generate(env, prompt);
-        return json({ text });
+        // On ne met en cache que de vraies générations (pas le stub « clé absente »).
+        if (hasAnyKey(env)) await cachePut(env.GEN_CACHE, key, { text, createdAt: Date.now() });
+        return json({ text, cached: false });
       } catch (e) {
         return json({ error: String(e) }, 502);
       }
@@ -312,9 +347,10 @@ export default {
 
     // POST /tts → { audio (base64 MP3), marks } (synthèse d'une phrase + timepoints)
     if (req.method === "POST" && url.pathname === "/tts") {
-      const body = (await req.json().catch(() => ({}))) as TtsRequest;
+      const body = (await req.json().catch(() => ({}))) as TtsRequest & { refresh?: boolean };
+      const refresh = body.refresh === true || url.searchParams.get("refresh") === "1";
       try {
-        return json(await synthesize(env, body));
+        return json(await synthesize(env, body, refresh));
       } catch (e) {
         // Clé absente → 503 explicite : le client bascule sur la Web Speech API.
         if (String(e).includes("tts_unconfigured")) return json({ error: "tts_unconfigured" }, 503);

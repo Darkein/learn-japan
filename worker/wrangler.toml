@@ -31,6 +31,18 @@ TTS_RATE = "1.0"
 # 2.5-flash → 2.0-flash → 3.1-flash-lite → 2.5-flash-lite).
 # MODEL_CHAIN = '[{"provider":"gemini","model":"gemini-2.5-pro","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.0-flash","keyEnv":"GEMINI_API_KEY"}]'
 
-# Génération SYNCHRONE : pas de KV ni de R2 à provisionner (revient en Phase 3 pour le TTS/R2).
-# Protection : placer Cloudflare Access (login email gratuit) DEVANT ce Worker si besoin.
-# Aucune clé n'est exposée au client : seul le Worker détient GEMINI_API_KEY.
+# Génération SYNCHRONE. Protection : placer Cloudflare Access (login email gratuit)
+# DEVANT ce Worker si besoin. Aucune clé n'est exposée au client : seul le Worker
+# détient GEMINI_API_KEY / GOOGLE_TTS_API_KEY.
+
+# Cache R2 de TOUT le contenu généré → on ne rappelle Gemini / Cloud TTS que si le
+# résultat n'est pas déjà en cache (économie de quota / « tokens »). La pré-génération
+# en lot (`npm run content:batch`) remplit ces buckets d'avance. Bindings OPTIONNELS :
+# retirer un binding = revenir à la génération à la volée sans cache (cf. cache.ts).
+[[r2_buckets]]
+binding = "GEN_CACHE"        # textes Gemini (leçons, histoires, traductions, QCM)
+bucket_name = "learn-japan-content"
+
+[[r2_buckets]]
+binding = "TTS_CACHE"        # audio Cloud Text-to-Speech (lecteur / podcast)
+bucket_name = "learn-japan-audio"
