@@ -2,10 +2,15 @@
 // Le client public (PWA) n'a JAMAIS de clé : il poste une requête ici et reçoit le texte.
 //
 // Génération SYNCHRONE : pour une courte histoire, Gemini répond en quelques secondes,
-// bien dans les limites d'un Worker. Pas de KV ni de R2 → rien à provisionner.
+// bien dans les limites d'un Worker.
 //
 // TTS SYNCHRONE aussi (POST /tts) : on synthétise une phrase à la demande et on renvoie
-// l'audio + les timepoints. Le client met en cache localement (IndexedDB) → pas de R2.
+// l'audio + les timepoints.
+//
+// CACHE R2 — tout ce que le Worker génère (texte et audio) est mis en cache sur R2 sous
+// une clé déterministe (voir cache.ts) : un appel identique est servi depuis R2 sans
+// rappeler l'API amont. Bindings optionnels (GEN_CACHE / TTS_CACHE) : sans eux, retour
+// à la génération à la volée. `GET /` rapporte leur présence pour vérifier la config.
 //
 // SÉCURITÉ — le client ne pilote PLUS le prompt : il poste seulement des paramètres
 // structurés ({ kind, level, theme, … }), et c'est le Worker qui compose le prompt depuis
@@ -358,7 +363,16 @@ export default {
       }
     }
 
-    if (url.pathname === "/") return json({ ok: true, service: "learn-japan-gen" });
+    // Santé + diagnostic : indique si les bindings de cache R2 sont bien attachés au
+    // Worker déployé (booléens, rien de secret). `gen:false` ⇒ /generate ne persiste
+    // rien (binding manquant) → R2 reste vide. Sert à vérifier la config d'un coup d'œil.
+    if (url.pathname === "/") {
+      return json({
+        ok: true,
+        service: "learn-japan-gen",
+        cache: { gen: Boolean(env.GEN_CACHE), tts: Boolean(env.TTS_CACHE) },
+      });
+    }
     return json({ error: "not found" }, 404);
   },
 } satisfies ExportedHandler<Env>;
