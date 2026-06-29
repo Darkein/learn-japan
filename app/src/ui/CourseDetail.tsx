@@ -4,33 +4,33 @@ import { annotateTokens, type RubySegment } from "../lib/furigana";
 import { grammarDetail, kanjiDetail } from "../lib/inventory";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
 import { tokenize } from "../lib/tokenizer";
+import { GenProgress } from "./GenProgress";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { Ruby } from "./Ruby";
-import { STATE_LABEL, useLessonGen } from "./useLessonGen";
+import { useLessonGen } from "./useLessonGen";
 
 interface Props {
   lesson: Lesson;
   /** Ouvre une histoire de leçon dans la page de lecture. */
   onOpenStory: (story: StoryRecord) => void;
-  /** Notifie le parent qu'une histoire/état a changé (pour rafraîchir la liste). */
-  onChanged: () => void;
 }
 
 /**
  * Détail d'un cours : cadrage + objectifs (grammaire / kanji / vocab) + histoires liées.
  * Rendu soit dans le panneau latéral (split desktop), soit dans une page dédiée (mobile).
  */
-export function CourseDetail({ lesson, onOpenStory, onChanged }: Props) {
-  const [stories, setStories] = useState<StoryRecord[]>(lesson.stories);
-  const { genState, busy, error, start, addStory } = useLessonGen(lesson, {
-    onChanged,
-    onOpenStory,
-    onStoryAdded: (s) => setStories((prev) => [...prev, s]),
-  });
+export function CourseDetail({ lesson, onOpenStory }: Props) {
+  // Les histoires sont rendues directement depuis la leçon : le parent la recharge dès
+  // qu'une génération aboutit (via `dataVersion` du contexte de génération).
+  const stories = lesson.stories;
+  const { job, busy, error, start, addStory, progress, label, retry, dismiss } =
+    useLessonGen(lesson);
   const podcast = usePodcastPlayer();
   const podcastBusy = podcast.active && podcast.preparing !== null;
 
   const ready = lesson.state === "ready";
+  // Une histoire se génère en arrière-plan (phase « story » d'un job en cours).
+  const storyInProgress = busy && job?.phase === "story";
 
   async function read(story: StoryRecord) {
     if (story.lessonId) await markLessonStarted(story.lessonId);
@@ -82,23 +82,26 @@ export function CourseDetail({ lesson, onOpenStory, onChanged }: Props) {
               </li>
             ))}
           </ul>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <button
-              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => void addStory()}
-              disabled={busy}
-            >
-              {busy ? "Génération…" : "Ajouter une histoire"}
-            </button>
-            {genState && busy && (
-              <span className="text-sm text-muted">Statut : {STATE_LABEL[genState]}</span>
-            )}
-          </div>
+
+          {/* L'histoire se génère après le cours : la leçon est lisible pendant ce temps. */}
+          {storyInProgress && <GenProgress label={label} progress={progress} />}
+
+          {!storyInProgress && (
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <button
+                className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void addStory()}
+                disabled={busy}
+              >
+                {busy ? "Génération…" : "Ajouter une histoire"}
+              </button>
+            </div>
+          )}
         </>
       ) : (
-        <div className="mt-1 flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-2">
           <button
-            className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer self-start rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => void start()}
             disabled={busy}
           >
@@ -106,13 +109,21 @@ export function CourseDetail({ lesson, onOpenStory, onChanged }: Props) {
               ? lesson.pregenerated ? "Chargement…" : "Génération…"
               : lesson.pregenerated ? "Ouvrir la leçon" : "Commencer la leçon"}
           </button>
-          {genState && busy && (
-            <span className="text-sm text-muted">Statut : {STATE_LABEL[genState]}</span>
-          )}
+          {busy && <GenProgress label={label} progress={progress} />}
         </div>
       )}
 
-      {error && <p className="text-sm text-accent">{error}</p>}
+      {error && (
+        <p className="flex flex-wrap items-center gap-3 text-sm text-accent">
+          {error}
+          <button className="cursor-pointer underline" onClick={() => void retry()}>
+            Réessayer
+          </button>
+          <button className="cursor-pointer text-muted underline" onClick={() => void dismiss()}>
+            Ignorer
+          </button>
+        </p>
+      )}
     </div>
   );
 }

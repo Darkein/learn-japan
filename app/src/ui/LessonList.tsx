@@ -10,7 +10,6 @@ interface Props {
   onOpenStory: (story: StoryRecord) => void;
   /** Ouvre le cours en page dédiée (utilisé hors mode split). */
   onOpenCourse: (lesson: Lesson) => void;
-  onChanged: () => void;
   /** Active la vue splittée (liste + cours) sur les écrans larges. */
   split?: boolean;
 }
@@ -20,7 +19,7 @@ interface Props {
  * affiche une vue à deux colonnes (liste + détail du cours) ; sinon une simple liste
  * dont les cartes ouvrent le cours en page dédiée (cf. `App` → `ReaderPage`).
  */
-export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, split }: Props) {
+export function LessonList({ lessons, onOpenStory, onOpenCourse, split }: Props) {
   const wide = useMediaQuery("(min-width: 60rem)");
   const effectiveSplit = !!split && wide;
 
@@ -32,13 +31,7 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, spli
     return (
       <ol className="list-none">
         {lessons.map((lesson) => (
-          <LessonCard
-            key={lesson.id}
-            lesson={lesson}
-            onOpenStory={onOpenStory}
-            onOpen={onOpenCourse}
-            onChanged={onChanged}
-          />
+          <LessonCard key={lesson.id} lesson={lesson} onOpen={onOpenCourse} />
         ))}
       </ol>
     );
@@ -51,21 +44,14 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, onChanged, spli
           <LessonCard
             key={lesson.id}
             lesson={lesson}
-            onOpenStory={onOpenStory}
             onOpen={(l) => setSelectedId(l.id)}
             selected={selected?.id === lesson.id}
-            onChanged={onChanged}
           />
         ))}
       </ol>
       <div className="col-span-2 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
         {selected ? (
-          <CourseDetail
-            key={selected.id}
-            lesson={selected}
-            onOpenStory={onOpenStory}
-            onChanged={onChanged}
-          />
+          <CourseDetail key={selected.id} lesson={selected} onOpenStory={onOpenStory} />
         ) : (
           <p className="m-0 text-sm text-muted">Sélectionne une leçon pour voir le cours.</p>
         )}

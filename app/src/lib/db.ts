@@ -121,6 +121,31 @@ export interface LessonProgressRecord {
   startedAt?: number;
 }
 
+/** Phase d'un job de génération : le cours (framing) puis l'histoire. */
+export type GenJobPhase = "framing" | "story";
+
+/**
+ * Job de génération de contenu PERSISTANT (cours + histoire d'une leçon).
+ * Enregistré dès le lancement et supprimé à la fin → un rechargement de page peut
+ * REPRENDRE la génération là où elle en était (voir lib/genJobs.ts). Un seul job actif
+ * par leçon : la clé est `lessonId`.
+ */
+export interface GenJobRecord {
+  lessonId: string; // clé
+  title: string;
+  /** Inclut la génération du cours (clic « Commencer ») ou histoire seule (« Ajouter ») ? */
+  withFraming: boolean;
+  /** Variante d'histoire visée (1, 2, …). */
+  variant: number;
+  phase: GenJobPhase;
+  status: "running" | "error";
+  error?: string;
+  startedAt: number;
+  /** Début de la phase courante (epoch ms) — sert à estimer l'avancement. */
+  phaseStartedAt: number;
+  updatedAt: number;
+}
+
 interface LearnDB extends DBSchema {
   vocab: { key: string; value: VocabItem; indexes: { status: string } };
   kanji: { key: string; value: KanjiItem; indexes: { status: string } };
@@ -131,6 +156,8 @@ interface LearnDB extends DBSchema {
   stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
   lessons: { key: string; value: GeneratedLessonRecord };
   lessonProgress: { key: string; value: LessonProgressRecord };
+  /** Jobs de génération en cours (reprise après rechargement), clé = lessonId. */
+  genJobs: { key: string; value: GenJobRecord };
   /** Packs podcast pré-générés (script), clé = lessonId (SPEC §11). */
   podcasts: { key: string; value: PodcastRecord };
   /** Cache de dictionnaires volumineux chargés depuis un asset statique (ex. JMdict-FR). */
@@ -147,7 +174,7 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -191,6 +218,9 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("podcasts")) {
           db.createObjectStore("podcasts", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("genJobs")) {
+          db.createObjectStore("genJobs", { keyPath: "lessonId" });
         }
       },
     });
@@ -299,6 +329,20 @@ export async function getLessonProgress(id: string): Promise<LessonProgressRecor
 }
 export async function allLessonProgress(): Promise<LessonProgressRecord[]> {
   return (await getDB()).getAll("lessonProgress");
+}
+
+// Jobs de génération (reprise après rechargement) ----------------------------
+export async function putGenJob(rec: GenJobRecord): Promise<void> {
+  await (await getDB()).put("genJobs", rec);
+}
+export async function getGenJob(lessonId: string): Promise<GenJobRecord | undefined> {
+  return (await getDB()).get("genJobs", lessonId);
+}
+export async function allGenJobs(): Promise<GenJobRecord[]> {
+  return (await getDB()).getAll("genJobs");
+}
+export async function deleteGenJob(lessonId: string): Promise<void> {
+  await (await getDB()).delete("genJobs", lessonId);
 }
 
 // Cache de dictionnaire ------------------------------------------------------

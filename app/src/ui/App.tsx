@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
 import { getCurriculumEntry, getLesson, type Lesson } from "../lib/lessons";
 import { Catalogue } from "./Catalogue";
@@ -9,6 +9,7 @@ import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
+import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
 import {
   currentLocation,
@@ -62,10 +63,12 @@ export function App() {
   // onglets et les pages, et la barre est rendue par-dessus tout le contenu.
   return (
     <NotificationProvider>
-      <PodcastProvider>
-        <AppShell />
-        <PodcastPlayer />
-      </PodcastProvider>
+      <GenJobsProvider>
+        <PodcastProvider>
+          <AppShell />
+          <PodcastPlayer />
+        </PodcastProvider>
+      </GenJobsProvider>
       <NotificationBanner />
     </NotificationProvider>
   );
@@ -79,8 +82,20 @@ function AppShell() {
   const [course, setCourse] = useState<Lesson | null>(null);
   // Force le rafraîchissement des données de l'onglet courant au retour d'une page de lecture.
   const [refreshKey, setRefreshKey] = useState(0);
+  const { dataVersion } = useGenJobs();
 
   const tab = tabForRoute(route);
+
+  // Quand une génération aboutit (dataVersion), on rafraîchit l'onglet courant et on
+  // recharge le cours ouvert (le cours devient lisible, une nouvelle histoire apparaît).
+  const courseIdRef = useRef<string | null>(null);
+  courseIdRef.current = course?.id ?? null;
+  useEffect(() => {
+    if (dataVersion === 0) return; // pas de rechargement au montage initial
+    setRefreshKey((n) => n + 1);
+    const id = courseIdRef.current;
+    if (id) getLesson(id).then((l) => l && setCourse(l));
+  }, [dataVersion]);
 
   // Résolution asynchrone des sous-pages : l'URL ne contient qu'un id, on recharge l'objet
   // complet depuis IndexedDB / le curriculum. Couvre le rechargement direct d'une page profonde.
@@ -162,7 +177,7 @@ function AppShell() {
     return (
       <div className={SHELL}>
         <ReaderPage title={course.title} onBack={back}>
-          <CourseDetail lesson={course} onOpenStory={openStory} onChanged={() => undefined} />
+          <CourseDetail lesson={course} onOpenStory={openStory} />
         </ReaderPage>
       </div>
     );

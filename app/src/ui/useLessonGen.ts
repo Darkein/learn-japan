@@ -1,76 +1,30 @@
-import { useState } from "react";
-import type { StoryRecord } from "../lib/db";
-import { type GenState } from "../lib/genClient";
-import {
-  addLessonStory,
-  ensureLessonFraming,
-  markLessonStarted,
-  type Lesson,
-} from "../lib/lessons";
-import { useNotify } from "./useNotify";
-
-export const STATE_LABEL: Record<GenState, string> = {
-  queued: "en file…",
-  generating: "génération…",
-  ready: "prêt",
-  error: "erreur",
-  unknown: "inconnu",
-};
-
-interface Options {
-  onChanged: () => void;
-  onOpenStory: (story: StoryRecord) => void;
-  /** Appelé avec l'histoire fraîchement générée (ajout), pour mise à jour locale. */
-  onStoryAdded?: (story: StoryRecord) => void;
-}
+import type { Lesson } from "../lib/lessons";
+import { useGenJobs, type JobView } from "./useGenJobs";
 
 /**
- * Logique de génération d'une leçon, partagée entre la carte résumé (`LessonCard`)
- * et le détail du cours (`CourseDetail`).
+ * Vue, pour une leçon, de l'état de génération partagé (file `genJobs`). La logique réelle
+ * (séquencement cours → histoire, persistance, reprise au rechargement) vit dans le contexte
+ * `GenJobsProvider` ; ce hook se contente d'en projeter l'état pour une leçon donnée. Ainsi
+ * la carte résumé (`LessonCard`) et le détail du cours (`CourseDetail`) reflètent le même job.
  */
-export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAdded }: Options) {
-  const [genState, setGenState] = useState<GenState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const { notify } = useNotify();
+export function useLessonGen(lesson: Lesson) {
+  const { jobs, startLesson, addStory, retry, dismiss } = useGenJobs();
+  const job: JobView | undefined = jobs[lesson.id];
+  const busy = job?.status === "running";
+  const error = job?.status === "error" ? (job.error ?? "Erreur de génération") : null;
 
-  const busy = genState === "queued" || genState === "generating";
-
-  // Première ouverture : cadrage du cours (si absent) + variante 1 (cache hit si pré-générée).
-  async function start() {
-    setError(null);
-    setGenState("queued");
-    try {
-      await ensureLessonFraming(lesson, setGenState);
-      const story = await addLessonStory(lesson, 1, setGenState);
-      onChanged();
-      if (story.lessonId) await markLessonStarted(story.lessonId);
-      notify({
-        message: `Leçon « ${lesson.title} » prête.`,
-        action: { label: "Lire →", onClick: () => onOpenStory(story) },
-      });
-    } catch (e) {
-      setError(String(e));
-      setGenState("error");
-    }
-  }
-
-  // Ajoute la variante suivante (ou une variante distante spécifique).
-  async function addStory(variant?: number) {
-    setError(null);
-    setGenState("queued");
-    try {
-      const story = await addLessonStory(lesson, variant, setGenState);
-      onStoryAdded?.(story);
-      onChanged();
-      notify({
-        message: "Nouvelle histoire prête.",
-        action: { label: "Lire →", onClick: () => onOpenStory(story) },
-      });
-    } catch (e) {
-      setError(String(e));
-      setGenState("error");
-    }
-  }
-
-  return { genState, busy, error, start, addStory };
+  return {
+    /** Job courant (état brut) ou `undefined` si aucune génération en cours/échouée. */
+    job,
+    busy,
+    error,
+    /** Avancement estimé [0, 1] de la génération courante. */
+    progress: job?.progress ?? 0,
+    /** Libellé d'étape (« Génération du cours… », « Génération de l'histoire… »). */
+    label: job?.label ?? "",
+    start: () => startLesson(lesson),
+    addStory: (variant?: number) => addStory(lesson, variant),
+    retry: () => retry(lesson.id),
+    dismiss: () => dismiss(lesson.id),
+  };
 }

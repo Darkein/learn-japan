@@ -186,8 +186,10 @@ async function hydrate(entry: CurriculumEntry, remoteIndex: GeneratedIndex): Pro
 
   return {
     ...entry,
-    // Prête à lire dès qu'il existe au moins une histoire (locale ou pré-générée distante).
-    state: stories.length > 0 || pregenerated ? "ready" : "to-generate",
+    // Accessible (cours lisible) dès que le cadrage existe localement, qu'une histoire est
+    // disponible (locale ou pré-générée distante). L'histoire peut alors se générer en
+    // arrière-plan sans bloquer l'accès au cours.
+    state: generated?.framing || stories.length > 0 || pregenerated ? "ready" : "to-generate",
     framing: generated?.framing,
     stories,
     completedAt: progress?.completedAt,
