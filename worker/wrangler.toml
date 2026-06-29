@@ -46,3 +46,6 @@ bucket_name = "learn-japan-content"
 [[r2_buckets]]
 binding = "TTS_CACHE"        # audio Cloud Text-to-Speech (lecteur / podcast)
 bucket_name = "learn-japan-audio"
+
+[secrets]
+required = [ "GEMINI_API_KEY", "GEMINI_API_KEY_2" ]

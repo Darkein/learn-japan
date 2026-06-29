@@ -80,6 +80,8 @@ export interface StoryRecord {
   params: { theme?: string; kanji?: string[]; grammar?: string[]; level?: number };
   /** Rattachement optionnel à une leçon du curriculum (SPEC §3). */
   lessonId?: string;
+  /** Numéro de variante (1, 2, …) pour les histoires de leçon pré-générées. */
+  variant?: number;
   /** Titre français court (mode podcast : annoncé à l'oral). */
   titleFr?: string;
   /** Traduction FR alignée phrase par phrase sur le découpage JP (mode podcast). */
@@ -108,7 +110,7 @@ export interface PodcastRecord {
  */
 export interface GeneratedLessonRecord {
   id: string; // = curriculum entry id
-  intro: string; // cadrage FR du cours
+  framing: string; // leçon FR rédigée (corps du cours)
   createdAt: number;
 }
 

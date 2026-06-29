@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   buildComprehensionQcmPrompt,
-  buildLessonIntroPrompt,
+  buildLessonPrompt,
   buildLessonStoryPrompt,
   buildStoryTranslationPrompt,
+  cleanSlug,
+  cleanVariant,
   composePrompt,
   type GenerateRequest,
 } from "./prompts";
 
 const lesson: GenerateRequest = {
-  kind: "lesson-intro",
+  kind: "lesson",
   title: "Les animaux",
   level: 5,
   vocab: [{ ja: "猫", yomi: "ねこ", fr: "chat" }],
@@ -17,8 +19,8 @@ const lesson: GenerateRequest = {
   grammar: ["n5-wa-topic"],
 };
 
-describe("buildLessonIntroPrompt", () => {
-  const prompt = buildLessonIntroPrompt(lesson);
+describe("buildLessonPrompt", () => {
+  const prompt = buildLessonPrompt(lesson);
 
   it("demande une vraie leçon développée (plus un simple cadrage bref)", () => {
     expect(prompt).toContain("véritable leçon de grammaire");
@@ -26,9 +28,11 @@ describe("buildLessonIntroPrompt", () => {
     expect(prompt).not.toContain("2 à 4 phrases courtes");
   });
 
-  it("exige plusieurs exemples travaillés (JP / lecture / traduction)", () => {
+  it("exige plusieurs exemples travaillés (JP / traduction) dans des blocs :::example", () => {
     expect(prompt).toContain("PLUSIEURS exemples");
-    expect(prompt).toContain("trois lignes consécutives");
+    expect(prompt).toContain(":::example");
+    expect(prompt).toContain(":::pitfall");
+    expect(prompt).toContain(":::summary");
   });
 
   it("n'enseigne QUE la grammaire (vocab/kanji = simple matière à exemples)", () => {
@@ -47,6 +51,43 @@ describe("buildLessonStoryPrompt", () => {
   it("relève le plancher de longueur N5 (>= 240 caractères)", () => {
     const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story" });
     expect(prompt).toContain("240");
+  });
+
+  it("variante 1 : pas de consigne de variation dans le prompt", () => {
+    const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story", variant: 1 });
+    expect(prompt).not.toContain("Variante");
+  });
+
+  it("variante > 1 : consigne de variation présente", () => {
+    const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story", variant: 2 });
+    expect(prompt).toContain("Variante 2");
+    expect(prompt).toContain("DIFFÉRENTE");
+  });
+
+  it("variant hors borne (0, 51, NaN) → 1 (sans consigne de variation)", () => {
+    for (const v of [0, 51, NaN, -1]) {
+      const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story", variant: v });
+      expect(prompt).not.toContain("Variante");
+    }
+  });
+});
+
+describe("cleanSlug", () => {
+  it("n'autorise que [a-z0-9-], plafonne à 64", () => {
+    expect(cleanSlug("n5-u1-l1")).toBe("n5-u1-l1");
+    expect(cleanSlug("N5-U1-L1")).toBe("n5-u1-l1");
+    expect(cleanSlug("../secret")).toBe("secret");
+    expect(cleanSlug("a".repeat(100))).toHaveLength(64);
+  });
+});
+
+describe("cleanVariant", () => {
+  it("borne à 1..50, défaut 1", () => {
+    expect(cleanVariant(1)).toBe(1);
+    expect(cleanVariant(50)).toBe(50);
+    expect(cleanVariant(0)).toBe(1);
+    expect(cleanVariant(51)).toBe(1);
+    expect(cleanVariant(NaN)).toBe(1);
   });
 });
 

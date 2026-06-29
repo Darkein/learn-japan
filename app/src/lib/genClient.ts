@@ -9,19 +9,39 @@
 import { WORKER_URL } from "./config";
 
 export interface GenParams {
-  kind?: "story" | "lesson-intro" | "lesson-story" | "story-translation" | "comprehension-qcm";
+  kind?: "story" | "lesson" | "lesson-story" | "story-translation" | "comprehension-qcm";
   level?: number;
   // kind: "story" (génération libre du lecteur)
   theme?: string;
   kanji?: string[];
   grammar?: string[];
-  // kind: "lesson-intro" | "lesson-story"
+  // kind: "lesson" | "lesson-story"
   title?: string;
   vocab?: { ja: string; yomi?: string; fr: string }[];
   kanjiGloss?: { ja: string; fr: string }[];
   knownKanji?: string[];
   // kind: "story-translation"
   sentences?: string[];
+  // Clé R2 structurée (lesson / lesson-story uniquement)
+  lessonId?: string;
+  variant?: number;
+}
+
+export type GeneratedIndex = Record<string, { cours: boolean; stories: number[] }>;
+
+/**
+ * Récupère la liste de tout le contenu pré-généré depuis le Worker.
+ * Doit être appelé une seule fois au démarrage ; échec réseau → {} (dégradé local-only).
+ */
+export async function fetchGenerated(): Promise<GeneratedIndex> {
+  try {
+    const res = await fetch(`${WORKER_URL}/generated`);
+    if (!res.ok) return {};
+    const data = (await res.json()) as { lessons?: GeneratedIndex };
+    return data.lessons ?? {};
+  } catch {
+    return {};
+  }
 }
 
 export type GenState = "queued" | "generating" | "ready" | "error" | "unknown";
@@ -72,13 +92,14 @@ export async function generateText(
 
 // ---------- Génération de leçon : cours et histoire, SÉPARÉS ----------------
 // Le cours (pédagogie) et l'histoire (matière à lire) sont deux choses distinctes :
-//  - generateLessonIntro → une LEÇON FR rédigée (corps pédagogique) qui complète le détail
+//  - generateLesson → une LEÇON FR rédigée (corps pédagogique) qui complète le détail
 //    structuré assemblé depuis l'inventaire ;
 //  - generateLessonStory → une HISTOIRE JP, contrainte au lexique déjà vu, sauvée en StoryRecord.
 // Dans les deux cas, le client n'envoie que la matière structurée (titre, niveau, vocab,
 // kanji, grammaire) ; la mise en forme du prompt est faite par le Worker.
 
 export interface LessonGenInput {
+  lessonId: string;
   title: string;
   level: number;
   vocab: { ja: string; yomi?: string; fr: string }[];
@@ -88,7 +109,7 @@ export interface LessonGenInput {
   known?: { kanji: string[] };
 }
 
-export async function generateLessonIntro(
+export async function generateLesson(
   input: LessonGenInput,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
@@ -96,7 +117,8 @@ export async function generateLessonIntro(
   return (
     await generateText(
       {
-        kind: "lesson-intro",
+        kind: "lesson",
+        lessonId: input.lessonId,
         title: input.title,
         level: input.level,
         vocab: input.vocab,
@@ -111,6 +133,7 @@ export async function generateLessonIntro(
 
 export async function generateLessonStory(
   input: LessonGenInput,
+  variant: number,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
 ): Promise<string> {
@@ -118,6 +141,8 @@ export async function generateLessonStory(
     await generateText(
       {
         kind: "lesson-story",
+        lessonId: input.lessonId,
+        variant,
         title: input.title,
         level: input.level,
         vocab: input.vocab,

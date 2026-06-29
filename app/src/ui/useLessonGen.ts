@@ -20,7 +20,7 @@ export const STATE_LABEL: Record<GenState, string> = {
 interface Options {
   onChanged: () => void;
   onOpenStory: (story: StoryRecord) => void;
-  /** Appelé avec l'histoire fraîchement générée (re-roll), pour mise à jour locale. */
+  /** Appelé avec l'histoire fraîchement générée (ajout), pour mise à jour locale. */
   onStoryAdded?: (story: StoryRecord) => void;
 }
 
@@ -35,15 +35,13 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
 
   const busy = genState === "queued" || genState === "generating";
 
-  // Première génération : cadrage du cours (si absent) + une première histoire. On ne
-  // redirige plus de force vers l'histoire : un bandeau signale qu'elle est prête et
-  // laisse l'utilisateur l'ouvrir quand il le souhaite (il peut se balader entre-temps).
+  // Première ouverture : cadrage du cours (si absent) + variante 1 (cache hit si pré-générée).
   async function start() {
     setError(null);
     setGenState("queued");
     try {
       await ensureLessonFraming(lesson, setGenState);
-      const story = await addLessonStory(lesson, setGenState);
+      const story = await addLessonStory(lesson, 1, setGenState);
       onChanged();
       if (story.lessonId) await markLessonStarted(story.lessonId);
       notify({
@@ -56,12 +54,12 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
     }
   }
 
-  // Re-roll : ajoute une histoire supplémentaire à une leçon déjà prête.
-  async function anotherStory() {
+  // Ajoute la variante suivante (ou une variante distante spécifique).
+  async function addStory(variant?: number) {
     setError(null);
     setGenState("queued");
     try {
-      const story = await addLessonStory(lesson, setGenState);
+      const story = await addLessonStory(lesson, variant, setGenState);
       onStoryAdded?.(story);
       onChanged();
       notify({
@@ -74,5 +72,5 @@ export function useLessonGen(lesson: Lesson, { onChanged, onOpenStory, onStoryAd
     }
   }
 
-  return { genState, busy, error, start, anotherStory };
+  return { genState, busy, error, start, addStory };
 }

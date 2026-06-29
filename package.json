@@ -12,6 +12,8 @@
     "build": "npm run build -w app",
     "preview": "npm run preview -w app",
     "test": "npm run test -w app",
+    "worker:dev": "npm run dev -w worker",
+    "worker:deploy": "npm run deploy -w worker",
     "data:inventory": "tsx scripts/build-inventory.ts",
     "data:jmdict": "tsx scripts/build-jmdict.ts",
     "curriculum:check": "tsx scripts/check-curriculum.ts",

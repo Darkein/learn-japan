@@ -384,7 +384,7 @@ export async function generatePodcastPack(
 
   if (lesson.stories.length === 0) {
     onProgress?.("Génération d'une histoire…");
-    await addLessonStory(lesson);
+    await addLessonStory(lesson, 1);
     lesson = (await getLesson(lessonId))!;
   }
 

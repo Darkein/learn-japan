@@ -33,6 +33,7 @@ export async function saveStory(
   text: string,
   params: StoryParams = {},
   lessonId?: string,
+  variant?: number,
 ): Promise<StoryRecord> {
   const clean = stripLeadingHeading(text);
   const story: StoryRecord = {
@@ -42,6 +43,7 @@ export async function saveStory(
     text: clean,
     params,
     ...(lessonId ? { lessonId } : {}),
+    ...(variant != null ? { variant } : {}),
   };
   await putStory(story);
   return story;

@@ -19,7 +19,7 @@ export interface KanjiItem {
 
 export type GenKind =
   | "story"
-  | "lesson-intro"
+  | "lesson"
   | "lesson-story"
   | "story-translation"
   | "comprehension-qcm";
@@ -32,13 +32,16 @@ export interface GenerateRequest {
   theme?: string;
   kanji?: string[];
   grammar?: string[];
-  // kind: "lesson-intro" | "lesson-story" — matière d'une leçon.
+  // kind: "lesson" | "lesson-story" — matière d'une leçon.
   title?: string;
   vocab?: VocabItem[];
   kanjiGloss?: KanjiItem[];
   knownKanji?: string[];
   // kind: "story-translation" — phrases JP déjà découpées.
   sentences?: string[];
+  // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
+  lessonId?: string;
+  variant?: number;
 }
 
 // ---------- Bornes & nettoyage ----------------------------------------------
@@ -83,6 +86,24 @@ function cleanList(value: unknown, maxItems: number, maxLen: number): string[] {
 function cleanLevel(level: unknown): number {
   const n = Math.round(Number(level));
   return Number.isFinite(n) && n >= 1 && n <= 5 ? n : 5;
+}
+
+/**
+ * Assainit un identifiant de leçon (slugifié) pour usage dans une clé R2.
+ * N'autorise que `[a-z0-9-]`, plafonne à 64 caractères. Protège contre les
+ * path-traversal (`../`), injections et majuscules non normalisées.
+ */
+export function cleanSlug(value: unknown): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .slice(0, 64);
+}
+
+/** Numéro de variante d'histoire, borné à 1..50 (défaut 1). */
+export function cleanVariant(value: unknown): number {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n >= 1 && n <= 50 ? n : 1;
 }
 
 function cleanVocab(value: unknown): VocabItem[] {
@@ -147,7 +168,7 @@ function buildStoryPrompt(r: GenerateRequest): string {
  * l'inventaire : vocabulaire et kanji ne sont fournis ici que comme matière à exemples —
  * ils ne doivent être ni redressés en liste ni expliqués mot à mot.
  */
-export function buildLessonIntroPrompt(r: GenerateRequest): string {
+export function buildLessonPrompt(r: GenerateRequest): string {
   const level = cleanLevel(r.level);
   const title = clean(r.title, LIMITS.title) || "Leçon";
   const vocab = cleanVocab(r.vocab);
@@ -163,14 +184,15 @@ export function buildLessonIntroPrompt(r: GenerateRequest): string {
   ].filter(Boolean);
 
   return [
-    `Rédige une véritable leçon de grammaire japonaise (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown. Une vraie leçon qui enseigne et démontre — pas une simple introduction ni un résumé.`,
+    `Rédige une véritable leçon de grammaire japonaise (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown. Une vraie leçon qui enseigne et démontre — pas une simple introduction ni un résumé. Cette leçon fait parti d'un ensemble de leçons, pas besoin de phrase de bienvenue.`,
     grammar,
     ...exampleMaterial,
     "",
     "Enseigne UNIQUEMENT la grammaire ci-dessus, mais en profondeur : l'intuition de départ, comment et quand l'employer, les nuances de registre (poli / neutre, oral / écrit) et l'erreur fréquente du francophone débutant. Construis l'explication progressivement, du cas le plus simple vers les subtilités.",
-    "Démontre chaque point avec PLUSIEURS exemples concrets en japonais. Présente chaque exemple sur trois lignes consécutives : la phrase japonaise, puis sa lecture en romaji, puis sa traduction française ; isole chaque exemple par une ligne vide. Ajoute au besoin un contre-exemple (tournure fautive) en expliquant pourquoi elle est fausse.",
+    "Démontre chaque point avec PLUSIEURS exemples concrets en japonais. Encadre chaque exemple dans un bloc :::example … ::: : une ligne par phrase japonaise, puis sa traduction française sur la ligne suivante préfixée par « > ». Plusieurs paires JP/traduction sont autorisées dans un même bloc. Pas de romaji (l'application ajoute les furigana automatiquement).",
+    "Pour une tournure fautive, utilise un bloc :::pitfall avec l'explication de l'erreur. Pour une note importante, utilise :::info ; pour une mise en garde, :::warning. Termine la leçon par un bloc :::summary listant les 2 à 4 points clés à retenir.",
     "Tu peux puiser dans le vocabulaire et les kanji fournis pour tes exemples, mais NE dresse PAS la liste du vocabulaire et NE l'explique PAS mot à mot (il est déjà affiché à côté) : sers-t'en seulement comme matière à phrases.",
-    "Structure avec des sous-titres Markdown « ## » dès qu'il y a plusieurs idées, des paragraphes courts, et **gras** pour les mots japonais clés. Pas de tableau. Vise une leçon riche mais lisible (environ 4 à 8 paragraphes, exemples compris). Réponds uniquement avec cette leçon en français.",
+    "Structure avec des titres Markdown « # » dès qu'il y a plusieurs idées (un seul niveau, et pas de titre pour la leçon), des paragraphes courts, des listes à puces ou numérotées si pertinent. Tu peux utiliser un tableau Markdown pour présenter des formes de conjugaison. Utilise **gras** et *italique* pour mettre en valeur les termes importants en français. Vise une leçon riche mais lisible. Réponds uniquement avec cette leçon en français.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -203,6 +225,7 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
   const kanji = cleanKanjiGloss(r.kanjiGloss);
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
   const known = cleanList(r.knownKanji, LIMITS.kanjiList, LIMITS.kanjiToken).join("").slice(0, LIMITS.knownKanji);
+  const variant = cleanVariant(r.variant);
   const len = storyLength(level);
 
   const objectives = [
@@ -221,6 +244,9 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
       : "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
     "",
     `Longueur : un article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), structuré en au moins 2 à 3 paragraphes (sépare les paragraphes par une ligne vide ; ajoute-en si l'histoire le demande).`,
+    variant > 1
+      ? `Variante ${variant} : propose une histoire DIFFÉRENTE des variantes précédentes pour cette leçon (autre situation, autres personnages, autre angle narratif), tout en respectant les mêmes cibles grammaticales et de vocabulaire.`
+      : "",
     "Réponds uniquement avec le texte japonais : pas de furigana, pas de romaji, pas de traduction, pas de titre.",
   ]
     .filter(Boolean)
@@ -289,8 +315,8 @@ export function buildComprehensionQcmPrompt(r: GenerateRequest): string {
  */
 export function composePrompt(req: GenerateRequest): string {
   switch (req.kind) {
-    case "lesson-intro":
-      return buildLessonIntroPrompt(req);
+    case "lesson":
+      return buildLessonPrompt(req);
     case "lesson-story":
       return buildLessonStoryPrompt(req);
     case "story-translation":

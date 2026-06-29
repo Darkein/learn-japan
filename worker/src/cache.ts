@@ -27,6 +27,65 @@ export async function genCacheKey(kind: string, prompt: string): Promise<string>
 }
 
 /**
+ * Clé R2 structurée et listable pour le cours d'une leçon.
+ * Format : `gen/lesson/<lessonId>.json`
+ */
+export function lessonCacheKey(lessonId: string): string {
+  return `gen/lesson/${lessonId}.json`;
+}
+
+/**
+ * Clé R2 structurée et listable pour une histoire de leçon (variante).
+ * Format : `gen/lesson-story/<lessonId>/<variant>.json`
+ */
+export function lessonStoryCacheKey(lessonId: string, variant: number): string {
+  return `gen/lesson-story/${lessonId}/${variant}.json`;
+}
+
+export interface GeneratedIndex {
+  [lessonId: string]: { cours: boolean; stories: number[] };
+}
+
+/**
+ * Liste tout le contenu pré-généré dans R2 sous les préfixes `gen/lesson/` et
+ * `gen/lesson-story/`. Renvoie un index par leçon. No-op (objet vide) si le bucket
+ * n'est pas configuré.
+ */
+export async function listGenerated(bucket: R2Bucket | undefined): Promise<GeneratedIndex> {
+  if (!bucket) return {};
+  const index: GeneratedIndex = {};
+
+  const populate = async (prefix: string, onKey: (lessonId: string, rest: string) => void) => {
+    let cursor: string | undefined;
+    do {
+      const result: R2Objects = await bucket.list({ prefix, cursor, limit: 1000 });
+      for (const obj of result.objects) {
+        const after = obj.key.slice(prefix.length);
+        const [lessonId, ...rest] = after.split("/");
+        if (lessonId) onKey(lessonId, rest.join("/"));
+      }
+      cursor = result.truncated ? result.cursor : undefined;
+    } while (cursor);
+  };
+
+  await populate("gen/lesson/", (lessonId, rest) => {
+    if (!rest.endsWith(".json")) return;
+    if (!index[lessonId]) index[lessonId] = { cours: false, stories: [] };
+    index[lessonId].cours = true;
+  });
+
+  await populate("gen/lesson-story/", (lessonId, rest) => {
+    const variantStr = rest.replace(".json", "");
+    const variant = parseInt(variantStr, 10);
+    if (!Number.isFinite(variant) || variant < 1) return;
+    if (!index[lessonId]) index[lessonId] = { cours: false, stories: [] };
+    if (!index[lessonId].stories.includes(variant)) index[lessonId].stories.push(variant);
+  });
+
+  return index;
+}
+
+/**
  * Clé R2 d'une synthèse vocale : empreinte des paramètres EFFECTIFS (texte/segments + voix
  * + débit + langue résolus). Deux requêtes qui aboutissent au même audio partagent la clé.
  */

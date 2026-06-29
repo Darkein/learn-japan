@@ -13,7 +13,7 @@
 //   npm run content:batch                       # tout le curriculum
 //   npm run content:batch -- --level 5          # seulement N5
 //   npm run content:batch -- --limit 3          # 3 premières leçons (test rapide)
-//   npm run content:batch -- --intro-only       # cours seuls (pas d'histoires)
+//   npm run content:batch -- --lesson-only      # cours seuls (pas d'histoires)
 //   npm run content:batch -- --refresh          # ignore le cache, régénère
 //   WORKER_URL=https://… npm run content:batch  # cibler un autre Worker
 
@@ -126,14 +126,14 @@ function splitJaSentences(text: string): string[] {
 
 // ---- Appels Worker ----------------------------------------------------------
 
-interface Args { level?: number; limit?: number; introOnly: boolean; refresh: boolean }
+interface Args { level?: number; limit?: number; lessonOnly: boolean; refresh: boolean }
 function parseArgs(argv: string[]): Args {
-  const a: Args = { introOnly: false, refresh: false };
+  const a: Args = { lessonOnly: false, refresh: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--level") a.level = Number(argv[++i]);
     else if (arg === "--limit") a.limit = Number(argv[++i]);
-    else if (arg === "--intro-only") a.introOnly = true;
+    else if (arg === "--lesson-only") a.lessonOnly = true;
     else if (arg === "--refresh") a.refresh = true;
   }
   return a;
@@ -170,14 +170,14 @@ async function gen(label: string, body: Record<string, unknown>, refresh: boolea
 
 async function processLesson(e: Entry, args: Args): Promise<void> {
   console.log(`\n[N${e.level} #${e.order}] ${e.id} — ${e.title}`);
-  const common = { level: e.level, title: e.title, vocab: e.vocab, kanjiGloss: e.kanji, grammar: e.grammar };
+  const common = { lessonId: e.id, level: e.level, title: e.title, vocab: e.vocab, kanjiGloss: e.kanji, grammar: e.grammar };
 
-  await gen("cours (lesson-intro)", { kind: "lesson-intro", ...common }, args.refresh);
-  if (args.introOnly) return;
+  await gen("cours (lesson)", { kind: "lesson", ...common }, args.refresh);
+  if (args.lessonOnly) return;
 
   const story = await gen(
-    "histoire (lesson-story)",
-    { kind: "lesson-story", ...common, knownKanji: knownKanjiBefore(e) },
+    "histoire (lesson-story) v1",
+    { kind: "lesson-story", ...common, variant: 1, knownKanji: knownKanjiBefore(e) },
     args.refresh,
   );
   if (!story) return;
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
   if (args.limit) targets = targets.slice(0, args.limit);
 
   console.log(`Worker : ${WORKER_URL}`);
-  console.log(`Leçons à traiter : ${targets.length}${args.refresh ? " (refresh)" : ""}${args.introOnly ? " (cours seuls)" : ""}`);
+  console.log(`Leçons à traiter : ${targets.length}${args.refresh ? " (refresh)" : ""}${args.lessonOnly ? " (cours seuls)" : ""}`);
 
   for (const e of targets) {
     await processLesson(e, args);

@@ -19,3 +19,4 @@ data/full/
 .env.*
 .dev.vars
 worker/.dev.vars
+.wrangler/

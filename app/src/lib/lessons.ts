@@ -2,12 +2,12 @@
 // contenu généré et la progression locale (IndexedDB).
 //
 // Une « leçon » est :
-// - prête  : intro + storyJa disponibles (via seed ou via génération antérieure).
+// - prête  : cours + histoire disponibles (via seed ou via génération antérieure).
 // - à générer : seulement les objectifs sont définis ; l'utilisateur peut lancer la génération.
 // - terminée : marquée lue ; n'empêche pas de la relire.
 
 import curriculumData from "../data/curriculum.json";
-import { generateLessonIntro, generateLessonStory, type GenState } from "./genClient";
+import { fetchGenerated, generateLesson, generateLessonStory, type GeneratedIndex, type GenState } from "./genClient";
 import { resolveGrammar, resolveKanji, resolveVocab } from "./inventory";
 import { saveStory } from "./stories";
 import {
@@ -54,7 +54,7 @@ export interface CurriculumEntry {
   introduces: Introduces;
 }
 
-/** Une leçon est « prête » dès qu'elle a au moins une histoire à lire. */
+/** Une leçon est « prête » dès qu'elle a au moins une histoire à lire (locale ou distante). */
 export type LessonState = "ready" | "to-generate";
 
 export interface Lesson extends CurriculumEntry {
@@ -65,6 +65,10 @@ export interface Lesson extends CurriculumEntry {
   stories: StoryRecord[];
   completedAt?: number;
   startedAt?: number;
+  /** Contenu pré-généré disponible en cache R2 (cours + au moins une histoire). */
+  pregenerated: boolean;
+  /** Numéros de variantes disponibles en R2 mais pas encore matérialisées localement. */
+  remoteStoryVariants: number[];
 }
 
 // ---- Curriculum v3 : niveau → unité → leçon, avec références à l'inventaire ----
@@ -154,36 +158,60 @@ export function getCumulativeObjectives(id: string): LessonObjectives {
   return { vocab: [...vocab.values()], kanji: [...kanji.values()], grammar: [...grammar] };
 }
 
-async function hydrate(entry: CurriculumEntry): Promise<Lesson> {
+// Promesse mémoïsée de l'index R2 : un seul appel par session, même si listLessons est rappelé.
+// On ne mémoïse pas les échecs (réseau flaky) : si fetchGenerated échoue, la prochaine hydration
+// retente.
+let _generatedIndexPromise: Promise<GeneratedIndex> | null = null;
+function loadGeneratedIndex(): Promise<GeneratedIndex> {
+  if (!_generatedIndexPromise) {
+    _generatedIndexPromise = fetchGenerated().catch(() => {
+      _generatedIndexPromise = null;
+      return {} as GeneratedIndex;
+    });
+  }
+  return _generatedIndexPromise;
+}
+
+async function hydrate(entry: CurriculumEntry, remoteIndex: GeneratedIndex): Promise<Lesson> {
   const [generated, progress, stories] = await Promise.all([
     getGeneratedLesson(entry.id),
     getLessonProgress(entry.id),
     storiesForLesson(entry.id),
   ]);
+
+  const remote = remoteIndex[entry.id];
+  const pregenerated = Boolean(remote?.cours && remote.stories.length > 0);
+  const localVariants = new Set(stories.map((s) => s.variant).filter((v): v is number => v != null));
+  const remoteStoryVariants = (remote?.stories ?? []).filter((v) => !localVariants.has(v)).sort((a, b) => a - b);
+
   return {
     ...entry,
-    // Prête à lire dès qu'il existe au moins une histoire générée.
-    state: stories.length > 0 ? "ready" : "to-generate",
-    framing: generated?.intro,
+    // Prête à lire dès qu'il existe au moins une histoire (locale ou pré-générée distante).
+    state: stories.length > 0 || pregenerated ? "ready" : "to-generate",
+    framing: generated?.framing,
     stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,
+    pregenerated,
+    remoteStoryVariants,
   };
 }
 
 export async function listLessons(): Promise<Lesson[]> {
-  return Promise.all(CURRICULUM.map(hydrate));
+  const remoteIndex = await loadGeneratedIndex();
+  return Promise.all(CURRICULUM.map((e) => hydrate(e, remoteIndex)));
 }
 
 export async function getLesson(id: string): Promise<Lesson | undefined> {
   const entry = getCurriculumEntry(id);
   if (!entry) return undefined;
-  return hydrate(entry);
+  const remoteIndex = await loadGeneratedIndex();
+  return hydrate(entry, remoteIndex);
 }
 
 /** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
-export async function saveLessonIntro(id: string, intro: string): Promise<GeneratedLessonRecord> {
-  const rec: GeneratedLessonRecord = { id, intro, createdAt: Date.now() };
+export async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
+  const rec: GeneratedLessonRecord = { id, framing, createdAt: Date.now() };
   await putGeneratedLesson(rec);
   return rec;
 }
@@ -216,8 +244,9 @@ export async function ensureLessonFraming(
   onState?: (s: GenState) => void,
 ): Promise<string | undefined> {
   if (lesson.framing) return lesson.framing;
-  const intro = await generateLessonIntro(
+  const framing = await generateLesson(
     {
+      lessonId: lesson.id,
       title: lesson.title,
       level: lesson.level,
       vocab: lesson.objectives.vocab,
@@ -226,28 +255,38 @@ export async function ensureLessonFraming(
     },
     onState,
   );
-  if (intro) {
-    await saveLessonIntro(lesson.id, intro);
-    lesson.framing = intro; // confort de l'appelant (objet en mémoire à jour)
+  if (framing) {
+    await saveLesson(lesson.id, framing);
+    lesson.framing = framing;
   }
-  return intro;
+  return framing;
 }
 
 /**
- * Génère (et sauve) une nouvelle histoire pour la leçon, contrainte au lexique déjà vu
- * (kanji des leçons précédentes, hors cibles de la leçon courante). Partagée par la
- * génération interactive (UI) et la pré-génération du pack podcast.
+ * Génère (et sauve) une nouvelle histoire pour la leçon.
+ * `variant` : numéro de variante explicite (pour ouvrir une variante distante précise) ou
+ * auto-calculé = max(local ∪ distant) + 1 (prochaine variante non encore matérialisée).
  */
 export async function addLessonStory(
   lesson: Lesson,
+  variant?: number,
   onState?: (s: GenState) => void,
 ): Promise<StoryRecord> {
   const targetKanji = new Set(lesson.objectives.kanji.map((k) => k.ja));
   const knownKanji = getCumulativeObjectives(lesson.id)
     .kanji.map((k) => k.ja)
     .filter((k) => !targetKanji.has(k));
+
+  // Calcul de la variante si non fournie : prochaine non matérialisée.
+  const resolvedVariant = variant ?? (() => {
+    const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
+    const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
+    return Math.max(localMax, remoteMax) + 1;
+  })();
+
   const text = await generateLessonStory(
     {
+      lessonId: lesson.id,
       title: lesson.title,
       level: lesson.level,
       vocab: lesson.objectives.vocab,
@@ -255,6 +294,7 @@ export async function addLessonStory(
       grammar: lesson.objectives.grammar,
       known: { kanji: knownKanji },
     },
+    resolvedVariant,
     onState,
   );
   if (!text.trim()) throw new Error("Histoire vide reçue.");
@@ -266,5 +306,6 @@ export async function addLessonStory(
       grammar: lesson.objectives.grammar.length ? lesson.objectives.grammar : undefined,
     },
     lesson.id,
+    resolvedVariant,
   );
 }

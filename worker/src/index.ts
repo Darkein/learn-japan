@@ -17,8 +17,8 @@
 // des gabarits fixes (voir prompts.ts). Aucune instruction libre ne transite → l'endpoint
 // ne peut pas être détourné en proxy LLM générique « hors japonais ».
 
-import { composePrompt, type GenerateRequest } from "./prompts";
-import { cacheGet, cachePut, genCacheKey, ttsCacheKey } from "./cache";
+import { cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
+import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 
 export interface Env {
   // Clé Gemini principale (SECRET). Des clés additionnelles GEMINI_API_KEY_2,
@@ -334,7 +334,21 @@ export default {
       // Cache R2 : même prompt ⇒ même contenu → on sert le déjà-généré sans rappeler Gemini.
       // `refresh` (corps ou ?refresh=1) force une régénération (et rafraîchit le cache).
       const refresh = body.refresh === true || url.searchParams.get("refresh") === "1";
-      const key = await genCacheKey(body.kind ?? "story", prompt);
+
+      // Les leçons et histoires de leçons utilisent des clés R2 structurées (listables par
+      // `/generated`). Les autres kinds restent sur le hash de prompt (opaque, partagé par
+      // contenu identique quel que soit l'appelant).
+      const lessonId = cleanSlug(body.lessonId);
+      let key: string;
+      if (body.kind === "lesson" && lessonId) {
+        key = lessonCacheKey(lessonId);
+      } else if (body.kind === "lesson-story" && lessonId) {
+        const variant = cleanVariant(body.variant);
+        key = lessonStoryCacheKey(lessonId, variant);
+      } else {
+        key = await genCacheKey(body.kind ?? "story", prompt);
+      }
+
       if (!refresh) {
         const hit = await cacheGet<{ text: string }>(env.GEN_CACHE, key);
         if (hit?.text) return json({ text: hit.text, cached: true });
@@ -348,6 +362,13 @@ export default {
       } catch (e) {
         return json({ error: String(e) }, 502);
       }
+    }
+
+    // GET /generated → liste le contenu pré-généré dans R2 (leçons + variantes d'histoires).
+    // Appelé une seule fois au chargement de l'app pour afficher les leçons disponibles.
+    if (req.method === "GET" && url.pathname === "/generated") {
+      const lessons = await listGenerated(env.GEN_CACHE);
+      return json({ lessons });
     }
 
     // POST /tts → { audio (base64 MP3), marks } (synthèse d'une phrase + timepoints)

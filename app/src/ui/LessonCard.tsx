@@ -30,6 +30,7 @@ export function LessonCard({ lesson, onOpenStory, onOpen, selected, onChanged }:
   const { genState, busy, error, start } = useLessonGen(lesson, { onChanged, onOpenStory });
 
   const ready = lesson.state === "ready";
+  const available = ready || lesson.pregenerated;
   const summary = summarize(lesson);
 
   return (
@@ -59,12 +60,12 @@ export function LessonCard({ lesson, onOpenStory, onOpen, selected, onChanged }:
             className={`rounded-sm border border-transparent px-2 py-0.5 text-xs uppercase tracking-wide ${
               lesson.completedAt
                 ? "border-hairline text-muted opacity-80"
-                : ready
+                : available
                   ? "border-accent text-accent"
                   : "border-hairline text-muted"
             }`}
           >
-            {lesson.completedAt ? "terminée" : ready ? "prête" : "à générer"}
+            {lesson.completedAt ? "terminée" : available ? "prête" : "à générer"}
           </span>
         </div>
 
@@ -86,7 +87,9 @@ export function LessonCard({ lesson, onOpenStory, onOpen, selected, onChanged }:
             onClick={() => void start()}
             disabled={busy}
           >
-            {busy ? "Génération…" : "Commencer la leçon"}
+            {busy
+              ? lesson.pregenerated ? "Chargement…" : "Génération…"
+              : lesson.pregenerated ? "Ouvrir la leçon" : "Commencer la leçon"}
           </button>
         )}
         {genState && busy && (

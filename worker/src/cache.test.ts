@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { genCacheKey, sha256Hex, ttsCacheKey } from "./cache";
+import { genCacheKey, lessonCacheKey, lessonStoryCacheKey, sha256Hex, ttsCacheKey } from "./cache";
 
 describe("sha256Hex", () => {
   it("rend une empreinte hex de 64 caractères, déterministe", async () => {
@@ -16,13 +16,30 @@ describe("sha256Hex", () => {
 
 describe("genCacheKey", () => {
   it("préfixe par gen/<kind>/ et termine par .json", async () => {
-    const key = await genCacheKey("lesson-intro", "un prompt");
-    expect(key).toMatch(/^gen\/lesson-intro\/[0-9a-f]{64}\.json$/);
+    const key = await genCacheKey("lesson", "un prompt");
+    expect(key).toMatch(/^gen\/lesson\/[0-9a-f]{64}\.json$/);
   });
 
   it("même (kind, prompt) ⇒ même clé ; prompt différent ⇒ clé différente", async () => {
     expect(await genCacheKey("story", "p")).toBe(await genCacheKey("story", "p"));
     expect(await genCacheKey("story", "p")).not.toBe(await genCacheKey("story", "q"));
+  });
+});
+
+describe("lessonCacheKey", () => {
+  it("format structuré gen/lesson/<id>.json", () => {
+    expect(lessonCacheKey("n5-u1-l1")).toBe("gen/lesson/n5-u1-l1.json");
+  });
+});
+
+describe("lessonStoryCacheKey", () => {
+  it("format structuré gen/lesson-story/<id>/<variant>.json", () => {
+    expect(lessonStoryCacheKey("n5-u1-l1", 1)).toBe("gen/lesson-story/n5-u1-l1/1.json");
+    expect(lessonStoryCacheKey("n5-u1-l1", 2)).toBe("gen/lesson-story/n5-u1-l1/2.json");
+  });
+
+  it("deux variantes différentes ⇒ clés différentes", () => {
+    expect(lessonStoryCacheKey("n5-u1-l1", 1)).not.toBe(lessonStoryCacheKey("n5-u1-l1", 2));
   });
 });
 
