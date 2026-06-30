@@ -11,17 +11,25 @@ import { fetchGenerated, generateLesson, generateLessonStory, type GeneratedInde
 import { resolveGrammar, resolveKanji, resolveVocab } from "./inventory";
 import { saveStory } from "./stories";
 import {
+  allGrammar,
+  allKanji,
   allLessonProgress,
+  allVocab,
   getGeneratedLesson,
   getLessonProgress,
   putGeneratedLesson,
   putLessonProgress,
   storiesForLesson,
   type GeneratedLessonRecord,
+  type GrammarItem,
+  type KanjiItem,
   type LessonProgressRecord,
   type StoryRecord,
+  type VocabItem,
 } from "./db";
 import { enrollLesson } from "./enroll";
+import { isMastered } from "./srs";
+import { SRS } from "./config";
 
 export interface VocabEntry {
   ja: string;
@@ -70,6 +78,16 @@ export interface Lesson extends CurriculumEntry {
   pregenerated: boolean;
   /** Numéros de variantes disponibles en R2 mais pas encore matérialisées localement. */
   remoteStoryVariants: number[];
+  /** Part des items maîtrisés (0..1). */
+  mastery: number;
+  /** La leçon est-elle verrouillée par le seuil de maîtrise de la précédente ? */
+  locked: boolean;
+  /** Maîtrise de la leçon précédente (pour afficher le message de débloquage). */
+  prevMastery?: number;
+  /** Leçon débloquée naturellement (par maîtrise, pas par "commencer quand même"). */
+  unlockedNaturally?: boolean;
+  /** La notification de déblocage a-t-elle déjà été envoyée ? */
+  notifiedUnlock?: boolean;
 }
 
 // ---- Curriculum v3 : niveau → unité → leçon, avec références à l'inventaire ----
@@ -178,7 +196,37 @@ export function invalidateGeneratedIndex(): void {
   _generatedIndexPromise = null;
 }
 
-async function hydrate(entry: CurriculumEntry, remoteIndex: GeneratedIndex): Promise<Lesson> {
+/** Calcule la part des items d'une leçon qui sont maîtrisés (0..1). */
+export function computeMastery(
+  entry: Pick<CurriculumEntry, "introduces">,
+  vocabMap: Map<string, VocabItem>,
+  kanjiMap: Map<string, KanjiItem>,
+  grammarMap: Map<string, GrammarItem>,
+): number {
+  let total = 0;
+  let mastered = 0;
+  for (const id of entry.introduces.vocab) {
+    total++;
+    const card = vocabMap.get(id)?.cards.written;
+    if (card && isMastered(card)) mastered++;
+  }
+  for (const id of entry.introduces.kanji) {
+    total++;
+    const card = kanjiMap.get(id)?.card;
+    if (card && isMastered(card)) mastered++;
+  }
+  for (const id of entry.introduces.grammar) {
+    total++;
+    const card = grammarMap.get(id)?.card;
+    if (card && isMastered(card)) mastered++;
+  }
+  return total === 0 ? 0 : mastered / total;
+}
+
+async function hydrate(
+  entry: CurriculumEntry,
+  remoteIndex: GeneratedIndex,
+): Promise<Lesson> {
   const [generated, progress, stories] = await Promise.all([
     getGeneratedLesson(entry.id),
     getLessonProgress(entry.id),
@@ -202,19 +250,64 @@ async function hydrate(entry: CurriculumEntry, remoteIndex: GeneratedIndex): Pro
     startedAt: progress?.startedAt,
     pregenerated,
     remoteStoryVariants,
+    mastery: 0,
+    locked: false,
+    notifiedUnlock: progress?.unlockedNotified ?? false,
   };
 }
 
 export async function listLessons(): Promise<Lesson[]> {
   const remoteIndex = await loadGeneratedIndex();
-  return Promise.all(CURRICULUM.map((e) => hydrate(e, remoteIndex)));
+  const [allVocabItems, allKanjiItems, allGrammarItems] = await Promise.all([
+    allVocab(), allKanji(), allGrammar(),
+  ]);
+  const vocabMap = new Map(allVocabItems.map((v) => [v.id, v]));
+  const kanjiMap = new Map(allKanjiItems.map((k) => [k.id, k]));
+  const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
+
+  const lessons = await Promise.all(
+    CURRICULUM.map((e) => hydrate(e, remoteIndex)),
+  );
+
+  for (let i = 0; i < lessons.length; i++) {
+    lessons[i].mastery = computeMastery(lessons[i], vocabMap, kanjiMap, grammarMap);
+    const prev = i > 0 ? lessons[i - 1] : null;
+    const prevMastery = prev ? prev.mastery : 1;
+    lessons[i].prevMastery = prev ? prevMastery : undefined;
+    lessons[i].locked = !!prev && prevMastery < SRS.unlockMastery && !lessons[i].startedAt;
+    lessons[i].unlockedNaturally =
+      !!prev &&
+      prevMastery >= SRS.unlockMastery &&
+      !lessons[i].startedAt &&
+      !lessons[i].completedAt &&
+      lessons[i].state === "ready" &&
+      !lessons[i].notifiedUnlock;
+  }
+
+  return lessons;
 }
 
 export async function getLesson(id: string): Promise<Lesson | undefined> {
   const entry = getCurriculumEntry(id);
   if (!entry) return undefined;
   const remoteIndex = await loadGeneratedIndex();
-  return hydrate(entry, remoteIndex);
+  const [allVocabItems, allKanjiItems, allGrammarItems] = await Promise.all([
+    allVocab(), allKanji(), allGrammar(),
+  ]);
+  const vocabMap = new Map(allVocabItems.map((v) => [v.id, v]));
+  const kanjiMap = new Map(allKanjiItems.map((k) => [k.id, k]));
+  const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
+  const lesson = await hydrate(entry, remoteIndex);
+  lesson.mastery = computeMastery(lesson, vocabMap, kanjiMap, grammarMap);
+  // locked non calculable sans la leçon précédente
+  lesson.locked = false;
+  lesson.prevMastery = undefined;
+  return lesson;
+}
+
+export async function markUnlockNotified(lessonId: string): Promise<void> {
+  const prev = (await getLessonProgress(lessonId)) ?? { id: lessonId };
+  await putLessonProgress({ ...prev, unlockedNotified: true });
 }
 
 /** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
