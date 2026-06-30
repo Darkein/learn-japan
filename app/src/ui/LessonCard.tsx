@@ -13,14 +13,12 @@ interface Props {
   selected?: boolean;
 }
 
-// Résumé compact des objectifs, ex. « 5 mots · 2 kanji · 1 point de grammaire ».
+// Résumé compact des objectifs, ex. « 5 mots · 1 point de grammaire ».
 function summarize(lesson: Lesson): string {
   const parts: string[] = [];
   const v = lesson.objectives.vocab.length;
-  const k = lesson.objectives.kanji.length;
   const g = lesson.objectives.grammar.length;
   if (v) parts.push(`${v} mot${v > 1 ? "s" : ""}`);
-  if (k) parts.push(`${k} kanji`);
   if (g) parts.push(`${g} point${g > 1 ? "s" : ""} de grammaire`);
   return parts.join(" · ");
 }

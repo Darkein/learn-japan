@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { _resetDbForTests, putLessonProgress, getLessonProgress, putVocab, putKanji, putGrammar } from "./db";
+import { _resetDbForTests, putLessonProgress, getLessonProgress, putVocab, putGrammar } from "./db";
 import { State } from "./srs";
 import type { Card } from "ts-fsrs";
 
@@ -59,49 +59,41 @@ function newCardObj(): Card {
 function vocabMap(items: Array<{ id: string; card?: Card }>): Map<string, any> {
   return new Map(items.map(i => [i.id, { id: i.id, cards: { written: i.card } }]));
 }
-function kanjiMap(items: Array<{ id: string; card?: Card }>): Map<string, any> {
-  return new Map(items.map(i => [i.id, { id: i.id, card: i.card }]));
-}
 function grammarMap(items: Array<{ id: string; card?: Card }>): Map<string, any> {
   return new Map(items.map(i => [i.id, { id: i.id, card: i.card }]));
 }
 
-// Entrée curriculum minimale pour les tests
 const entry = {
   id: "test",
   order: 1,
   level: 5,
   title: "Test",
-  objectives: { vocab: [], kanji: [], grammar: [] },
-  introduces: { vocab: ["v1", "v2"], kanji: ["k1"], grammar: ["g1"] },
+  objectives: { vocab: [], grammar: [] },
+  introduces: { vocab: ["v1", "v2"], grammar: ["g1"] },
 };
 
 describe("computeMastery", () => {
   it("tous items maîtrisés → 1", () => {
     const vm = vocabMap([{ id: "v1", card: masteredCard() }, { id: "v2", card: masteredCard() }]);
-    const km = kanjiMap([{ id: "k1", card: masteredCard() }]);
     const gm = grammarMap([{ id: "g1", card: masteredCard() }]);
-    expect(computeMastery(entry, vm, km, gm)).toBe(1);
+    expect(computeMastery(entry, vm, gm)).toBe(1);
   });
 
   it("aucun item enrôlé → 0", () => {
     const vm = vocabMap([{ id: "v1" }, { id: "v2" }]);
-    const km = kanjiMap([{ id: "k1" }]);
     const gm = grammarMap([{ id: "g1" }]);
-    expect(computeMastery(entry, vm, km, gm)).toBe(0);
+    expect(computeMastery(entry, vm, gm)).toBe(0);
   });
 
   it("moitié maîtrisée → 0.5", () => {
-    // 4 items total (v1, v2, k1, g1), 2 mastered
+    // 3 items total (v1, v2, g1), 1.5 mastered → floor to nearest
     const vm = vocabMap([{ id: "v1", card: masteredCard() }, { id: "v2", card: newCardObj() }]);
-    const km = kanjiMap([{ id: "k1", card: masteredCard() }]);
     const gm = grammarMap([{ id: "g1", card: newCardObj() }]);
-    expect(computeMastery(entry, vm, km, gm)).toBe(0.5);
+    expect(computeMastery(entry, vm, gm)).toBeCloseTo(1/3);
   });
 
   it("items absents des maps comptent comme non-maîtrisés", () => {
-    // Maps vides → mastery = 0
-    expect(computeMastery(entry, new Map(), new Map(), new Map())).toBe(0);
+    expect(computeMastery(entry, new Map(), new Map())).toBe(0);
   });
 });
 
@@ -143,18 +135,6 @@ describe("locked / prevMastery dans listLessons", () => {
         tags: [],
         status: "known",
         cards: { written: masteredCard() },
-      });
-    }
-    for (const id of prev.introduces.kanji) {
-      await putKanji({
-        id,
-        kanji: id,
-        meanings: [],
-        on: [],
-        kun: [],
-        tags: [],
-        status: "known",
-        card: masteredCard(),
       });
     }
     for (const id of prev.introduces.grammar) {

@@ -2,13 +2,12 @@
 // n'a pas besoin de lire le japonais). Lancé en local (`npm run curriculum:check`) et en CI.
 //
 // Contrôles :
-//  1. Couverture kanji   — chaque kanji N5 de l'inventaire est introduit par EXACTEMENT une leçon.
-//  2. Couverture grammaire — chaque point de grammaire de l'inventaire est introduit exactement une fois.
-//  3. Intégrité des refs — tout id `introduces` (kanji/grammaire) existe dans l'inventaire ;
+//  1. Couverture grammaire — chaque point de grammaire de l'inventaire est introduit exactement une fois.
+//  2. Intégrité des refs — tout id `introduces.grammar` existe dans l'inventaire ;
 //                          les vocab inconnus sont signalés (avertissement).
-//  4. Prérequis grammaire — un prérequis est introduit dans une leçon d'ordre <= celle qui en dépend.
+//  3. Prérequis grammaire — un prérequis est introduit dans une leçon d'ordre <= celle qui en dépend.
 //
-// Les manquements 1–4 sont des ERREURS (exit 1). Les vocab inconnus sont des AVERTISSEMENTS.
+// Les manquements 1–3 sont des ERREURS (exit 1). Les vocab inconnus sont des AVERTISSEMENTS.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,7 +21,6 @@ const read = <T>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
 
 interface Introduces {
   vocab: string[];
-  kanji: string[];
   grammar: string[];
 }
 interface LessonNode {
@@ -45,10 +43,6 @@ interface CurriculumV3 {
   levels: LevelNode[];
 }
 
-interface KanjiInv {
-  id: string;
-  level: number;
-}
 interface VocabInv {
   id: string;
 }
@@ -57,7 +51,6 @@ interface GrammarInv {
 }
 
 const curriculum = read<CurriculumV3>(join(DATA, "curriculum.json"));
-const kanjiInv = read<KanjiInv[]>(join(INV, "kanji.json"));
 const vocabInv = read<VocabInv[]>(join(INV, "vocab.json"));
 const grammarInv = read<GrammarInv>(join(INV, "grammar.json"));
 const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
@@ -79,21 +72,14 @@ const N5 = 5;
 const lessons = lessonsOfLevel(N5);
 
 // Index inventaire
-const kanjiById = new Map(kanjiInv.map((k) => [k.id, k]));
-const n5Kanji = new Set(kanjiInv.filter((k) => k.level === N5).map((k) => k.id));
 const vocabIds = new Set(vocabInv.map((v) => v.id));
 const grammarById = new Map(grammarInv.items.map((g) => [g.id, g]));
 
-// --- 1 & 2 & 3 : couverture + intégrité ---
-const kanjiIntro = new Map<string, string[]>(); // kanji → leçons qui l'introduisent
+// --- 1 & 2 : couverture + intégrité ---
 const grammarIntro = new Map<string, string[]>();
 const orderOfGrammar = new Map<string, number>();
 
 for (const l of lessons) {
-  for (const k of l.introduces.kanji) {
-    if (!kanjiById.has(k)) errors.push(`[ref] leçon ${l.id} : kanji « ${k} » absent de l'inventaire`);
-    (kanjiIntro.get(k) ?? kanjiIntro.set(k, []).get(k)!).push(l.id);
-  }
   for (const g of l.introduces.grammar) {
     if (!grammarById.has(g)) errors.push(`[ref] leçon ${l.id} : grammaire « ${g} » absente de l'inventaire`);
     (grammarIntro.get(g) ?? grammarIntro.set(g, []).get(g)!).push(l.id);
@@ -105,18 +91,6 @@ for (const l of lessons) {
   }
 }
 
-// Couverture kanji N5
-for (const k of n5Kanji) {
-  const hits = kanjiIntro.get(k) ?? [];
-  if (hits.length === 0) errors.push(`[couverture] kanji N5 « ${k} » n'est introduit par aucune leçon`);
-  else if (hits.length > 1) errors.push(`[couverture] kanji N5 « ${k} » introduit par ${hits.length} leçons : ${hits.join(", ")}`);
-}
-// Kanji introduits qui ne sont pas N5 (hors-niveau, toléré mais signalé)
-for (const [k, hits] of kanjiIntro) {
-  if (!n5Kanji.has(k) && kanjiById.has(k))
-    warnings.push(`[hors-niveau] kanji « ${k} » (N${kanjiById.get(k)!.level}) introduit en N5 par ${hits.join(", ")}`);
-}
-
 // Couverture grammaire (tous les items de l'inventaire)
 for (const g of grammarById.keys()) {
   const hits = grammarIntro.get(g) ?? [];
@@ -124,7 +98,7 @@ for (const g of grammarById.keys()) {
   else if (hits.length > 1) errors.push(`[couverture] grammaire « ${g} » introduite par ${hits.length} leçons : ${hits.join(", ")}`);
 }
 
-// --- 4 : prérequis grammaire ---
+// --- 3 : prérequis grammaire ---
 for (const g of grammarInv.items) {
   const ord = orderOfGrammar.get(g.id);
   if (ord == null) continue;
@@ -137,10 +111,7 @@ for (const g of grammarInv.items) {
 }
 
 // --- Rapport ---
-const totalN5 = n5Kanji.size;
-const coveredN5 = [...n5Kanji].filter((k) => (kanjiIntro.get(k) ?? []).length === 1).length;
-console.log(`Curriculum N5 : ${lessons.length} leçons.`);
-console.log(`Kanji N5 couverts : ${coveredN5}/${totalN5}. Grammaire : ${grammarIntro.size}/${grammarById.size}.`);
+console.log(`Curriculum N5 : ${lessons.length} leçons. Grammaire : ${grammarIntro.size}/${grammarById.size}.`);
 
 for (const w of warnings) console.warn("⚠️  " + w);
 if (errors.length) {

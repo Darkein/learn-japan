@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   allGrammar,
-  allKanji,
   allVocab,
   type ItemStatus,
   type StoryRecord,
@@ -54,16 +53,14 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
 
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [statusMaps, setStatusMaps] = useState<{
-    kanji: Map<string, ItemStatus>;
     vocab: Map<string, ItemStatus>;
     grammar: Map<string, ItemStatus>;
   } | null>(null);
 
   async function refresh() {
-    const [ls, ks, vs, gs] = await Promise.all([listLessons(), allKanji(), allVocab(), allGrammar()]);
+    const [ls, vs, gs] = await Promise.all([listLessons(), allVocab(), allGrammar()]);
     setLessons(ls);
     setStatusMaps({
-      kanji: new Map(ks.map((k) => [k.id, k.status])),
       vocab: new Map(vs.map((v) => [v.id, v.status])),
       grammar: new Map(gs.map((g) => [g.id, g.status])),
     });
@@ -79,13 +76,13 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
     grammar: allGrammarInv(),
   }), []);
 
-  function statusOf(track: "kanji" | "vocab" | "grammar", id: string): ItemStatus {
+  function statusOf(track: "vocab" | "grammar", id: string): ItemStatus {
     return statusMaps?.[track].get(id) ?? "unknown";
   }
 
   function matches(track: "kanji" | "vocab" | "grammar", id: string, lvl: number): boolean {
     if (level !== 0 && lvl !== level) return false;
-    if (status !== "all" && statusOf(track, id) !== status) return false;
+    if (track !== "kanji" && status !== "all" && statusOf(track as "vocab" | "grammar", id) !== status) return false;
     return true;
   }
 
@@ -183,7 +180,7 @@ interface RowsProps {
     grammar: ReturnType<typeof allGrammarInv>;
   };
   matches: (track: "kanji" | "vocab" | "grammar", id: string, lvl: number) => boolean;
-  statusOf: (track: "kanji" | "vocab" | "grammar", id: string) => ItemStatus;
+  statusOf: (track: "vocab" | "grammar", id: string) => ItemStatus;
 }
 
 function StatusTag({ status }: { status: ItemStatus }) {
@@ -217,7 +214,7 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
         {items.slice(0, MAX_ROWS).map((k) => (
           <li
             key={k.id}
-            className="grid grid-cols-[2.5rem_1fr_1.5fr_auto_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+            className="grid grid-cols-[2.5rem_1fr_1.5fr_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
           >
             <span className="font-jp text-lg text-text">{k.ja}</span>
             <span className="font-jp text-sm text-muted">
@@ -225,7 +222,6 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
             </span>
             <span className="font-sans text-sm text-text">{k.fr}</span>
             <LevelTag level={k.level} />
-            <StatusTag status={statusOf("kanji", k.id)} />
           </li>
         ))}
       </List>

@@ -18,14 +18,13 @@ interface Props {
 }
 
 /**
- * Génération ciblée d'une histoire (thème / kanji / grammaire / niveau) et collage de
+ * Génération ciblée d'une histoire (thème / grammaire / niveau) et collage de
  * texte libre. La génération ne redirige plus de force : elle enregistre l'histoire et
  * signale par un bandeau qu'elle est prête (ouverture sur demande). Le collage, lui, est
  * une action explicite et ouvre directement le lecteur.
  */
 export function GeneratePanel({ onGenerated }: Props) {
   const [theme, setTheme] = useState("");
-  const [kanji, setKanji] = useState("");
   const [grammar, setGrammar] = useState("");
   const [level, setLevel] = useState(5);
   const [paste, setPaste] = useState("");
@@ -40,7 +39,6 @@ export function GeneratePanel({ onGenerated }: Props) {
     setGenState("queued");
     const params: StoryParams = {
       theme: theme || undefined,
-      kanji: kanji ? kanji.split(/[\s,、]+/).filter(Boolean) : undefined,
       grammar: grammar ? grammar.split(/[\s,、]+/).filter(Boolean) : undefined,
       level,
     };
@@ -72,10 +70,6 @@ export function GeneratePanel({ onGenerated }: Props) {
         <div className="flex grow basis-32 flex-col gap-1">
           <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-theme">Thème</label>
           <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-theme" value={theme} placeholder="animaux, izakaya…" onChange={(e) => setTheme(e.target.value)} />
-        </div>
-        <div className="flex grow basis-32 flex-col gap-1">
-          <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-kanji">Kanji</label>
-          <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-kanji" value={kanji} placeholder="猫 犬 水" onChange={(e) => setKanji(e.target.value)} />
         </div>
         <div className="flex grow basis-32 flex-col gap-1">
           <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-grammar">Grammaire</label>

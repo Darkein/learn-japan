@@ -2,10 +2,10 @@
 // Un item enrôlé est "vu" mais pas encore en rotation de révision.
 // Idempotent : n'écrase jamais une carte existante.
 
-import { kanjiDetail, grammarDetail, resolveVocab } from "./inventory";
+import { grammarDetail, resolveVocab } from "./inventory";
 import {
-  getVocab, putVocab, getKanji, putKanji, getGrammar, putGrammar,
-  type VocabItem, type KanjiItem, type GrammarItem,
+  getVocab, putVocab, getGrammar, putGrammar,
+  type VocabItem, type GrammarItem,
 } from "./db";
 import { getCurriculumEntry } from "./lessons";
 import { isContent, itemIdFor, meaningFor } from "./vocab";
@@ -34,22 +34,6 @@ export async function enrollLesson(lessonId: string): Promise<void> {
         cards: {},
       };
       await putVocab(item);
-    }),
-    ...introduces.kanji.map(async (id) => {
-      const existing = await getKanji(id);
-      if (existing) return;
-      const k = kanjiDetail(id);
-      if (!k) return;
-      const item: KanjiItem = {
-        id,
-        kanji: id,
-        meanings: [k.fr],
-        on: k.on,
-        kun: k.kun,
-        tags: [],
-        status: "unknown",
-      };
-      await putKanji(item);
     }),
     ...introduces.grammar.map(async (id) => {
       const existing = await getGrammar(id);
@@ -99,26 +83,6 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
       }),
   );
 
-  if (story.params.kanji) {
-    await Promise.all(
-      story.params.kanji.map(async (id) => {
-        const existing = await getKanji(id);
-        if (existing) return;
-        const k = kanjiDetail(id);
-        if (!k) return;
-        const item: KanjiItem = {
-          id,
-          kanji: id,
-          meanings: [k.fr],
-          on: k.on,
-          kun: k.kun,
-          tags: [],
-          status: "unknown",
-        };
-        await putKanji(item);
-      }),
-    );
-  }
   if (story.params.grammar) {
     await Promise.all(
       story.params.grammar.map(async (id) => {

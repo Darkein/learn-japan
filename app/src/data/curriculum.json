@@ -17,9 +17,17 @@
               "title": "Le japonais aujourd'hui",
               "summary": "Première phrase : un thème, un objet, un verbe.",
               "introduces": {
-                "vocab": ["今日|きょう", "日本語|にほんご", "本|ほん", "読む|よむ"],
-                "kanji": ["今", "日", "本", "語", "読"],
-                "grammar": ["n5-wa-topic", "n5-wo-object", "n5-no-possessive"]
+                "vocab": [
+                  "今日|きょう",
+                  "日本語|にほんご",
+                  "本|ほん",
+                  "読む|よむ"
+                ],
+                "grammar": [
+                  "n5-wa-topic",
+                  "n5-wo-object",
+                  "n5-no-possessive"
+                ]
               }
             },
             {
@@ -28,9 +36,14 @@
               "title": "Le chat boit de l'eau",
               "summary": "Sujet animé, objet, verbe d'action.",
               "introduces": {
-                "vocab": ["猫|ねこ", "水|みず", "飲む|のむ"],
-                "kanji": ["水"],
-                "grammar": ["n5-ga-subject"]
+                "vocab": [
+                  "猫|ねこ",
+                  "水|みず",
+                  "飲む|のむ"
+                ],
+                "grammar": [
+                  "n5-ga-subject"
+                ]
               }
             },
             {
@@ -39,9 +52,17 @@
               "title": "Il fait chaud",
               "summary": "Adjectifs en -い et particule d'addition も.",
               "introduces": {
-                "vocab": ["今日|きょう", "暑い|あつい", "猫|ねこ", "水|みず", "飲む|のむ"],
-                "kanji": [],
-                "grammar": ["n5-iadj-predicate", "n5-mo-also"]
+                "vocab": [
+                  "今日|きょう",
+                  "暑い|あつい",
+                  "猫|ねこ",
+                  "水|みず",
+                  "飲む|のむ"
+                ],
+                "grammar": [
+                  "n5-iadj-predicate",
+                  "n5-mo-also"
+                ]
               }
             },
             {
@@ -50,9 +71,15 @@
               "title": "J'étudie le japonais",
               "summary": "Verbes en する et expression de soi.",
               "introduces": {
-                "vocab": ["私|わたし", "日本語|にほんご", "勉強|べんきょう", "する|する"],
-                "kanji": [],
-                "grammar": ["n5-suru-verb"]
+                "vocab": [
+                  "私|わたし",
+                  "日本語|にほんご",
+                  "勉強|べんきょう",
+                  "する|する"
+                ],
+                "grammar": [
+                  "n5-suru-verb"
+                ]
               }
             },
             {
@@ -61,8 +88,12 @@
               "title": "Le professeur et l'étudiant",
               "summary": "Deux sujets, une action partagée.",
               "introduces": {
-                "vocab": ["先生|せんせい", "学生|がくせい", "本|ほん", "読む|よむ"],
-                "kanji": ["先", "生", "学"],
+                "vocab": [
+                  "先生|せんせい",
+                  "学生|がくせい",
+                  "本|ほん",
+                  "読む|よむ"
+                ],
                 "grammar": []
               }
             }
@@ -79,9 +110,17 @@
               "title": "Météo et saisons",
               "summary": "Décrire le temps qu'il fait.",
               "introduces": {
-                "vocab": ["今日|きょう", "天気|てんき", "暑い|あつい", "寒い|さむい", "雨|あめ"],
-                "kanji": ["天", "気", "雨"],
-                "grammar": ["n5-ne-particle", "n5-iadj-attributive"]
+                "vocab": [
+                  "今日|きょう",
+                  "天気|てんき",
+                  "暑い|あつい",
+                  "寒い|さむい",
+                  "雨|あめ"
+                ],
+                "grammar": [
+                  "n5-ne-particle",
+                  "n5-iadj-attributive"
+                ]
               }
             },
             {
@@ -90,9 +129,16 @@
               "title": "Montagne et rivière",
               "summary": "Situer des éléments dans un paysage.",
               "introduces": {
-                "vocab": ["山|やま", "川|かわ", "水|みず", "猫|ねこ"],
-                "kanji": ["山", "川"],
-                "grammar": ["n5-ni-location", "n5-to-and"]
+                "vocab": [
+                  "山|やま",
+                  "川|かわ",
+                  "水|みず",
+                  "猫|ねこ"
+                ],
+                "grammar": [
+                  "n5-ni-location",
+                  "n5-to-and"
+                ]
               }
             },
             {
@@ -101,9 +147,16 @@
               "title": "Manger et boire",
               "summary": "Verbes d'action quotidienne au registre poli.",
               "introduces": {
-                "vocab": ["食べる|たべる", "飲む|のむ", "水|みず", "本|ほん"],
-                "kanji": ["食"],
-                "grammar": ["n5-te-form", "n5-masu-polite"]
+                "vocab": [
+                  "食べる|たべる",
+                  "飲む|のむ",
+                  "水|みず",
+                  "本|ほん"
+                ],
+                "grammar": [
+                  "n5-te-form",
+                  "n5-masu-polite"
+                ]
               }
             },
             {
@@ -112,9 +165,16 @@
               "title": "Parler, lire, écrire",
               "summary": "Verbes liés au langage et moyen avec で.",
               "introduces": {
-                "vocab": ["話す|はなす", "読む|よむ", "書く|かく", "聞く|きく", "日本語|にほんご"],
-                "kanji": ["話", "書", "聞"],
-                "grammar": ["n5-de-means"]
+                "vocab": [
+                  "話す|はなす",
+                  "読む|よむ",
+                  "書く|かく",
+                  "聞く|きく",
+                  "日本語|にほんご"
+                ],
+                "grammar": [
+                  "n5-de-means"
+                ]
               }
             }
           ]
@@ -130,9 +190,16 @@
               "title": "Les gens autour de moi",
               "summary": "Désigner des personnes ; ce qui existe (ある/いる).",
               "introduces": {
-                "vocab": ["人|ひと", "男|おとこ", "女|おんな", "子供|こども"],
-                "kanji": ["人", "男", "女", "子"],
-                "grammar": ["n5-aru", "n5-iru"]
+                "vocab": [
+                  "人|ひと",
+                  "男|おとこ",
+                  "女|おんな",
+                  "子供|こども"
+                ],
+                "grammar": [
+                  "n5-aru",
+                  "n5-iru"
+                ]
               }
             },
             {
@@ -141,9 +208,16 @@
               "title": "Le Japon, le pays",
               "summary": "Parler d'un lieu, d'une provenance, d'une direction.",
               "introduces": {
-                "vocab": ["日本|にほん", "国|くに", "学校|がっこう", "名前|なまえ"],
-                "kanji": ["国", "名", "校"],
-                "grammar": ["n5-e-direction", "n5-kara-from"]
+                "vocab": [
+                  "日本|にほん",
+                  "国|くに",
+                  "学校|がっこう",
+                  "名前|なまえ"
+                ],
+                "grammar": [
+                  "n5-e-direction",
+                  "n5-kara-from"
+                ]
               }
             },
             {
@@ -152,9 +226,15 @@
               "title": "Apprendre et mémoriser",
               "summary": "Vocabulaire de l'étude ; action en cours.",
               "introduces": {
-                "vocab": ["勉強|べんきょう", "暗記|あんき", "本|ほん", "見る|みる"],
-                "kanji": ["見"],
-                "grammar": ["n5-teiru-progressive"]
+                "vocab": [
+                  "勉強|べんきょう",
+                  "暗記|あんき",
+                  "本|ほん",
+                  "見る|みる"
+                ],
+                "grammar": [
+                  "n5-teiru-progressive"
+                ]
               }
             },
             {
@@ -163,9 +243,16 @@
               "title": "Animaux domestiques",
               "summary": "Mini-histoire avec chat et chien ; accompagnement avec と.",
               "introduces": {
-                "vocab": ["猫|ねこ", "犬|いぬ", "水|みず", "飲む|のむ", "食べる|たべる"],
-                "kanji": [],
-                "grammar": ["n5-to-with"]
+                "vocab": [
+                  "猫|ねこ",
+                  "犬|いぬ",
+                  "水|みず",
+                  "飲む|のむ",
+                  "食べる|たべる"
+                ],
+                "grammar": [
+                  "n5-to-with"
+                ]
               }
             }
           ]
@@ -181,9 +268,16 @@
               "title": "Poser une question",
               "summary": "La particule か et le mot interrogatif « quoi ».",
               "introduces": {
-                "vocab": ["何|なに", "日本語|にほんご", "勉強|べんきょう", "する|する"],
-                "kanji": ["何"],
-                "grammar": ["n5-ka-question", "n5-nani-what"]
+                "vocab": [
+                  "何|なに",
+                  "日本語|にほんご",
+                  "勉強|べんきょう",
+                  "する|する"
+                ],
+                "grammar": [
+                  "n5-ka-question",
+                  "n5-nani-what"
+                ]
               }
             },
             {
@@ -192,9 +286,16 @@
               "title": "Dire non : la négation",
               "summary": "Forme négative neutre et polie des verbes courants.",
               "introduces": {
-                "vocab": ["食べる|たべる", "飲む|のむ", "読む|よむ", "書く|かく"],
-                "kanji": [],
-                "grammar": ["n5-nai-negative", "n5-masen-negative"]
+                "vocab": [
+                  "食べる|たべる",
+                  "飲む|のむ",
+                  "読む|よむ",
+                  "書く|かく"
+                ],
+                "grammar": [
+                  "n5-nai-negative",
+                  "n5-masen-negative"
+                ]
               }
             }
           ]
@@ -210,9 +311,18 @@
               "title": "Les nombres (1 à 5)",
               "summary": "Premiers chiffres ; démonstratifs これ/それ/あれ ; です.",
               "introduces": {
-                "vocab": ["一|いち", "二|に", "三|さん", "四|よん", "五|ご"],
-                "kanji": ["一", "二", "三", "四", "五"],
-                "grammar": ["n5-numbers", "n5-kosoado-kore", "n5-desu-copula"]
+                "vocab": [
+                  "一|いち",
+                  "二|に",
+                  "三|さん",
+                  "四|よん",
+                  "五|ご"
+                ],
+                "grammar": [
+                  "n5-numbers",
+                  "n5-kosoado-kore",
+                  "n5-desu-copula"
+                ]
               }
             },
             {
@@ -221,9 +331,18 @@
               "title": "Les nombres (6 à 10)",
               "summary": "Suite des chiffres ; passé poli ; copule neutre だ.",
               "introduces": {
-                "vocab": ["六|ろく", "七|なな", "八|はち", "九|きゅう", "十|じゅう"],
-                "kanji": ["六", "七", "八", "九", "十"],
-                "grammar": ["n5-ni-time", "n5-mashita-past", "n5-da-copula"]
+                "vocab": [
+                  "六|ろく",
+                  "七|なな",
+                  "八|はち",
+                  "九|きゅう",
+                  "十|じゅう"
+                ],
+                "grammar": [
+                  "n5-ni-time",
+                  "n5-mashita-past",
+                  "n5-da-copula"
+                ]
               }
             },
             {
@@ -232,9 +351,15 @@
               "title": "Grands nombres et argent",
               "summary": "Centaines, milliers, le yen ; passés (neutre et négatif poli).",
               "introduces": {
-                "vocab": ["百|ひゃく", "千|せん", "円|えん"],
-                "kanji": ["百", "千", "万", "円"],
-                "grammar": ["n5-ta-past", "n5-masen-deshita"]
+                "vocab": [
+                  "百|ひゃく",
+                  "千|せん",
+                  "円|えん"
+                ],
+                "grammar": [
+                  "n5-ta-past",
+                  "n5-masen-deshita"
+                ]
               }
             },
             {
@@ -243,9 +368,17 @@
               "title": "Jours et éléments",
               "summary": "Les jours de la semaine ; compteurs (人 et つ).",
               "introduces": {
-                "vocab": ["月|つき", "火|ひ", "木|き", "金|かね", "水|みず"],
-                "kanji": ["月", "火", "木", "金", "土"],
-                "grammar": ["n5-counter-nin", "n5-counter-tsu"]
+                "vocab": [
+                  "月|つき",
+                  "火|ひ",
+                  "木|き",
+                  "金|かね",
+                  "水|みず"
+                ],
+                "grammar": [
+                  "n5-counter-nin",
+                  "n5-counter-tsu"
+                ]
               }
             }
           ]
@@ -261,9 +394,17 @@
               "title": "L'heure et le moment",
               "summary": "Année, heure, matin et après-midi ; destination に, limite まで.",
               "introduces": {
-                "vocab": ["年|とし", "時間|じかん", "今|いま", "午前|ごぜん", "午後|ごご"],
-                "kanji": ["年", "時", "間", "午", "半"],
-                "grammar": ["n5-ni-direction", "n5-made-until"]
+                "vocab": [
+                  "年|とし",
+                  "時間|じかん",
+                  "今|いま",
+                  "午前|ごぜん",
+                  "午後|ごご"
+                ],
+                "grammar": [
+                  "n5-ni-direction",
+                  "n5-made-until"
+                ]
               }
             },
             {
@@ -272,9 +413,17 @@
               "title": "Avant, après, chaque jour",
               "summary": "Repères temporels ; lieu d'action で, démonstratifs この/ここ, « où ».",
               "introduces": {
-                "vocab": ["前|まえ", "後ろ|うしろ", "毎日|まいにち"],
-                "kanji": ["前", "後", "毎"],
-                "grammar": ["n5-de-place", "n5-kosoado-kono", "n5-kosoado-koko", "n5-doko-where"]
+                "vocab": [
+                  "前|まえ",
+                  "後ろ|うしろ",
+                  "毎日|まいにち"
+                ],
+                "grammar": [
+                  "n5-de-place",
+                  "n5-kosoado-kono",
+                  "n5-kosoado-koko",
+                  "n5-doko-where"
+                ]
               }
             },
             {
@@ -283,9 +432,18 @@
               "title": "Se repérer (1)",
               "summary": "Haut, bas, dedans, dehors, droite ; adjectifs (négatif, passé, -な).",
               "introduces": {
-                "vocab": ["上|うえ", "下|した", "中|なか", "外|そと", "右|みぎ"],
-                "kanji": ["上", "下", "中", "外", "右"],
-                "grammar": ["n5-iadj-negative", "n5-iadj-past", "n5-naadj"]
+                "vocab": [
+                  "上|うえ",
+                  "下|した",
+                  "中|なか",
+                  "外|そと",
+                  "右|みぎ"
+                ],
+                "grammar": [
+                  "n5-iadj-negative",
+                  "n5-iadj-past",
+                  "n5-naadj"
+                ]
               }
             },
             {
@@ -294,9 +452,18 @@
               "title": "Les points cardinaux",
               "summary": "Gauche et les quatre directions ; demandes et désirs.",
               "introduces": {
-                "vocab": ["左|ひだり", "東|ひがし", "西|にし", "南|みなみ", "北|きた"],
-                "kanji": ["左", "東", "西", "南", "北"],
-                "grammar": ["n5-te-kudasai", "n5-tai-want", "n5-mashou"]
+                "vocab": [
+                  "左|ひだり",
+                  "東|ひがし",
+                  "西|にし",
+                  "南|みなみ",
+                  "北|きた"
+                ],
+                "grammar": [
+                  "n5-te-kudasai",
+                  "n5-tai-want",
+                  "n5-mashou"
+                ]
               }
             }
           ]
@@ -312,9 +479,18 @@
               "title": "Grand, petit, haut, long",
               "summary": "Adjectifs de dimension ; « qui », « quand », ほしい, よ.",
               "introduces": {
-                "vocab": ["大きい|おおきい", "小さい|ちいさい", "高い|たかい", "長い|ながい"],
-                "kanji": ["大", "小", "高", "長"],
-                "grammar": ["n5-dare-who", "n5-itsu-when", "n5-tai-hoshii", "n5-yo-particle"]
+                "vocab": [
+                  "大きい|おおきい",
+                  "小さい|ちいさい",
+                  "高い|たかい",
+                  "長い|ながい"
+                ],
+                "grammar": [
+                  "n5-dare-who",
+                  "n5-itsu-when",
+                  "n5-tai-hoshii",
+                  "n5-yo-particle"
+                ]
               }
             },
             {
@@ -323,9 +499,17 @@
               "title": "Aller, venir, entrer, sortir",
               "summary": "Verbes de mouvement et de pause ; connecteurs そして / でも.",
               "introduces": {
-                "vocab": ["行く|いく", "来る|くる", "出る|でる", "入る|はいる", "休む|やすむ"],
-                "kanji": ["行", "来", "出", "入", "休"],
-                "grammar": ["n5-soshite", "n5-demo"]
+                "vocab": [
+                  "行く|いく",
+                  "来る|くる",
+                  "出る|でる",
+                  "入る|はいる",
+                  "休む|やすむ"
+                ],
+                "grammar": [
+                  "n5-soshite",
+                  "n5-demo"
+                ]
               }
             }
           ]
@@ -341,8 +525,11 @@
               "title": "La famille",
               "summary": "Père, mère, amis.",
               "introduces": {
-                "vocab": ["父|ちち", "母|はは", "友達|ともだち"],
-                "kanji": ["父", "母", "友"],
+                "vocab": [
+                  "父|ちち",
+                  "母|はは",
+                  "友達|ともだち"
+                ],
                 "grammar": []
               }
             },
@@ -352,8 +539,11 @@
               "title": "Dans la ville",
               "summary": "Voiture, train, couleurs — clôture du N5.",
               "introduces": {
-                "vocab": ["車|くるま", "電車|でんしゃ", "白い|しろい"],
-                "kanji": ["車", "電", "白"],
+                "vocab": [
+                  "車|くるま",
+                  "電車|でんしゃ",
+                  "白い|しろい"
+                ],
                 "grammar": []
               }
             }
@@ -361,9 +551,25 @@
         }
       ]
     },
-    { "level": 4, "title": "N4 — Élémentaire (à venir)", "units": [] },
-    { "level": 3, "title": "N3 — Intermédiaire (à venir)", "units": [] },
-    { "level": 2, "title": "N2 — Intermédiaire supérieur (à venir)", "units": [] },
-    { "level": 1, "title": "N1 — Avancé (à venir)", "units": [] }
+    {
+      "level": 4,
+      "title": "N4 — Élémentaire (à venir)",
+      "units": []
+    },
+    {
+      "level": 3,
+      "title": "N3 — Intermédiaire (à venir)",
+      "units": []
+    },
+    {
+      "level": 2,
+      "title": "N2 — Intermédiaire supérieur (à venir)",
+      "units": []
+    },
+    {
+      "level": 1,
+      "title": "N1 — Avancé (à venir)",
+      "units": []
+    }
   ]
 }

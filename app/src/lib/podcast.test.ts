@@ -68,8 +68,8 @@ function lesson(partial: Partial<Lesson>): Lesson {
     order: 1,
     level: 5,
     title: "Leçon test",
-    objectives: { vocab: [], kanji: [], grammar: [] },
-    introduces: { vocab: [], kanji: [], grammar: [] },
+    objectives: { vocab: [], grammar: [] },
+    introduces: { vocab: [], grammar: [] },
     state: "ready",
     stories: [],
     ...partial,
@@ -79,7 +79,7 @@ function lesson(partial: Partial<Lesson>): Lesson {
 describe("buildPodcastScript", () => {
   const base = lesson({
     framing: "Para un.\n\nPara deux.",
-    objectives: { vocab: [{ ja: "猫", yomi: "ねこ", fr: "chat" }], kanji: [], grammar: [] },
+    objectives: { vocab: [{ ja: "猫", yomi: "ねこ", fr: "chat" }], grammar: [] },
     stories: [
       {
         id: "s1",

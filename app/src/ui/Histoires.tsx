@@ -6,8 +6,7 @@ import { GeneratePanel } from "./GeneratePanel";
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
   if (params.theme) out.push(`thème : ${params.theme}`);
-  if (params.kanji?.length) out.push(`kanji : ${params.kanji.join(" ")}`);
-  if (params.grammar?.length) out.push(`grammaire : ${params.grammar.join(", ")}`);
+if (params.grammar?.length) out.push(`grammaire : ${params.grammar.join(", ")}`);
   if (params.level) out.push(`N${params.level}`);
   return out;
 }

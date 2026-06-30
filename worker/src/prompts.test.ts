@@ -15,7 +15,6 @@ const lesson: GenerateRequest = {
   title: "Les animaux",
   level: 5,
   vocab: [{ ja: "猫", yomi: "ねこ", fr: "chat" }],
-  kanjiGloss: [{ ja: "猫", fr: "chat" }],
   grammar: ["n5-wa-topic"],
 };
 

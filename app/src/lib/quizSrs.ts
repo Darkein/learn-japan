@@ -1,40 +1,16 @@
-// Application des résultats de quiz au SRS (pistes kanji, grammaire, compréhension).
-import { lookupKanji } from "./data";
+// Application des résultats de quiz au SRS (pistes grammaire, compréhension).
 import {
   getComprehensionItem,
   getGrammar,
-  getKanji,
   logReview,
   putComprehensionItem,
   putGrammar,
-  putKanji,
   type ComprehensionItem,
   type GrammarItem,
-  type KanjiItem,
 } from "./db";
 import { grammarDetail } from "./inventory";
 import { PARTICLE_GLOSS } from "./particles";
 import { newCard, review, type SrsGrade } from "./srs";
-
-/** Note un kanji isolé (piste kanji). `easy` ⇒ connu, sinon à réviser. */
-export async function applyKanji(char: string, grade: SrsGrade, now = new Date()): Promise<void> {
-  const info = lookupKanji(char);
-  const item: KanjiItem = (await getKanji(char)) ?? {
-    id: char,
-    kanji: char,
-    meanings: info?.meanings ?? [],
-    on: info?.on ?? [],
-    kun: info?.kun ?? [],
-    tags: [],
-    jlpt: info?.jlpt ?? undefined,
-    status: "unknown",
-    card: undefined,
-  };
-  item.card = review(item.card ?? newCard(now), grade, now);
-  item.status = grade === "easy" ? "known" : "review";
-  await putKanji(item);
-  await logReview({ itemId: char, track: "kanji", grade, at: now.getTime() });
-}
 
 /** Note une particule (piste grammaire). Bonne réponse ⇒ good, sinon again. */
 export async function applyParticle(

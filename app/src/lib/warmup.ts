@@ -4,19 +4,16 @@
 import {
   allComprehension,
   allGrammar,
-  allKanji,
   allVocab,
   bumpSrsDaily,
   getComprehensionItem,
   getDB,
   getGrammar,
-  getKanji,
   getSrsDaily,
   getVocab,
   logReview,
   putComprehensionItem,
   putGrammar,
-  putKanji,
   putVocab,
 } from "./db";
 import { normalizeReading } from "./kana";
@@ -26,7 +23,7 @@ import { SRS } from "./config";
 
 export interface WarmupCard {
   key: string;
-  track: "vocab" | "kanji" | "grammar" | "comprehension";
+  track: "vocab" | "grammar" | "comprehension";
   id: string;
   front: string;
   back: string;
@@ -57,23 +54,6 @@ function localDateString(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * Lectures acceptées d'un kanji isolé : on (katakana → hiragana) + kun, dont on retient à la
- * fois le radical avant l'okurigana (« た » dans « た.べる ») et la forme entière sans le point
- * (« たべる ») — tolérant pour éviter les faux négatifs au rappel actif.
- */
-function kanjiReadingAnswers(kun: string[], on: string[]): string[] {
-  const set = new Set<string>();
-  for (const r of on) set.add(normalizeReading(r));
-  for (const r of kun) {
-    const stem = r.includes(".") ? r.slice(0, r.indexOf(".")) : r;
-    set.add(normalizeReading(stem));
-    set.add(normalizeReading(r.replace(/\./g, "")));
-  }
-  set.delete("");
-  return [...set];
-}
-
 export async function leechIds(): Promise<Set<string>> {
   const db = await getDB();
   const reviews = await db.getAll("reviews");
@@ -94,8 +74,8 @@ export interface SessionStats {
 }
 
 export async function sessionStats(now: Date = new Date()): Promise<SessionStats> {
-  const [vocab, kanji, grammar, comprehension] = await Promise.all([
-    allVocab(), allKanji(), allGrammar(), allComprehension(),
+  const [vocab, grammar, comprehension] = await Promise.all([
+    allVocab(), allGrammar(), allComprehension(),
   ]);
   // +15 min : inclut les cartes dues imminentes (step relearning FSRS = 10 min)
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
@@ -104,10 +84,6 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
   for (const v of vocab) {
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
-    else newCount++;
-  }
-  for (const k of kanji) {
-    if (k.card) { if (isDue(k.card, horizon)) dueCount++; }
     else newCount++;
   }
   for (const g of grammar) {
@@ -163,22 +139,6 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
           ? [normalizeReading(v.surface), normalizeReading(v.reading)]
           : [normalizeReading(v.reading)],
         ...(v.example?.ja ? { context: v.example.ja } : {}),
-      });
-    }
-  }
-  for (const k of await allKanji()) {
-    if (k.card && isDue(k.card, horizon)) {
-      const readings = [...k.kun, ...k.on].join(" / ");
-      out.push({
-        key: `kanji:${k.id}`,
-        track: "kanji",
-        id: k.id,
-        front: k.kanji,
-        back: [readings, k.meanings.join(", ")].filter(Boolean).join(" — "),
-        due: k.card.due.getTime(),
-        mode: "type",
-        prompt: "Tape une lecture",
-        answers: kanjiReadingAnswers(k.kun, k.on),
       });
     }
   }
@@ -269,31 +229,6 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
       }
     }
 
-    // Kanji sans carte
-    if (newCards.length < toPromote) {
-      for (const k of await allKanji()) {
-        if (newCards.length >= toPromote) break;
-        if (!k.card) {
-          const card = newCard(now);
-          k.card = card;
-          await putKanji(k);
-          await bumpSrsDaily(dateStr, { introduced: 1 });
-          const readings = [...k.kun, ...k.on].join(" / ");
-          newCards.push({
-            key: `kanji:${k.id}`,
-            track: "kanji",
-            id: k.id,
-            front: k.kanji,
-            back: [readings, k.meanings.join(", ")].filter(Boolean).join(" — "),
-            due: card.due.getTime(),
-            mode: "type",
-            prompt: "Tape une lecture",
-            answers: kanjiReadingAnswers(k.kun, k.on),
-          });
-        }
-      }
-    }
-
     // Grammar sans carte
     if (newCards.length < toPromote) {
       for (const g of await allGrammar()) {
@@ -327,7 +262,7 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[
   if (!entry) return [];
 
   const out: WarmupCard[] = [];
-  const { vocab: vocabIds, kanji: kanjiIds, grammar: grammarIds } = entry.introduces;
+  const { vocab: vocabIds, grammar: grammarIds } = entry.introduces;
 
   // Vocab
   for (const id of vocabIds) {
@@ -352,29 +287,6 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[
         ? [normalizeReading(v.surface), normalizeReading(v.reading)]
         : [normalizeReading(v.reading)],
       ...(v.example?.ja ? { context: v.example.ja } : {}),
-    });
-  }
-
-  // Kanji
-  for (const id of kanjiIds) {
-    const k = await getKanji(id);
-    if (!k) continue;
-    if (!k.card) {
-      k.card = newCard(now);
-      await putKanji(k);
-    }
-    const c = k.card!;
-    const readings = [...k.kun, ...k.on].join(" / ");
-    out.push({
-      key: `kanji:${k.id}`,
-      track: "kanji",
-      id: k.id,
-      front: k.kanji,
-      back: [readings, k.meanings.join(", ")].filter(Boolean).join(" — "),
-      due: c.due.getTime(),
-      mode: "type",
-      prompt: "Tape une lecture",
-      answers: kanjiReadingAnswers(k.kun, k.on),
     });
   }
 
@@ -410,11 +322,6 @@ export async function gradeCard(card: WarmupCard, grade: SrsGrade, now: Date = n
     v.cards.written = review(v.cards.written, grade, now);
     v.status = grade === "easy" ? "known" : "review";
     await putVocab(v);
-  } else if (card.track === "kanji") {
-    const k = await getKanji(card.id);
-    if (!k?.card) return;
-    k.card = review(k.card, grade, now);
-    await putKanji(k);
   } else if (card.track === "comprehension") {
     const c = await getComprehensionItem(card.id);
     if (!c?.card) return;

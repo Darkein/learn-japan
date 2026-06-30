@@ -4,7 +4,7 @@ import { normalizeReading } from "../lib/kana";
 import { speakWord } from "../lib/tts";
 import { isMastered, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
-import { getVocab, getKanji, getGrammar, getComprehensionItem } from "../lib/db";
+import { getVocab, getGrammar, getComprehensionItem } from "../lib/db";
 import { buildSession, gradeCard, type WarmupCard, type SessionOpts } from "../lib/warmup";
 
 const GRADES: { id: SrsGrade; label: string }[] = [
@@ -16,7 +16,6 @@ const GRADES: { id: SrsGrade; label: string }[] = [
 
 const TRACK_FR: Record<WarmupCard["track"], string> = {
   vocab: "vocabulaire",
-  kanji: "kanji",
   grammar: "grammaire",
   comprehension: "compréhension",
 };
@@ -68,9 +67,6 @@ export function Warmup({ opts, onExit }: Props) {
         if (r.card.track === "vocab") {
           const item = await getVocab(r.card.id);
           fsrsCard = item?.cards?.written;
-        } else if (r.card.track === "kanji") {
-          const item = await getKanji(r.card.id);
-          fsrsCard = item?.card;
         } else if (r.card.track === "grammar") {
           const item = await getGrammar(r.card.id);
           fsrsCard = item?.card;
@@ -236,9 +232,6 @@ export function Warmup({ opts, onExit }: Props) {
     if (c.track === "vocab") {
       const item = await getVocab(c.id);
       return item?.cards?.written?.scheduled_days ?? 0;
-    } else if (c.track === "kanji") {
-      const item = await getKanji(c.id);
-      return item?.card?.scheduled_days ?? 0;
     } else if (c.track === "grammar") {
       const item = await getGrammar(c.id);
       return item?.card?.scheduled_days ?? 0;

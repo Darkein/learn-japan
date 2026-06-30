@@ -12,10 +12,6 @@ export interface VocabItem {
   yomi?: string;
   fr: string;
 }
-export interface KanjiItem {
-  ja: string;
-  fr: string;
-}
 
 export type GenKind =
   | "story"
@@ -30,13 +26,10 @@ export interface GenerateRequest {
   level?: number;
   // kind: "story" (génération libre du lecteur) — champs simples.
   theme?: string;
-  kanji?: string[];
   grammar?: string[];
   // kind: "lesson" | "lesson-story" — matière d'une leçon.
   title?: string;
   vocab?: VocabItem[];
-  kanjiGloss?: KanjiItem[];
-  knownKanji?: string[];
   // kind: "story-translation" — phrases JP déjà découpées.
   sentences?: string[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
@@ -51,12 +44,9 @@ const LIMITS = {
   theme: 120,
   grammarItem: 60,
   grammarList: 24,
-  kanjiToken: 12,
-  kanjiList: 64,
   title: 120,
   vocabList: 80,
   vocabField: 80,
-  knownKanji: 600,
   sentence: 600,
   sentenceList: 200,
 } as const;
@@ -121,38 +111,22 @@ function cleanVocab(value: unknown): VocabItem[] {
     .filter((v) => v.ja || v.fr);
 }
 
-function cleanKanjiGloss(value: unknown): KanjiItem[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .slice(0, LIMITS.vocabList)
-    .map((v) => {
-      const it = (v ?? {}) as Record<string, unknown>;
-      return { ja: clean(it.ja, LIMITS.vocabField), fr: clean(it.fr, LIMITS.vocabField) };
-    })
-    .filter((k) => k.ja || k.fr);
-}
-
 // ---------- Gabarits ---------------------------------------------------------
 
 function fmtVocab(v: VocabItem): string {
   const reading = v.yomi && v.yomi !== v.ja ? ` (${v.yomi})` : "";
   return `${v.ja}${reading} = ${v.fr}`;
 }
-function fmtKanji(k: KanjiItem): string {
-  return `${k.ja} = ${k.fr}`;
-}
 
-/** Génération libre du lecteur : thème / kanji / grammaire / niveau → court texte JP. */
+/** Génération libre du lecteur : thème / grammaire / niveau → court texte JP. */
 function buildStoryPrompt(r: GenerateRequest): string {
   const level = cleanLevel(r.level);
   const theme = clean(r.theme, LIMITS.theme);
-  const kanji = cleanList(r.kanji, LIMITS.kanjiList, LIMITS.kanjiToken);
   const grammar = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
   const parts = [
     "Écris un petit texte en japonais (court récit, brève ou dialogue) adapté à un apprenant.",
     `Niveau JLPT visé : N${level}.`,
     theme ? `Thème : ${theme}.` : "",
-    kanji.length ? `Mets en avant ces kanji : ${kanji.join(" ")}.` : "",
     grammar.length ? `Illustre ces points de grammaire : ${grammar.join(", ")}.` : "",
     "Vise environ 150 à 300 caractères japonais, en 2 à 4 courts paragraphes.",
     "Réponds uniquement avec le texte japonais (pas de furigana, pas de traduction).",
@@ -163,16 +137,15 @@ function buildStoryPrompt(r: GenerateRequest): string {
 /**
  * Leçon de grammaire FR développée. C'est le corps pédagogique du cours : une vraie
  * leçon qui enseigne et démontre (intuition, exemples travaillés, nuances de registre,
- * pièges), et non un simple cadrage de quelques phrases. Le détail structuré (lectures
- * des kanji, règles brèves, liste de vocab) reste rendu à part par l'UI depuis
- * l'inventaire : vocabulaire et kanji ne sont fournis ici que comme matière à exemples —
- * ils ne doivent être ni redressés en liste ni expliqués mot à mot.
+ * pièges), et non un simple cadrage de quelques phrases. Le détail structuré (règles
+ * brèves, liste de vocab) reste rendu à part par l'UI depuis l'inventaire : le vocabulaire
+ * n'est fourni ici que comme matière à exemples — il ne doit être ni redressé en liste
+ * ni expliqué mot à mot.
  */
 export function buildLessonPrompt(r: GenerateRequest): string {
   const level = cleanLevel(r.level);
   const title = clean(r.title, LIMITS.title) || "Leçon";
   const vocab = cleanVocab(r.vocab);
-  const kanji = cleanKanjiGloss(r.kanjiGloss);
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
 
   const grammar = grammarList.length
@@ -180,7 +153,6 @@ export function buildLessonPrompt(r: GenerateRequest): string {
     : "Cette leçon n'introduit pas de nouveau point de grammaire ; développe une explication claire et illustrée de son thème.";
   const exampleMaterial = [
     vocab.length ? `Vocabulaire disponible pour bâtir des exemples : ${vocab.map(fmtVocab).join(", ")}.` : "",
-    kanji.length ? `Kanji disponibles pour bâtir des exemples : ${kanji.map(fmtKanji).join(", ")}.` : "",
   ].filter(Boolean);
 
   return [
@@ -191,7 +163,7 @@ export function buildLessonPrompt(r: GenerateRequest): string {
     "Enseigne UNIQUEMENT la grammaire ci-dessus, mais en profondeur : l'intuition de départ, comment et quand l'employer, les nuances de registre (poli / neutre, oral / écrit) et l'erreur fréquente du francophone débutant. Construis l'explication progressivement, du cas le plus simple vers les subtilités.",
     "Démontre chaque point avec PLUSIEURS exemples concrets en japonais. Encadre chaque exemple dans un bloc :::example … ::: : une ligne par phrase japonaise, puis sa traduction française sur la ligne suivante préfixée par « > ». Plusieurs paires JP/traduction sont autorisées dans un même bloc. Pas de romaji (l'application ajoute les furigana automatiquement).",
     "Pour une tournure fautive, utilise un bloc :::pitfall avec l'explication de l'erreur. Pour une note importante, utilise :::info ; pour une mise en garde, :::warning. Termine la leçon par un bloc :::summary listant les 2 à 4 points clés à retenir.",
-    "Tu peux puiser dans le vocabulaire et les kanji fournis pour tes exemples, mais NE dresse PAS la liste du vocabulaire et NE l'explique PAS mot à mot (il est déjà affiché à côté) : sers-t'en seulement comme matière à phrases.",
+    "Tu peux puiser dans le vocabulaire fourni pour tes exemples, mais NE dresse PAS la liste du vocabulaire et NE l'explique PAS mot à mot (il est déjà affiché à côté) : sers-t'en seulement comme matière à phrases.",
     "Structure avec des titres Markdown « # » dès qu'il y a plusieurs idées (un seul niveau, et pas de titre pour la leçon), des paragraphes courts, des listes à puces ou numérotées si pertinent. Tu peux utiliser un tableau Markdown pour présenter des formes de conjugaison. Utilise **gras** et *italique* pour mettre en valeur les termes importants en français. Vise une leçon riche mais lisible. Réponds uniquement avec cette leçon en français.",
   ]
     .filter(Boolean)
@@ -222,15 +194,12 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
   const level = cleanLevel(r.level);
   const title = clean(r.title, LIMITS.title) || "Leçon";
   const vocab = cleanVocab(r.vocab);
-  const kanji = cleanKanjiGloss(r.kanjiGloss);
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
-  const known = cleanList(r.knownKanji, LIMITS.kanjiList, LIMITS.kanjiToken).join("").slice(0, LIMITS.knownKanji);
   const variant = cleanVariant(r.variant);
   const len = storyLength(level);
 
   const objectives = [
     vocab.length ? `Vocabulaire : ${vocab.map(fmtVocab).join(", ")}.` : "",
-    kanji.length ? `Kanji : ${kanji.map(fmtKanji).join(", ")}.` : "",
     grammarList.length ? `Grammaire : ${grammarList.join(", ")}.` : "",
   ];
 
@@ -239,9 +208,7 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
     "Format libre — court récit, brève (news), dialogue ou scène du quotidien — du moment que c'est cohérent, naturel et formateur.",
     "Il doit mettre en scène ces éléments cibles :",
     ...objectives,
-    known.length
-      ? `Privilégie au maximum le lexique et les kanji déjà connus de l'apprenant : ${known}. Tu peux introduire un peu de vocabulaire nouveau si c'est nécessaire au naturel du texte, mais reste simple et préfère le déjà-vu (kana au besoin).`
-      : "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
+    "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
     "",
     `Longueur : un article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), structuré en au moins 2 à 3 paragraphes (sépare les paragraphes par une ligne vide ; ajoute-en si l'histoire le demande).`,
     variant > 1

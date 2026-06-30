@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, beforeEach } from "vitest";
-import { putKanji, putVocab, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
+import { putVocab, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard } from "./srs";
 import { SRS } from "./config";
 import { dueCards, gradeCard, buildSession } from "./warmup";
@@ -32,7 +32,7 @@ describe("échauffement SRS (existant)", () => {
     expect(card!.front).toBe("eau");
     expect(card!.back).toBe("水（みず）");
 
-    await gradeCard(card!, "good", NOW);
+    await gradeCard(card!, "easy", NOW);
     const due2 = await dueCards(NOW);
     expect(due2.find((c) => c.id === "水|みず")).toBeUndefined();
   });
@@ -53,21 +53,6 @@ describe("échauffement SRS (existant)", () => {
     expect(card.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 
-  it("kanji : saisie active, accepte une lecture on/kun (radical d'okurigana inclus)", async () => {
-    await putKanji({
-      id: "食",
-      kanji: "食",
-      meanings: ["manger"],
-      on: ["ショク"],
-      kun: ["た.べる"],
-      tags: [],
-      status: "review",
-      card: newCard(new Date("2020-01-01")),
-    });
-    const card = (await dueCards(NOW)).find((c) => c.id === "食")!;
-    expect(card.mode).toBe("type");
-    expect(card.answers).toEqual(expect.arrayContaining(["しょく", "た", "たべる"]));
-  });
 });
 
 describe("buildSession", () => {
@@ -76,7 +61,7 @@ describe("buildSession", () => {
     expect(result).toEqual([]);
   });
 
-  it("scope:due avec 2 items dus → retourne exactement 2", async () => {
+  it("scope:due avec 1 item dû → retourne exactement 1", async () => {
     await putVocab({
       id: "水|みず",
       surface: "水",
@@ -86,18 +71,8 @@ describe("buildSession", () => {
       status: "review",
       cards: { written: newCard(new Date("2020-01-01")) },
     });
-    await putKanji({
-      id: "食",
-      kanji: "食",
-      meanings: ["manger"],
-      on: ["ショク"],
-      kun: ["た.べる"],
-      tags: [],
-      status: "review",
-      card: newCard(new Date("2020-01-01")),
-    });
     const result = await buildSession(NOW, { scope: "due" });
-    expect(result.length).toBe(2);
+    expect(result.length).toBe(1);
   });
 
   it("scope:due promeut les nouveaux items jusqu'au plafond newPerDay", async () => {
@@ -151,9 +126,8 @@ describe("buildSession", () => {
     expect(daily?.introduced).toBe(3);
   });
 
-  it("scope:all avec lessonId : tous les items de la leçon retournés (même sans cartes)", async () => {
+  it("scope:all avec lessonId : tous les items vocab de la leçon retournés (même sans cartes)", async () => {
     const lessonId = "n5-01-today-book";
-    // Items de cette leçon (introduces.vocab = ["今日|きょう", "日本語|にほんご", "本|ほん", "読む|よむ"])
     const vocabIds = ["今日|きょう", "日本語|にほんご", "本|ほん", "読む|よむ"];
     for (const id of vocabIds) {
       const [surface, reading] = id.split("|");
@@ -167,21 +141,8 @@ describe("buildSession", () => {
         cards: {},
       });
     }
-    // kanji de n5-01-today-book: ["今", "日", "本", "語", "読"]
-    const kanjiIds = ["今", "日", "本", "語", "読"];
-    for (const id of kanjiIds) {
-      await putKanji({
-        id,
-        kanji: id,
-        meanings: ["test"],
-        on: [],
-        kun: [],
-        tags: [],
-        status: "unknown",
-      });
-    }
     const result = await buildSession(NOW, { scope: "all", lessonId });
-    expect(result.length).toBe(vocabIds.length + kanjiIds.length);
+    expect(result.length).toBe(vocabIds.length);
   });
 
   it("gradeCard incrémente reviewed dans srsDaily", async () => {

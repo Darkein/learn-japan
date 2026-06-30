@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuiz, type KanjiReadingQ, type ParticleQ } from "./quiz";
+import { buildQuiz, type ParticleQ } from "./quiz";
 import type { KuromojiToken } from "./tokenizer";
 
 function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }): KuromojiToken {
@@ -22,12 +22,6 @@ describe("buildQuiz", () => {
     tok({ surface_form: "を", pos: "助詞", pos_detail_1: "格助詞" }),
   ];
   const qs = buildQuiz(tokens);
-
-  it("génère une question de lecture de kanji avec la bonne lecture", () => {
-    const k = qs.find((q): q is KanjiReadingQ => q.kind === "kanji-reading" && q.surface === "猫");
-    expect(k?.reading).toBe("ねこ");
-    expect(k?.kanji).toEqual(["猫"]);
-  });
 
   it("génère une question de particule avec 4 choix contenant la réponse", () => {
     const p = qs.find((q): q is ParticleQ => q.kind === "particle" && q.answer === "が");

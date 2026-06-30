@@ -6,7 +6,7 @@ import kanjiInv from "../data/inventory/kanji.json";
 import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
-import type { KanjiEntry, VocabEntry } from "./lessons";
+import type { VocabEntry } from "./lessons";
 
 interface KanjiInvEntry {
   id: string;
@@ -54,12 +54,6 @@ export function vocabLevel(surface: string, reading?: string): number | null {
   }
   for (const v of vocabById.values()) if (v.surface === surface) return v.level;
   return null;
-}
-
-/** Résout un id de kanji (le caractère) en entrée affichable. FR curé sinon repli EN. */
-export function resolveKanji(id: string): KanjiEntry {
-  const k = kanjiById.get(id);
-  return { ja: id, fr: k?.fr ?? k?.meanings[0] ?? id };
 }
 
 /** Résout un id de vocabulaire `surface|reading` en entrée affichable. */

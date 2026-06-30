@@ -13,13 +13,10 @@ export interface GenParams {
   level?: number;
   // kind: "story" (génération libre du lecteur)
   theme?: string;
-  kanji?: string[];
   grammar?: string[];
   // kind: "lesson" | "lesson-story"
   title?: string;
   vocab?: { ja: string; yomi?: string; fr: string }[];
-  kanjiGloss?: { ja: string; fr: string }[];
-  knownKanji?: string[];
   // kind: "story-translation"
   sentences?: string[];
   // Clé R2 structurée (lesson / lesson-story uniquement)
@@ -112,10 +109,7 @@ export interface LessonGenInput {
   title: string;
   level: number;
   vocab: { ja: string; yomi?: string; fr: string }[];
-  kanji: { ja: string; fr: string }[];
   grammar: string[];
-  /** Lexique cumulé déjà connu (leçons précédentes) — contraint l'histoire à du déjà-vu. */
-  known?: { kanji: string[] };
 }
 
 export async function generateLesson(
@@ -131,7 +125,6 @@ export async function generateLesson(
         title: input.title,
         level: input.level,
         vocab: input.vocab,
-        kanjiGloss: input.kanji,
         grammar: input.grammar,
       },
       onState,
@@ -155,9 +148,7 @@ export async function generateLessonStory(
         title: input.title,
         level: input.level,
         vocab: input.vocab,
-        kanjiGloss: input.kanji,
         grammar: input.grammar,
-        knownKanji: input.known?.kanji,
       },
       onState,
       // Génération plus longue (texte plus volumineux + repli éventuel de modèle).
