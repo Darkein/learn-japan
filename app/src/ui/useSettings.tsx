@@ -22,6 +22,15 @@ export const THEMES: { id: Theme; label: string }[] = [
   { id: "dark", label: "Sombre" },
 ];
 
+/** Vitesses de lecture audio proposées pour les histoires. */
+export const STORY_RATES: { value: number; label: string }[] = [
+  { value: 0.5, label: "0,5×" },
+  { value: 0.75, label: "0,75×" },
+  { value: 1, label: "1×" },
+  { value: 1.25, label: "1,25×" },
+  { value: 1.5, label: "1,5×" },
+];
+
 interface SettingsApi {
   settings: AppSettings;
   update: (patch: Partial<AppSettings>) => void;

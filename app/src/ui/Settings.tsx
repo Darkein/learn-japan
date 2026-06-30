@@ -1,4 +1,4 @@
-import { useSettings, THEMES } from "./useSettings";
+import { useSettings, THEMES, STORY_RATES } from "./useSettings";
 
 export function Settings() {
   const { settings, update } = useSettings();
@@ -18,6 +18,29 @@ export function Settings() {
             value={settings.glossDefault}
             onChange={(v) => update({ glossDefault: v })}
           />
+        </div>
+      </section>
+
+      <section>
+        <h3 className="mb-3 font-sans text-xs uppercase tracking-widest text-muted">Lecture audio</h3>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-text">Vitesse des histoires</span>
+          <div
+            className="inline-flex overflow-hidden rounded-sm border border-hairline"
+            role="group"
+            aria-label="Vitesse de lecture des histoires"
+          >
+            {STORY_RATES.map((r) => (
+              <button
+                key={r.value}
+                className="cursor-pointer px-3 py-1 text-xs tracking-wide text-muted aria-pressed:bg-surface-2 aria-pressed:text-text"
+                aria-pressed={settings.storyRate === r.value}
+                onClick={() => update({ storyRate: r.value })}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -9,6 +9,8 @@ export interface AppSettings {
   newPerDay: number;
   theme: Theme;
   warmupRomaji: boolean;
+  /** Vitesse de lecture audio des histoires en japonais (1 = vitesse normale). */
+  storyRate: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -18,6 +20,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   newPerDay: SRS.newPerDay,
   theme: "system",
   warmupRomaji: true,
+  storyRate: 1,
 };
 
 export function loadSettings(): AppSettings {
