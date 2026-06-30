@@ -216,4 +216,9 @@ describe("buildSession", () => {
     const card = cards.find((c) => c.id === "水|みず")!;
     expect(card.context).toBe("水を飲む");
   });
+
+  it("scope:all sans lessonId → []", async () => {
+    const result = await buildSession(NOW, { scope: "all" });
+    expect(result).toEqual([]);
+  });
 });

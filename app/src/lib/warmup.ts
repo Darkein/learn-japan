@@ -76,7 +76,8 @@ export async function buildSession(
 ): Promise<WarmupCard[]> {
   const scope = opts.scope ?? "due";
 
-  if (scope === "all" && opts.lessonId) {
+  if (scope === "all") {
+    if (!opts.lessonId) return [];
     return buildSessionAll(opts.lessonId, now);
   }
   return buildSessionDue(now);
@@ -156,7 +157,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
 
   if (out.length < SRS.dailyGoal && budget > 0) {
     const newCards: WarmupCard[] = [];
-    const toPromote = Math.min(budget, SRS.dailyGoal - out.length);
+    const toPromote = Math.max(0, Math.min(budget, SRS.dailyGoal - out.length));
 
     // Vocab sans carte
     for (const v of await allVocab()) {
