@@ -83,7 +83,7 @@ export interface ArticlePlayer {
 
 type Mode = "cloud" | "speech";
 
-export function useArticlePlayer(sentences: PlayerSentence[]): ArticlePlayer {
+export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): ArticlePlayer {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentTokenIndex, setCurrentTokenIndex] = useState<number | null>(null);
@@ -92,6 +92,10 @@ export function useArticlePlayer(sentences: PlayerSentence[]): ArticlePlayer {
   // État impératif (évite les closures périmées dans les handlers audio/parole).
   const sentencesRef = useRef(sentences);
   sentencesRef.current = sentences;
+  // Vitesse de lecture courante : lue impérativement par les chemins audio/parole, et
+  // appliquée à chaud à l'élément <audio> en cours via l'effet plus bas.
+  const rateRef = useRef(rate);
+  rateRef.current = rate;
   const idxRef = useRef(0); // phrase courante
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
@@ -141,6 +145,7 @@ export function useArticlePlayer(sentences: PlayerSentence[]): ArticlePlayer {
     }
     const u = new SpeechSynthesisUtterance(s.text);
     u.lang = JA_LANG;
+    u.rate = rateRef.current;
     const v = pickJaVoice();
     if (v) u.voice = v;
     u.onboundary = (e) => {
@@ -192,6 +197,10 @@ export function useArticlePlayer(sentences: PlayerSentence[]): ArticlePlayer {
       urlRef.current = url;
       marksRef.current = res.marks;
       const audio = new Audio(url);
+      // playbackRate accélère/ralentit sans toucher au timeline du média : les
+      // timepoints (marks, exprimés dans ce timeline) restent alignés et l'audio
+      // mis en cache est réutilisé quelle que soit la vitesse.
+      audio.playbackRate = rateRef.current;
       audioRef.current = audio;
       audio.ontimeupdate = () => {
         const marks = marksRef.current;
@@ -253,6 +262,13 @@ export function useArticlePlayer(sentences: PlayerSentence[]): ArticlePlayer {
     modeRef.current = "cloud";
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sentences]);
+
+  // Changement de vitesse en cours de lecture : applique à chaud à l'<audio> Cloud TTS.
+  // (Le repli Web Speech ne sait pas changer de débit en plein mot → la nouvelle
+  // vitesse s'appliquera à la phrase suivante.)
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = rate;
+  }, [rate]);
 
   // Nettoyage au démontage.
   useEffect(() => () => stop(), [stop]);

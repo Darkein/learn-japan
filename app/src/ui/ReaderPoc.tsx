@@ -59,7 +59,7 @@ export function ReaderPoc({ incoming }: Props) {
   // Lecture audio de l'article : phrases dérivées des tokens (réf. stable tant que
   // l'analyse ne change pas → le player se réinitialise à chaque nouvel article).
   const sentences = useMemo(() => (result ? splitSentences(result.tokens) : []), [result]);
-  const player = useArticlePlayer(sentences);
+  const player = useArticlePlayer(sentences, settings.storyRate);
 
   // (Ré)analyse à chaque ouverture d'une histoire/leçon.
   useEffect(() => {

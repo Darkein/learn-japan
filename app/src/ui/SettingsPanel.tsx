@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { currentLocation, navigate } from "./useHashRoute";
-import { useSettings, THEMES } from "./useSettings";
+import { useSettings, THEMES, STORY_RATES } from "./useSettings";
 
 export function SettingsPanel() {
   const { settings, update, panelOpen, closePanel } = useSettings();
@@ -57,6 +57,29 @@ export function SettingsPanel() {
                 value={settings.warmupRomaji}
                 onChange={(v) => update({ warmupRomaji: v })}
               />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-3 font-sans text-xs uppercase tracking-widest text-muted">Lecture audio</h3>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-text">Vitesse des histoires</span>
+              <div
+                className="flex overflow-hidden rounded-sm border border-hairline"
+                role="group"
+                aria-label="Vitesse de lecture des histoires"
+              >
+                {STORY_RATES.map((r) => (
+                  <button
+                    key={r.value}
+                    className="flex-1 cursor-pointer px-2 py-2 text-xs tracking-wide text-muted aria-pressed:bg-surface-2 aria-pressed:text-text"
+                    aria-pressed={settings.storyRate === r.value}
+                    onClick={() => update({ storyRate: r.value })}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
 
