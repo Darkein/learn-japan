@@ -9,6 +9,7 @@ import {
   containsJa,
   QUIZ_PAUSE_MS,
   splitJaSentences,
+  stripFurigana,
   titleSegment,
 } from "./podcast";
 
@@ -106,17 +107,49 @@ describe("buildPodcastScript", () => {
     expect(story[jaIdx + 1].text).toBe("Il y a un chat.");
   });
 
-  it("dans le cours, parle les exemples JP en voix japonaise et saute la lecture romaji", () => {
+  it("dans un bloc :::example, parle la phrase JP en voix japonaise puis sa traduction FR", () => {
     const withExample = lesson({
       ...base,
-      framing: "La copule です marque la politesse.\n\n弁護士です。\nBengoshi desu.\nJe suis avocat.",
+      framing: ":::example\n弁護士です。\n> Je suis avocat.\n:::",
     });
     const cours = buildPodcastScript(withExample, {}).filter((s) => s.chapter === "cours");
-    expect(cours[0]).toMatchObject({ lang: "fr", text: "La copule です marque la politesse." });
-    expect(cours[1]).toMatchObject({ lang: "ja", text: "弁護士です。" });
-    // La lecture romaji « Bengoshi desu. » est sautée ; reste la traduction FR.
-    expect(cours.some((s) => s.text === "Bengoshi desu.")).toBe(false);
-    expect(cours[2]).toMatchObject({ lang: "fr", text: "Je suis avocat." });
+    // Les fences :::example / ::: ne sont jamais lues.
+    expect(cours.some((s) => s.text.includes(":::"))).toBe(false);
+    expect(cours[0]).toMatchObject({ lang: "ja", text: "弁護士です。" });
+    // La traduction préfixée par « > » est bien prononcée (et le « > » retiré).
+    expect(cours[1]).toMatchObject({ lang: "fr", text: "Je suis avocat." });
+  });
+
+  it("ne lit pas les balises structurelles (:::, ---, pipes de tableau)", () => {
+    const withMarkers = lesson({
+      ...base,
+      framing: ":::summary\nPoint clé.\n:::\n\n---\n\n| Forme | Exemple |\n|---|---|\n| Présent | maintenant |",
+    });
+    const cours = buildPodcastScript(withMarkers, {}).filter((s) => s.chapter === "cours");
+    expect(cours.some((s) => /:::|---|\|/.test(s.text))).toBe(false);
+    expect(cours.some((s) => s.text === "Point clé.")).toBe(true);
+  });
+
+  it("route les mots japonais inline d'une prose française vers la voix japonaise", () => {
+    const withInline = lesson({
+      ...base,
+      framing: "La particule は marque le thème.",
+    });
+    const cours = buildPodcastScript(withInline, {}).filter((s) => s.chapter === "cours");
+    expect(cours).toEqual([
+      { id: expect.any(String), chapter: "cours", lang: "fr", text: "La particule", label: "Cours" },
+      { id: expect.any(String), chapter: "cours", lang: "ja", text: "は", label: "Cours" },
+      { id: expect.any(String), chapter: "cours", lang: "fr", text: "marque le thème.", label: "Cours" },
+    ]);
+  });
+
+  it("retire le furigana entre parenthèses des exemples japonais", () => {
+    const withFurigana = lesson({
+      ...base,
+      framing: ":::example\n弁護士（べんごし）です。\n> Je suis avocat.\n:::",
+    });
+    const cours = buildPodcastScript(withFurigana, {}).filter((s) => s.chapter === "cours");
+    expect(cours[0]).toMatchObject({ lang: "ja", text: "弁護士です。" });
   });
 
   it("sépare la transition de fin et le titre en deux segments", () => {
@@ -240,5 +273,17 @@ describe("containsJa / cleanFrench", () => {
 
   it("laisse intact un texte déjà en français pur", () => {
     expect(cleanFrench("Le matin, il a faim.")).toBe("Le matin, il a faim.");
+  });
+});
+
+describe("stripFurigana", () => {
+  it("retire la lecture kana entre parenthèses après un kanji", () => {
+    expect(stripFurigana("私（わたし）は学生です。")).toBe("私は学生です。");
+    expect(stripFurigana("弁護士(べんごし)です。")).toBe("弁護士です。");
+  });
+
+  it("préserve les parenthèses qui ne sont pas du furigana (kanji ou latin)", () => {
+    expect(stripFurigana("猫（ねこ, chat）")).toBe("猫（ねこ, chat）");
+    expect(stripFurigana("東京（とうきょう）と大阪")).toBe("東京と大阪");
   });
 });
