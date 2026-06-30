@@ -389,6 +389,13 @@ export async function putTtsCache(id: string, audio: Blob, marks: { i: number; t
 }
 
 // Compteurs SRS journaliers ---------------------------------------------------
+function localDateString(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export async function getSrsDaily(date: string): Promise<SrsDailyRecord | undefined> {
   return (await getDB()).get("srsDaily", date);
 }
@@ -412,8 +419,12 @@ export async function recentSrsDaily(nDays: number): Promise<SrsDailyRecord[]> {
   for (let i = nDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const date = d.toISOString().slice(0, 10);
+    const date = localDateString(d);
     result.push((await getSrsDaily(date)) ?? { date, introduced: 0, reviewed: 0 });
   }
   return result;
+}
+
+export function _resetDbForTests(): void {
+  dbPromise = null;
 }

@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
-import { describe, expect, it, vi } from "vitest";
-import { getGrammar, getKanji, getVocab, putVocab } from "./db";
+import { IDBFactory } from "fake-indexeddb";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getGrammar, getKanji, getVocab, putVocab, _resetDbForTests } from "./db";
 import { newCard } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -84,6 +85,11 @@ vi.mock("./lessons", () => ({
     return undefined;
   }),
 }));
+
+beforeEach(() => {
+  (globalThis as any).indexedDB = new IDBFactory();
+  _resetDbForTests();
+});
 
 import { enrollLesson, enrollStory } from "./enroll";
 import type { StoryRecord } from "./db";
