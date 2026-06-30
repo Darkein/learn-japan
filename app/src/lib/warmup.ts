@@ -6,9 +6,11 @@ import {
   allGrammar,
   allKanji,
   allVocab,
+  bumpSrsDaily,
   getComprehensionItem,
   getGrammar,
   getKanji,
+  getSrsDaily,
   getVocab,
   putComprehensionItem,
   putGrammar,
@@ -16,21 +18,39 @@ import {
   putVocab,
 } from "./db";
 import { normalizeReading } from "./kana";
-import { isDue, review, type SrsGrade } from "./srs";
+import { getCurriculumEntry } from "./lessons";
+import { isDue, newCard, review, type SrsGrade } from "./srs";
+import { SRS } from "./config";
 
 export interface WarmupCard {
   key: string;
   track: "vocab" | "kanji" | "grammar" | "comprehension";
   id: string;
-  front: string; // indice montré
-  back: string; // réponse révélée
+  front: string;
+  back: string;
   due: number;
-  /** "type" = rappel actif (l'utilisateur tape) ; "reveal" = révélation + auto-note. */
-  mode: "type" | "reveal";
-  /** Réponses NORMALISÉES acceptées (mode "type") ; comparées via `normalizeReading`. */
+  /** "type" = rappel actif ; "reveal" = révélation + auto-note ; "listen" = écoute. */
+  mode: "type" | "reveal" | "listen";
+  /** Réponses NORMALISÉES acceptées (mode "type"). */
   answers?: string[];
   /** Consigne courte affichée au-dessus du champ (mode "type"). */
   prompt?: string;
+  /** Phrase d'origine (pour carte contextuelle — Task 5). */
+  context?: string;
+}
+
+export interface SessionOpts {
+  /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
+  scope?: "due" | "all";
+  /** Si fourni et scope="all", filtre sur les ids introduces de cette leçon. */
+  lessonId?: string;
+}
+
+function localDateString(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /**
@@ -43,22 +63,32 @@ function kanjiReadingAnswers(kun: string[], on: string[]): string[] {
   for (const r of on) set.add(normalizeReading(r));
   for (const r of kun) {
     const stem = r.includes(".") ? r.slice(0, r.indexOf(".")) : r;
-    set.add(normalizeReading(stem)); // radical seul : « た » de « た.べる »
-    set.add(normalizeReading(r.replace(/\./g, ""))); // forme entière : « たべる »
+    set.add(normalizeReading(stem));
+    set.add(normalizeReading(r.replace(/\./g, "")));
   }
   set.delete("");
   return [...set];
 }
 
-/** Cartes dues (toutes pistes), les plus urgentes d'abord, limitées à `max`. */
-export async function dueCards(now: Date = new Date(), max = 15): Promise<WarmupCard[]> {
+export async function buildSession(
+  now: Date = new Date(),
+  opts: SessionOpts = {},
+): Promise<WarmupCard[]> {
+  const scope = opts.scope ?? "due";
+
+  if (scope === "all" && opts.lessonId) {
+    return buildSessionAll(opts.lessonId, now);
+  }
+  return buildSessionDue(now);
+}
+
+async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
   const out: WarmupCard[] = [];
 
+  // Collecte items dus (avec carte FSRS)
   for (const v of await allVocab()) {
     const c = v.cards.written;
     if (c && isDue(c, now)) {
-      // Rappel actif : sens FR affiché → taper le mot (production FR→JP). On accepte la forme
-      // écrite (kanji) OU la lecture. Sans sens connu, on bascule en « tape la lecture » du mot.
       const hasMeaning = !!v.meaning && v.meaning !== "—";
       out.push({
         key: `vocab:${v.id}`,
@@ -72,6 +102,7 @@ export async function dueCards(now: Date = new Date(), max = 15): Promise<Warmup
         answers: hasMeaning
           ? [normalizeReading(v.surface), normalizeReading(v.reading)]
           : [normalizeReading(v.reading)],
+        ...(v.example?.ja ? { context: v.example.ja } : {}),
       });
     }
   }
@@ -118,7 +149,172 @@ export async function dueCards(now: Date = new Date(), max = 15): Promise<Warmup
     }
   }
 
-  return out.sort((a, b) => a.due - b.due).slice(0, max);
+  // Budget nouveaux items
+  const dateStr = localDateString(now);
+  const daily = await getSrsDaily(dateStr);
+  const budget = Math.max(0, SRS.newPerDay - (daily?.introduced ?? 0));
+
+  if (out.length < SRS.dailyGoal && budget > 0) {
+    const newCards: WarmupCard[] = [];
+    const toPromote = Math.min(budget, SRS.dailyGoal - out.length);
+
+    // Vocab sans carte
+    for (const v of await allVocab()) {
+      if (newCards.length >= toPromote) break;
+      if (!v.cards.written) {
+        const card = newCard(now);
+        v.cards.written = card;
+        await putVocab(v);
+        await bumpSrsDaily(dateStr, { introduced: 1 });
+        const hasMeaning = !!v.meaning && v.meaning !== "—";
+        newCards.push({
+          key: `vocab:${v.id}`,
+          track: "vocab",
+          id: v.id,
+          front: hasMeaning ? v.meaning : v.surface,
+          back: `${v.surface}（${v.reading}）`,
+          due: card.due.getTime(),
+          mode: "type",
+          prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+          answers: hasMeaning
+            ? [normalizeReading(v.surface), normalizeReading(v.reading)]
+            : [normalizeReading(v.reading)],
+          ...(v.example?.ja ? { context: v.example.ja } : {}),
+        });
+      }
+    }
+
+    // Kanji sans carte
+    if (newCards.length < toPromote) {
+      for (const k of await allKanji()) {
+        if (newCards.length >= toPromote) break;
+        if (!k.card) {
+          const card = newCard(now);
+          k.card = card;
+          await putKanji(k);
+          await bumpSrsDaily(dateStr, { introduced: 1 });
+          const readings = [...k.kun, ...k.on].join(" / ");
+          newCards.push({
+            key: `kanji:${k.id}`,
+            track: "kanji",
+            id: k.id,
+            front: k.kanji,
+            back: [readings, k.meanings.join(", ")].filter(Boolean).join(" — "),
+            due: card.due.getTime(),
+            mode: "type",
+            prompt: "Tape une lecture",
+            answers: kanjiReadingAnswers(k.kun, k.on),
+          });
+        }
+      }
+    }
+
+    // Grammar sans carte
+    if (newCards.length < toPromote) {
+      for (const g of await allGrammar()) {
+        if (newCards.length >= toPromote) break;
+        if (!g.card) {
+          const card = newCard(now);
+          g.card = card;
+          await putGrammar(g);
+          await bumpSrsDaily(dateStr, { introduced: 1 });
+          newCards.push({
+            key: `grammar:${g.id}`,
+            track: "grammar",
+            id: g.id,
+            front: g.name,
+            back: g.rule || "—",
+            due: card.due.getTime(),
+            mode: "reveal",
+          });
+        }
+      }
+    }
+
+    out.push(...newCards);
+  }
+
+  return out.sort((a, b) => a.due - b.due);
+}
+
+async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[]> {
+  const entry = getCurriculumEntry(lessonId);
+  if (!entry) return [];
+
+  const out: WarmupCard[] = [];
+  const { vocab: vocabIds, kanji: kanjiIds, grammar: grammarIds } = entry.introduces;
+
+  // Vocab
+  for (const id of vocabIds) {
+    const v = await getVocab(id);
+    if (!v) continue;
+    if (!v.cards.written) {
+      v.cards.written = newCard(now);
+      await putVocab(v);
+    }
+    const c = v.cards.written!;
+    const hasMeaning = !!v.meaning && v.meaning !== "—";
+    out.push({
+      key: `vocab:${v.id}`,
+      track: "vocab",
+      id: v.id,
+      front: hasMeaning ? v.meaning : v.surface,
+      back: `${v.surface}（${v.reading}）`,
+      due: c.due.getTime(),
+      mode: "type",
+      prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+      answers: hasMeaning
+        ? [normalizeReading(v.surface), normalizeReading(v.reading)]
+        : [normalizeReading(v.reading)],
+      ...(v.example?.ja ? { context: v.example.ja } : {}),
+    });
+  }
+
+  // Kanji
+  for (const id of kanjiIds) {
+    const k = await getKanji(id);
+    if (!k) continue;
+    if (!k.card) {
+      k.card = newCard(now);
+      await putKanji(k);
+    }
+    const c = k.card!;
+    const readings = [...k.kun, ...k.on].join(" / ");
+    out.push({
+      key: `kanji:${k.id}`,
+      track: "kanji",
+      id: k.id,
+      front: k.kanji,
+      back: [readings, k.meanings.join(", ")].filter(Boolean).join(" — "),
+      due: c.due.getTime(),
+      mode: "type",
+      prompt: "Tape une lecture",
+      answers: kanjiReadingAnswers(k.kun, k.on),
+    });
+  }
+
+  // Grammar
+  for (const id of grammarIds) {
+    const g = await getGrammar(id);
+    if (!g) continue;
+    if (!g.card) {
+      g.card = newCard(now);
+      await putGrammar(g);
+    }
+    const c = g.card!;
+    out.push({
+      key: `grammar:${g.id}`,
+      track: "grammar",
+      id: g.id,
+      front: g.name,
+      back: g.rule || "—",
+      due: c.due.getTime(),
+      mode: "reveal",
+    });
+  }
+
+  // Urgents d'abord, nouveaux à la fin
+  return out.sort((a, b) => a.due - b.due);
 }
 
 /** Note une carte d'échauffement et replanifie via FSRS. */
@@ -144,4 +340,8 @@ export async function gradeCard(card: WarmupCard, grade: SrsGrade, now: Date = n
     g.card = review(g.card, grade, now);
     await putGrammar(g);
   }
+  await bumpSrsDaily(localDateString(now), { reviewed: 1 });
 }
+
+/** @deprecated Use buildSession instead. */
+export const dueCards = (now?: Date) => buildSession(now, { scope: "due" });
