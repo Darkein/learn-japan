@@ -158,30 +158,32 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
       {result && !loading && (
         <>
           <p className="text-sm text-muted">Tape un mot pour ouvrir lecture, sens et suivi de révision.</p>
-          <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-2">
             {result.tokens.map((tok, i) => {
               const g = result.gloss[i];
               const active = i === player.currentTokenIndex;
               return (
                 <span
                   key={i}
-                  className="inline-flex cursor-pointer flex-col items-center gap-0.5 border-b-2 border-transparent pb-0.5 transition-colors hover:border-state-unknown"
-                  style={{ borderBottomColor: underlineColor(tok, statuses) }}
+                  className="group inline-flex cursor-pointer flex-col items-center gap-0.5"
                   onClick={() => setOpenIdx(i)}
                   role="button"
                   tabIndex={0}
                 >
                   <span
-                    className={`font-jp text-2xl ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
+                    className={`font-jp text-2xl border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
+                    style={{ borderBottomColor: underlineColor(tok, statuses) }}
                   >
                     <Ruby segments={tok.segments} reveal={revealFurigana} />
                   </span>
-                  <span
-                    className={`max-w-40 text-center font-sans text-xs leading-tight text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
-                    style={{ visibility: revealGloss ? "visible" : "hidden" }}
-                  >
-                    {g.gloss}
-                  </span>
+                  {revealGloss && (
+                    <span
+                      className={`max-w-24 truncate text-center font-sans text-xs leading-none text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
+                      title={g.gloss}
+                    >
+                      {g.gloss}
+                    </span>
+                  )}
                 </span>
               );
             })}

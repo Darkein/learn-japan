@@ -172,7 +172,7 @@ function AppShell() {
     return (
       <div className={SHELL}>
         <ReaderPage title="Révision" onBack={back}>
-          <Warmup opts={reviewOpts} />
+          <Warmup opts={reviewOpts} onExit={back} />
         </ReaderPage>
       </div>
     );

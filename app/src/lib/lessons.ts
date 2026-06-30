@@ -84,6 +84,8 @@ export interface Lesson extends CurriculumEntry {
   locked: boolean;
   /** Maîtrise de la leçon précédente (pour afficher le message de débloquage). */
   prevMastery?: number;
+  /** Titre de la leçon précédente (pour le message de débloquage). */
+  prevTitle?: string;
   /** Leçon débloquée naturellement (par maîtrise, pas par "commencer quand même"). */
   unlockedNaturally?: boolean;
   /** La notification de déblocage a-t-elle déjà été envoyée ? */
@@ -274,6 +276,7 @@ export async function listLessons(): Promise<Lesson[]> {
     const prev = i > 0 ? lessons[i - 1] : null;
     const prevMastery = prev ? prev.mastery : 1;
     lessons[i].prevMastery = prev ? prevMastery : undefined;
+    lessons[i].prevTitle = prev ? prev.title : undefined;
     lessons[i].locked = !!prev && prevMastery < SRS.unlockMastery && !lessons[i].startedAt;
     lessons[i].unlockedNaturally =
       !!prev &&

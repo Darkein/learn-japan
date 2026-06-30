@@ -80,12 +80,15 @@
   /* Ruby / furigana (DESIGN.md §5). */
   ruby {
     ruby-align: center;
+    line-height: 1;
   }
   rt {
     font-size: 0.5em;
+    line-height: 1.2;
     font-family: var(--font-sans);
     color: var(--text-muted);
     font-weight: 400;
+    transform: translateY(0.35em);
   }
 }
 

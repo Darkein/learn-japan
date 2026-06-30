@@ -75,9 +75,25 @@ export interface AnnotatedToken {
 
 /** Annote une liste de tokens kuromoji avec leurs furigana. */
 export function annotateTokens(tokens: KuromojiToken[]): AnnotatedToken[] {
-  return tokens.map((t) => ({
-    surface: t.surface_form,
-    segments: fitFurigana(t.surface_form, t.reading),
-    token: t,
-  }));
+  const result: AnnotatedToken[] = [];
+  for (const t of tokens) {
+    const prev = result[result.length - 1];
+    // Skip inline-furigana tokens: old content used "漢字ひらがな" format (e.g. 私わたし).
+    // When kuromoji splits this into [私(reading:ワタシ), わたし], the kana token is redundant.
+    if (
+      prev &&
+      prev.token.reading &&
+      hasKanji(prev.token.surface_form) &&
+      !hasKanji(t.surface_form) &&
+      kataToHira(prev.token.reading) === t.surface_form
+    ) {
+      continue;
+    }
+    result.push({
+      surface: t.surface_form,
+      segments: fitFurigana(t.surface_form, t.reading),
+      token: t,
+    });
+  }
+  return result;
 }

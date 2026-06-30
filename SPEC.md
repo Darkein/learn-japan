@@ -87,7 +87,7 @@ d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décr
   **Histoires**. Ce sont aussi le **porteur naturel de l'audio** (mode voiture / podcast, §11–12 :
   TTS par phrase, format Pimsleur).
 
-États d'une leçon : **prête** (≥ 1 histoire), **à générer** (objectifs seuls), **terminée** (lue).
+États d'une leçon : **prête** (leçon généré), **à générer** (objectifs seuls), **terminée** (lue).
 
 Une histoire générée depuis une leçon **conserve son `lessonId`** (rattachement bidirectionnel
 catalogue ↔ histoire). Le mode « génération libre / texte collé » reste accessible mais relégué en

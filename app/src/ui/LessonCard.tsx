@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Lesson } from "../lib/lessons";
 import { markLessonStarted } from "../lib/lessons";
 import { SRS } from "../lib/config";
@@ -30,7 +31,13 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
   const summary = summarize(lesson);
-  const inProgress = !!lesson.startedAt && !lesson.completedAt && lesson.mastery > 0;
+  const showMastery = lesson.mastery > 0 && !lesson.locked;
+
+  const [gaugeWidth, setGaugeWidth] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setGaugeWidth(Math.round((lesson.prevMastery ?? 0) * 100)), 50);
+    return () => clearTimeout(t);
+  }, [lesson.prevMastery]);
 
   return (
     <li
@@ -38,32 +45,24 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
       aria-selected={selected}
     >
       <button
-        className="group flex w-full cursor-pointer flex-col gap-2 text-left"
-        onClick={() => {
-          if (lesson.locked) void markLessonStarted(lesson.id);
-          onOpen(lesson);
-        }}
+        className={`group flex w-full flex-col gap-2 text-left ${lesson.locked ? "cursor-default" : "cursor-pointer"}`}
+        onClick={() => { if (!lesson.locked) onOpen(lesson); }}
+        disabled={lesson.locked}
       >
-        <div className="flex flex-wrap items-baseline gap-3">
+        <div className={`flex flex-wrap items-baseline gap-3 ${lesson.locked ? "opacity-50" : ""}`}>
           <span className="font-serif text-sm tracking-widest text-muted">
             {lesson.order.toString().padStart(2, "0")}
           </span>
           <span
-            className={`flex-1 font-serif text-lg transition-colors group-hover:text-accent ${
-              selected ? "text-accent" : "text-text"
+            className={`flex-1 font-serif text-lg transition-colors ${
+              lesson.locked ? "text-muted" : selected ? "text-accent" : "text-text group-hover:text-accent"
             }`}
           >
             {lesson.title}
           </span>
-          <span className="rounded-sm border border-hairline px-2 text-xs text-muted">
-            N{lesson.level}
-          </span>
-          {lesson.locked ? (
-            <span className="rounded-sm border border-hairline px-2 py-0.5 text-xs uppercase tracking-wide text-muted">
-              🔒 verrouillée
-            </span>
-          ) : (
+          {(lesson.completedAt ?? !available) && (
             <span
+              
               className={`rounded-sm border border-transparent px-2 py-0.5 text-xs uppercase tracking-wide ${
                 lesson.completedAt
                   ? "border-hairline text-muted opacity-80"
@@ -75,18 +74,46 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
               {lesson.completedAt ? "terminée" : available ? "prête" : "à générer"}
             </span>
           )}
+          <span className="rounded-sm border border-hairline px-2 text-xs text-muted">
+            N{lesson.level}
+          </span>
+          {lesson.locked && (
+            <span className="rounded-sm border border-hairline px-2 py-0.5 text-xs uppercase tracking-wide text-muted">
+              🔒 
+            </span>
+          )}
         </div>
 
         {lesson.summary && <p className="m-0 text-muted">{lesson.summary}</p>}
         {summary && <p className="m-0 text-xs tracking-wide text-muted">{summary}</p>}
 
         {lesson.locked && (
-          <p className="m-0 text-xs text-muted">
-            Maîtrise requise : {Math.round((lesson.prevMastery ?? 0) * 100)}% / {Math.round(SRS.unlockMastery * 100)}%
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p className="m-0 text-xs text-muted">
+              Maîtrise{lesson.prevTitle ? (
+                <> <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
+              ) : null}{" "}
+              pour débloquer cette leçon
+            </p>
+            <div className="relative h-2 w-full">
+              <div className="absolute inset-0 rounded-full bg-hairline" />
+              <div
+                className="absolute inset-y-0 left-0 rounded-l-full bg-accent transition-all duration-700 ease-out"
+                style={{ width: `${gaugeWidth}%` }}
+              />
+              <div
+                className="absolute inset-y-0 w-0.5 bg-text/40"
+                style={{ left: `${Math.round(SRS.unlockMastery * 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-muted">
+              <span>{gaugeWidth} %</span>
+              <span className="opacity-60">objectif : {Math.round(SRS.unlockMastery * 100)} %</span>
+            </div>
+          </div>
         )}
 
-        {inProgress && (
+        {showMastery && (
           <div className="h-1 w-full overflow-hidden rounded-full bg-hairline">
             <div
               className="h-full rounded-full bg-accent transition-all"

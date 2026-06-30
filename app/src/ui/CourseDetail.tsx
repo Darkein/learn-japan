@@ -223,7 +223,8 @@ type Block =
   | { kind: "para"; lines: string[] };
 
 function parseBlocks(text: string): Block[] {
-  const lines = text.split("\n");
+  // Normalize CRLF → LF so trailing \r never corrupts extracted text.
+  const lines = text.replace(/\r/g, "").split("\n");
   const blocks: Block[] = [];
   let i = 0;
 
@@ -238,8 +239,9 @@ function parseBlocks(text: string): Block[] {
     // Horizontal rule
     if (line.trim() === "---") { blocks.push({ kind: "hr" }); i++; continue; }
 
-    // Fenced block :::type … ::: with nested-depth tracking
-    const fenceMatch = line.match(/^:::(\w+)\s*$/);
+    // Fenced block :::type … ::: with nested-depth tracking.
+    // Lenient: leading whitespace and trailing annotation tolerated (LLM variability).
+    const fenceMatch = line.match(/^\s*:::(\w+)/);
     if (fenceMatch) {
       const ftype = fenceMatch[1];
       i++;
@@ -247,7 +249,7 @@ function parseBlocks(text: string): Block[] {
       let depth = 1;
       while (i < lines.length) {
         const bl = lines[i];
-        if (/^:::\w/.test(bl)) depth++;
+        if (/^\s*:::\w/.test(bl)) depth++;
         else if (bl.trim() === ":::") { depth--; if (depth === 0) break; }
         body.push(bl);
         i++;
@@ -258,13 +260,17 @@ function parseBlocks(text: string): Block[] {
         const pairs: { jp: string; fr?: string }[] = [];
         let pendingJp: string | null = null;
         for (const bl of body) {
-          if (bl.trim() === "") continue;
-          if (bl.startsWith("> ") || bl === ">") {
-            pairs.push({ jp: pendingJp ?? "", fr: bl.startsWith("> ") ? bl.slice(2) : bl.slice(1) });
+          const tbl = bl.trim();
+          if (tbl === "") continue;
+          // Match "> content", ">content", ">\tcontent" — all valid LLM quote styles.
+          const quoteMatch = tbl.match(/^>\s*(.*)/);
+          if (quoteMatch) {
+            const fr = quoteMatch[1].trim();
+            pairs.push({ jp: pendingJp ?? "", fr: fr || undefined });
             pendingJp = null;
           } else {
             if (pendingJp !== null) pairs.push({ jp: pendingJp });
-            pendingJp = bl;
+            pendingJp = tbl;
           }
         }
         if (pendingJp !== null) pairs.push({ jp: pendingJp });
@@ -276,11 +282,12 @@ function parseBlocks(text: string): Block[] {
       continue;
     }
 
-    // Heading # / ## / ### (4+ hashes silently skipped)
-    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    // Heading # / ## / ### (4+ hashes silently skipped).
+    // Leading whitespace tolerated: LLM sometimes indents headings inside blocks.
+    const headingMatch = line.match(/^\s*(#{1,6})\s+(.*)/);
     if (headingMatch) {
       if (headingMatch[1].length <= 3)
-        blocks.push({ kind: "heading", level: headingMatch[1].length, text: headingMatch[2] });
+        blocks.push({ kind: "heading", level: headingMatch[1].length, text: headingMatch[2].trim() });
       i++;
       continue;
     }
@@ -301,7 +308,7 @@ function parseBlocks(text: string): Block[] {
     if (/^\s*[-*]\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\s*[-*]\s+/.test(lines[i]))
-        items.push(lines[i++].replace(/^\s*[-*]\s+/, ""));
+        items.push(lines[i++].replace(/^\s*[-*]\s+/, "").trim());
       blocks.push({ kind: "ul", items });
       continue;
     }
@@ -310,17 +317,18 @@ function parseBlocks(text: string): Block[] {
     if (/^\s*\d+\.\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i]))
-        items.push(lines[i++].replace(/^\s*\d+\.\s+/, ""));
+        items.push(lines[i++].replace(/^\s*\d+\.\s+/, "").trim());
       blocks.push({ kind: "ol", items });
       continue;
     }
 
-    // Paragraph — collect until blank line or block marker
+    // Paragraph — collect until blank line or block marker.
+    // Indented headings (^\s*#{1,6}\s) also break paragraphs.
     const plines: string[] = [];
     while (i < lines.length) {
       const l = lines[i];
       if (l.trim() === "") break;
-      if (/^:::/.test(l) || /^#{1,6}\s/.test(l) || l.trim().startsWith("|") || /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l) || l.trim() === "---") break;
+      if (/^\s*:::/.test(l) || /^\s*#{1,6}\s/.test(l) || l.trim().startsWith("|") || /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l) || l.trim() === "---") break;
       plines.push(l);
       i++;
     }

@@ -97,23 +97,25 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
   const [vocab, kanji, grammar, comprehension] = await Promise.all([
     allVocab(), allKanji(), allGrammar(), allComprehension(),
   ]);
+  // +15 min : inclut les cartes dues imminentes (step relearning FSRS = 10 min)
+  const horizon = new Date(now.getTime() + 15 * 60 * 1000);
   let dueCount = 0;
   let newCount = 0;
   for (const v of vocab) {
     const c = v.cards.written;
-    if (c) { if (isDue(c, now)) dueCount++; }
+    if (c) { if (isDue(c, horizon)) dueCount++; }
     else newCount++;
   }
   for (const k of kanji) {
-    if (k.card) { if (isDue(k.card, now)) dueCount++; }
+    if (k.card) { if (isDue(k.card, horizon)) dueCount++; }
     else newCount++;
   }
   for (const g of grammar) {
-    if (g.card) { if (isDue(g.card, now)) dueCount++; }
+    if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
     else newCount++;
   }
   for (const c of comprehension) {
-    if (c.card) { if (isDue(c.card, now)) dueCount++; }
+    if (c.card) { if (isDue(c.card, horizon)) dueCount++; }
   }
   return { dueCount, newCount };
 }
@@ -141,11 +143,12 @@ export async function buildSession(
 
 async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
   const out: WarmupCard[] = [];
+  const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
   // Collecte items dus (avec carte FSRS)
   for (const v of await allVocab()) {
     const c = v.cards.written;
-    if (c && isDue(c, now)) {
+    if (c && isDue(c, horizon)) {
       const hasMeaning = !!v.meaning && v.meaning !== "—";
       out.push({
         key: `vocab:${v.id}`,
@@ -164,7 +167,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
     }
   }
   for (const k of await allKanji()) {
-    if (k.card && isDue(k.card, now)) {
+    if (k.card && isDue(k.card, horizon)) {
       const readings = [...k.kun, ...k.on].join(" / ");
       out.push({
         key: `kanji:${k.id}`,
@@ -180,7 +183,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
     }
   }
   for (const g of await allGrammar()) {
-    if (g.card && isDue(g.card, now)) {
+    if (g.card && isDue(g.card, horizon)) {
       out.push({
         key: `grammar:${g.id}`,
         track: "grammar",
@@ -193,7 +196,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
     }
   }
   for (const c of await allComprehension()) {
-    if (c.card && isDue(c.card, now)) {
+    if (c.card && isDue(c.card, horizon)) {
       out.push({
         key: `comprehension:${c.id}`,
         track: "comprehension",
@@ -211,7 +214,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
   for (const v of await allVocab()) {
     if (listenCount >= 5) break;
     const c = v.cards.written;
-    if (c && isDue(c, now) && v.example?.ja) {
+    if (c && isDue(c, horizon) && v.example?.ja) {
       const hasMeaning = !!v.meaning && v.meaning !== "—";
       out.push({
         key: `vocab-listen:${v.id}`,
@@ -405,6 +408,7 @@ export async function gradeCard(card: WarmupCard, grade: SrsGrade, now: Date = n
     const v = await getVocab(card.id);
     if (!v?.cards.written) return;
     v.cards.written = review(v.cards.written, grade, now);
+    v.status = grade === "easy" ? "known" : "review";
     await putVocab(v);
   } else if (card.track === "kanji") {
     const k = await getKanji(card.id);
