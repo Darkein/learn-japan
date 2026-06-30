@@ -19,8 +19,10 @@ import {
   useHashRoute,
   type Tab,
 } from "./useHashRoute";
+import { Settings } from "./Settings";
+import { SettingsPanel } from "./SettingsPanel";
 import { Warmup } from "./Warmup";
-import { useTheme, type Theme } from "./useTheme";
+import { SettingsProvider, useSettings } from "./useSettings";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6 pb-16";
 
@@ -30,11 +32,6 @@ const TABS: { id: Tab; label: string; path: string }[] = [
   { id: "catalogue", label: "Catalogue", path: "/catalogue" },
 ];
 
-const THEMES: { id: Theme; label: string }[] = [
-  { id: "system", label: "Auto" },
-  { id: "light", label: "Clair" },
-  { id: "dark", label: "Sombre" },
-];
 
 // Construit le contexte de lecture à partir d'une histoire enregistrée. Si l'histoire est
 // rattachée à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
@@ -63,21 +60,24 @@ export function App() {
   // Le lecteur podcast est porté ici (au-dessus du routage) pour persister entre les
   // onglets et les pages, et la barre est rendue par-dessus tout le contenu.
   return (
-    <NotificationProvider>
-      <GenJobsProvider>
-        <PodcastProvider>
-          <AppShell />
-          <PodcastPlayer />
-        </PodcastProvider>
-      </GenJobsProvider>
-      <NotificationBanner />
-    </NotificationProvider>
+    <SettingsProvider>
+      <NotificationProvider>
+        <GenJobsProvider>
+          <PodcastProvider>
+            <AppShell />
+            <PodcastPlayer />
+          </PodcastProvider>
+        </GenJobsProvider>
+        <NotificationBanner />
+      </NotificationProvider>
+      <SettingsPanel />
+    </SettingsProvider>
   );
 }
 
 function AppShell() {
   const route = useHashRoute();
-  const [theme, setTheme] = useTheme();
+  const { openPanel } = useSettings();
   // Données des sous-pages, résolues depuis l'id contenu dans l'URL (rechargement direct possible).
   const [reader, setReader] = useState<{ id: string; incoming: IncomingStory } | null>(null);
   const [course, setCourse] = useState<Lesson | null>(null);
@@ -186,6 +186,15 @@ function AppShell() {
       </div>
     );
   }
+  if (route.kind === "settings") {
+    return (
+      <div className={SHELL}>
+        <ReaderPage title="Paramètres" onBack={back}>
+          <Settings />
+        </ReaderPage>
+      </div>
+    );
+  }
   // Sous-page demandée mais données pas encore résolues (rechargement direct) : on évite
   // d'afficher brièvement le shell à onglets en attendant getStory/getLesson.
   if (route.kind === "reader" || route.kind === "course") {
@@ -202,22 +211,13 @@ function AppShell() {
         <h1 className="font-serif text-xl">
           Learn Japan<span className="ml-2 text-lg text-accent">日本語</span>
         </h1>
-        <div
-          className="inline-flex overflow-hidden rounded-sm border border-hairline"
-          role="group"
-          aria-label="Thème"
+        <button
+          className="cursor-pointer px-2 py-1 text-lg leading-none text-muted hover:text-text"
+          onClick={openPanel}
+          aria-label="Paramètres"
         >
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              className="cursor-pointer px-3 py-1 text-xs tracking-wide text-muted aria-pressed:bg-surface-2 aria-pressed:text-text"
-              aria-pressed={theme === t.id}
-              onClick={() => setTheme(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+          ⚙
+        </button>
       </header>
 
       <nav className="mt-6 mb-8 flex gap-4">

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { recentSrsDaily, type SrsDailyRecord } from "../lib/db";
-import { SRS } from "../lib/config";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/warmup";
 import { LessonList } from "./LessonList";
 import { useGenJobs } from "./useGenJobs";
+import { useSettings } from "./useSettings";
 
 interface Props {
   onOpenStory: (story: StoryRecord) => void;
@@ -18,17 +18,17 @@ function localDateStr(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function buildDailyStats(stats: SessionStats, daily7: SrsDailyRecord[]) {
+function buildDailyStats(stats: SessionStats, daily7: SrsDailyRecord[], dailyGoal: number) {
   const today = daily7.find((d) => d.date === localDateStr()) ?? { date: localDateStr(), introduced: 0, reviewed: 0 };
   let streak = 0;
   const sorted = [...daily7].sort((a, b) => b.date.localeCompare(a.date));
   for (const d of sorted) {
-    if (d.reviewed >= SRS.dailyGoal) streak++;
+    if (d.reviewed >= dailyGoal) streak++;
     else break;
   }
   return {
     reviewed: today.reviewed,
-    goal: SRS.dailyGoal,
+    goal: dailyGoal,
     streak,
     dueCount: stats.dueCount,
   };
@@ -39,6 +39,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
   const { dataVersion } = useGenJobs();
+  const { settings } = useSettings();
 
   async function refresh() {
     const [ls, stats, daily7] = await Promise.all([
@@ -47,7 +48,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
       recentSrsDaily(7),
     ]);
     setLessons(ls);
-    setDailyData(buildDailyStats(stats, daily7));
+    setDailyData(buildDailyStats(stats, daily7, settings.dailyGoal));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
   }

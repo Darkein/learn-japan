@@ -10,6 +10,7 @@ import { Comprehension } from "./Comprehension";
 import { Quiz } from "./Quiz";
 import { Ruby } from "./Ruby";
 import { SentenceBuilder } from "./SentenceBuilder";
+import { useSettings } from "./useSettings";
 import { StoryTranslation } from "./StoryTranslation";
 import { WordSheet } from "./WordSheet";
 
@@ -47,10 +48,11 @@ interface Props {
 
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
 export function ReaderPoc({ incoming, onComplete }: Props) {
+  const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
-  const [revealFurigana, setRevealFurigana] = useState(false);
-  const [revealGloss, setRevealGloss] = useState(true);
+  const [revealFurigana, setRevealFurigana] = useState(() => settings.furiganaDefault);
+  const [revealGloss, setRevealGloss] = useState(() => settings.glossDefault);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const [compOpen, setCompOpen] = useState(false);

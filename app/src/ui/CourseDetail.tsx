@@ -8,6 +8,7 @@ import { GenProgress } from "./GenProgress";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { Ruby } from "./Ruby";
 import { useLessonGen } from "./useLessonGen";
+import { useSettings } from "./useSettings";
 
 interface Props {
   lesson: Lesson;
@@ -145,7 +146,8 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 
 /** Cours d'une leçon : assemblé depuis l'inventaire (grammaire, vocab) + cadrage rédigé. */
 function Cours({ lesson }: { lesson: Lesson }) {
-  const [revealFurigana, setRevealFurigana] = useState(true);
+  const { settings } = useSettings();
+  const [revealFurigana, setRevealFurigana] = useState(() => settings.furiganaDefault);
   const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);
   return (
     <div>

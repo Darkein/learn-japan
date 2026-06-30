@@ -20,6 +20,7 @@ import { normalizeReading } from "./kana";
 import { getCurriculumEntry } from "./lessons";
 import { isDue, newCard, review, type SrsGrade } from "./srs";
 import { SRS } from "./config";
+import { loadSettings } from "./settings";
 
 export interface WarmupCard {
   key: string;
@@ -118,6 +119,7 @@ export async function buildSession(
 }
 
 async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
+  const s = loadSettings();
   const out: WarmupCard[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
@@ -197,11 +199,11 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
   // Budget nouveaux items
   const dateStr = localDateString(now);
   const daily = await getSrsDaily(dateStr);
-  const budget = Math.max(0, SRS.newPerDay - (daily?.introduced ?? 0));
+  const budget = Math.max(0, s.newPerDay - (daily?.introduced ?? 0));
 
-  if (out.length < SRS.dailyGoal && budget > 0) {
+  if (out.length < s.dailyGoal && budget > 0) {
     const newCards: WarmupCard[] = [];
-    const toPromote = Math.max(0, Math.min(budget, SRS.dailyGoal - out.length));
+    const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length));
 
     // Vocab sans carte
     for (const v of await allVocab()) {

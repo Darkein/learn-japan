@@ -6,6 +6,7 @@ import { isMastered, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
 import { getVocab, getGrammar, getComprehensionItem } from "../lib/db";
 import { buildSession, gradeCard, type WarmupCard, type SessionOpts } from "../lib/warmup";
+import { useSettings } from "./useSettings";
 
 const GRADES: { id: SrsGrade; label: string }[] = [
   { id: "again", label: "Raté" },
@@ -34,15 +35,14 @@ interface Props {
 }
 
 export function Warmup({ opts, onExit }: Props) {
+  const { settings, update } = useSettings();
   const [cards, setCards] = useState<WarmupCard[] | null>(null);
   const [i, setI] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [entry, setEntry] = useState("");
   const [correct, setCorrect] = useState<boolean | null>(null);
   const [listened, setListened] = useState(false);
-  const [romaji, setRomaji] = useState(
-    () => (localStorage.getItem("warmup.romaji") ?? "1") === "1",
-  );
+  const [romaji, setRomaji] = useState(() => settings.warmupRomaji);
   const [results, setResults] = useState<{ card: WarmupCard; grade: SrsGrade; daysBefore: number }[]>([]);
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -318,7 +318,7 @@ export function Warmup({ opts, onExit }: Props) {
                       onClick={() => {
                         const v = !romaji;
                         setRomaji(v);
-                        localStorage.setItem("warmup.romaji", v ? "1" : "0");
+                        update({ warmupRomaji: v });
                         inputRef.current?.focus();
                       }}
                       title={romaji ? "Romaji → kana activé" : "Romaji → kana désactivé"}

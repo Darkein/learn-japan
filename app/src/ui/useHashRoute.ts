@@ -12,7 +12,8 @@ export type Route =
   | { kind: "catalogue" }
   | { kind: "review"; from: string }
   | { kind: "course"; id: string; from: string }
-  | { kind: "reader"; id: string; from: string };
+  | { kind: "reader"; id: string; from: string }
+  | { kind: "settings"; from: string };
 
 /** Emplacement courant (sans le « # »), normalisé avec un « / » initial. */
 export function currentLocation(): string {
@@ -48,6 +49,8 @@ export function parseRoute(location: string): Route {
       return segs[1]
         ? { kind: "reader", id: decodeURIComponent(segs[1]), from }
         : { kind: "home" };
+    case "parametres":
+      return { kind: "settings", from };
     default:
       return { kind: "home" };
   }
