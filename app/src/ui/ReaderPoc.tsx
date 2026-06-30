@@ -128,16 +128,13 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
               <span className="font-serif text-lg text-text">{lessonCtx.title}</span>
             )}
           </div>
-          {lessonCtx.objectives && (lessonCtx.objectives.vocab.length > 0 || lessonCtx.objectives.kanji.length > 0) && (
+          {lessonCtx.objectives && lessonCtx.objectives.vocab.length > 0 && (
             <p className="m-0 text-sm text-muted">
               cible :{" "}
-              {[
-                ...lessonCtx.objectives.kanji.map((k) => ({ ja: k.ja, fr: k.fr })),
-                ...lessonCtx.objectives.vocab.slice(0, 4).map((v) => ({ ja: v.ja, fr: v.fr })),
-              ].map((it, i, arr) => (
-                <span key={`${it.ja}-${i}`}>
-                  <span className="font-jp text-text">{it.ja}</span>
-                  <span className="text-muted"> ({it.fr})</span>
+              {lessonCtx.objectives.vocab.slice(0, 4).map((v, i, arr) => (
+                <span key={`${v.ja}-${i}`}>
+                  <span className="font-jp text-text">{v.ja}</span>
+                  <span className="text-muted"> ({v.fr})</span>
                   {i < arr.length - 1 ? " · " : ""}
                 </span>
               ))}

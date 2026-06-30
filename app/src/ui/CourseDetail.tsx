@@ -18,7 +18,7 @@ interface Props {
 }
 
 /**
- * Détail d'un cours : cadrage + objectifs (grammaire / kanji / vocab) + histoires liées.
+ * Détail d'un cours : cadrage + objectifs (grammaire / vocab) + histoires liées.
  * Rendu soit dans le panneau latéral (split desktop), soit dans une page dédiée (mobile).
  */
 export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
@@ -70,7 +70,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
             S'entraîner sur cette leçon
           </button>
           <p className="mt-1 text-xs text-muted">
-            Questions immédiates sur tout le vocabulaire, les kanji et la grammaire de cette leçon.
+            Questions immédiates sur tout le vocabulaire et la grammaire de cette leçon.
           </p>
         </div>
       )}
@@ -143,7 +143,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
   );
 }
 
-/** Cours d'une leçon : assemblé depuis l'inventaire (grammaire, kanji, vocab) + cadrage rédigé. */
+/** Cours d'une leçon : assemblé depuis l'inventaire (grammaire, vocab) + cadrage rédigé. */
 function Cours({ lesson }: { lesson: Lesson }) {
   const [revealFurigana, setRevealFurigana] = useState(true);
   const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);

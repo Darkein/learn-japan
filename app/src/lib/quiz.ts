@@ -1,18 +1,8 @@
 // Génération DÉTERMINISTE de questions de quiz à partir des tokens d'une phrase :
-// - lecture de kanji (« comment se lit 食べる ? »)
 // - particule à compléter (« 猫◯水を… : は / が / を / に ? »)
 // La compréhension (QCM sur le sens) viendra du LLM via le Worker plus tard.
 
-import { hasKanji, isKanji, kataToHira } from "./kana";
 import type { KuromojiToken } from "./tokenizer";
-
-export interface KanjiReadingQ {
-  kind: "kanji-reading";
-  id: string;
-  surface: string;
-  reading: string;
-  kanji: string[];
-}
 
 export interface ParticleQ {
   kind: "particle";
@@ -23,14 +13,10 @@ export interface ParticleQ {
   choices: string[];
 }
 
-export type QuizQuestion = KanjiReadingQ | ParticleQ;
+export type QuizQuestion = ParticleQ;
 
 const PARTICLE_POOL = ["は", "が", "を", "に", "で", "へ", "と", "も", "から", "まで"];
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
-
-function uniqueKanji(s: string): string[] {
-  return [...new Set([...s].filter(isKanji))];
-}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -46,21 +32,13 @@ function choicesFor(answer: string): string[] {
   return shuffle([answer, ...distractors]);
 }
 
-/** Construit jusqu'à `max` questions à partir des tokens (lecture kanji + particules). */
+/** Construit jusqu'à `max` questions à partir des tokens (particules). */
 export function buildQuiz(tokens: KuromojiToken[], max = 8): QuizQuestion[] {
   const surfaces = tokens.map((t) => t.surface_form);
   const questions: QuizQuestion[] = [];
 
   tokens.forEach((t, i) => {
-    if (hasKanji(t.surface_form) && t.reading) {
-      questions.push({
-        kind: "kanji-reading",
-        id: `k${i}`,
-        surface: t.surface_form,
-        reading: kataToHira(t.reading),
-        kanji: uniqueKanji(t.surface_form),
-      });
-    } else if (t.pos === "助詞" && CORE_PARTICLES.has(t.surface_form)) {
+    if (t.pos === "助詞" && CORE_PARTICLES.has(t.surface_form)) {
       questions.push({
         kind: "particle",
         id: `p${i}`,

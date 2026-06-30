@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getGrammar, getKanji, getVocab, putVocab, _resetDbForTests } from "./db";
+import { getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
 import { newCard } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -49,18 +49,11 @@ vi.mock("./tokenizer", () => ({
   }),
 }));
 
-// Simule l'inventaire (kanji/grammaire) pour les tests enrollLesson
 vi.mock("./inventory", () => ({
   resolveVocab: vi.fn((id: string) => {
     const [surface] = id.split("|");
     return { ja: surface, fr: `sens-${surface}` };
   }),
-  kanjiDetail: vi.fn((id: string) => ({
-    ja: id,
-    fr: `sens-${id}`,
-    on: ["オン"],
-    kun: ["くん"],
-  })),
   grammarDetail: vi.fn((id: string) => ({
     id,
     name: `gramm-${id}`,
@@ -77,7 +70,6 @@ vi.mock("./lessons", () => ({
         id: "lesson-test",
         introduces: {
           vocab: ["水|みず"],
-          kanji: ["水"],
           grammar: ["n5-wa"],
         },
       };
@@ -105,17 +97,13 @@ function makeStory(text: string): StoryRecord {
 }
 
 describe("enrollLesson", () => {
-  it("crée les items vocab/kanji/grammaire sans carte FSRS", async () => {
+  it("crée les items vocab/grammaire sans carte FSRS", async () => {
     await enrollLesson("lesson-test");
 
     const vocab = await getVocab("水|みず");
     expect(vocab).toBeDefined();
     expect(vocab!.cards).toEqual({});
     expect(vocab!.status).toBe("unknown");
-
-    const kanji = await getKanji("水");
-    expect(kanji).toBeDefined();
-    expect(kanji!.card).toBeUndefined();
 
     const grammar = await getGrammar("n5-wa");
     expect(grammar).toBeDefined();

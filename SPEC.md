@@ -23,16 +23,14 @@ conduisant le lendemain**.
 
 ## 2. Modèle d'apprentissage
 
-### 2.1 Trois pistes SRS distinctes
+### 2.1 Deux pistes SRS distinctes
 Suivies séparément, chacune avec sa propre logique de répétition espacée :
 - **Vocabulaire** (le mot dans son usage — unité principale de mémorisation)
-- **Kanji** (lecture + sens, indépendamment des mots qui les contiennent)
 - **Grammaire** (règles et conjugaisons)
 
-Justification : un même kanji a plusieurs lectures selon le mot (生 → *sei*, *nama*, *i*, *u*…). Ce
-qu'on mémorise vraiment, c'est le mot en contexte. Mais on veut aussi savoir si un kanji isolé est
-reconnu, et la grammaire suit une logique différente. Un mot connu peut « débloquer » partiellement
-ses kanji.
+Justification : apprendre les mots expose naturellement leurs kanji en contexte. La grammaire suit
+une logique différente. Les kanji restent visibles dans le **Catalogue** en référence (sens, lectures,
+niveau JLPT) mais ne sont pas une cible SRS à part entière.
 
 ### 2.2 Trois compétences par élément (vocabulaire)
 S'activent **progressivement**, dans cet ordre :
@@ -50,16 +48,14 @@ Les résultats des quiz alimentent directement le SRS.
 ### 2.4 Progression et calibrage
 - Progression **partant de zéro**.
 - Marquage manuel d'un élément comme **« connu »** (ne plus le réviser).
-- **Test de calibrage initial** : mini-quiz survolant quelques kanji/règles par niveau JLPT.
+- **Test de calibrage initial** : mini-quiz survolant quelques règles de grammaire par niveau JLPT.
 - **Calibrage par import** (plus rapide que le quiz) : listes JLPT, export **Anki**, **WaniKani**
   (API avec ton propre token). Pré-remplit l'acquis.
 
 ## 3. Leçons (juste-à-temps)
 
-Avant qu'un **nouvel élément** (kanji ou point de grammaire) n'apparaisse pour la première fois dans
-une histoire, une **mini-leçon** le présente :
-- Kanji : sens, lecture(s), **composition** (§6), mnémonique (§7).
-- Grammaire : règle + exemples.
+Avant qu'un **nouveau point de grammaire** n'apparaisse pour la première fois dans une histoire, une
+**mini-leçon** le présente : règle + exemples.
 
 L'apprentissage se fait **juste avant l'exposition en contexte**. Pas de cours formel séparé ; léger,
 au service de la lecture.
@@ -103,18 +99,15 @@ apprend le japonais) ait à valider quoi que ce soit, le curriculum repose sur d
    a un **id stable** et un **niveau JLPT**. Les sens **français** sont curés dans des overlays
    (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais.
 2. **Curriculum** (`curriculum.json`, v3) — le « dans quel ordre » : **niveau → unité → leçon**.
-   Chaque leçon **référence** l'inventaire via `introduces: { vocab, kanji, grammar }` (listes
+   Chaque leçon **référence** l'inventaire via `introduces: { vocab, grammar }` (listes
    d'ids) au lieu de redéclarer le contenu → source unique de vérité, zéro doublon.
 
 **Cohérence vérifiée mécaniquement** par `npm run curriculum:check` (et en CI) : couverture
-(chaque kanji/point de grammaire N5 introduit par exactement une leçon), intégrité des références,
-respect des **prérequis** de grammaire (un prérequis précède ce qui en dépend), et absence de
-**référence en avant** (une histoire n'emploie pas un kanji enseigné plus tard).
+(chaque point de grammaire N5 introduit par exactement une leçon), intégrité des références,
+respect des **prérequis** de grammaire (un prérequis précède ce qui en dépend).
 
 **Vocabulaire hors-niveau.** Une histoire peut contenir des mots d'un niveau supérieur : ils
-restent **lisibles** (furigana + gloss déterministes) sans être imposés comme cibles SRS. La
-génération reçoit en outre le **lexique cumulé** déjà vu (leçons précédentes) pour éviter
-d'introduire des kanji non encore enseignés.
+restent **lisibles** (furigana + gloss déterministes) sans être imposés comme cibles SRS.
 
 ## 4. Génération des histoires
 
@@ -126,14 +119,13 @@ d'introduire des kanji non encore enseignés.
   grammaticales**, les **mnémoniques**. Éléments jugés par l'utilisateur (risque acceptable).
 
 ### 4.1 Génération ciblée (sélection)
-L'utilisateur peut demander une histoire qui **met l'accent sur des éléments choisis** : kanji,
-points de grammaire, ou **tags/thèmes** (« une histoire avec les animaux que je révise »). La
-sélection est passée comme **contraintes au prompt LLM**. Affichage **« pourquoi cette histoire »**
-(items ciblés) pour fermer la boucle de confiance. Boutons **re-roll** (regénérer) et réglages
-**longueur / difficulté**.
+L'utilisateur peut demander une histoire qui **met l'accent sur des éléments choisis** : points de
+grammaire ou **tags/thèmes** (« une histoire avec les animaux que je révise »). La sélection est
+passée comme **contraintes au prompt LLM**. Affichage **« pourquoi cette histoire »** (items ciblés)
+pour fermer la boucle de confiance. Boutons **re-roll** (regénérer) et réglages **longueur / difficulté**.
 - Génération **adaptative** (pilotée par tout l'état SRS) : se fait de préférence côté CLI/Actions
   (accès direct à l'état).
-- Génération **ciblée** (thème/kanji/règles) : marche partout, n'a pas besoin de tout l'état SRS.
+- Génération **ciblée** (thème/règles) : marche partout, n'a pas besoin de tout l'état SRS.
 
 ### 4.2 Traduction : littérale d'abord, fluide ensuite
 
@@ -175,54 +167,40 @@ histoire déjà lue sert d'exercice d'écoute.
 
 ### Types de quiz
 - Compréhension (QCM ou réponse libre)
-- Lecture de kanji (« comment se lit 食べる ? »)
 - Grammaire (« pourquoi が et pas は ? », compléter la particule)
 - Reconstruction (remettre une phrase mélangée dans l'ordre)
 - Écoute (audio joué, comprendre sans le texte)
 
-## 6. Composition des kanji
-Dans le panneau d'un kanji : **décomposition en composants/radicaux** avec leur sens, et **ordre des
-traits**. Exemple : 明 = 日 (soleil) + 月 (lune) → « lumineux ».
-Données issues de **bases libres** (pas du LLM) : **KanjiVG** (tracés/ordre des traits), **KRADFILE**
-(radicaux), **KanjiDic** (lectures + sens).
-
-## 7. Mnémotechniques
-Générées par le **LLM** (créatif, subjectif, pas de « bonne réponse » → pas de risque d'erreur),
-**regénérables** et **éditables**.
-- **Mnémonique de sens** (à partir des composants) : 休 = 人 + 木 → « une personne adossée à un arbre
-  se repose ».
-- **Mnémonique de lecture** (association sonore FR) : 山 (*yama*) → « au sommet, j'ai crié *Yamaha !* ».
-Le mnémonique retenu est **réaffiché à chaque révision**. Un mnémonique forgé soi-même se retient mieux.
-
-## 8. Catalogue / révision à la demande *(nouveau)*
+## 6. Catalogue / révision à la demande *(nouveau)*
 Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou apprend :
-- **Listes** vocab / kanji / grammaire, avec leur **statut** (inconnu / à réviser / connu) et leur
+- **Listes** vocab / grammaire, avec leur **statut** (inconnu / à réviser / connu) et leur
   prochaine échéance SRS.
+- **Kanji en référence** : liste consultable (sens, lectures, niveau JLPT) depuis l'inventaire —
+  sans statut SRS ni cible d'apprentissage. Base pour un futur rattachement au vocabulaire.
 - **Filtres** : statut, niveau JLPT, **tag/thème**, piste, « marqués à revoir ».
 - **Recherche**.
 - **Action** : lancer une **session de révision ciblée** depuis une sélection, ou **alimenter une
   génération d'histoire** ciblée (§4.1).
 C'est le complément de la carte de progression (qui, elle, reste un indicateur de motivation chiffré).
 
-## 9. Tags / thèmes *(nouveau)*
+## 7. Tags / thèmes *(nouveau)*
 Système de **tags sémantiques** (espace/position, animaux, nourriture, météo, temps…) attachés aux
 kanji / vocab / grammaire.
 - Sources : **niveau JLPT** (gratuit) ; **tagging assisté LLM** (subjectif → sans risque) ; **édition
   manuelle** (ajout/retrait/création de tags).
 - Usages : **révision thématique** (§8) et **génération thématique** (§4.1).
 
-## 10. Interface (mobile d'abord)
+## 8. Interface (mobile d'abord)
 - **Furigana au tap** : pas affichés en permanence ; l'utilisateur essaie de lire, puis tape pour
   vérifier.
-- **Tap sur un mot** → panneau : lecture, sens, **gloss grammatical**, bouton audio, composition (si
-  kanji), mnémonique.
+- **Tap sur un mot** → panneau : lecture, sens, **gloss grammatical**, bouton audio.
 - **Gloss littéral** affichable sous la phrase (toggle) ; traduction fluide au tap.
 - **Mots à réviser signalés discrètement** : trois états visuels (inconnu / à réviser / connu-neutre),
   soulignement léger ou teinte douce — jamais du fluo. Geste pour tout neutraliser le temps d'une
   lecture immersive.
-- **Carte de progression** vocab/kanji/grammaire — indicateur de motivation principal.
+- **Carte de progression** vocab/grammaire — indicateur de motivation principal.
 
-## 11. Mode voiture — *première classe* (audio seul)
+## 9. Mode voiture — *première classe* (audio seul)
 **Mode mains-libres / yeux-libres** pour les trajets (~30 min). Promu d'« extra » à **mode central
 de consolidation passive**.
 - **100 % audio**, lecture continue type podcast, **hors-ligne**, **reprise où on s'est arrêté**.
@@ -238,7 +216,7 @@ de consolidation passive**.
 - Réalité actée : **CarPlay/Android Auto natifs hors de portée** d'un projet perso → on passe par
   **Bluetooth + boutons média**, ce qui suffit.
 
-## 12. Audio & TTS
+## 10. Audio & TTS
 - **Google Cloud TTS** (voix japonaises Neural2/WaveNet ; compte GCP déjà actif → pas de friction ;
   quota mensuel gratuit ; export de fichiers pour les packs voiture).
 - Granularité : audio **par phrase** (histoires) et **par segment** (voiture : phrase JP / FR /
@@ -249,7 +227,7 @@ de consolidation passive**.
   2. mot arbitraire en ligne → petit appel Cloud TTS **mis en cache** ;
   3. repli hors-ligne / zéro quota → **Web Speech API** du navigateur.
 
-## 13. Architecture (hébergement gratuit, clés protégées, génération automatisée)
+## 11. Architecture (hébergement gratuit, clés protégées, génération automatisée)
 
 > Verdict de faisabilité : un site **100 % statique ne peut pas** faire d'appel LLM paramétré avec
 > une clé protégée. Il faut un détenteur de clés hors-client. La solution retenue reste **gratuite et
@@ -279,7 +257,7 @@ PWA statique (GitHub Pages)          Cloudflare Worker (gratuit)        GitHub A
   gonflerait l'historique ; Git LFS gratuit ~1 Go est trop petit).
 - **Furigana & gloss littéral** : **déterministes, dans le navigateur** (kuromoji + JMdict + table de
   particules) → aucune clé, fonctionnent offline.
-- **CLI locale** (`npm run generate -- --theme … --kanji …`) conservée pour le dev et la prépa en lot
+- **CLI locale** (`npm run generate -- --theme … --grammar …`) conservée pour le dev et la prépa en lot
   (clé dans un `.env` local).
 - **Boucle fermée** : état SRS (IndexedDB) → génération → texte annoté (furigana + gloss + trad +
   grammaire) → quiz + audio → résultats → MAJ SRS.
@@ -288,14 +266,14 @@ PWA statique (GitHub Pages)          Cloudflare Worker (gratuit)        GitHub A
 File de contenu pré-généré (histoires + pistes audio voiture) préparée **en WiFi**, stockée
 localement (Cache API / IndexedDB), **lue hors-ligne** ensuite — essentiel pour métro/voiture.
 
-## 14. Vie privée & sauvegarde
+## 12. Vie privée & sauvegarde
 - **Repo public** → **aucune donnée perso dans git** (ni SRS, ni historique de lecture).
 - État SRS dans **IndexedDB** ; **export/backup** (fichier, chiffrable) — indispensable : sans
   sauvegarde, un appareil perdu = repartir de zéro.
 - Acter le **caveat Gemini free tier** : les prompts peuvent servir à l'entraînement Google
   (acceptable pour du contenu d'apprentissage non sensible ; choix conscient).
 
-## 15. Sources de données libres (récapitulatif)
+## 13. Sources de données libres (récapitulatif)
 
 | Donnée | Source | Pourquoi pas le LLM |
 |---|---|---|
@@ -308,6 +286,6 @@ localement (Cache API / IndexedDB), **lue hors-ligne** ensuite — essentiel pou
 | Histoires, trad fluide, explications | LLM (Gemini) | Jugées par l'utilisateur |
 | Mnémotechniques, tags | LLM (Gemini) | Subjectif, sans « bonne réponse » |
 
-## 16. Risque principal
+## 14. Risque principal
 La **justesse des lectures/furigana** — traitée par l'outil déterministe + correction manuelle +
 dico de noms propres. Seul point où une erreur silencieuse pourrait enseigner du faux.

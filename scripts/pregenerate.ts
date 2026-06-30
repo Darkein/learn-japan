@@ -32,11 +32,9 @@ const WORKER_URL = (process.env.WORKER_URL ?? "https://learn-japan-gen.learn-jap
 
 // ---- Inventaire (miroir minimal de app/src/lib/inventory.ts) ----------------
 
-interface KanjiInv { id: string; level: number; fr?: string; meanings: string[] }
 interface VocabInv { id: string; level: number; surface: string; reading: string; fr?: string; meanings: string[] }
 interface GrammarInv { id: string; level: number; name: string; ruleFr: string }
 
-const kanjiById = new Map(read<KanjiInv[]>(join(INV, "kanji.json")).map((k) => [k.id, k]));
 const vocabById = new Map(read<VocabInv[]>(join(INV, "vocab.json")).map((v) => [v.id, v]));
 const grammarById = new Map(
   read<{ items: GrammarInv[] }>(join(INV, "grammar.json")).items.map((g) => [g.id, g]),
@@ -44,7 +42,6 @@ const grammarById = new Map(
 const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
 
 interface VocabEntry { ja: string; yomi?: string; fr: string }
-interface KanjiEntry { ja: string; fr: string }
 
 function resolveVocab(id: string): VocabEntry {
   const v = vocabById.get(id);
@@ -58,10 +55,6 @@ function resolveVocab(id: string): VocabEntry {
   const [surface, reading] = id.split("|");
   return { ja: surface, yomi: reading && reading !== surface ? reading : undefined, fr: vocabFr[id] ?? "" };
 }
-function resolveKanji(id: string): KanjiEntry {
-  const k = kanjiById.get(id);
-  return { ja: id, fr: k?.fr ?? k?.meanings[0] ?? id };
-}
 function resolveGrammar(id: string): string {
   const g = grammarById.get(id);
   return g ? `${g.name} — ${g.ruleFr}` : id;
@@ -69,7 +62,7 @@ function resolveGrammar(id: string): string {
 
 // ---- Curriculum (miroir minimal de app/src/lib/lessons.ts) ------------------
 
-interface Introduces { vocab: string[]; kanji: string[]; grammar: string[] }
+interface Introduces { vocab: string[]; grammar: string[] }
 interface RawLesson { id: string; order: number; title: string; introduces: Introduces }
 interface RawUnit { lessons: RawLesson[] }
 interface RawLevel { level: number; units: RawUnit[] }
@@ -82,7 +75,6 @@ interface Entry {
   title: string;
   introduces: Introduces;
   vocab: VocabEntry[];
-  kanji: KanjiEntry[];
   grammar: string[];
 }
 
@@ -97,23 +89,11 @@ const ENTRIES: Entry[] = curriculum.levels
         title: l.title,
         introduces: l.introduces,
         vocab: l.introduces.vocab.map(resolveVocab),
-        kanji: l.introduces.kanji.map(resolveKanji),
         grammar: l.introduces.grammar.map(resolveGrammar),
       })),
     ),
   )
   .sort((a, b) => (a.level !== b.level ? b.level - a.level : a.order - b.order));
-
-/** Kanji cumulés déjà vus à cette leçon (miroir de getCumulativeObjectives), hors cibles. */
-function knownKanjiBefore(entry: Entry): string[] {
-  const seen = ENTRIES.filter(
-    (c) => c.level > entry.level || (c.level === entry.level && c.order <= entry.order),
-  );
-  const target = new Set(entry.kanji.map((k) => k.ja));
-  const acc = new Map<string, string>();
-  for (const c of seen) for (const k of c.kanji) if (!target.has(k.ja)) acc.set(k.ja, k.ja);
-  return [...acc.keys()];
-}
 
 /** Découpe un texte japonais en phrases (miroir de splitJaSentences, app/src/lib/stories.ts). */
 function splitJaSentences(text: string): string[] {
@@ -170,14 +150,14 @@ async function gen(label: string, body: Record<string, unknown>, refresh: boolea
 
 async function processLesson(e: Entry, args: Args): Promise<void> {
   console.log(`\n[N${e.level} #${e.order}] ${e.id} — ${e.title}`);
-  const common = { lessonId: e.id, level: e.level, title: e.title, vocab: e.vocab, kanjiGloss: e.kanji, grammar: e.grammar };
+  const common = { lessonId: e.id, level: e.level, title: e.title, vocab: e.vocab, grammar: e.grammar };
 
   await gen("cours (lesson)", { kind: "lesson", ...common }, args.refresh);
   if (args.lessonOnly) return;
 
   const story = await gen(
     "histoire (lesson-story) v1",
-    { kind: "lesson-story", ...common, variant: 1, knownKanji: knownKanjiBefore(e) },
+    { kind: "lesson-story", ...common, variant: 1 },
     args.refresh,
   );
   if (!story) return;
