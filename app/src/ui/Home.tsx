@@ -3,6 +3,7 @@ import type { StoryRecord } from "../lib/db";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { dueCards } from "../lib/warmup";
 import { LessonList } from "./LessonList";
+import { useGenJobs } from "./useGenJobs";
 
 interface Props {
   onOpenStory: (story: StoryRecord) => void;
@@ -18,15 +19,17 @@ interface Props {
 export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dueCount, setDueCount] = useState(0);
+  const { dataVersion } = useGenJobs();
 
   async function refresh() {
     const [ls, due] = await Promise.all([listLessons(), dueCards()]);
     setLessons(ls);
     setDueCount(due.length);
   }
+  // Se recharge au montage et dès qu'une génération aboutit (dataVersion change).
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [dataVersion]);
 
   if (!lessons) return <p className="text-muted">Chargement…</p>;
 
@@ -62,12 +65,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
       )}
 
       {todo.length > 0 ? (
-        <LessonList
-          lessons={todo}
-          onOpenStory={onOpenStory}
-          onOpenCourse={onOpenCourse}
-          onChanged={() => void refresh()}
-        />
+        <LessonList lessons={todo} onOpenStory={onOpenStory} onOpenCourse={onOpenCourse} />
       ) : (
         <p className="text-muted">
           Tout est à jour — bravo ! Explore le{" "}

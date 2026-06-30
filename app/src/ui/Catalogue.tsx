@@ -13,6 +13,7 @@ import {
 } from "../lib/inventory";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { LessonList } from "./LessonList";
+import { useGenJobs } from "./useGenJobs";
 
 type Section = "lessons" | "kanji" | "vocab" | "grammar";
 
@@ -49,6 +50,7 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
   const [section, setSection] = useState<Section>("lessons");
   const [level, setLevel] = useState<number>(0); // 0 = tous
   const [status, setStatus] = useState<ItemStatus | "all">("all");
+  const { dataVersion } = useGenJobs();
 
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [statusMaps, setStatusMaps] = useState<{
@@ -66,9 +68,10 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
       grammar: new Map(gs.map((g) => [g.id, g.status])),
     });
   }
+  // Se recharge au montage et dès qu'une génération aboutit (dataVersion change).
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [dataVersion]);
 
   const inventory = useMemo(() => ({
     kanji: allKanjiInv(),
@@ -110,7 +113,6 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
             split
             onOpenStory={onOpenStory}
             onOpenCourse={onOpenCourse}
-            onChanged={() => void refresh()}
           />
         )
       ) : (

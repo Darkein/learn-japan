@@ -1,17 +1,13 @@
-import type { StoryRecord } from "../lib/db";
 import type { Lesson } from "../lib/lessons";
-import { STATE_LABEL, useLessonGen } from "./useLessonGen";
+import { GenProgress } from "./GenProgress";
+import { useLessonGen } from "./useLessonGen";
 
 interface Props {
   lesson: Lesson;
-  /** Ouvre une histoire de leçon dans la page de lecture. */
-  onOpenStory: (story: StoryRecord) => void;
   /** Ouvre le cours (panneau latéral en split, page dédiée sinon). */
   onOpen: (lesson: Lesson) => void;
   /** Sélectionne la carte sans la déclencher (mode split). */
   selected?: boolean;
-  /** Notifie le parent qu'une histoire/état a changé (pour rafraîchir la liste). */
-  onChanged: () => void;
 }
 
 // Résumé compact des objectifs, ex. « 5 mots · 2 kanji · 1 point de grammaire ».
@@ -26,8 +22,8 @@ function summarize(lesson: Lesson): string {
   return parts.join(" · ");
 }
 
-export function LessonCard({ lesson, onOpenStory, onOpen, selected, onChanged }: Props) {
-  const { genState, busy, error, start } = useLessonGen(lesson, { onChanged, onOpenStory });
+export function LessonCard({ lesson, onOpen, selected }: Props) {
+  const { job, busy, error, start, progress, label, retry, dismiss } = useLessonGen(lesson);
 
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
@@ -92,12 +88,21 @@ export function LessonCard({ lesson, onOpenStory, onOpen, selected, onChanged }:
               : lesson.pregenerated ? "Ouvrir la leçon" : "Commencer la leçon"}
           </button>
         )}
-        {genState && busy && (
-          <span className="text-sm text-muted">Statut : {STATE_LABEL[genState]}</span>
-        )}
       </div>
 
-      {error && <p className="text-sm text-accent">{error}</p>}
+      {/* Une histoire qui se génère en arrière-plan (la leçon est déjà accessible). */}
+      {job && busy && <GenProgress label={label} progress={progress} />}
+      {error && (
+        <p className="flex flex-wrap items-center gap-3 text-sm text-accent">
+          {error}
+          <button className="cursor-pointer underline" onClick={() => void retry()}>
+            Réessayer
+          </button>
+          <button className="cursor-pointer text-muted underline" onClick={() => void dismiss()}>
+            Ignorer
+          </button>
+        </p>
+      )}
     </li>
   );
 }
