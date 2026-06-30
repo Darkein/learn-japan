@@ -247,7 +247,8 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
     variant > 1
       ? `Variante ${variant} : propose une histoire DIFFÉRENTE des variantes précédentes pour cette leçon (autre situation, autres personnages, autre angle narratif), tout en respectant les mêmes cibles grammaticales et de vocabulaire.`
       : "",
-    "Réponds uniquement avec le texte japonais : pas de furigana, pas de romaji, pas de traduction, pas de titre.",
+    "Commence ta réponse par une ligne de titre au format exactement : TITRE: [titre japonais court] | [titre français court]",
+    "Puis donne le texte japonais uniquement : pas de furigana, pas de romaji, pas de traduction.",
   ]
     .filter(Boolean)
     .join("\n");

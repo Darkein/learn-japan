@@ -23,7 +23,7 @@ function summarize(lesson: Lesson): string {
 }
 
 export function LessonCard({ lesson, onOpen, selected }: Props) {
-  const { job, busy, error, start, progress, label, retry, dismiss } = useLessonGen(lesson);
+  const { job, busy, error, progress, label, retry, dismiss } = useLessonGen(lesson);
 
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
@@ -68,27 +68,6 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
         {lesson.summary && <p className="m-0 text-muted">{lesson.summary}</p>}
         {summary && <p className="m-0 text-xs tracking-wide text-muted">{summary}</p>}
       </button>
-
-      <div className="mt-1 flex flex-wrap items-center gap-3">
-        {ready ? (
-          <button
-            className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => onOpen(lesson)}
-          >
-            Voir le cours →
-          </button>
-        ) : (
-          <button
-            className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => void start()}
-            disabled={busy}
-          >
-            {busy
-              ? lesson.pregenerated ? "Chargement…" : "Génération…"
-              : lesson.pregenerated ? "Ouvrir la leçon" : "Commencer la leçon"}
-          </button>
-        )}
-      </div>
 
       {/* Une histoire qui se génère en arrière-plan (la leçon est déjà accessible). */}
       {job && busy && <GenProgress label={label} progress={progress} />}

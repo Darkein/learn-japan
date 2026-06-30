@@ -13,6 +13,15 @@ function makeTitle(text: string): string {
   return firstLine.length > 18 ? `${firstLine.slice(0, 18)}…` : firstLine || "Sans titre";
 }
 
+function parseTitleLine(text: string): { titleJp: string; titleFr: string; body: string } | null {
+  const trimmed = text.trim();
+  const firstLine = trimmed.split(/\n/)[0] ?? "";
+  const m = firstLine.match(/^TITRE:\s*(.+?)\s*\|\s*(.+?)\s*$/);
+  if (!m) return null;
+  const body = trimmed.slice(firstLine.length).replace(/^\n+/, "");
+  return { titleJp: m[1].trim(), titleFr: m[2].trim(), body };
+}
+
 /**
  * Retire un éventuel titre Markdown (« # … ») en tête du texte généré. Le prompt
  * interdit déjà tout titre, mais le modèle en place parfois un sur la première ligne :
@@ -35,13 +44,16 @@ export async function saveStory(
   lessonId?: string,
   variant?: number,
 ): Promise<StoryRecord> {
-  const clean = stripLeadingHeading(text);
+  const stripped = stripLeadingHeading(text);
+  const parsed = parseTitleLine(stripped);
+  const clean = parsed ? parsed.body : stripped;
   const story: StoryRecord = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
-    title: makeTitle(clean),
+    title: parsed ? parsed.titleJp : makeTitle(clean),
     text: clean,
     params,
+    ...(parsed ? { titleFr: parsed.titleFr } : {}),
     ...(lessonId ? { lessonId } : {}),
     ...(variant != null ? { variant } : {}),
   };

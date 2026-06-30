@@ -69,9 +69,11 @@ export async function listGenerated(bucket: R2Bucket | undefined): Promise<Gener
   };
 
   await populate("gen/lesson/", (lessonId, rest) => {
-    if (!rest.endsWith(".json")) return;
-    if (!index[lessonId]) index[lessonId] = { cours: false, stories: [] };
-    index[lessonId].cours = true;
+    if (rest) return; // unexpected subpath
+    const id = lessonId.endsWith(".json") ? lessonId.slice(0, -5) : lessonId;
+    if (!id) return;
+    if (!index[id]) index[id] = { cours: false, stories: [] };
+    index[id].cours = true;
   });
 
   await populate("gen/lesson-story/", (lessonId, rest) => {

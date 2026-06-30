@@ -153,7 +153,7 @@ interface LearnDB extends DBSchema {
   /** Piste « compréhension » : carte FSRS dédiée par point de grammaire. */
   comprehension: { key: string; value: ComprehensionItem; indexes: { status: string } };
   reviews: { key: number; value: ReviewLog; indexes: { itemId: string } };
-  stories: { key: string; value: StoryRecord; indexes: { createdAt: number } };
+  stories: { key: string; value: StoryRecord; indexes: { createdAt: number; lessonId: string } };
   lessons: { key: string; value: GeneratedLessonRecord };
   lessonProgress: { key: string; value: LessonProgressRecord };
   /** Jobs de génération en cours (reprise après rechargement), clé = lessonId. */
@@ -174,7 +174,7 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -182,7 +182,7 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
   if (!dbPromise) {
     dbPromise = openDB<LearnDB>(DB_NAME, DB_VERSION, {
       // Upgrade additif et idempotent (gère v0 → v2 et v1 → v2).
-      upgrade(db) {
+      upgrade(db, _oldVersion, _newVersion, transaction) {
         if (!db.objectStoreNames.contains("vocab")) {
           db.createObjectStore("vocab", { keyPath: "id" }).createIndex("status", "status");
         }
@@ -221,6 +221,13 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         }
         if (!db.objectStoreNames.contains("genJobs")) {
           db.createObjectStore("genJobs", { keyPath: "lessonId" });
+        }
+        // v9: index lessonId sur stories (évite le scan complet à chaque listLessons)
+        if (db.objectStoreNames.contains("stories")) {
+          const storiesStore = transaction.objectStore("stories");
+          if (!storiesStore.indexNames.contains("lessonId")) {
+            storiesStore.createIndex("lessonId", "lessonId");
+          }
         }
       },
     });
@@ -294,8 +301,8 @@ export async function allStories(): Promise<StoryRecord[]> {
 }
 /** Histoires rattachées à une leçon (les plus anciennes d'abord : seed puis générées). */
 export async function storiesForLesson(lessonId: string): Promise<StoryRecord[]> {
-  const all = await (await getDB()).getAll("stories");
-  return all.filter((s) => s.lessonId === lessonId).sort((a, b) => a.createdAt - b.createdAt);
+  const all = await (await getDB()).getAllFromIndex("stories", "lessonId", lessonId);
+  return all.sort((a, b) => a.createdAt - b.createdAt);
 }
 
 // Leçons générées ------------------------------------------------------------

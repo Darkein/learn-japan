@@ -172,6 +172,11 @@ function loadGeneratedIndex(): Promise<GeneratedIndex> {
   return _generatedIndexPromise;
 }
 
+/** Force le rechargement de l'index R2 au prochain appel (après une génération). */
+export function invalidateGeneratedIndex(): void {
+  _generatedIndexPromise = null;
+}
+
 async function hydrate(entry: CurriculumEntry, remoteIndex: GeneratedIndex): Promise<Lesson> {
   const [generated, progress, stories] = await Promise.all([
     getGeneratedLesson(entry.id),

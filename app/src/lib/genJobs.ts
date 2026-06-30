@@ -27,6 +27,7 @@ import {
   addLessonStory,
   ensureLessonFraming,
   getLesson,
+  invalidateGeneratedIndex,
   markLessonStarted,
   type Lesson,
 } from "./lessons";
@@ -40,6 +41,8 @@ export interface JobDoneEvent {
   story?: StoryRecord;
   /** Le job incluait la génération du cours (clic « Commencer »). */
   withFraming: boolean;
+  /** Contenu servi depuis R2 (pré-généré) — pas de notification nécessaire. */
+  fromCache: boolean;
 }
 
 type ChangeListener = () => void;
@@ -125,6 +128,7 @@ async function run(job: GenJobRecord): Promise<void> {
       await remove(job.lessonId);
       return;
     }
+    const fromCache = lesson.pregenerated;
 
     // Phase 1 — le cours (framing), puis on rend la leçon accessible immédiatement.
     if (job.withFraming) {
@@ -145,8 +149,9 @@ async function run(job: GenJobRecord): Promise<void> {
     if (!story) story = await addLessonStory(lesson, job.variant);
 
     await remove(job.lessonId);
+    invalidateGeneratedIndex();
     onDataChange?.();
-    onDone?.({ lessonId: job.lessonId, title: lesson.title, story, withFraming: job.withFraming });
+    onDone?.({ lessonId: job.lessonId, title: lesson.title, story, withFraming: job.withFraming, fromCache });
   } catch (e) {
     job.status = "error";
     job.error = String(e);

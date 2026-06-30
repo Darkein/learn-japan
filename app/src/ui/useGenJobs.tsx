@@ -72,6 +72,7 @@ export function GenJobsProvider({ children }: { children: ReactNode }) {
     configureJobs({
       onDataChange: () => setDataVersion((d) => d + 1),
       onDone: (e) => {
+        if (e.fromCache) return;
         notifyRef.current({
           message: e.withFraming ? `Leçon « ${e.title} » prête.` : "Nouvelle histoire prête.",
           action: e.story ? { label: "Lire →", onClick: () => openStoryById(e.story!.id) } : undefined,

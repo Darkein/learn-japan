@@ -35,7 +35,7 @@ export type GeneratedIndex = Record<string, { cours: boolean; stories: number[] 
  */
 export async function fetchGenerated(): Promise<GeneratedIndex> {
   try {
-    const res = await fetch(`${WORKER_URL}/generated`);
+    const res = await fetch(`${WORKER_URL}/generated`, { signal: AbortSignal.timeout(8_000) });
     if (!res.ok) return {};
     const data = (await res.json()) as { lessons?: GeneratedIndex };
     return data.lessons ?? {};
@@ -63,17 +63,26 @@ export async function generateText(
   const timeoutMs = opts.timeoutMs ?? 90_000;
   onState?.("generating");
 
-  let res: Response;
-  try {
-    res = await fetch(`${WORKER_URL}/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "story", ...params }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (e) {
+  let res: Response | undefined;
+  let networkError: Error | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise<void>((r) => setTimeout(r, attempt * 1500));
+    networkError = undefined;
+    try {
+      res = await fetch(`${WORKER_URL}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "story", ...params }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      break;
+    } catch (e) {
+      networkError = new Error(`Worker injoignable : ${String(e)}`);
+    }
+  }
+  if (!res) {
     onState?.("error");
-    throw new Error(`Worker injoignable : ${String(e)}`);
+    throw networkError!;
   }
 
   const data = (await res.json().catch(() => ({}))) as GenerateResponse;

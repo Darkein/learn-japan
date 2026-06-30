@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { StoryRecord } from "../lib/db";
 import { annotateTokens, type RubySegment } from "../lib/furigana";
-import { grammarDetail, kanjiDetail } from "../lib/inventory";
+import { grammarDetail } from "../lib/inventory";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
 import { tokenize } from "../lib/tokenizer";
 import { GenProgress } from "./GenProgress";
@@ -29,8 +29,13 @@ export function CourseDetail({ lesson, onOpenStory }: Props) {
   const podcastBusy = podcast.active && podcast.preparing !== null;
 
   const ready = lesson.state === "ready";
-  // Une histoire se génère en arrière-plan (phase « story » d'un job en cours).
   const storyInProgress = busy && job?.phase === "story";
+
+  const lessonId = lesson.id;
+  useEffect(() => {
+    if (!lesson.framing && !error) void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonId]);
 
   async function read(story: StoryRecord) {
     if (story.lessonId) await markLessonStarted(story.lessonId);
@@ -56,32 +61,37 @@ export function CourseDetail({ lesson, onOpenStory }: Props) {
 
       {ready ? (
         <>
-          <h3 className="font-sans text-xs uppercase tracking-widest text-muted">Histoires</h3>
-          <ul className="flex list-none flex-col gap-1">
-            {stories.map((s) => (
-              <li key={s.id} className="flex items-baseline justify-between gap-3">
-                <span className="flex-1 truncate font-jp text-muted">{s.text}</span>
-                <button
-                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => void read(s)}
-                >
-                  Lire →
-                </button>
-              </li>
-            ))}
-            {lesson.remoteStoryVariants.map((v) => (
-              <li key={`remote-${v}`} className="flex items-baseline justify-between gap-3">
-                <span className="flex-1 text-sm text-muted italic">Histoire {v} (disponible)</span>
-                <button
-                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => void addStory(v)}
-                  disabled={busy}
-                >
-                  {busy ? "Chargement…" : "Ouvrir →"}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-2 rounded-sm border border-hairline bg-surface px-4 py-4">
+            <h3 className="mb-3 font-sans text-xs uppercase tracking-widest text-muted">Histoires</h3>
+            <ul className="flex list-none flex-col gap-2">
+              {stories.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-3">
+                  <span className="flex-1 min-w-0">
+                    <span className="font-jp text-sm text-text">{s.title}</span>
+                    {s.titleFr && <span className="ml-1 font-sans text-sm text-muted">({s.titleFr})</span>}
+                  </span>
+                  <button
+                    className="cursor-pointer shrink-0 rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void read(s)}
+                  >
+                    Lire →
+                  </button>
+                </li>
+              ))}
+              {lesson.remoteStoryVariants.map((v) => (
+                <li key={`remote-${v}`} className="flex items-center justify-between gap-3">
+                  <span className="flex-1 text-sm text-muted italic">Histoire {v} (disponible)</span>
+                  <button
+                    className="cursor-pointer shrink-0 rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void addStory(v)}
+                    disabled={busy}
+                  >
+                    {busy ? "Chargement…" : "Ouvrir →"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           {/* L'histoire se génère après le cours : la leçon est lisible pendant ce temps. */}
           {storyInProgress && <GenProgress label={label} progress={progress} />}
@@ -99,18 +109,7 @@ export function CourseDetail({ lesson, onOpenStory }: Props) {
           )}
         </>
       ) : (
-        <div className="flex flex-col gap-2">
-          <button
-            className="cursor-pointer self-start rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => void start()}
-            disabled={busy}
-          >
-            {busy
-              ? lesson.pregenerated ? "Chargement…" : "Génération…"
-              : lesson.pregenerated ? "Ouvrir la leçon" : "Commencer la leçon"}
-          </button>
-          {busy && <GenProgress label={label} progress={progress} />}
-        </div>
+        busy && <GenProgress label={label} progress={progress} />
       )}
 
       {error && (
@@ -132,7 +131,6 @@ export function CourseDetail({ lesson, onOpenStory }: Props) {
 function Cours({ lesson }: { lesson: Lesson }) {
   const [revealFurigana, setRevealFurigana] = useState(true);
   const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);
-  const kanji = lesson.introduces.kanji.map(kanjiDetail).filter((k) => k !== null);
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
@@ -148,11 +146,11 @@ function Cours({ lesson }: { lesson: Lesson }) {
       </div>
       {lesson.framing && <Markdown text={lesson.framing} reveal={revealFurigana} />}
 
-      <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2">
-        {grammar.length > 0 && (
-          <>
-            <dt className="font-sans text-xs uppercase tracking-wider text-muted">Grammaire</dt>
-            <dd className="m-0">
+      {(grammar.length > 0 || lesson.objectives.vocab.length > 0) && (
+        <div className="mt-6 flex flex-col gap-4 rounded-sm border border-hairline bg-surface px-4 py-4">
+          {grammar.length > 0 && (
+            <div>
+              <p className="mb-2 font-sans text-xs uppercase tracking-wider text-muted">Grammaire</p>
               <ul className="flex list-none flex-col gap-1">
                 {grammar.map((g) => (
                   <li key={g.id} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
@@ -163,33 +161,11 @@ function Cours({ lesson }: { lesson: Lesson }) {
                   </li>
                 ))}
               </ul>
-            </dd>
-          </>
-        )}
-        {kanji.length > 0 && (
-          <>
-            <dt className="font-sans text-xs uppercase tracking-wider text-muted">Kanji</dt>
-            <dd className="m-0">
-              <ul className="flex list-none flex-col gap-1">
-                {kanji.map((k) => (
-                  <li key={k.ja} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
-                    <span className="font-jp text-sm text-text">{k.ja}</span>
-                    <span className="font-sans text-sm text-text">
-                      {k.fr}
-                      {(k.on.length > 0 || k.kun.length > 0) && (
-                        <em> — {[...k.kun, ...k.on].slice(0, 4).join("・")}</em>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        )}
-        {lesson.objectives.vocab.length > 0 && (
-          <>
-            <dt className="font-sans text-xs uppercase tracking-wider text-muted">Vocabulaire</dt>
-            <dd className="m-0">
+            </div>
+          )}
+          {lesson.objectives.vocab.length > 0 && (
+            <div>
+              <p className="mb-2 font-sans text-xs uppercase tracking-wider text-muted">Vocabulaire</p>
               <ul className="flex list-none flex-col gap-1">
                 {lesson.objectives.vocab.map((v) => (
                   <li key={v.ja} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
@@ -203,10 +179,10 @@ function Cours({ lesson }: { lesson: Lesson }) {
                   </li>
                 ))}
               </ul>
-            </dd>
-          </>
-        )}
-      </dl>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -222,11 +198,12 @@ function Cours({ lesson }: { lesson: Lesson }) {
 
 type Block =
   | { kind: "heading"; level: number; text: string }
+  | { kind: "hr" }
   | { kind: "ul"; items: string[] }
   | { kind: "ol"; items: string[] }
   | { kind: "table"; head: string[]; rows: string[][] }
   | { kind: "example"; pairs: { jp: string; fr?: string }[] }
-  | { kind: "callout"; ctype: "info" | "warning" | "pitfall" | "summary"; lines: string[] }
+  | { kind: "callout"; ctype: "info" | "warning" | "pitfall" | "summary"; body: string }
   | { kind: "para"; lines: string[] };
 
 function parseBlocks(text: string): Block[] {
@@ -237,19 +214,26 @@ function parseBlocks(text: string): Block[] {
   while (i < lines.length) {
     const line = lines[i];
 
-    if (line.trim() === "") {
-      i++;
-      continue;
-    }
+    if (line.trim() === "") { i++; continue; }
 
-    // Fenced block :::type … :::
+    // Orphaned closing ::: — skip to avoid infinite loop
+    if (line.trim() === ":::") { i++; continue; }
+
+    // Horizontal rule
+    if (line.trim() === "---") { blocks.push({ kind: "hr" }); i++; continue; }
+
+    // Fenced block :::type … ::: with nested-depth tracking
     const fenceMatch = line.match(/^:::(\w+)\s*$/);
     if (fenceMatch) {
       const ftype = fenceMatch[1];
       i++;
       const body: string[] = [];
-      while (i < lines.length && lines[i].trim() !== ":::") {
-        body.push(lines[i]);
+      let depth = 1;
+      while (i < lines.length) {
+        const bl = lines[i];
+        if (/^:::\w/.test(bl)) depth++;
+        else if (bl.trim() === ":::") { depth--; if (depth === 0) break; }
+        body.push(bl);
         i++;
       }
       i++; // consume closing :::
@@ -260,8 +244,7 @@ function parseBlocks(text: string): Block[] {
         for (const bl of body) {
           if (bl.trim() === "") continue;
           if (bl.startsWith("> ") || bl === ">") {
-            const fr = bl.startsWith("> ") ? bl.slice(2) : bl.slice(1);
-            pairs.push({ jp: pendingJp ?? "", fr });
+            pairs.push({ jp: pendingJp ?? "", fr: bl.startsWith("> ") ? bl.slice(2) : bl.slice(1) });
             pendingJp = null;
           } else {
             if (pendingJp !== null) pairs.push({ jp: pendingJp });
@@ -272,15 +255,16 @@ function parseBlocks(text: string): Block[] {
         const valid = pairs.filter((p) => p.jp !== "" || p.fr);
         if (valid.length > 0) blocks.push({ kind: "example", pairs: valid });
       } else if (ftype === "info" || ftype === "warning" || ftype === "pitfall" || ftype === "summary") {
-        blocks.push({ kind: "callout", ctype: ftype, lines: body });
+        blocks.push({ kind: "callout", ctype: ftype, body: body.join("\n") });
       }
       continue;
     }
 
-    // Heading # / ## / ###
-    const headingMatch = line.match(/^(#{1,3})\s+(.*)$/);
+    // Heading # / ## / ### (4+ hashes silently skipped)
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
     if (headingMatch) {
-      blocks.push({ kind: "heading", level: headingMatch[1].length, text: headingMatch[2] });
+      if (headingMatch[1].length <= 3)
+        blocks.push({ kind: "heading", level: headingMatch[1].length, text: headingMatch[2] });
       i++;
       continue;
     }
@@ -288,31 +272,20 @@ function parseBlocks(text: string): Block[] {
     // Table pipe
     if (line.trim().startsWith("|")) {
       const tlines: string[] = [];
-      while (i < lines.length && lines[i].trim().startsWith("|")) {
-        tlines.push(lines[i]);
-        i++;
-      }
-      const parseRow = (l: string) =>
-        l
-          .split("|")
-          .slice(1, -1)
-          .map((c) => c.trim());
+      while (i < lines.length && lines[i].trim().startsWith("|")) { tlines.push(lines[i]); i++; }
+      const parseRow = (l: string) => l.split("|").slice(1, -1).map((c) => c.trim());
       const isSep = (l: string) => /^\|[\s\-:|]+\|$/.test(l.trim());
       const nonSep = tlines.filter((l) => !isSep(l));
       const [headLine, ...rowLines] = nonSep;
-      if (headLine) {
-        blocks.push({ kind: "table", head: parseRow(headLine), rows: rowLines.map(parseRow) });
-      }
+      if (headLine) blocks.push({ kind: "table", head: parseRow(headLine), rows: rowLines.map(parseRow) });
       continue;
     }
 
     // Bullet list
     if (/^\s*[-*]\s+/.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
-        i++;
-      }
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i]))
+        items.push(lines[i++].replace(/^\s*[-*]\s+/, ""));
       blocks.push({ kind: "ul", items });
       continue;
     }
@@ -320,10 +293,8 @@ function parseBlocks(text: string): Block[] {
     // Ordered list
     if (/^\s*\d+\.\s+/.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*\d+\.\s+/, ""));
-        i++;
-      }
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i]))
+        items.push(lines[i++].replace(/^\s*\d+\.\s+/, ""));
       blocks.push({ kind: "ol", items });
       continue;
     }
@@ -333,7 +304,7 @@ function parseBlocks(text: string): Block[] {
     while (i < lines.length) {
       const l = lines[i];
       if (l.trim() === "") break;
-      if (/^:::/.test(l) || /^#{1,3}\s/.test(l) || l.trim().startsWith("|") || /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l)) break;
+      if (/^:::/.test(l) || /^#{1,6}\s/.test(l) || l.trim().startsWith("|") || /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l) || l.trim() === "---") break;
       plines.push(l);
       i++;
     }
@@ -343,56 +314,57 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
+function renderBlock(b: Block, idx: number | string, reveal: boolean): ReactNode {
+  if (b.kind === "heading") {
+    const headingClass =
+      b.level === 1
+        ? "mt-8 mb-2 font-sans text-sm font-semibold text-accent first:mt-0"
+        : b.level === 2
+          ? "mt-6 mb-1 font-sans text-sm font-semibold text-text border-b border-hairline pb-0.5 first:mt-0"
+          : "mt-4 mb-1 font-sans text-xs font-medium text-muted first:mt-0";
+    return (
+      <h4 key={idx} className={headingClass}>
+        {inlineContent(b.text, `h${idx}`, reveal)}
+      </h4>
+    );
+  }
+  if (b.kind === "hr")
+    return <hr key={idx} className="my-2 border-hairline" />;
+  if (b.kind === "ul")
+    return (
+      <ul key={idx} className="ml-4 list-disc space-y-1">
+        {b.items.map((item, j) => <li key={j}>{inlineContent(item, `ul${idx}-${j}`, reveal)}</li>)}
+      </ul>
+    );
+  if (b.kind === "ol")
+    return (
+      <ol key={idx} className="ml-4 list-decimal space-y-1">
+        {b.items.map((item, j) => <li key={j}>{inlineContent(item, `ol${idx}-${j}`, reveal)}</li>)}
+      </ol>
+    );
+  if (b.kind === "table")
+    return <TableBlock key={idx} head={b.head} rows={b.rows} reveal={reveal} />;
+  if (b.kind === "example")
+    return <ExampleBlock key={idx} pairs={b.pairs} reveal={reveal} />;
+  if (b.kind === "callout")
+    return <Callout key={idx} ctype={b.ctype} body={b.body} reveal={reveal} />;
+  return (
+    <p key={idx}>
+      {b.lines.map((l, j) => (
+        <span key={j}>
+          {j > 0 && <br />}
+          {inlineContent(l, `p${idx}-${j}`, reveal)}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function Markdown({ text, reveal }: { text: string; reveal: boolean }) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
     <div className="space-y-2">
-      {blocks.map((b, idx) => {
-        if (b.kind === "heading") {
-          return (
-            <h4 key={idx} className="mt-3 font-sans text-xs uppercase tracking-wider text-muted first:mt-0">
-              {inlineContent(b.text, `h${idx}`, reveal)}
-            </h4>
-          );
-        }
-        if (b.kind === "ul") {
-          return (
-            <ul key={idx} className="ml-4 list-disc space-y-1">
-              {b.items.map((item, j) => (
-                <li key={j}>{inlineContent(item, `ul${idx}-${j}`, reveal)}</li>
-              ))}
-            </ul>
-          );
-        }
-        if (b.kind === "ol") {
-          return (
-            <ol key={idx} className="ml-4 list-decimal space-y-1">
-              {b.items.map((item, j) => (
-                <li key={j}>{inlineContent(item, `ol${idx}-${j}`, reveal)}</li>
-              ))}
-            </ol>
-          );
-        }
-        if (b.kind === "table") {
-          return <TableBlock key={idx} head={b.head} rows={b.rows} reveal={reveal} />;
-        }
-        if (b.kind === "example") {
-          return <ExampleBlock key={idx} pairs={b.pairs} reveal={reveal} />;
-        }
-        if (b.kind === "callout") {
-          return <Callout key={idx} ctype={b.ctype} lines={b.lines} reveal={reveal} />;
-        }
-        return (
-          <p key={idx}>
-            {b.lines.map((l, j) => (
-              <span key={j}>
-                {j > 0 && <br />}
-                {inlineContent(l, `p${idx}-${j}`, reveal)}
-              </span>
-            ))}
-          </p>
-        );
-      })}
+      {blocks.map((b, idx) => renderBlock(b, idx, reveal))}
     </div>
   );
 }
@@ -408,7 +380,7 @@ function inlineContent(text: string, keyBase: string, reveal: boolean, markClass
   while ((m = re.exec(text)) != null) {
     if (m.index > last) parts.push(...withJpFurigana(text.slice(last, m.index), `${keyBase}-t${key}`, reveal));
     if (m[1] !== undefined) {
-      parts.push(<strong key={`${keyBase}-b${key}`} className={markClassName}>{withJpFurigana(m[1], `${keyBase}-bs${key}`, reveal)}</strong>);
+      parts.push(<strong key={`${keyBase}-b${key}`} className={["text-accent", markClassName].filter(Boolean).join(" ")}>{withJpFurigana(m[1], `${keyBase}-bs${key}`, reveal)}</strong>);
     } else {
       parts.push(<em key={`${keyBase}-i${key}`} className={markClassName}>{withJpFurigana(m[2], `${keyBase}-is${key}`, reveal)}</em>);
     }
@@ -461,7 +433,7 @@ function JpText({ text, reveal }: { text: string; reveal: boolean }) {
 
 function ExampleBlock({ pairs, reveal }: { pairs: { jp: string; fr?: string }[]; reveal: boolean }) {
   return (
-    <div className="my-1 space-y-3 rounded-sm border border-hairline bg-surface px-4 py-3">
+    <div className="my-3 space-y-3 rounded-sm border border-hairline bg-surface px-4 py-3">
       {pairs.map((pair, i) => (
         <div key={i}>
           {pair.jp && (
@@ -477,37 +449,32 @@ function ExampleBlock({ pairs, reveal }: { pairs: { jp: string; fr?: string }[];
 }
 
 const CALLOUT_CONFIG: Record<string, { borderColor: string; icon: string; label: string }> = {
-  info: { borderColor: "var(--accent-2)", icon: "ℹ", label: "Note" },
+  info: { borderColor: "var(--accent)", icon: "ℹ", label: "Note" },
   warning: { borderColor: "var(--accent)", icon: "⚠", label: "Attention" },
   pitfall: { borderColor: "var(--state-review)", icon: "✗", label: "Piège fréquent" },
-  summary: { borderColor: "var(--accent-2)", icon: "★", label: "À retenir" },
+  summary: { borderColor: "var(--accent)", icon: "★", label: "À retenir" },
 };
 
 function Callout({
   ctype,
-  lines,
+  body,
   reveal,
 }: {
   ctype: "info" | "warning" | "pitfall" | "summary";
-  lines: string[];
+  body: string;
   reveal: boolean;
 }) {
   const cfg = CALLOUT_CONFIG[ctype] ?? CALLOUT_CONFIG.info;
+  const blocks = useMemo(() => parseBlocks(body), [body]);
   return (
     <aside
-      className="space-y-1 rounded-r-sm border-l-4 bg-surface px-4 py-3"
+      className="my-3 space-y-1 rounded-r-sm border-l-4 bg-surface px-4 py-3"
       style={{ borderLeftColor: cfg.borderColor }}
     >
       <p className="mb-1 font-sans text-xs uppercase tracking-wider text-muted">
         {cfg.icon} {cfg.label}
       </p>
-      {lines.map((line, i) =>
-        line.trim() === "" ? null : (
-          <p key={i} className="text-sm">
-            {inlineContent(line, `cl${i}`, reveal)}
-          </p>
-        ),
-      )}
+      {blocks.map((b, i) => renderBlock(b, i, reveal))}
     </aside>
   );
 }
