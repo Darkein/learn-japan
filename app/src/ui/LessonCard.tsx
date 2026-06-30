@@ -39,7 +39,10 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
     >
       <button
         className="group flex w-full cursor-pointer flex-col gap-2 text-left"
-        onClick={() => onOpen(lesson)}
+        onClick={() => {
+          if (lesson.locked) void markLessonStarted(lesson.id);
+          onOpen(lesson);
+        }}
       >
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="font-serif text-sm tracking-widest text-muted">

@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { _resetDbForTests, putLessonProgress, getLessonProgress } from "./db";
+import { _resetDbForTests, putLessonProgress, getLessonProgress, putVocab, putKanji, putGrammar } from "./db";
 import { State } from "./srs";
 import type { Card } from "ts-fsrs";
 
@@ -126,6 +126,53 @@ describe("locked / prevMastery dans listLessons", () => {
     await putLessonProgress({ id: lessons[1].id, startedAt: Date.now() });
     const lessons2 = await listLessons();
     expect(lessons2[1].locked).toBe(false);
+  });
+
+  it("locked=false quand prev mastery >= 0.8 (items maîtrisés en DB)", async () => {
+    const { getCurriculum } = await import("./lessons");
+    const curriculum = getCurriculum();
+    if (curriculum.length < 2) return;
+    const prev = curriculum[0];
+    // Seed tous les items introduces de la première leçon comme maîtrisés
+    for (const id of prev.introduces.vocab) {
+      await putVocab({
+        id,
+        surface: id,
+        reading: "",
+        meaning: "",
+        tags: [],
+        status: "known",
+        cards: { written: masteredCard() },
+      });
+    }
+    for (const id of prev.introduces.kanji) {
+      await putKanji({
+        id,
+        kanji: id,
+        meanings: [],
+        on: [],
+        kun: [],
+        tags: [],
+        status: "known",
+        card: masteredCard(),
+      });
+    }
+    for (const id of prev.introduces.grammar) {
+      await putGrammar({
+        id,
+        name: id,
+        rule: "",
+        examples: [],
+        tags: [],
+        status: "known",
+        card: masteredCard(),
+      });
+    }
+    const lessons = await listLessons();
+    if (lessons.length < 2) return;
+    expect(lessons[0].mastery).toBeCloseTo(1.0);
+    expect(lessons[1].prevMastery).toBeCloseTo(1.0);
+    expect(lessons[1].locked).toBe(false);
   });
 });
 
