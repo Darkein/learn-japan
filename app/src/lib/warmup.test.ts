@@ -50,6 +50,7 @@ describe("échauffement SRS (existant)", () => {
     const card = (await dueCards(NOW)).find((c) => c.id === "猫|ねこ")!;
     expect(card.mode).toBe("type");
     expect(card.front).toBe("chat");
+    if (card.mode !== "type") throw new Error("expected type exercise");
     expect(card.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 

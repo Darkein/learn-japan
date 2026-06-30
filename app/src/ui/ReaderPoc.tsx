@@ -6,10 +6,8 @@ import { markLessonCompleted, type LessonObjectives } from "../lib/lessons";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
-import { Comprehension } from "./Comprehension";
-import { Quiz } from "./Quiz";
+import { ReaderExercises } from "./ReaderExercises";
 import { Ruby } from "./Ruby";
-import { SentenceBuilder } from "./SentenceBuilder";
 import { useSettings } from "./useSettings";
 import { StoryTranslation } from "./StoryTranslation";
 import { WordSheet } from "./WordSheet";
@@ -26,6 +24,7 @@ export interface LessonContext {
 export interface IncomingStory {
   /** Identifiant de l'histoire en base (cache du QCM de compréhension). Absent si non enregistrée. */
   id?: string;
+  title?: string;
   text: string;
   params: StoryParams;
   nonce: number;
@@ -51,13 +50,9 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
-  const [revealFurigana, setRevealFurigana] = useState(() => settings.furiganaDefault);
-  const [revealGloss, setRevealGloss] = useState(() => settings.glossDefault);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
-  const [quizOpen, setQuizOpen] = useState(false);
-  const [compOpen, setCompOpen] = useState(false);
+  const [exoOpen, setExoOpen] = useState(false);
   const [transOpen, setTransOpen] = useState(false);
-  const [buildOpen, setBuildOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,10 +79,8 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
     setLoading(true);
     setError(null);
     setOpenIdx(null);
-    setQuizOpen(false);
-    setCompOpen(false);
+    setExoOpen(false);
     setTransOpen(false);
-    setBuildOpen(false);
     try {
       const analyzed = await analyze(t);
       setResult(analyzed);
@@ -173,9 +166,9 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
                     className={`font-jp text-2xl border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
                     style={{ borderBottomColor: underlineColor(tok, statuses) }}
                   >
-                    <Ruby segments={tok.segments} reveal={revealFurigana} />
+                    <Ruby segments={tok.segments} reveal={settings.furiganaDefault} />
                   </span>
-                  {revealGloss && (
+                  {settings.glossDefault && (
                     <span
                       className={`max-w-24 truncate text-center font-sans text-xs leading-none text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
                       title={g.gloss}
@@ -201,28 +194,10 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
                   : "▶ Écouter l'article"}
             </button>
             <button
-              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setRevealFurigana((v) => !v)}
-            >
-              {revealFurigana ? "Masquer furigana" : "Afficher furigana"}
-            </button>
-            <button
-              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setRevealGloss((v) => !v)}
-            >
-              {revealGloss ? "Masquer gloss" : "Afficher gloss"}
-            </button>
-            <button
               className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setQuizOpen((v) => !v)}
+              onClick={() => setExoOpen(true)}
             >
-              {quizOpen ? "Fermer le quiz" : "Quiz de lecture"}
-            </button>
-            <button
-              className="cursor-pointer rounded-sm border border-accent px-4 py-2 text-accent transition-colors hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setCompOpen((v) => !v)}
-            >
-              {compOpen ? "Fermer le QCM" : "QCM de compréhension"}
+              Exercices
             </button>
             <button
               className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
@@ -230,44 +205,27 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
             >
               {transOpen ? "Masquer la traduction" : "Traduction française"}
             </button>
-            <button
-              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setBuildOpen((v) => !v)}
-            >
-              {buildOpen ? "Fermer la reconstruction" : "Reconstruire les phrases"}
-            </button>
           </div>
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
 
-          {quizOpen && (
-            <Quiz tokens={result.tokens.map((t) => t.token)} onClose={() => setQuizOpen(false)} />
-          )}
-
-          {compOpen && (
-            <Comprehension
+          {exoOpen && (
+            <ReaderExercises
               storyId={incoming.id}
               text={incoming.text}
               level={incoming.params.level ?? lessonCtx?.level ?? 5}
+              tokens={result.tokens.map((t) => t.token)}
               grammar={
                 lessonCtx
                   ? { ids: lessonCtx.grammarIds ?? [], labels: lessonCtx.objectives?.grammar ?? [] }
                   : undefined
               }
-              onClose={() => setCompOpen(false)}
+              onClose={() => setExoOpen(false)}
             />
           )}
 
           {transOpen && (
             <StoryTranslation
-              storyId={incoming.id}
-              text={incoming.text}
-              level={incoming.params.level ?? lessonCtx?.level ?? 5}
-            />
-          )}
-
-          {buildOpen && (
-            <SentenceBuilder
               storyId={incoming.id}
               text={incoming.text}
               level={incoming.params.level ?? lessonCtx?.level ?? 5}

@@ -147,22 +147,13 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 /** Cours d'une leçon : assemblé depuis l'inventaire (grammaire, vocab) + cadrage rédigé. */
 function Cours({ lesson }: { lesson: Lesson }) {
   const { settings } = useSettings();
-  const [revealFurigana, setRevealFurigana] = useState(() => settings.furiganaDefault);
   const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-sans text-sm uppercase tracking-widest text-muted">Le cours</h3>
-        {lesson.framing && (
-          <button
-            className="cursor-pointer text-xs text-muted hover:text-text"
-            onClick={() => setRevealFurigana((v) => !v)}
-          >
-            {revealFurigana ? "Masquer furigana" : "Afficher furigana"}
-          </button>
-        )}
       </div>
-      {lesson.framing && <Markdown text={lesson.framing} reveal={revealFurigana} />}
+      {lesson.framing && <Markdown text={lesson.framing} reveal={settings.furiganaDefault} />}
 
       {(grammar.length > 0 || lesson.objectives.vocab.length > 0) && (
         <div className="mt-6 flex flex-col gap-4 rounded-sm border border-hairline bg-surface px-4 py-4">

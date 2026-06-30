@@ -1,45 +1,26 @@
 // Échauffement de révision (SPEC §5) : les éléments SRS dus, toutes pistes confondues,
-// triés par urgence — recall rapide avant la lecture.
+// triés par urgence — recall rapide avant la lecture. Tous les exercices exigent un input
+// (QCM, saisie, ou construction) ; voir lib/exercise.ts.
 
 import {
   allComprehension,
   allGrammar,
   allVocab,
   bumpSrsDaily,
-  getComprehensionItem,
   getDB,
   getGrammar,
   getSrsDaily,
   getVocab,
-  logReview,
-  putComprehensionItem,
   putGrammar,
   putVocab,
 } from "./db";
+import { gradeExercise, type Exercise } from "./exercise";
+import { comprehensionReviewExercise, grammarReviewExercise } from "./exerciseBuild";
 import { normalizeReading } from "./kana";
 import { getCurriculumEntry } from "./lessons";
-import { isDue, newCard, review, type SrsGrade } from "./srs";
+import { isDue, newCard, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
-
-export interface WarmupCard {
-  key: string;
-  track: "vocab" | "grammar" | "comprehension";
-  id: string;
-  front: string;
-  back: string;
-  due: number;
-  /** "type" = rappel actif ; "reveal" = révélation + auto-note ; "listen" = écoute. */
-  mode: "type" | "reveal" | "listen";
-  /** Réponses NORMALISÉES acceptées (mode "type"). */
-  answers?: string[];
-  /** Consigne courte affichée au-dessus du champ (mode "type"). */
-  prompt?: string;
-  /** Phrase d'origine (pour carte contextuelle — Task 5). */
-  context?: string;
-  /** Élément difficile (≥ SRS.leechLapses échecs). */
-  isLeech?: boolean;
-}
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
@@ -100,27 +81,27 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
 export async function buildSession(
   now: Date = new Date(),
   opts: SessionOpts = {},
-): Promise<WarmupCard[]> {
+): Promise<Exercise[]> {
   const scope = opts.scope ?? "due";
 
-  let cards: WarmupCard[];
+  let exercises: Exercise[];
   if (scope === "all") {
     if (!opts.lessonId) return [];
-    cards = await buildSessionAll(opts.lessonId, now);
+    exercises = await buildSessionAll(opts.lessonId, now);
   } else {
-    cards = await buildSessionDue(now);
+    exercises = await buildSessionDue(now);
   }
 
   const leeches = await leechIds();
-  for (const card of cards) {
-    if (leeches.has(card.id)) card.isLeech = true;
+  for (const ex of exercises) {
+    if (leeches.has(ex.id)) ex.isLeech = true;
   }
-  return cards;
+  return exercises;
 }
 
-async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
+async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
-  const out: WarmupCard[] = [];
+  const out: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
   // Collecte items dus (avec carte FSRS)
@@ -129,13 +110,13 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
     if (c && isDue(c, horizon)) {
       const hasMeaning = !!v.meaning && v.meaning !== "—";
       out.push({
+        mode: "type",
         key: `vocab:${v.id}`,
         track: "vocab",
         id: v.id,
         front: hasMeaning ? v.meaning : v.surface,
         back: `${v.surface}（${v.reading}）`,
         due: c.due.getTime(),
-        mode: "type",
         prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
         answers: hasMeaning
           ? [normalizeReading(v.surface), normalizeReading(v.reading)]
@@ -146,32 +127,16 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
   }
   for (const g of await allGrammar()) {
     if (g.card && isDue(g.card, horizon)) {
-      out.push({
-        key: `grammar:${g.id}`,
-        track: "grammar",
-        id: g.id,
-        front: g.name,
-        back: g.rule || "—",
-        due: g.card.due.getTime(),
-        mode: "reveal",
-      });
+      out.push(await grammarReviewExercise(g, g.card.due.getTime()));
     }
   }
   for (const c of await allComprehension()) {
     if (c.card && isDue(c.card, horizon)) {
-      out.push({
-        key: `comprehension:${c.id}`,
-        track: "comprehension",
-        id: c.id,
-        front: `Compréhension — ${c.name}`,
-        back: c.rule || "—",
-        due: c.card.due.getTime(),
-        mode: "reveal",
-      });
+      out.push(comprehensionReviewExercise(c, c.card.due.getTime()));
     }
   }
 
-  // Listen cards (max 5) — vocab dus avec phrase d'exemple
+  // Cartes écoute (max 5) — vocab dus avec phrase d'exemple
   let listenCount = 0;
   for (const v of await allVocab()) {
     if (listenCount >= 5) break;
@@ -179,13 +144,14 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
     if (c && isDue(c, horizon) && v.example?.ja) {
       const hasMeaning = !!v.meaning && v.meaning !== "—";
       out.push({
+        mode: "type",
         key: `vocab-listen:${v.id}`,
         track: "vocab",
         id: v.id,
         front: v.example.ja,
         back: `${v.surface}（${v.reading}）— ${v.meaning}`,
         due: c.due.getTime(),
-        mode: "listen",
+        audio: { word: v.surface },
         context: v.example.ja,
         prompt: "Écoute et tape le mot souligné",
         answers: hasMeaning
@@ -202,7 +168,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
   const budget = Math.max(0, s.newPerDay - (daily?.introduced ?? 0));
 
   if (out.length < s.dailyGoal && budget > 0) {
-    const newCards: WarmupCard[] = [];
+    const newCards: Exercise[] = [];
     const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length));
 
     // Vocab sans carte
@@ -215,13 +181,13 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
         await bumpSrsDaily(dateStr, { introduced: 1 });
         const hasMeaning = !!v.meaning && v.meaning !== "—";
         newCards.push({
+          mode: "type",
           key: `vocab:${v.id}`,
           track: "vocab",
           id: v.id,
           front: hasMeaning ? v.meaning : v.surface,
           back: `${v.surface}（${v.reading}）`,
           due: card.due.getTime(),
-          mode: "type",
           prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
           answers: hasMeaning
             ? [normalizeReading(v.surface), normalizeReading(v.reading)]
@@ -231,7 +197,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
       }
     }
 
-    // Grammar sans carte
+    // Grammaire sans carte
     if (newCards.length < toPromote) {
       for (const g of await allGrammar()) {
         if (newCards.length >= toPromote) break;
@@ -240,15 +206,7 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
           g.card = card;
           await putGrammar(g);
           await bumpSrsDaily(dateStr, { introduced: 1 });
-          newCards.push({
-            key: `grammar:${g.id}`,
-            track: "grammar",
-            id: g.id,
-            front: g.name,
-            back: g.rule || "—",
-            due: card.due.getTime(),
-            mode: "reveal",
-          });
+          newCards.push(await grammarReviewExercise(g, card.due.getTime()));
         }
       }
     }
@@ -256,14 +214,14 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
     out.push(...newCards);
   }
 
-  return out.sort((a, b) => a.due - b.due);
+  return out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
 }
 
-async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[]> {
+async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]> {
   const entry = getCurriculumEntry(lessonId);
   if (!entry) return [];
 
-  const out: WarmupCard[] = [];
+  const out: Exercise[] = [];
   const { vocab: vocabIds, grammar: grammarIds } = entry.introduces;
 
   // Vocab
@@ -277,13 +235,13 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[
     const c = v.cards.written!;
     const hasMeaning = !!v.meaning && v.meaning !== "—";
     out.push({
+      mode: "type",
       key: `vocab:${v.id}`,
       track: "vocab",
       id: v.id,
       front: hasMeaning ? v.meaning : v.surface,
       back: `${v.surface}（${v.reading}）`,
       due: c.due.getTime(),
-      mode: "type",
       prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
       answers: hasMeaning
         ? [normalizeReading(v.surface), normalizeReading(v.reading)]
@@ -292,7 +250,7 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[
     });
   }
 
-  // Grammar
+  // Grammaire
   for (const id of grammarIds) {
     const g = await getGrammar(id);
     if (!g) continue;
@@ -300,42 +258,16 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<WarmupCard[
       g.card = newCard(now);
       await putGrammar(g);
     }
-    const c = g.card!;
-    out.push({
-      key: `grammar:${g.id}`,
-      track: "grammar",
-      id: g.id,
-      front: g.name,
-      back: g.rule || "—",
-      due: c.due.getTime(),
-      mode: "reveal",
-    });
+    out.push(await grammarReviewExercise(g, g.card!.due.getTime()));
   }
 
   // Urgents d'abord, nouveaux à la fin
-  return out.sort((a, b) => a.due - b.due);
+  return out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
 }
 
-/** Note une carte d'échauffement et replanifie via FSRS. */
-export async function gradeCard(card: WarmupCard, grade: SrsGrade, now: Date = new Date()): Promise<void> {
-  if (card.track === "vocab") {
-    const v = await getVocab(card.id);
-    if (!v?.cards.written) return;
-    v.cards.written = review(v.cards.written, grade, now);
-    v.status = grade === "easy" ? "known" : "review";
-    await putVocab(v);
-  } else if (card.track === "comprehension") {
-    const c = await getComprehensionItem(card.id);
-    if (!c?.card) return;
-    c.card = review(c.card, grade, now);
-    await putComprehensionItem(c);
-  } else {
-    const g = await getGrammar(card.id);
-    if (!g?.card) return;
-    g.card = review(g.card, grade, now);
-    await putGrammar(g);
-  }
-  await logReview({ itemId: card.id, track: card.track, grade, at: now.getTime() });
+/** Note un exercice d'échauffement et replanifie via FSRS. */
+export async function gradeCard(ex: Exercise, grade: SrsGrade, now: Date = new Date()): Promise<void> {
+  await gradeExercise(ex, grade, now);
   await bumpSrsDaily(localDateString(now), { reviewed: 1 });
 }
 

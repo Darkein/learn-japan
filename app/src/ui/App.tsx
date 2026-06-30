@@ -39,6 +39,7 @@ function buildIncoming(story: StoryRecord): IncomingStory {
   const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
   return {
     id: story.id,
+    title: story.titleFr ?? story.title,
     text: story.text,
     params: story.params,
     nonce: Date.now(),
@@ -162,7 +163,7 @@ function AppShell() {
   if (route.kind === "reader" && reader) {
     return (
       <div className={SHELL}>
-        <ReaderPage title={reader.incoming.lessonContext?.title ?? "Lecture"} onBack={back}>
+        <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
           <ReaderPoc incoming={reader.incoming} onComplete={back} />
         </ReaderPage>
       </div>
@@ -212,7 +213,7 @@ function AppShell() {
           Learn Japan<span className="ml-2 text-lg text-accent">日本語</span>
         </h1>
         <button
-          className="cursor-pointer px-2 py-1 text-lg leading-none text-muted hover:text-text"
+          className="cursor-pointer px-2 py-1 text-xl leading-none text-muted hover:text-text"
           onClick={openPanel}
           aria-label="Paramètres"
         >

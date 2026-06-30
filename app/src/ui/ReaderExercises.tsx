@@ -1,0 +1,169 @@
+import { useEffect, useState, type ReactNode } from "react";
+import { analyze } from "../lib/analyze";
+import { comprehensionExercises, particleExercises, sentenceBuildExercises } from "../lib/exerciseBuild";
+import { daysBeforeGrade, gradeExercise, TRACK_FR, type Exercise } from "../lib/exercise";
+import type { GenState } from "../lib/genClient";
+import { ensureStoryTranslationById, splitJaSentences } from "../lib/podcast";
+import type { SrsGrade } from "../lib/srs";
+import { ensureComprehensionQuiz } from "../lib/stories";
+import type { KuromojiToken } from "../lib/tokenizer";
+import { ExerciseCard } from "./ExerciseCard";
+import { SessionSummary } from "./SessionSummary";
+
+const STATE_LABEL: Record<GenState, string> = {
+  queued: "en file",
+  generating: "génération…",
+  ready: "prêt",
+  error: "erreur",
+  unknown: "…",
+};
+
+interface Props {
+  /** Identifiant de l'histoire en base (cache le QCM/la traduction). Absent pour une lecture libre. */
+  storyId?: string;
+  text: string;
+  level: number;
+  /** Tokens de l'article entier, pour le quiz de particules. */
+  tokens: KuromojiToken[];
+  /** Points de grammaire de la leçon (mêmes index pour ids/labels) ; absent hors leçon. */
+  grammar?: { ids: string[]; labels: string[] };
+  onClose: () => void;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function buildSentenceExercises(
+  storyId: string | undefined,
+  text: string,
+  level: number,
+): Promise<Exercise[]> {
+  const { sentences: fr } = await ensureStoryTranslationById(storyId, text, level);
+  const ja = splitJaSentences(text);
+  const sentences: { fr: string; tokens: KuromojiToken[] }[] = [];
+  for (let k = 0; k < ja.length; k++) {
+    const analyzed = await analyze(ja[k]);
+    sentences.push({ fr: fr[k] ?? "", tokens: analyzed.tokens.map((t) => t.token) });
+  }
+  return sentenceBuildExercises(sentences);
+}
+
+/**
+ * Session d'exercices du Lecteur, plein écran : particules, QCM de compréhension et
+ * reconstruction de phrases mélangés en un seul deck, terminée par le Bilan partagé
+ * (cf. `SessionSummary`, factorisé depuis l'Échauffement).
+ */
+export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose }: Props) {
+  const [fullDeck, setFullDeck] = useState<Exercise[] | null>(null);
+  const [deck, setDeck] = useState<Exercise[] | null>(null);
+  const [genState, setGenState] = useState<GenState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [i, setI] = useState(0);
+  const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    setGenState("queued");
+    (async () => {
+      const particles = particleExercises(tokens);
+      const [comp, built] = await Promise.all([
+        ensureComprehensionQuiz(storyId, text, level, grammar ?? { ids: [], labels: [] }, (s) => {
+          if (!cancelled) setGenState(s);
+        }).then(comprehensionExercises),
+        buildSentenceExercises(storyId, text, level),
+      ]);
+      return shuffle([...particles, ...comp, ...built]);
+    })()
+      .then((mixed) => {
+        if (cancelled) return;
+        setGenState("ready");
+        setFullDeck(mixed);
+        setDeck(mixed);
+        if (mixed.length === 0) setError("Pas d'exercice disponible pour cette histoire.");
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setGenState("error");
+        setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Régénère si l'histoire change ; les autres props sont stables pour une histoire donnée.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyId, text]);
+
+  const card = deck && i < deck.length ? deck[i] : null;
+
+  function shell(body: ReactNode) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
+        <div className="mx-auto flex max-w-[44rem] flex-col gap-4 px-4 py-6">
+          <button
+            className="cursor-pointer self-end rounded-sm border border-hairline px-3 py-1 text-sm text-text transition-colors hover:border-accent"
+            onClick={onClose}
+          >
+            ✕ Fermer
+          </button>
+          {body}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) return shell(<p className="text-sm text-accent">{error}</p>);
+
+  if (!deck) {
+    return shell(
+      <p className="text-sm text-muted">
+        Préparation des exercices… {genState ? STATE_LABEL[genState] : ""}
+      </p>,
+    );
+  }
+
+  if (i >= deck.length || !card) {
+    function restart(replay?: Exercise[]) {
+      setResults([]);
+      setI(0);
+      setDeck(replay ?? shuffle(fullDeck ?? []));
+    }
+
+    return shell(
+      <SessionSummary
+        results={results}
+        title="Exercices terminés"
+        onRestart={() => restart()}
+        onReplayMissed={(missed) => restart(missed)}
+        onClose={onClose}
+      />,
+    );
+  }
+
+  function nextCard() {
+    setI((n) => n + 1);
+  }
+
+  async function persistGrade(g: SrsGrade) {
+    const graded = card!;
+    const daysBefore = await daysBeforeGrade(graded);
+    await gradeExercise(graded, g);
+    setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
+  }
+
+  return shell(
+    <div className="flex flex-col gap-4">
+      <span className="text-xs uppercase tracking-wider text-muted">
+        Exercices {i + 1} / {deck.length} ·{" "}
+        <span className="text-accent-2">{TRACK_FR[card.track]}</span>
+      </span>
+      <ExerciseCard key={card.key} exercise={card} onGraded={(g) => void persistGrade(g)} onNext={nextCard} />
+    </div>,
+  );
+}

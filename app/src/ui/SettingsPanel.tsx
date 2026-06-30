@@ -24,7 +24,7 @@ export function SettingsPanel() {
         aria-hidden="true"
       />
       <div
-        className="relative ml-auto flex h-full w-full max-w-sm flex-col overflow-y-auto bg-surface shadow-xl"
+        className="relative ml-auto flex h-full w-64 flex-col overflow-y-auto bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
@@ -43,17 +43,17 @@ export function SettingsPanel() {
             <h3 className="mb-3 font-sans text-xs uppercase tracking-widest text-muted">Affichage</h3>
             <div className="flex flex-col gap-3">
               <ToggleRow
-                label="Furigana par défaut"
+                label="Furigana"
                 value={settings.furiganaDefault}
                 onChange={(v) => update({ furiganaDefault: v })}
               />
               <ToggleRow
-                label="Gloss par défaut"
+                label="Gloss"
                 value={settings.glossDefault}
                 onChange={(v) => update({ glossDefault: v })}
               />
               <ToggleRow
-                label="Romaji dans les révisions"
+                label="Romaji"
                 value={settings.warmupRomaji}
                 onChange={(v) => update({ warmupRomaji: v })}
               />
@@ -63,14 +63,14 @@ export function SettingsPanel() {
           <section>
             <h3 className="mb-3 font-sans text-xs uppercase tracking-widest text-muted">Thème</h3>
             <div
-              className="inline-flex overflow-hidden rounded-sm border border-hairline"
+              className="flex overflow-hidden rounded-sm border border-hairline"
               role="group"
               aria-label="Thème"
             >
               {THEMES.map((t) => (
                 <button
                   key={t.id}
-                  className="cursor-pointer px-3 py-1 text-xs tracking-wide text-muted aria-pressed:bg-surface-2 aria-pressed:text-text"
+                  className="flex-1 cursor-pointer px-3 py-2 text-sm tracking-wide text-muted aria-pressed:bg-surface-2 aria-pressed:text-text"
                   aria-pressed={settings.theme === t.id}
                   onClick={() => update({ theme: t.id })}
                 >
