@@ -13,6 +13,7 @@ import {
   getKanji,
   getSrsDaily,
   getVocab,
+  logReview,
   putComprehensionItem,
   putGrammar,
   putKanji,
@@ -85,6 +86,36 @@ export async function leechIds(): Promise<Set<string>> {
     if (count >= SRS.leechLapses) ids.add(id);
   }
   return ids;
+}
+
+export interface SessionStats {
+  dueCount: number;
+  newCount: number;
+}
+
+export async function sessionStats(now: Date = new Date()): Promise<SessionStats> {
+  const [vocab, kanji, grammar, comprehension] = await Promise.all([
+    allVocab(), allKanji(), allGrammar(), allComprehension(),
+  ]);
+  let dueCount = 0;
+  let newCount = 0;
+  for (const v of vocab) {
+    const c = v.cards.written;
+    if (c) { if (isDue(c, now)) dueCount++; }
+    else newCount++;
+  }
+  for (const k of kanji) {
+    if (k.card) { if (isDue(k.card, now)) dueCount++; }
+    else newCount++;
+  }
+  for (const g of grammar) {
+    if (g.card) { if (isDue(g.card, now)) dueCount++; }
+    else newCount++;
+  }
+  for (const c of comprehension) {
+    if (c.card) { if (isDue(c.card, now)) dueCount++; }
+  }
+  return { dueCount, newCount };
 }
 
 export async function buildSession(
@@ -391,6 +422,7 @@ export async function gradeCard(card: WarmupCard, grade: SrsGrade, now: Date = n
     g.card = review(g.card, grade, now);
     await putGrammar(g);
   }
+  await logReview({ itemId: card.id, track: card.track, grade, at: now.getTime() });
   await bumpSrsDaily(localDateString(now), { reviewed: 1 });
 }
 

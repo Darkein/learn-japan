@@ -3,7 +3,7 @@ import type { StoryRecord } from "../lib/db";
 import { recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { SRS } from "../lib/config";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
-import { buildSession, type WarmupCard } from "../lib/warmup";
+import { sessionStats, type SessionStats } from "../lib/warmup";
 import { LessonList } from "./LessonList";
 import { useGenJobs } from "./useGenJobs";
 
@@ -18,7 +18,7 @@ function localDateStr(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function buildDailyStats(session: WarmupCard[], daily7: SrsDailyRecord[]) {
+function buildDailyStats(stats: SessionStats, daily7: SrsDailyRecord[]) {
   const today = daily7.find((d) => d.date === localDateStr()) ?? { date: localDateStr(), introduced: 0, reviewed: 0 };
   let streak = 0;
   const sorted = [...daily7].sort((a, b) => b.date.localeCompare(a.date));
@@ -30,26 +30,24 @@ function buildDailyStats(session: WarmupCard[], daily7: SrsDailyRecord[]) {
     reviewed: today.reviewed,
     goal: SRS.dailyGoal,
     streak,
-    sessionCount: session.length,
+    dueCount: stats.dueCount,
   };
 }
 
 export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
-  const [sessionCount, setSessionCount] = useState(0);
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
   const { dataVersion } = useGenJobs();
 
   async function refresh() {
-    const [ls, session, daily7] = await Promise.all([
+    const [ls, stats, daily7] = await Promise.all([
       listLessons(),
-      buildSession(),
+      sessionStats(),
       recentSrsDaily(7),
     ]);
     setLessons(ls);
-    setSessionCount(session.length);
-    setDailyData(buildDailyStats(session, daily7));
+    setDailyData(buildDailyStats(stats, daily7));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
   }
@@ -98,12 +96,12 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
               style={{ width: `${Math.min(100, (dailyData.reviewed / dailyData.goal) * 100)}%` }}
             />
           </div>
-          {sessionCount > 0 && (
+          {dailyData.dueCount > 0 && (
             <div className="flex items-center justify-between gap-4 rounded-r-sm border-y border-r border-l-4 border-hairline border-l-accent bg-surface p-4">
               <div className="flex flex-col gap-1">
                 <span className="text-xs uppercase tracking-widest text-muted">Révision</span>
                 <span className="font-serif text-lg text-text">
-                  {sessionCount} élément{sessionCount > 1 ? "s" : ""} à réviser
+                  {dailyData.dueCount} élément{dailyData.dueCount > 1 ? "s" : ""} à réviser
                 </span>
               </div>
               <button
