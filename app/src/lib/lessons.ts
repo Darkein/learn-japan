@@ -207,6 +207,13 @@ export function computeMastery(
   return total === 0 ? 0 : mastered / total;
 }
 
+/** Marque la leçon comme terminée dès que sa maîtrise SRS atteint le seuil de déblocage. */
+function maybeAutoComplete(lesson: Lesson): void {
+  if (lesson.completedAt || !lesson.startedAt || lesson.mastery < SRS.unlockMastery) return;
+  lesson.completedAt = Date.now();
+  void markLessonCompleted(lesson.id);
+}
+
 async function hydrate(
   entry: CurriculumEntry,
   remoteIndex: GeneratedIndex,
@@ -254,6 +261,7 @@ export async function listLessons(): Promise<Lesson[]> {
 
   for (let i = 0; i < lessons.length; i++) {
     lessons[i].mastery = computeMastery(lessons[i], vocabMap, grammarMap);
+    maybeAutoComplete(lessons[i]);
     const prev = i > 0 ? lessons[i - 1] : null;
     const prevMastery = prev ? prev.mastery : 1;
     lessons[i].prevMastery = prev ? prevMastery : undefined;
@@ -282,6 +290,7 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
   const lesson = await hydrate(entry, remoteIndex);
   lesson.mastery = computeMastery(lesson, vocabMap, grammarMap);
+  maybeAutoComplete(lesson);
   // locked non calculable sans la leçon précédente
   lesson.locked = false;
   lesson.prevMastery = undefined;

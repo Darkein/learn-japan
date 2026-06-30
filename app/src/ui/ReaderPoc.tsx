@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
-import { markLessonCompleted, type LessonObjectives } from "../lib/lessons";
+import type { LessonObjectives } from "../lib/lessons";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
@@ -41,12 +41,10 @@ function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>):
 
 interface Props {
   incoming: IncomingStory;
-  /** Appelée après « Marquer comme terminée » (l'appelant peut revenir à l'accueil). */
-  onComplete?: () => void;
 }
 
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
-export function ReaderPoc({ incoming, onComplete }: Props) {
+export function ReaderPoc({ incoming }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
@@ -57,7 +55,6 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const lessonCtx = incoming.lessonContext ?? null;
-  const [lessonDone, setLessonDone] = useState(false);
 
   // Lecture audio de l'article : phrases dérivées des tokens (réf. stable tant que
   // l'analyse ne change pas → le player se réinitialise à chaque nouvel article).
@@ -66,7 +63,6 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
 
   // (Ré)analyse à chaque ouverture d'une histoire/leçon.
   useEffect(() => {
-    setLessonDone(false);
     void run(incoming.text);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incoming.nonce]);
@@ -104,13 +100,6 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
     setOpenIdx(null);
   }
 
-  async function markDone() {
-    if (!lessonCtx) return;
-    await markLessonCompleted(lessonCtx.lessonId);
-    setLessonDone(true);
-    onComplete?.();
-  }
-
   return (
     <div className="flex flex-col gap-6">
       {lessonCtx && (
@@ -135,15 +124,6 @@ export function ReaderPoc({ incoming, onComplete }: Props) {
               ))}
             </p>
           )}
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => void markDone()}
-              disabled={lessonDone}
-            >
-              {lessonDone ? "Marquée terminée ✓" : "Marquer comme terminée"}
-            </button>
-          </div>
         </aside>
       )}
 

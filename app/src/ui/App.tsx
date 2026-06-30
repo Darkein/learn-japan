@@ -164,7 +164,7 @@ function AppShell() {
     return (
       <div className={SHELL}>
         <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
-          <ReaderPoc incoming={reader.incoming} onComplete={back} />
+          <ReaderPoc incoming={reader.incoming} />
         </ReaderPage>
       </div>
     );
