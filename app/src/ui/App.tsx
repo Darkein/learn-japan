@@ -83,6 +83,7 @@ function AppShell() {
   const [course, setCourse] = useState<Lesson | null>(null);
   // Force le rafraîchissement des données de l'onglet courant au retour d'une page de lecture.
   const [refreshKey, setRefreshKey] = useState(0);
+  const [reviewOpts, setReviewOpts] = useState<{ lessonId?: string; scope?: "due" | "all" }>({});
   const { dataVersion } = useGenJobs();
 
   const tab = tabForRoute(route);
@@ -146,7 +147,8 @@ function AppShell() {
     navigate(`/cours/${encodeURIComponent(lesson.id)}?from=${encodeURIComponent(currentLocation())}`);
   }
 
-  function startReview() {
+  function startReview(opts?: { lessonId?: string; scope?: "due" | "all" }) {
+    setReviewOpts(opts ?? {});
     navigate(`/revision?from=${encodeURIComponent(currentLocation())}`);
   }
 
@@ -170,7 +172,7 @@ function AppShell() {
     return (
       <div className={SHELL}>
         <ReaderPage title="Révision" onBack={back}>
-          <Warmup />
+          <Warmup opts={reviewOpts} />
         </ReaderPage>
       </div>
     );
@@ -179,7 +181,7 @@ function AppShell() {
     return (
       <div className={SHELL}>
         <ReaderPage title={course.title} onBack={back}>
-          <CourseDetail lesson={course} onOpenStory={openStory} />
+          <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
         </ReaderPage>
       </div>
     );

@@ -13,13 +13,15 @@ interface Props {
   lesson: Lesson;
   /** Ouvre une histoire de leçon dans la page de lecture. */
   onOpenStory: (story: StoryRecord) => void;
+  /** Lance une session de révision (optionnellement filtrée sur cette leçon). */
+  onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
 }
 
 /**
  * Détail d'un cours : cadrage + objectifs (grammaire / kanji / vocab) + histoires liées.
  * Rendu soit dans le panneau latéral (split desktop), soit dans une page dédiée (mobile).
  */
-export function CourseDetail({ lesson, onOpenStory }: Props) {
+export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
   // Les histoires sont rendues directement depuis la leçon : le parent la recharge dès
   // qu'une génération aboutit (via `dataVersion` du contexte de génération).
   const stories = lesson.stories;
@@ -58,6 +60,20 @@ export function CourseDetail({ lesson, onOpenStory }: Props) {
           Cadrage parlé, quiz audio, puis l'histoire en écoute bilingue (japonais / français).
         </p>
       </div>
+
+      {onStartReview && (
+        <div>
+          <button
+            className="cursor-pointer rounded-sm border border-accent px-4 py-2 text-sm text-accent transition-colors hover:bg-accent hover:text-white"
+            onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
+          >
+            S'entraîner sur cette leçon
+          </button>
+          <p className="mt-1 text-xs text-muted">
+            Questions immédiates sur tout le vocabulaire, les kanji et la grammaire de cette leçon.
+          </p>
+        </div>
+      )}
 
       {ready ? (
         <>

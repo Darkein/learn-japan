@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { normalizeReading } from "../lib/kana";
+import { speakWord } from "../lib/tts";
 import type { SrsGrade } from "../lib/srs";
-import { dueCards, gradeCard, type WarmupCard } from "../lib/warmup";
+import { buildSession, gradeCard, type WarmupCard, type SessionOpts } from "../lib/warmup";
 
 const GRADES: { id: SrsGrade; label: string }[] = [
   { id: "again", label: "Raté" },
@@ -17,25 +18,29 @@ const TRACK_FR: Record<WarmupCard["track"], string> = {
   comprehension: "compréhension",
 };
 
-export function Warmup() {
+interface Props {
+  opts?: SessionOpts;
+}
+
+export function Warmup({ opts }: Props) {
   const [cards, setCards] = useState<WarmupCard[] | null>(null);
   const [i, setI] = useState(0);
   const [revealed, setRevealed] = useState(false);
-  // Rappel actif (mode "type") : saisie + résultat de la vérification (null tant que non validé).
   const [entry, setEntry] = useState("");
   const [correct, setCorrect] = useState<boolean | null>(null);
+  const [listened, setListened] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void dueCards().then(setCards);
+    void buildSession(new Date(), opts ?? {}).then(setCards);
   }, []);
 
   const card = cards && i < cards.length ? cards[i] : null;
 
-  // À chaque nouvelle carte en mode "type", on (re)met le focus sur le champ.
   useEffect(() => {
-    if (card?.mode === "type" && correct === null) inputRef.current?.focus();
-  }, [card, correct]);
+    if ((card?.mode === "type" || (card?.mode === "listen" && listened)) && correct === null)
+      inputRef.current?.focus();
+  }, [card, correct, listened]);
 
   if (!cards) return <p className="text-muted">Chargement…</p>;
   if (cards.length === 0)
@@ -51,6 +56,7 @@ export function Warmup() {
     setRevealed(false);
     setEntry("");
     setCorrect(null);
+    setListened(false);
     setI((n) => n + 1);
   }
 
@@ -65,6 +71,13 @@ export function Warmup() {
     setCorrect(ok);
   }
 
+  function handleListen() {
+    speakWord(card!.id);
+    setListened(true);
+  }
+
+  const isTypeMode = card.mode === "type" || (card.mode === "listen" && listened);
+
   return (
     <div className="flex flex-col gap-4">
       <span className="text-xs uppercase tracking-wider text-muted">
@@ -72,97 +85,123 @@ export function Warmup() {
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
       <div className="flex flex-col items-center gap-4 rounded-md border border-hairline bg-surface px-4 py-12 text-center">
-        <div className="font-jp text-3xl">{card.front}</div>
+        {card.isLeech && (
+          <span className="mb-1 inline-block rounded-sm bg-surface px-2 py-0.5 text-xs text-muted">
+            Élément difficile
+          </span>
+        )}
 
-        {card.mode === "type" ? (
-          correct === null ? (
-            <>
-              {card.prompt && <span className="text-sm text-muted">{card.prompt}</span>}
-              <input
-                ref={inputRef}
-                className="w-full max-w-xs rounded-sm border border-hairline bg-bg px-3 py-2 text-center font-jp text-xl text-text outline-none focus:border-accent"
-                value={entry}
-                onChange={(e) => setEntry(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && entry.trim()) check();
-                }}
-                lang="ja"
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                aria-label={card.prompt ?? "Réponse"}
-              />
-              <div className="flex flex-wrap justify-center gap-2">
-                <button
-                  className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={check}
-                  disabled={!entry.trim()}
-                >
-                  Vérifier
-                </button>
-                <button
-                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent"
-                  onClick={() => setCorrect(false)}
-                >
-                  Je ne sais pas
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className={`text-sm ${correct ? "text-accent-2" : "text-accent"}`}>
-                {correct ? "✓ Correct" : "✗ Raté"}
-              </div>
-              <div className="font-jp text-xl text-muted">{card.back}</div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {correct ? (
-                  <>
-                    <button
-                      className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
-                      onClick={() => grade("good")}
-                    >
-                      Bien
-                    </button>
-                    <button
-                      className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
-                      onClick={() => grade("easy")}
-                    >
-                      Facile
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
-                    onClick={() => grade("again")}
-                  >
-                    Continuer
-                  </button>
-                )}
-              </div>
-            </>
-          )
-        ) : revealed ? (
+        {card.mode === "listen" && !listened ? (
           <>
-            <div className="font-jp text-xl text-muted">{card.back}</div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {GRADES.map((g) => (
-                <button
-                  key={g.id}
-                  className="grow basis-20 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
-                  onClick={() => grade(g.id)}
-                >
-                  {g.label}
-                </button>
-              ))}
-            </div>
+            <div className="font-jp text-3xl">{card.front}</div>
+            <button
+              className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
+              onClick={handleListen}
+            >
+              ▶ Écouter
+            </button>
           </>
         ) : (
-          <button
-            className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
-            onClick={() => setRevealed(true)}
-          >
-            Révéler
-          </button>
+          <>
+            <div className="font-jp text-3xl">{card.front}</div>
+
+            {isTypeMode ? (
+              correct === null ? (
+                <>
+                  {card.prompt && <span className="text-sm text-muted">{card.prompt}</span>}
+                  <input
+                    ref={inputRef}
+                    className="w-full max-w-xs rounded-sm border border-hairline bg-bg px-3 py-2 text-center font-jp text-xl text-text outline-none focus:border-accent"
+                    value={entry}
+                    onChange={(e) => setEntry(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && entry.trim()) check();
+                    }}
+                    lang="ja"
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    aria-label={card.prompt ?? "Réponse"}
+                  />
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={check}
+                      disabled={!entry.trim()}
+                    >
+                      Vérifier
+                    </button>
+                    <button
+                      className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent"
+                      onClick={() => setCorrect(false)}
+                    >
+                      Je ne sais pas
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={`text-sm ${correct ? "text-accent-2" : "text-accent"}`}>
+                    {correct ? "✓ Correct" : "✗ Raté"}
+                  </div>
+                  <div className="font-jp text-xl text-muted">{card.back}</div>
+                  {card.context && (
+                    <p className="mt-2 text-sm text-muted italic font-jp">{card.context}</p>
+                  )}
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {correct ? (
+                      <>
+                        <button
+                          className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                          onClick={() => grade("good")}
+                        >
+                          Bien
+                        </button>
+                        <button
+                          className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                          onClick={() => grade("easy")}
+                        >
+                          Facile
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
+                        onClick={() => grade("again")}
+                      >
+                        Continuer
+                      </button>
+                    )}
+                  </div>
+                </>
+              )
+            ) : revealed ? (
+              <>
+                <div className="font-jp text-xl text-muted">{card.back}</div>
+                {card.context && (
+                  <p className="mt-2 text-sm text-muted italic font-jp">{card.context}</p>
+                )}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {GRADES.map((g) => (
+                    <button
+                      key={g.id}
+                      className="grow basis-20 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                      onClick={() => grade(g.id)}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <button
+                className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
+                onClick={() => setRevealed(true)}
+              >
+                Révéler
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

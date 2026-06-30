@@ -8,6 +8,7 @@ import {
   allVocab,
   bumpSrsDaily,
   getComprehensionItem,
+  getDB,
   getGrammar,
   getKanji,
   getSrsDaily,
@@ -37,6 +38,8 @@ export interface WarmupCard {
   prompt?: string;
   /** Phrase d'origine (pour carte contextuelle — Task 5). */
   context?: string;
+  /** Élément difficile (≥ SRS.leechLapses échecs). */
+  isLeech?: boolean;
 }
 
 export interface SessionOpts {
@@ -70,17 +73,39 @@ function kanjiReadingAnswers(kun: string[], on: string[]): string[] {
   return [...set];
 }
 
+export async function leechIds(): Promise<Set<string>> {
+  const db = await getDB();
+  const reviews = await db.getAll("reviews");
+  const lapses = new Map<string, number>();
+  for (const r of reviews) {
+    if (r.grade === "again") lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
+  }
+  const ids = new Set<string>();
+  for (const [id, count] of lapses) {
+    if (count >= SRS.leechLapses) ids.add(id);
+  }
+  return ids;
+}
+
 export async function buildSession(
   now: Date = new Date(),
   opts: SessionOpts = {},
 ): Promise<WarmupCard[]> {
   const scope = opts.scope ?? "due";
 
+  let cards: WarmupCard[];
   if (scope === "all") {
     if (!opts.lessonId) return [];
-    return buildSessionAll(opts.lessonId, now);
+    cards = await buildSessionAll(opts.lessonId, now);
+  } else {
+    cards = await buildSessionDue(now);
   }
-  return buildSessionDue(now);
+
+  const leeches = await leechIds();
+  for (const card of cards) {
+    if (leeches.has(card.id)) card.isLeech = true;
+  }
+  return cards;
 }
 
 async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
@@ -147,6 +172,31 @@ async function buildSessionDue(now: Date): Promise<WarmupCard[]> {
         due: c.card.due.getTime(),
         mode: "reveal",
       });
+    }
+  }
+
+  // Listen cards (max 5) — vocab dus avec phrase d'exemple
+  let listenCount = 0;
+  for (const v of await allVocab()) {
+    if (listenCount >= 5) break;
+    const c = v.cards.written;
+    if (c && isDue(c, now) && v.example?.ja) {
+      const hasMeaning = !!v.meaning && v.meaning !== "—";
+      out.push({
+        key: `vocab-listen:${v.id}`,
+        track: "vocab",
+        id: v.id,
+        front: v.example.ja,
+        back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+        due: c.due.getTime(),
+        mode: "listen",
+        context: v.example.ja,
+        prompt: "Écoute et tape le mot souligné",
+        answers: hasMeaning
+          ? [normalizeReading(v.surface), normalizeReading(v.reading)]
+          : [normalizeReading(v.reading)],
+      });
+      listenCount++;
     }
   }
 
