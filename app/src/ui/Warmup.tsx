@@ -72,7 +72,7 @@ export function Warmup({ opts }: Props) {
   }
 
   function handleListen() {
-    speakWord(card!.id);
+    speakWord(card!.id.split("|")[0]);
     setListened(true);
   }
 
