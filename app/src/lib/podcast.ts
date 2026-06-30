@@ -53,7 +53,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 3;
+export const PACK_VERSION = 4;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -185,6 +185,21 @@ export function buildComprehensionAudio(questions: ComprehensionQuestion[]): Raw
 
 // ---------- Assemblage du script --------------------------------------------
 
+/**
+ * Retire les marqueurs STRUCTURELS d'une ligne Markdown qui ne doivent jamais être lus à
+ * voix haute : fences de conteneur (`:::example`, `:::summary`, `:::`…), règles horizontales
+ * et lignes de séparation de tableau (`---`, `***`, `|---|:--:|`), citation de tête (`> `) et
+ * barres verticales des tableaux. Renvoie "" si la ligne n'était QUE de la structure.
+ */
+function stripBlockMarkers(line: string): string {
+  let s = line.trim();
+  if (/^:::/.test(s)) return ""; // fence de conteneur (ouvrante ou fermante)
+  if (/^[|\s]*[-*_:]{3,}[-*_:|\s]*$/.test(s)) return ""; // règle horizontale / séparateur de tableau
+  s = s.replace(/^>+\s?/, ""); // citation Markdown (préfixe des traductions d'exemple)
+  if (s.includes("|")) s = s.replace(/\|/g, " "); // cellules de tableau
+  return s.trim();
+}
+
 /** Allège un paragraphe Markdown pour la lecture vocale (retire **gras**, #, etc.). */
 function stripMarkdown(s: string): string {
   return s
@@ -192,6 +207,18 @@ function stripMarkdown(s: string): string {
     .replace(/[*_`>#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// Parenthèse ne contenant QUE du kana (+ ー・ et espaces) = furigana ajouté au mot japonais.
+const FURIGANA_PARENS = /[（(][\s぀-ヿｦ-ﾟ]+[)）]/g;
+
+/**
+ * Retire le furigana entre parenthèses d'un texte japonais (« 私（わたし） » → « 私 »). Sans
+ * cela, la voix japonaise prononcerait DEUX fois le mot (le kanji puis sa lecture kana). On
+ * ne touche pas aux parenthèses contenant des kanji ou du latin : ce n'est pas du furigana.
+ */
+export function stripFurigana(s: string): string {
+  return s.replace(FURIGANA_PARENS, "").replace(/\s{2,}/g, " ").trim();
 }
 
 /**
@@ -210,37 +237,58 @@ function isJapaneseLine(s: string): boolean {
 }
 
 /**
+ * Découpe une ligne de prose FRANÇAISE qui contient des mots japonais inline (ex. « La
+ * particule は marque le thème ») en segments alternés : le texte latin part en voix
+ * française, les fragments japonais en voix japonaise — sinon la voix française écorche le
+ * japonais (は lu « ka »). Le furigana entre parenthèses est d'abord retiré.
+ */
+function proseSegments(text: string): RawSegment[] {
+  const clean = stripFurigana(stripMarkdown(text));
+  if (!clean) return [];
+  const out: RawSegment[] = [];
+  let buf = "";
+  let lang: "fr" | "ja" | null = null; // langue du fragment en cours (ponctuation = neutre)
+  const flush = () => {
+    const t = buf.trim();
+    if (t) out.push({ chapter: "cours", lang: lang === "ja" ? "ja" : "fr", text: t, label: "Cours" });
+    buf = "";
+  };
+  for (const ch of clean) {
+    const cls = isKana(ch) || isKanji(ch) ? "ja" : /[A-Za-zÀ-ÿ0-9]/.test(ch) ? "fr" : null;
+    if (cls && lang && cls !== lang) flush(); // bascule de langue → on coupe le fragment
+    if (cls) lang = cls;
+    buf += ch;
+  }
+  flush();
+  return out;
+}
+
+/**
  * Transforme la leçon FR (Markdown, avec exemples japonais) en segments parlés :
- *  - prose française → un segment FR par paragraphe (les mots JP inline restent dans le flux FR) ;
- *  - exemple « phrase JP / lecture romaji / traduction FR » → la phrase JP (voix japonaise)
- *    puis sa traduction FR ; la ligne romaji du milieu est sautée (redondante avec le TTS JA).
- * Une ligne française coincée entre une phrase JP et une autre ligne française est considérée
- * comme la lecture romaji et n'est donc pas lue.
+ *  - structure (fences `:::…`, règles `---`, pipes de tableau) → retirée, jamais lue ;
+ *  - prose française → segments FR, les mots JP inline étant routés en voix japonaise ;
+ *  - exemple `:::example` (phrase JP puis sa traduction FR préfixée par « > ») → la phrase JP
+ *    en voix japonaise (furigana retiré) puis sa traduction FR en voix française.
  */
 function coursSegments(framing: string): RawSegment[] {
   const out: RawSegment[] = [];
   for (const block of framing.split(/\n{2,}/)) {
-    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = block.split("\n").map(stripBlockMarkers).filter(Boolean);
     if (!lines.length) continue;
     if (!lines.some(isJapaneseLine)) {
-      // Prose pure : un seul segment FR pour tout le paragraphe.
-      const text = stripMarkdown(lines.join(" "));
-      if (text) out.push({ chapter: "cours", lang: "fr", text, label: "Cours" });
+      // Prose pure : un seul flux pour tout le paragraphe (mots JP inline routés en JA).
+      out.push(...proseSegments(lines.join(" ")));
       continue;
     }
     // Bloc d'exemple : ligne par ligne, en routant la voix selon la langue.
-    lines.forEach((line, i) => {
+    for (const line of lines) {
       if (isJapaneseLine(line)) {
-        const text = stripMarkdown(line);
+        const text = stripFurigana(stripMarkdown(line));
         if (text) out.push({ chapter: "cours", lang: "ja", text, label: "Cours" });
-        return;
+      } else {
+        out.push(...proseSegments(line));
       }
-      const prevJa = i > 0 && isJapaneseLine(lines[i - 1]);
-      const nextFr = i < lines.length - 1 && !isJapaneseLine(lines[i + 1]);
-      if (prevJa && nextFr) return; // lecture romaji entre la phrase JP et sa traduction → sautée
-      const text = stripMarkdown(line);
-      if (text) out.push({ chapter: "cours", lang: "fr", text, label: "Cours" });
-    });
+    }
   }
   return out;
 }
@@ -279,7 +327,8 @@ export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): Podcast
     const intro = s === 0 ? "Voici une histoire en rapport avec la leçon :" : "Voici l'histoire suivante :";
     raw.push({ chapter: "histoire", lang: "fr", text: intro, label: `Histoire ${s + 1}` });
     raw.push(titleSegment(story.titleFr ?? story.title, "histoire"));
-    const ja = splitJaSentences(story.text);
+    // Furigana retiré : la voix japonaise ne doit pas relire la lecture entre parenthèses.
+    const ja = splitJaSentences(story.text).map(stripFurigana);
     const fr = story.translation ?? [];
     const questions = story.comprehension ?? [];
 
