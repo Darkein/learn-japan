@@ -22,6 +22,7 @@ export interface VocabItem {
   status: ItemStatus;
   /** Une carte FSRS par compétence. */
   cards: Partial<Record<Skill, Card>>;
+  example?: { ja: string; fr?: string };
 }
 
 export interface KanjiItem {
@@ -119,6 +120,14 @@ export interface LessonProgressRecord {
   id: string; // = curriculum entry id
   completedAt?: number;
   startedAt?: number;
+  unlockedNotified?: boolean;
+}
+
+/** Compteurs journaliers SRS (nouveaux mots + révisions). */
+export interface SrsDailyRecord {
+  date: string; // "YYYY-MM-DD"
+  introduced: number;
+  reviewed: number;
 }
 
 /** Phase d'un job de génération : le cours (framing) puis l'histoire. */
@@ -171,10 +180,12 @@ interface LearnDB extends DBSchema {
     key: string;
     value: { id: string; audio: Blob; marks: { i: number; t: number }[]; createdAt: number };
   };
+  /** Compteurs journaliers SRS (nouveaux mots + révisions). */
+  srsDaily: { key: string; value: SrsDailyRecord };
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -228,6 +239,10 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
           if (!storiesStore.indexNames.contains("lessonId")) {
             storiesStore.createIndex("lessonId", "lessonId");
           }
+        }
+        // v10: compteurs journaliers SRS
+        if (!db.objectStoreNames.contains("srsDaily")) {
+          db.createObjectStore("srsDaily", { keyPath: "date" });
         }
       },
     });
@@ -371,4 +386,34 @@ export async function getTtsCache(id: string): Promise<TtsCache | undefined> {
 }
 export async function putTtsCache(id: string, audio: Blob, marks: { i: number; t: number }[]): Promise<void> {
   await (await getDB()).put("tts", { id, audio, marks, createdAt: Date.now() });
+}
+
+// Compteurs SRS journaliers ---------------------------------------------------
+export async function getSrsDaily(date: string): Promise<SrsDailyRecord | undefined> {
+  return (await getDB()).get("srsDaily", date);
+}
+export async function putSrsDaily(rec: SrsDailyRecord): Promise<void> {
+  await (await getDB()).put("srsDaily", rec);
+}
+export async function bumpSrsDaily(
+  date: string,
+  delta: { introduced?: number; reviewed?: number },
+): Promise<void> {
+  const existing = (await getSrsDaily(date)) ?? { date, introduced: 0, reviewed: 0 };
+  await putSrsDaily({
+    ...existing,
+    introduced: existing.introduced + (delta.introduced ?? 0),
+    reviewed: existing.reviewed + (delta.reviewed ?? 0),
+  });
+}
+export async function recentSrsDaily(nDays: number): Promise<SrsDailyRecord[]> {
+  const result: SrsDailyRecord[] = [];
+  const today = new Date();
+  for (let i = nDays - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const date = d.toISOString().slice(0, 10);
+    result.push((await getSrsDaily(date)) ?? { date, introduced: 0, reviewed: 0 });
+  }
+  return result;
 }

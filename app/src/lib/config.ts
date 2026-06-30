@@ -16,3 +16,11 @@ export const TTS_VOICES = {
 } as const;
 
 export type TtsLang = keyof typeof TTS_VOICES;
+
+export const SRS = {
+  newPerDay: 10,
+  dailyGoal: 20,
+  masteredIntervalDays: 21,
+  unlockMastery: 0.8,
+  leechLapses: 4,
+} as const;

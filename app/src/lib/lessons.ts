@@ -21,6 +21,7 @@ import {
   type LessonProgressRecord,
   type StoryRecord,
 } from "./db";
+import { enrollLesson } from "./enroll";
 
 export interface VocabEntry {
   ja: string;
@@ -227,6 +228,7 @@ export async function markLessonStarted(id: string): Promise<void> {
   const prev = (await getLessonProgress(id)) ?? { id };
   const next: LessonProgressRecord = { ...prev, startedAt: prev.startedAt ?? Date.now() };
   await putLessonProgress(next);
+  void enrollLesson(id);
 }
 
 export async function markLessonCompleted(id: string): Promise<void> {

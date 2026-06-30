@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
+import { enrollStory } from "../lib/enroll";
 import { getCurriculumEntry, getLesson, type Lesson } from "../lib/lessons";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
@@ -135,6 +136,7 @@ function AppShell() {
   // Ouverture d'une histoire : on enregistre l'origine (`from`) pour un retour fidèle au
   // rechargement, et on pré-remplit l'état pour éviter un flash de chargement.
   function openStory(story: StoryRecord) {
+    void enrollStory(story);
     setReader({ id: story.id, incoming: buildIncoming(story) });
     navigate(`/lecture/${encodeURIComponent(story.id)}?from=${encodeURIComponent(currentLocation())}`);
   }
