@@ -20,3 +20,4 @@ data/full/
 .dev.vars
 worker/.dev.vars
 .wrangler/
+.superpowers/
