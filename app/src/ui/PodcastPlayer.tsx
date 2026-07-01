@@ -136,7 +136,7 @@ export function PodcastPlayer() {
                 {segLabel(current).toLowerCase() !== chapter.toLowerCase() && (
                   <>
                     {" · "}
-                    <span className={current.lang === "ja" ? "font-jp" : "font-sans"}>{segLabel(current)}</span>
+                    <span className="font-jp">{segLabel(current)}</span>
                   </>
                 )}
               </>
