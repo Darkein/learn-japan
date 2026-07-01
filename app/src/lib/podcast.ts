@@ -53,7 +53,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 4;
+export const PACK_VERSION = 5;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -127,7 +127,7 @@ export function buildVocabQuizzes(vocab: VocabEntry[]): RawSegment[] {
   const segs: RawSegment[] = [];
   vocab.forEach((v, idx) => {
     const ja = spokenJa(v);
-    const label = `Quiz · ${v.fr}`;
+    const label = "Quiz";
     switch (idx % 3) {
       case 0: // production FR → JP
         segs.push({ chapter: "quiz", lang: "fr", text: `Comment dit-on « ${v.fr} » en japonais ?`, pauseAfterMs: QUIZ_PAUSE_MS, label });
@@ -242,7 +242,7 @@ function isJapaneseLine(s: string): boolean {
  * française, les fragments japonais en voix japonaise — sinon la voix française écorche le
  * japonais (は lu « ka »). Le furigana entre parenthèses est d'abord retiré.
  */
-function proseSegments(text: string): RawSegment[] {
+function proseSegments(text: string, label = "Cours"): RawSegment[] {
   const clean = stripFurigana(stripMarkdown(text));
   if (!clean) return [];
   const out: RawSegment[] = [];
@@ -250,7 +250,7 @@ function proseSegments(text: string): RawSegment[] {
   let lang: "fr" | "ja" | null = null; // langue du fragment en cours (ponctuation = neutre)
   const flush = () => {
     const t = buf.trim();
-    if (t) out.push({ chapter: "cours", lang: lang === "ja" ? "ja" : "fr", text: t, label: "Cours" });
+    if (t) out.push({ chapter: "cours", lang: lang === "ja" ? "ja" : "fr", text: t, label });
     buf = "";
   };
   for (const ch of clean) {
@@ -272,21 +272,28 @@ function proseSegments(text: string): RawSegment[] {
  */
 function coursSegments(framing: string): RawSegment[] {
   const out: RawSegment[] = [];
+  let currentLabel = "Cours";
   for (const block of framing.split(/\n{2,}/)) {
-    const lines = block.split("\n").map(stripBlockMarkers).filter(Boolean);
+    const rawFirstLine = block.split("\n")[0].trim();
+    if (/^##\s/.test(rawFirstLine)) {
+      currentLabel = stripMarkdown(rawFirstLine).trim() || "Cours";
+    }
+    const lines = block
+      .split("\n")
+      .filter((raw) => !/^#{3,}\s/.test(raw.trim()))
+      .map(stripBlockMarkers)
+      .filter(Boolean);
     if (!lines.length) continue;
     if (!lines.some(isJapaneseLine)) {
-      // Prose pure : un seul flux pour tout le paragraphe (mots JP inline routés en JA).
-      out.push(...proseSegments(lines.join(" ")));
+      out.push(...proseSegments(lines.join(" "), currentLabel));
       continue;
     }
-    // Bloc d'exemple : ligne par ligne, en routant la voix selon la langue.
     for (const line of lines) {
       if (isJapaneseLine(line)) {
         const text = stripFurigana(stripMarkdown(line));
-        if (text) out.push({ chapter: "cours", lang: "ja", text, label: "Cours" });
+        if (text) out.push({ chapter: "cours", lang: "ja", text, label: currentLabel });
       } else {
-        out.push(...proseSegments(line));
+        out.push(...proseSegments(line, currentLabel));
       }
     }
   }

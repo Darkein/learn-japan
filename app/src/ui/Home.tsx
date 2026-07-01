@@ -75,7 +75,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
         <h2 className="font-serif text-xl">Aujourd'hui</h2>
       </header>
 
-      {dailyData && (
+      {dailyData && (dailyData.reviewed > 0 || dailyData.dueCount > 0) && (
         <section className="flex flex-col gap-3">
           <div className="flex gap-4 text-sm">
             <span className="text-muted">

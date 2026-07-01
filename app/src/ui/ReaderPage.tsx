@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createContext, useState, type ReactNode } from "react";
 import { useHashRoute } from "./useHashRoute";
 import { useSettings } from "./useSettings";
 
@@ -9,6 +9,9 @@ interface Props {
   children?: ReactNode;
 }
 
+/** Slot DOM dans lequel les enfants peuvent porter des actions via createPortal. */
+export const ReaderHeaderSlot = createContext<HTMLDivElement | null>(null);
+
 /**
  * Page dédiée vers laquelle on navigue (lecture, révision) : remplace le shell à
  * onglets par une vue épurée avec une barre fine « ← Retour » + titre. Objectif :
@@ -18,16 +21,18 @@ export function ReaderPage({ title, onBack, children }: Props) {
   const { openPanel } = useSettings();
   const route = useHashRoute();
   const showGear = route.kind !== "settings";
+  const [slotEl, setSlotEl] = useState<HTMLDivElement | null>(null);
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-baseline gap-4 border-b border-hairline pb-3">
+    <ReaderHeaderSlot.Provider value={slotEl}>
+      <div className="sticky top-0 z-20 -mx-4 flex items-center gap-4 border-b border-hairline bg-bg px-4 py-3">
         <button
           className="cursor-pointer py-1 font-sans text-sm tracking-wide text-muted transition-colors hover:text-text"
           onClick={onBack}
         >
           ← Retour
         </button>
-        {title && <span className="flex-1 font-serif text-lg text-text">{title}</span>}
+        {title && <span className="min-w-0 flex-1 truncate font-serif text-lg text-text">{title}</span>}
+        <div ref={setSlotEl} className="flex shrink-0 items-center gap-2" />
         {showGear && (
           <button
             className="cursor-pointer px-1 text-xl leading-none text-muted hover:text-text"
@@ -38,7 +43,7 @@ export function ReaderPage({ title, onBack, children }: Props) {
           </button>
         )}
       </div>
-      <div className="flex flex-col">{children}</div>
-    </div>
+      <div className="mt-6 flex flex-col">{children}</div>
+    </ReaderHeaderSlot.Provider>
   );
 }
