@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { allStories, deleteStory, type StoryRecord } from "../lib/db";
-import { getCurriculum } from "../lib/lessons";
+import { getCurriculum, lessonsForGrammar } from "../lib/lessons";
 import { GeneratePanel } from "./GeneratePanel";
+import { Badge } from "./kit/Badge";
+import { Button } from "./kit/Button";
 
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
@@ -50,6 +52,9 @@ export function Histoires({ onOpen }: Props) {
         <div className="flex flex-col">
           {stories.map((s) => {
             const lesson = s.lessonId ? lessonTitles.get(s.lessonId) : undefined;
+            const derivedLessons = lessonsForGrammar(s.params.grammarIds ?? []).filter(
+              (l) => l.id !== s.lessonId,
+            );
             return (
               <div
                 key={s.id}
@@ -59,36 +64,26 @@ export function Histoires({ onOpen }: Props) {
                 <span className="text-xs text-muted">
                   {new Date(s.createdAt).toLocaleString("fr-FR")}
                 </span>
-                {(lesson || chips(s.params).length > 0) && (
+                {(lesson || derivedLessons.length > 0 || chips(s.params).length > 0) && (
                   <div className="flex flex-wrap gap-2">
                     {lesson && (
-                      <span className="rounded-sm border border-accent px-2 py-0.5 text-xs text-accent">
+                      <Badge variant="accent">
                         Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
-                      </span>
+                      </Badge>
                     )}
+                    {derivedLessons.map((l) => (
+                      <Badge key={l.id} variant="accent">
+                        Leçon {l.order.toString().padStart(2, "0")} — {l.title}
+                      </Badge>
+                    ))}
                     {chips(s.params).map((c) => (
-                      <span
-                        key={c}
-                        className="rounded-sm border border-hairline px-2 py-0.5 text-xs text-muted"
-                      >
-                        {c}
-                      </span>
+                      <Badge key={c}>{c}</Badge>
                     ))}
                   </div>
                 )}
-                <div className="mt-1 flex gap-3">
-                  <button
-                    className="cursor-pointer rounded-sm border border-hairline px-3 py-1 text-sm text-text transition-colors hover:border-accent"
-                    onClick={() => onOpen(s)}
-                  >
-                    Ouvrir
-                  </button>
-                  <button
-                    className="cursor-pointer rounded-sm border border-hairline px-3 py-1 text-sm text-text transition-colors hover:border-accent hover:text-accent"
-                    onClick={() => void remove(s.id)}
-                  >
-                    Supprimer
-                  </button>
+                <div className="mt-1 flex flex-wrap gap-3">
+                  <Button onClick={() => onOpen(s)}>Ouvrir</Button>
+                  <Button onClick={() => void remove(s.id)}>Supprimer</Button>
                 </div>
               </div>
             );

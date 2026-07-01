@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { generateText, type GenState } from "../lib/genClient";
+import { resolveGrammar } from "../lib/inventory";
+import { getUnlockedGrammarIds } from "../lib/lessons";
 import { saveStory, type StoryParams } from "../lib/stories";
+import { GrammarMultiSelect } from "./GrammarMultiSelect";
 import { useNotify } from "./useNotify";
+import { Button } from "./kit/Button";
+import { Card } from "./kit/Card";
+import { SectionLabel } from "./kit/SectionLabel";
 
 const GEN_LABEL: Record<GenState, string> = {
   queued: "en file…",
@@ -25,12 +31,17 @@ interface Props {
  */
 export function GeneratePanel({ onGenerated }: Props) {
   const [theme, setTheme] = useState("");
-  const [grammar, setGrammar] = useState("");
+  const [grammarIds, setGrammarIds] = useState<string[]>([]);
+  const [unlockedGrammarIds, setUnlockedGrammarIds] = useState<Set<string>>(new Set());
   const [level, setLevel] = useState(5);
   const [paste, setPaste] = useState("");
   const [genState, setGenState] = useState<GenState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { notify } = useNotify();
+
+  useEffect(() => {
+    void getUnlockedGrammarIds().then((ids) => setUnlockedGrammarIds(new Set(ids)));
+  }, []);
 
   const generating = genState === "queued" || genState === "generating";
 
@@ -39,7 +50,8 @@ export function GeneratePanel({ onGenerated }: Props) {
     setGenState("queued");
     const params: StoryParams = {
       theme: theme || undefined,
-      grammar: grammar ? grammar.split(/[\s,、]+/).filter(Boolean) : undefined,
+      grammar: grammarIds.length ? grammarIds.map(resolveGrammar) : undefined,
+      grammarIds: grammarIds.length ? grammarIds : undefined,
       level,
     };
     try {
@@ -62,22 +74,25 @@ export function GeneratePanel({ onGenerated }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-sm border border-hairline bg-surface p-4">
-      <span className="font-sans text-xs uppercase tracking-widest text-muted">
-        Générer une histoire
-      </span>
+    <Card className="flex flex-col gap-3">
+      <SectionLabel>Générer une histoire</SectionLabel>
       <div className="flex flex-wrap gap-3">
         <div className="flex grow basis-32 flex-col gap-1">
           <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-theme">Thème</label>
-          <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-theme" value={theme} placeholder="animaux, izakaya…" onChange={(e) => setTheme(e.target.value)} />
+          <input className="h-11 rounded-sm border border-hairline bg-bg p-2 text-text" id="g-theme" value={theme} placeholder="animaux, izakaya…" onChange={(e) => setTheme(e.target.value)} />
         </div>
-        <div className="flex grow basis-32 flex-col gap-1">
+        <div className="flex grow basis-full flex-col gap-1 sm:basis-32">
           <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-grammar">Grammaire</label>
-          <input className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-grammar" value={grammar} placeholder="て-forme, は/が" onChange={(e) => setGrammar(e.target.value)} />
+          <GrammarMultiSelect
+            inputId="g-grammar"
+            value={grammarIds}
+            onChange={setGrammarIds}
+            unlockedIds={unlockedGrammarIds}
+          />
         </div>
         <div className="flex shrink-0 grow-0 basis-20 flex-col gap-1">
           <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="g-level">JLPT</label>
-          <select className="rounded-sm border border-hairline bg-bg p-2 text-text" id="g-level" value={level} onChange={(e) => setLevel(Number(e.target.value))}>
+          <select className="h-11 appearance-none rounded-sm border border-hairline bg-bg p-2 text-text" id="g-level" value={level} onChange={(e) => setLevel(Number(e.target.value))}>
             {[5, 4, 3, 2, 1].map((n) => (
               <option key={n} value={n}>
                 N{n}
@@ -87,13 +102,9 @@ export function GeneratePanel({ onGenerated }: Props) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={generate}
-          disabled={generating}
-        >
+        <Button variant="primary" onClick={generate} disabled={generating}>
           {generating ? "Génération…" : "Générer"}
-        </button>
+        </Button>
         {genState && <span className="text-sm text-muted">Statut : {GEN_LABEL[genState]}</span>}
       </div>
       {error && <p className="text-sm text-accent">{error}</p>}
@@ -110,15 +121,11 @@ export function GeneratePanel({ onGenerated }: Props) {
           placeholder="Colle ici une phrase ou un texte japonais libre…"
         />
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={openPasted}
-            disabled={!paste.trim()}
-          >
+          <Button variant="primary" onClick={openPasted} disabled={!paste.trim()}>
             Lire ce texte
-          </button>
+          </Button>
         </div>
       </details>
-    </div>
+    </Card>
   );
 }

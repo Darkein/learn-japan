@@ -1,5 +1,16 @@
+/* Convention responsive : mobile-first partout. Les classes sans préfixe ciblent le téléphone ;
+   `sm:` (40rem) = grand téléphone / petite tablette ; `min-[60rem]:` = vues desktop élargies
+   (splits type LessonList/Catalogue). Aucun style ne doit partir du desktop. */
+
 @import "tailwindcss";
 @import "./theme.css";
+
+/* Encoches (notch/home-indicator) — utilisées par BottomNav et PodcastPlayer, qui sont fixed
+   en bas d'écran. `viewport-fit=cover` est déjà posé dans index.html. */
+:root {
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
 
 /* Tokens statiques (typo, rayons, mouvement) exposés comme utilitaires Tailwind. */
 @theme {

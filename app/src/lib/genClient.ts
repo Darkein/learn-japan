@@ -17,6 +17,10 @@ export interface GenParams {
   // kind: "lesson" | "lesson-story"
   title?: string;
   vocab?: { ja: string; yomi?: string; fr: string }[];
+  // kind: "lesson-story" — révision (leçons précédentes, pondérée plus bas) et anti-répétition.
+  reviewVocab?: { ja: string; yomi?: string; fr: string }[];
+  reviewGrammar?: string[];
+  avoidTitles?: string[];
   // kind: "story-translation"
   sentences?: string[];
   // Clé R2 structurée (lesson / lesson-story uniquement)
@@ -110,6 +114,10 @@ export interface LessonGenInput {
   level: number;
   vocab: { ja: string; yomi?: string; fr: string }[];
   grammar: string[];
+  // kind: "lesson-story" uniquement — révision (leçons précédentes) et anti-répétition.
+  reviewVocab?: { ja: string; yomi?: string; fr: string }[];
+  reviewGrammar?: string[];
+  avoidTitles?: string[];
 }
 
 export async function generateLesson(
@@ -149,6 +157,9 @@ export async function generateLessonStory(
         level: input.level,
         vocab: input.vocab,
         grammar: input.grammar,
+        reviewVocab: input.reviewVocab,
+        reviewGrammar: input.reviewGrammar,
+        avoidTitles: input.avoidTitles,
       },
       onState,
       // Génération plus longue (texte plus volumineux + repli éventuel de modèle).

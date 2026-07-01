@@ -4,6 +4,10 @@ import { recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/warmup";
 import { LessonList } from "./LessonList";
+import { Button } from "./kit/Button";
+import { Card } from "./kit/Card";
+import { ProgressBar } from "./kit/ProgressBar";
+import { SectionLabel } from "./kit/SectionLabel";
 import { useGenJobs } from "./useGenJobs";
 import { useSettings } from "./useSettings";
 
@@ -87,20 +91,13 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
               </span>
             )}
           </div>
-          <div className="h-1 w-full rounded-full bg-hairline overflow-hidden">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${Math.min(100, (dailyData.reviewed / dailyData.goal) * 100)}%` }}
-            />
-          </div>
+          <ProgressBar value={(dailyData.reviewed / dailyData.goal) * 100} />
           {dailyData.dueCount > 0 && (() => {
             const goalMet = dailyData.reviewed >= dailyData.goal;
             return (
-              <div className="flex items-center justify-between gap-4 rounded-r-sm border-y border-r border-l-4 border-hairline border-l-accent bg-surface p-4">
+              <Card accentFlag className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs uppercase tracking-widest text-muted">
-                    {goalMet ? "Renforcement" : "Révision"}
-                  </span>
+                  <SectionLabel>{goalMet ? "Renforcement" : "Révision"}</SectionLabel>
                   <span className="font-serif text-lg text-text">
                     {dailyData.dueCount} élément{dailyData.dueCount > 1 ? "s" : ""}{" "}
                     {goalMet ? "à consolider" : "à réviser"}
@@ -109,32 +106,30 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
                     <span className="text-xs text-muted">En plus de ton objectif du jour atteint ✓</span>
                   )}
                 </div>
-                <button
-                  className="cursor-pointer whitespace-nowrap rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors"
-                  onClick={onStartReview}
-                >
+                <Button variant="primary" className="whitespace-nowrap" onClick={onStartReview}>
                   {goalMet ? "Continuer" : "Réviser maintenant"}
-                </button>
-              </div>
+                </Button>
+              </Card>
             );
           })()}
         </section>
       )}
 
       {unlockedLesson && (
-        <section className="flex items-start justify-between gap-4 rounded-r-sm border-y border-r border-l-4 border-hairline border-l-accent bg-surface p-4">
+        <Card accentFlag className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-widest text-muted">Nouvelle leçon débloquée</span>
+            <SectionLabel>Nouvelle leçon débloquée</SectionLabel>
             <span className="font-serif text-lg text-text">{unlockedLesson.title}</span>
             <span className="text-sm text-muted">Leçon précédente maîtrisée — continuez sur votre lancée !</span>
           </div>
-          <button
-            className="cursor-pointer shrink-0 whitespace-nowrap rounded-sm border border-accent bg-accent px-4 py-2 text-sm text-white transition-colors"
+          <Button
+            variant="primary"
+            className="shrink-0 whitespace-nowrap"
             onClick={() => { void dismissUnlock(unlockedLesson); onOpenCourse(unlockedLesson); }}
           >
             Voir la leçon →
-          </button>
-        </section>
+          </Button>
+        </Card>
       )}
 
       {todo.length > 0 ? (

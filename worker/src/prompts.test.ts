@@ -69,6 +69,33 @@ describe("buildLessonStoryPrompt", () => {
       expect(prompt).not.toContain("Variante");
     }
   });
+
+  it("sans révision : aucune section de révision dans le prompt", () => {
+    const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story" });
+    expect(prompt).not.toContain("révision");
+  });
+
+  it("avec révision : vocab/grammaire de révision présentés comme secondaires", () => {
+    const prompt = buildLessonStoryPrompt({
+      ...lesson,
+      kind: "lesson-story",
+      reviewVocab: [{ ja: "犬", yomi: "いぬ", fr: "chien" }],
+      reviewGrammar: ["n5-ga-subject"],
+    });
+    expect(prompt).toContain("PARCIMONIE");
+    expect(prompt).toContain("Vocabulaire de révision (optionnel) : 犬 (いぬ) = chien.");
+    expect(prompt).toContain("Grammaire de révision (optionnelle) : n5-ga-subject.");
+  });
+
+  it("avoidTitles : consigne d'éviter les thèmes déjà utilisés pour cette leçon", () => {
+    const prompt = buildLessonStoryPrompt({
+      ...lesson,
+      kind: "lesson-story",
+      avoidTitles: ["猫の日 (Journée du chat)"],
+    });
+    expect(prompt).toContain("Évite de reprendre le thème");
+    expect(prompt).toContain("猫の日 (Journée du chat)");
+  });
 });
 
 describe("cleanSlug", () => {

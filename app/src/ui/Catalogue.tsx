@@ -11,6 +11,8 @@ import {
   allVocabInv,
 } from "../lib/inventory";
 import { listLessons, type Lesson } from "../lib/lessons";
+import { Badge } from "./kit/Badge";
+import { SegmentedControl } from "./kit/SegmentedControl";
 import { LessonList } from "./LessonList";
 import { useGenJobs } from "./useGenJobs";
 
@@ -29,14 +31,18 @@ const STATUS_LABEL: Record<ItemStatus, string> = {
   known: "connu",
 };
 
-const STATUS_FILTERS: { id: ItemStatus | "all"; label: string }[] = [
-  { id: "all", label: "Tous" },
-  { id: "known", label: "Connus" },
-  { id: "review", label: "À revoir" },
-  { id: "unknown", label: "Pas vus" },
+const STATUS_FILTERS: { value: ItemStatus | "all"; label: string }[] = [
+  { value: "all", label: "Tous" },
+  { value: "known", label: "Connus" },
+  { value: "review", label: "À revoir" },
+  { value: "unknown", label: "Pas vus" },
 ];
 
 const LEVELS = [5, 4, 3, 2, 1];
+const LEVEL_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "Tous" },
+  ...LEVELS.map((n) => ({ value: n, label: `N${n}` })),
+];
 const MAX_ROWS = 400;
 
 interface Props {
@@ -115,45 +121,18 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-4">
-            <div
-              className="inline-flex overflow-hidden rounded-sm border border-hairline"
-              role="group"
-              aria-label="Niveau JLPT"
-            >
-              <button
-                className="cursor-pointer border-l border-hairline px-3 py-1 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text"
-                aria-pressed={level === 0}
-                onClick={() => setLevel(0)}
-              >
-                Tous
-              </button>
-              {LEVELS.map((n) => (
-                <button
-                  key={n}
-                  className="cursor-pointer border-l border-hairline px-3 py-1 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text"
-                  aria-pressed={level === n}
-                  onClick={() => setLevel(n)}
-                >
-                  N{n}
-                </button>
-              ))}
-            </div>
-            <div
-              className="inline-flex overflow-hidden rounded-sm border border-hairline"
-              role="group"
-              aria-label="Statut"
-            >
-              {STATUS_FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  className="cursor-pointer border-l border-hairline px-3 py-1 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text"
-                  aria-pressed={status === f.id}
-                  onClick={() => setStatus(f.id)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              ariaLabel="Niveau JLPT"
+              options={LEVEL_OPTIONS}
+              value={level}
+              onChange={setLevel}
+            />
+            <SegmentedControl
+              ariaLabel="Statut"
+              options={STATUS_FILTERS}
+              value={status}
+              onChange={setStatus}
+            />
           </div>
 
           {statusMaps === null ? (
@@ -198,12 +177,8 @@ function StatusTag({ status }: { status: ItemStatus }) {
   );
 }
 
-function LevelTag({ level }: { level: number }) {
-  return (
-    <span className="justify-self-end rounded-sm border border-hairline px-2 text-xs text-muted">
-      N{level}
-    </span>
-  );
+function LevelTag({ level, className = "" }: { level: number; className?: string }) {
+  return <Badge className={className}>N{level}</Badge>;
 }
 
 function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
@@ -214,14 +189,16 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
         {items.slice(0, MAX_ROWS).map((k) => (
           <li
             key={k.id}
-            className="grid grid-cols-[2.5rem_1fr_1.5fr_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+            className="flex flex-col gap-1 border-t border-hairline py-3 last:border-b sm:grid sm:grid-cols-[2.5rem_1fr_1.5fr_auto] sm:items-baseline sm:gap-3 sm:py-2"
           >
-            <span className="font-jp text-lg text-text">{k.ja}</span>
+            <span className="flex items-baseline gap-3 sm:contents">
+              <span className="font-jp text-lg text-text">{k.ja}</span>
+              <LevelTag level={k.level} className="ml-auto sm:order-4 sm:ml-0 sm:justify-self-end" />
+            </span>
             <span className="font-jp text-sm text-muted">
               {[...k.kun, ...k.on].slice(0, 4).join("・")}
             </span>
             <span className="font-sans text-sm text-text">{k.fr}</span>
-            <LevelTag level={k.level} />
           </li>
         ))}
       </List>
@@ -234,12 +211,14 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
         {items.slice(0, MAX_ROWS).map((v) => (
           <li
             key={v.id}
-            className="grid grid-cols-[7rem_6rem_1fr_auto_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+            className="flex flex-col gap-1 border-t border-hairline py-3 last:border-b min-[60rem]:grid min-[60rem]:grid-cols-[7rem_6rem_1fr_auto_auto] min-[60rem]:items-baseline min-[60rem]:gap-3 min-[60rem]:py-2"
           >
-            <span className="font-jp text-lg text-text">{v.ja}</span>
+            <span className="flex items-baseline gap-3 min-[60rem]:contents">
+              <span className="font-jp text-lg text-text">{v.ja}</span>
+              <LevelTag level={v.level} className="ml-auto min-[60rem]:order-4 min-[60rem]:ml-0 min-[60rem]:justify-self-end" />
+            </span>
             <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
             <span className="font-sans text-sm text-text">{v.fr}</span>
-            <LevelTag level={v.level} />
             <StatusTag status={statusOf("vocab", v.id)} />
           </li>
         ))}
@@ -252,13 +231,15 @@ function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
       {items.slice(0, MAX_ROWS).map((g) => (
         <li
           key={g.id}
-          className="grid grid-cols-[1fr_2fr_auto_auto] items-baseline gap-3 border-t border-hairline py-2 last:border-b"
+          className="flex flex-col gap-1 border-t border-hairline py-3 last:border-b min-[60rem]:grid min-[60rem]:grid-cols-[1fr_2fr_auto_auto] min-[60rem]:items-baseline min-[60rem]:gap-3 min-[60rem]:py-2"
         >
-          <span className="font-jp text-lg text-text">{g.name}</span>
+          <span className="flex items-baseline gap-3 min-[60rem]:contents">
+            <span className="font-jp text-lg text-text">{g.name}</span>
+            <LevelTag level={g.level} className="ml-auto min-[60rem]:order-4 min-[60rem]:ml-0 min-[60rem]:justify-self-end" />
+          </span>
           <span className="font-sans text-sm text-text">
             {g.ruleFr} <em className="text-muted">ex. {g.exampleJa}</em>
           </span>
-          <LevelTag level={g.level} />
           <StatusTag status={statusOf("grammar", g.id)} />
         </li>
       ))}

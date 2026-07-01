@@ -3,6 +3,10 @@ import { getComprehensionItem, getGrammar, getVocab } from "../lib/db";
 import type { Exercise } from "../lib/exercise";
 import { isMastered, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
+import { Badge } from "./kit/Badge";
+import { Button } from "./kit/Button";
+import { Card } from "./kit/Card";
+import { SectionLabel } from "./kit/SectionLabel";
 
 interface SummaryEntry {
   card: Exercise;
@@ -63,9 +67,9 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
   const leeches = results.filter((r) => r.card.isLeech);
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border border-hairline bg-surface px-4 py-6">
+    <Card className="flex flex-col gap-4 py-6">
       <div>
-        <span className="text-xs uppercase tracking-widest text-muted">Bilan</span>
+        <SectionLabel>Bilan</SectionLabel>
         <p className="font-serif text-lg text-text">
           {title} — {results.length} élément{results.length > 1 ? "s" : ""} revu
           {results.length > 1 ? "s" : ""}
@@ -74,22 +78,19 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
 
       {leeches.length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-widest text-muted">Éléments difficiles</span>
+          <SectionLabel>Éléments difficiles</SectionLabel>
           <div className="flex flex-wrap gap-2">
             {leeches.map((r) => (
-              <span
-                key={r.card.key}
-                className="rounded-sm border border-hairline px-2 py-0.5 text-xs text-muted font-jp"
-              >
+              <Badge key={r.card.key} className="font-jp">
                 {r.card.front}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
       )}
 
       <div className="flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-widest text-muted">Éléments revus</span>
+        <SectionLabel>Éléments revus</SectionLabel>
         {summary === null ? (
           <p className="text-sm text-muted">Calcul de la maîtrise…</p>
         ) : (
@@ -108,19 +109,11 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-jp text-sm text-text">{entry.card.front}</span>
                     <div className="flex items-center gap-1.5">
-                      {entry.card.isLeech && (
-                        <span className="rounded-sm border border-hairline px-1.5 py-0.5 text-xs text-muted">
-                          difficile
-                        </span>
-                      )}
+                      {entry.card.isLeech && <Badge>difficile</Badge>}
                       {entry.mastered ? (
-                        <span className="rounded-sm border border-accent px-1.5 py-0.5 text-xs text-accent">
-                          maîtrisé
-                        </span>
+                        <Badge variant="accent">maîtrisé</Badge>
                       ) : entry.intervalDays === 0 ? (
-                        <span className="rounded-sm border border-hairline px-1.5 py-0.5 text-xs text-muted">
-                          nouveau
-                        </span>
+                        <Badge>nouveau</Badge>
                       ) : null}
                     </div>
                   </div>
@@ -143,31 +136,25 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
 
       <div className="flex flex-wrap gap-2">
         {onRestart && (
-          <button
-            className="cursor-pointer rounded-sm bg-accent px-4 py-2 text-sm text-white"
-            onClick={onRestart}
-          >
+          <Button variant="primary" onClick={onRestart}>
             Recommencer
-          </button>
+          </Button>
         )}
         {onReplayMissed && (
-          <button
-            className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
+            variant="ghost"
             disabled={missed.length === 0}
             onClick={() => onReplayMissed(missed.map((r) => r.card))}
           >
             Rejouer les ratés {missed.length > 0 ? `(${missed.length})` : ""}
-          </button>
+          </Button>
         )}
         {onClose && (
-          <button
-            className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent"
-            onClick={onClose}
-          >
+          <Button variant="ghost" onClick={onClose}>
             Retour
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

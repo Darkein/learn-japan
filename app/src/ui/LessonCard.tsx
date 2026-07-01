@@ -4,6 +4,8 @@ import { markLessonStarted } from "../lib/lessons";
 import { SRS } from "../lib/config";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
+import { Badge } from "./kit/Badge";
+import { ProgressBar } from "./kit/ProgressBar";
 
 interface Props {
   lesson: Lesson;
@@ -59,27 +61,15 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
             {lesson.title}
           </span>
           {(lesson.completedAt ?? !available) && (
-            <span
-              
-              className={`rounded-sm border border-transparent px-2 py-0.5 text-xs uppercase tracking-wide ${
-                lesson.completedAt
-                  ? "border-hairline text-muted opacity-80"
-                  : available
-                    ? "border-accent text-accent"
-                    : "border-hairline text-muted"
-              }`}
+            <Badge
+              variant={!lesson.completedAt && available ? "accent" : "default"}
+              className={`uppercase tracking-wide ${lesson.completedAt ? "opacity-80" : ""}`}
             >
               {lesson.completedAt ? "terminée" : available ? "prête" : "à générer"}
-            </span>
+            </Badge>
           )}
-          <span className="rounded-sm border border-hairline px-2 text-xs text-muted">
-            N{lesson.level}
-          </span>
-          {lesson.locked && (
-            <span className="rounded-sm border border-hairline px-2 py-0.5 text-xs uppercase tracking-wide text-muted">
-              🔒 
-            </span>
-          )}
+          <Badge>N{lesson.level}</Badge>
+          {lesson.locked && <Badge className="uppercase tracking-wide">🔒 </Badge>}
         </div>
 
         {lesson.summary && <p className="m-0 text-muted">{lesson.summary}</p>}
@@ -111,14 +101,7 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
           </div>
         )}
 
-        {showMastery && (
-          <div className="h-1 w-full overflow-hidden rounded-full bg-hairline">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${Math.round(lesson.mastery * 100)}%` }}
-            />
-          </div>
-        )}
+        {showMastery && <ProgressBar value={Math.round(lesson.mastery * 100)} />}
       </button>
 
       {lesson.locked && (

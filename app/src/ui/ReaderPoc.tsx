@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
+import { resolveGrammar } from "../lib/inventory";
 import type { LessonObjectives } from "../lib/lessons";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
+import { Button } from "./kit/Button";
+import { Card } from "./kit/Card";
+import { SectionLabel } from "./kit/SectionLabel";
 import { ReaderExercises } from "./ReaderExercises";
 import { Ruby } from "./Ruby";
 import { useSettings } from "./useSettings";
@@ -103,11 +107,9 @@ export function ReaderPoc({ incoming }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {lessonCtx && (
-        <aside className="flex flex-col gap-2 rounded-r-sm border-l-4 border-l-accent bg-surface px-4 py-3">
+        <Card accentFlag className="flex flex-col gap-2 px-4 py-3">
           <div className="flex flex-wrap items-baseline gap-3">
-            <span className="text-xs uppercase tracking-widest text-muted">
-              Leçon{lessonCtx.level ? ` · N${lessonCtx.level}` : ""}
-            </span>
+            <SectionLabel>Leçon{lessonCtx.level ? ` · N${lessonCtx.level}` : ""}</SectionLabel>
             {lessonCtx.title && (
               <span className="font-serif text-lg text-text">{lessonCtx.title}</span>
             )}
@@ -124,7 +126,7 @@ export function ReaderPoc({ incoming }: Props) {
               ))}
             </p>
           )}
-        </aside>
+        </Card>
       )}
 
       {result && !loading && (
@@ -163,7 +165,7 @@ export function ReaderPoc({ incoming }: Props) {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              className={`cursor-pointer rounded-sm border px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50 ${player.playing ? "border-accent bg-accent text-white" : "border-hairline"}`}
+              className={`min-h-11 cursor-pointer rounded-sm border px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50 ${player.playing ? "border-accent bg-accent text-white" : "border-hairline"}`}
               onClick={player.toggle}
               disabled={player.loading || sentences.length === 0}
             >
@@ -173,18 +175,12 @@ export function ReaderPoc({ incoming }: Props) {
                   ? "⏸ Pause"
                   : "▶ Écouter l'article"}
             </button>
-            <button
-              className="cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setExoOpen(true)}
-            >
+            <Button variant="primary" onClick={() => setExoOpen(true)}>
               Exercices
-            </button>
-            <button
-              className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setTransOpen((v) => !v)}
-            >
+            </Button>
+            <Button variant="ghost" onClick={() => setTransOpen((v) => !v)}>
               {transOpen ? "Masquer la traduction" : "Traduction française"}
-            </button>
+            </Button>
           </div>
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
@@ -198,7 +194,9 @@ export function ReaderPoc({ incoming }: Props) {
               grammar={
                 lessonCtx
                   ? { ids: lessonCtx.grammarIds ?? [], labels: lessonCtx.objectives?.grammar ?? [] }
-                  : undefined
+                  : incoming.params.grammarIds?.length
+                    ? { ids: incoming.params.grammarIds, labels: incoming.params.grammarIds.map(resolveGrammar) }
+                    : undefined
               }
               onClose={() => setExoOpen(false)}
             />

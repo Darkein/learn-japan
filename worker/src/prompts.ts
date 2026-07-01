@@ -30,6 +30,10 @@ export interface GenerateRequest {
   // kind: "lesson" | "lesson-story" — matière d'une leçon.
   title?: string;
   vocab?: VocabItem[];
+  // kind: "lesson-story" — révision (leçons précédentes, pondérée plus bas) et anti-répétition.
+  reviewVocab?: VocabItem[];
+  reviewGrammar?: string[];
+  avoidTitles?: string[];
   // kind: "story-translation" — phrases JP déjà découpées.
   sentences?: string[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
@@ -42,11 +46,15 @@ export interface GenerateRequest {
 // long ou un détournement par injection dans un champ de texte libre.
 const LIMITS = {
   theme: 120,
-  grammarItem: 60,
+  grammarItem: 120,
   grammarList: 24,
   title: 120,
   vocabList: 80,
   vocabField: 80,
+  reviewVocabList: 20,
+  reviewGrammarList: 8,
+  avoidTitleItem: 120,
+  avoidTitleList: 8,
   sentence: 600,
   sentenceList: 200,
 } as const;
@@ -195,6 +203,9 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
   const title = clean(r.title, LIMITS.title) || "Leçon";
   const vocab = cleanVocab(r.vocab);
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
+  const reviewVocab = cleanVocab(r.reviewVocab).slice(0, LIMITS.reviewVocabList);
+  const reviewGrammarList = cleanList(r.reviewGrammar, LIMITS.reviewGrammarList, LIMITS.grammarItem);
+  const avoidTitles = cleanList(r.avoidTitles, LIMITS.avoidTitleList, LIMITS.avoidTitleItem);
   const variant = cleanVariant(r.variant);
   const len = storyLength(level);
 
@@ -203,16 +214,28 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
     grammarList.length ? `Grammaire : ${grammarList.join(", ")}.` : "",
   ];
 
+  const review = [
+    reviewVocab.length || reviewGrammarList.length
+      ? "Tu peux, avec PARCIMONIE, réemployer quelques éléments déjà vus pour réviser (secondaires — le cœur du texte reste les cibles ci-dessus) :"
+      : "",
+    reviewVocab.length ? `Vocabulaire de révision (optionnel) : ${reviewVocab.map(fmtVocab).join(", ")}.` : "",
+    reviewGrammarList.length ? `Grammaire de révision (optionnelle) : ${reviewGrammarList.join(", ")}.` : "",
+  ];
+
   return [
     `Écris un texte en japonais pour une leçon de niveau JLPT N${level} intitulée « ${title} ».`,
     "Format libre — court récit, brève (news), dialogue ou scène du quotidien — du moment que c'est cohérent, naturel et formateur.",
     "Il doit mettre en scène ces éléments cibles :",
     ...objectives,
+    ...review,
     "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
     "",
     `Longueur : un article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), structuré en au moins 2 à 3 paragraphes (sépare les paragraphes par une ligne vide ; ajoute-en si l'histoire le demande).`,
     variant > 1
       ? `Variante ${variant} : propose une histoire DIFFÉRENTE des variantes précédentes pour cette leçon (autre situation, autres personnages, autre angle narratif), tout en respectant les mêmes cibles grammaticales et de vocabulaire.`
+      : "",
+    avoidTitles.length
+      ? `Évite de reprendre le thème ou la situation des histoires déjà écrites pour cette leçon : ${avoidTitles.join(" ; ")}. Choisis un cadre, des personnages et une situation nettement différents.`
       : "",
     "Commence ta réponse par une ligne de titre au format exactement : TITRE: [titre japonais court] | [titre français court]",
     "Puis donne le texte japonais uniquement : pas de furigana, pas de romaji, pas de traduction.",

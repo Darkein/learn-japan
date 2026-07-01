@@ -25,7 +25,15 @@ beforeEach(() => {
 // On va plutôt tester computeMastery directement en l'exportant.
 
 // Import après mock pour éviter les circular dep issues
-const { computeMastery, listLessons, markUnlockNotified } = await import("./lessons");
+const {
+  addLessonStory,
+  computeMastery,
+  getUnlockedGrammarIds,
+  listLessons,
+  lessonsForGrammar,
+  markUnlockNotified,
+} = await import("./lessons");
+const genClient = await import("./genClient");
 
 function masteredCard(): Card {
   return {
@@ -156,6 +164,29 @@ describe("locked / prevMastery dans listLessons", () => {
   });
 });
 
+describe("addLessonStory — révision pondérée", () => {
+  it("échantillonne du vocabulaire/grammaire des leçons précédentes, hors cibles courantes", async () => {
+    (genClient.generateLessonStory as any).mockResolvedValue("TITRE: あ | A\nテキスト。");
+    const lessons = await listLessons();
+    if (lessons.length < 2) return; // curriculum trop court pour avoir des prédécesseurs
+    const target = lessons[1];
+
+    await addLessonStory(target);
+
+    const call = (genClient.generateLessonStory as any).mock.calls.at(-1)[0];
+    expect(call.reviewVocab.length).toBeLessThanOrEqual(6);
+    expect(call.reviewGrammar.length).toBeLessThanOrEqual(2);
+
+    const currentVocabKeys = new Set(target.objectives.vocab.map((v: any) => v.ja + "|" + (v.yomi ?? "")));
+    for (const v of call.reviewVocab) {
+      expect(currentVocabKeys.has(v.ja + "|" + (v.yomi ?? ""))).toBe(false);
+    }
+    for (const g of call.reviewGrammar) {
+      expect(target.objectives.grammar.includes(g)).toBe(false);
+    }
+  });
+});
+
 describe("markUnlockNotified", () => {
   it("définit unlockedNotified: true", async () => {
     await markUnlockNotified("lesson-abc");
@@ -169,5 +200,51 @@ describe("markUnlockNotified", () => {
     const rec = await getLessonProgress("lesson-xyz");
     expect(rec?.startedAt).toBe(12345);
     expect(rec?.unlockedNotified).toBe(true);
+  });
+});
+
+describe("lessonsForGrammar", () => {
+  it("retourne les leçons introduisant au moins une des règles données", async () => {
+    const { getCurriculum } = await import("./lessons");
+    const curriculum = getCurriculum();
+    const target = curriculum.find((c) => c.introduces.grammar.length > 0);
+    if (!target) return; // skip si curriculum sans grammaire
+    const found = lessonsForGrammar([target.introduces.grammar[0]]);
+    expect(found.some((l) => l.id === target.id)).toBe(true);
+  });
+
+  it("liste vide → aucune leçon", () => {
+    expect(lessonsForGrammar([])).toEqual([]);
+  });
+
+  it("id de grammaire inconnu → aucune leçon", () => {
+    expect(lessonsForGrammar(["__inexistant__"])).toEqual([]);
+  });
+});
+
+describe("getUnlockedGrammarIds", () => {
+  it("inclut la grammaire de la première leçon (jamais locked)", async () => {
+    const { getCurriculum } = await import("./lessons");
+    const first = getCurriculum()[0];
+    const ids = await getUnlockedGrammarIds();
+    for (const g of first.introduces.grammar) {
+      expect(ids).toContain(g);
+    }
+  });
+
+  it("exclut la grammaire d'une leçon locked", async () => {
+    const { getCurriculum } = await import("./lessons");
+    const curriculum = getCurriculum();
+    const lessons = await listLessons();
+    const lockedIdx = lessons.findIndex((l) => l.locked);
+    if (lockedIdx === -1) return; // skip si aucune leçon locked
+    const lockedEntry = curriculum[lockedIdx];
+    const otherLessonsGrammar = new Set(
+      curriculum.filter((c) => c.id !== lockedEntry.id).flatMap((c) => c.introduces.grammar),
+    );
+    const onlyLocked = lockedEntry.introduces.grammar.filter((g) => !otherLessonsGrammar.has(g));
+    if (onlyLocked.length === 0) return; // skip si la règle est partagée avec une leçon débloquée
+    const ids = await getUnlockedGrammarIds();
+    expect(ids).not.toContain(onlyLocked[0]);
   });
 });

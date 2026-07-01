@@ -5,6 +5,8 @@ import type { Exercise } from "../lib/exercise";
 import { normalizeReading } from "../lib/kana";
 import type { SrsGrade } from "../lib/srs";
 import { speakWord } from "../lib/tts";
+import { Badge } from "./kit/Badge";
+import { Button } from "./kit/Button";
 
 interface Props {
   exercise: Exercise;
@@ -82,21 +84,14 @@ export function ExerciseCard({
 
   return (
     <div className="flex flex-col items-center gap-4 rounded-md border border-hairline bg-surface px-4 py-12 text-center">
-      {ex.isLeech && (
-        <span className="mb-1 inline-block rounded-sm bg-surface px-2 py-0.5 text-xs text-muted">
-          Élément difficile
-        </span>
-      )}
+      {ex.isLeech && <Badge className="mb-1">Élément difficile</Badge>}
 
       {ex.audio && !listened ? (
         <>
           <div className="font-jp text-3xl">{ex.front}</div>
-          <button
-            className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
-            onClick={handleListen}
-          >
+          <Button variant="primary" onClick={handleListen}>
             ▶ Écouter
-          </button>
+          </Button>
         </>
       ) : ex.mode === "choice" ? (
         <>
@@ -122,14 +117,15 @@ export function ExerciseCard({
                       ? "opacity-60"
                       : "";
               return (
-                <button
+                <Button
                   key={idx}
-                  className={`grow basis-16 cursor-pointer rounded-sm border border-hairline bg-bg p-3 font-jp text-lg text-text transition-colors hover:border-accent disabled:cursor-default ${cls}`}
+                  variant="ghost"
+                  className={`grow basis-16 min-h-11 bg-bg p-3 font-jp text-lg disabled:cursor-default disabled:opacity-100 ${cls}`}
                   onClick={() => pickChoice(idx)}
                   disabled={picked !== null}
                 >
                   {c}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -138,12 +134,9 @@ export function ExerciseCard({
               <span className="text-sm text-muted">
                 {picked === ex.answerIndex ? "Correct." : `Réponse : ${ex.back}`}
               </span>
-              <button
-                className="cursor-pointer rounded-sm bg-accent px-4 py-2 text-white"
-                onClick={onNext}
-              >
+              <Button variant="primary" onClick={onNext}>
                 Suivant
-              </button>
+              </Button>
             </>
           )}
         </>
@@ -155,7 +148,7 @@ export function ExerciseCard({
             {placed.map((t) => (
               <button
                 key={t.key}
-                className="cursor-pointer rounded-sm border border-accent bg-bg px-3 py-1.5 font-jp text-lg text-text disabled:cursor-default"
+                className="min-h-11 cursor-pointer rounded-sm border border-accent bg-bg px-3 py-1.5 font-jp text-lg text-text disabled:cursor-default"
                 onClick={() => unplace(t)}
                 disabled={checked !== null}
               >
@@ -167,7 +160,7 @@ export function ExerciseCard({
             {shuffled.map((t) => (
               <button
                 key={t.key}
-                className="cursor-pointer rounded-sm border border-hairline bg-bg px-3 py-1.5 font-jp text-lg text-text transition-colors hover:border-accent disabled:opacity-30"
+                className="min-h-11 cursor-pointer rounded-sm border border-hairline bg-bg px-3 py-1.5 font-jp text-lg text-text transition-colors hover:border-accent disabled:opacity-30"
                 onClick={() => place(t)}
                 disabled={placedKeys.has(t.key) || checked !== null}
               >
@@ -176,24 +169,17 @@ export function ExerciseCard({
             ))}
           </div>
           {checked === null ? (
-            <button
-              className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={checkBuild}
-              disabled={placed.length === 0}
-            >
+            <Button variant="primary" onClick={checkBuild} disabled={placed.length === 0}>
               Vérifier
-            </button>
+            </Button>
           ) : (
             <>
               <div className={`text-sm ${checked ? "text-accent-2" : "text-accent"}`}>
                 {checked ? "✓ Correct" : `✗ Ordre attendu : ${ex.target.join(" ")}`}
               </div>
-              <button
-                className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
-                onClick={onNext}
-              >
+              <Button variant="primary" onClick={onNext}>
                 Suivant
-              </button>
+              </Button>
             </>
           )}
         </>
@@ -224,7 +210,7 @@ export function ExerciseCard({
                   aria-label={ex.prompt ?? "Réponse"}
                 />
                 <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-sm px-1 text-xs text-muted transition-colors hover:text-text"
+                  className="absolute right-2 top-1/2 min-h-9 min-w-9 -translate-y-1/2 cursor-pointer rounded-sm px-1 text-xs text-muted transition-colors hover:text-text"
                   onClick={() => {
                     onRomajiChange?.(!romaji);
                     inputRef.current?.focus();
@@ -236,19 +222,12 @@ export function ExerciseCard({
                 </button>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
-                <button
-                  className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={checkType}
-                  disabled={!entry.trim()}
-                >
+                <Button variant="primary" onClick={checkType} disabled={!entry.trim()}>
                   Vérifier
-                </button>
-                <button
-                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-text transition-colors hover:border-accent"
-                  onClick={() => setCorrect(false)}
-                >
+                </Button>
+                <Button variant="ghost" onClick={() => setCorrect(false)}>
                   Je ne sais pas
-                </button>
+                </Button>
               </div>
             </>
           ) : (
@@ -263,35 +242,37 @@ export function ExerciseCard({
               <div className="flex flex-wrap justify-center gap-2">
                 {correct ? (
                   <>
-                    <button
-                      className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                    <Button
+                      variant="ghost"
+                      className="grow basis-24"
                       onClick={() => {
                         onGraded("good");
                         onNext();
                       }}
                     >
                       Bien
-                    </button>
-                    <button
-                      className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-2 text-sm text-text transition-colors hover:border-accent"
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="grow basis-24"
                       onClick={() => {
                         onGraded("easy");
                         onNext();
                       }}
                     >
                       Facile
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
-                    className="cursor-pointer rounded-sm bg-accent px-6 py-2 text-white"
+                  <Button
+                    variant="primary"
                     onClick={() => {
                       onGraded("again");
                       onNext();
                     }}
                   >
                     Continuer
-                  </button>
+                  </Button>
                 )}
               </div>
             </>

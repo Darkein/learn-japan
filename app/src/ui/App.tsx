@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
 import { enrollStory } from "../lib/enroll";
 import { getCurriculumEntry, getLesson, type Lesson } from "../lib/lessons";
+import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
 import { Histoires } from "./Histoires";
 import { Home } from "./Home";
 import { PodcastPlayer } from "./PodcastPlayer";
-import { PodcastProvider } from "./usePodcastPlayer";
+import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
 import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
+import { useMediaQuery } from "./useMediaQuery";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
 import {
@@ -24,7 +26,22 @@ import { SettingsPanel } from "./SettingsPanel";
 import { Warmup } from "./Warmup";
 import { SettingsProvider, useSettings } from "./useSettings";
 
-const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6 pb-16";
+const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
+// Hauteur approximative du lecteur podcast replié (hors safe-area) — réserve de la place
+// dans le shell pour éviter qu'il ne recouvre le contenu (le détail exact varie peu en
+// pratique ; la tracklist dépliée peut dépasser cette estimation, cas rare accepté).
+const PLAYER_HEIGHT = "8rem";
+
+/** Calcule le padding bas du shell selon ce qui flotte par-dessus (nav du bas, lecteur). */
+function shellPadding(navVisible: boolean, playerActive: boolean): string {
+  const parts = [
+    navVisible ? BOTTOM_NAV_HEIGHT : null,
+    playerActive ? PLAYER_HEIGHT : null,
+    "var(--safe-b)",
+    "1.5rem",
+  ].filter(Boolean);
+  return `calc(${parts.join(" + ")})`;
+}
 
 const TABS: { id: Tab; label: string; path: string }[] = [
   { id: "home", label: "Apprendre", path: "/" },
@@ -79,6 +96,10 @@ export function App() {
 function AppShell() {
   const route = useHashRoute();
   const { openPanel } = useSettings();
+  const podcast = usePodcastPlayer();
+  // La nav du bas n'a de sens qu'en mobile (pouce) ; sur grand écran on garde des onglets
+  // en haut, comme le reste des vues (splits Catalogue/LessonList au même seuil).
+  const wide = useMediaQuery("(min-width: 60rem)");
   // Données des sous-pages, résolues depuis l'id contenu dans l'URL (rechargement direct possible).
   const [reader, setReader] = useState<{ id: string; incoming: IncomingStory } | null>(null);
   const [course, setCourse] = useState<Lesson | null>(null);
@@ -159,10 +180,12 @@ function AppShell() {
     navigate(from);
   }
 
+  const subpagePadding = { paddingBottom: shellPadding(false, podcast.active) };
+
   // Pages dédiées : remplacent le shell à onglets (navigation simple, page lisible).
   if (route.kind === "reader" && reader) {
     return (
-      <div className={SHELL}>
+      <div className={SHELL} style={subpagePadding}>
         <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
           <ReaderPoc incoming={reader.incoming} />
         </ReaderPage>
@@ -171,7 +194,7 @@ function AppShell() {
   }
   if (route.kind === "review") {
     return (
-      <div className={SHELL}>
+      <div className={SHELL} style={subpagePadding}>
         <ReaderPage title="Révision" onBack={back}>
           <Warmup opts={reviewOpts} onExit={back} />
         </ReaderPage>
@@ -180,7 +203,7 @@ function AppShell() {
   }
   if (route.kind === "course" && course) {
     return (
-      <div className={SHELL}>
+      <div className={SHELL} style={subpagePadding}>
         <ReaderPage title={course.title} onBack={back}>
           <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
         </ReaderPage>
@@ -189,7 +212,7 @@ function AppShell() {
   }
   if (route.kind === "settings") {
     return (
-      <div className={SHELL}>
+      <div className={SHELL} style={subpagePadding}>
         <ReaderPage title="Paramètres" onBack={back}>
           <Settings />
         </ReaderPage>
@@ -200,20 +223,23 @@ function AppShell() {
   // d'afficher brièvement le shell à onglets en attendant getStory/getLesson.
   if (route.kind === "reader" || route.kind === "course") {
     return (
-      <div className={SHELL}>
+      <div className={SHELL} style={subpagePadding}>
         <ReaderPage title="Chargement…" onBack={back} />
       </div>
     );
   }
 
   return (
-    <div className={`${SHELL} ${tab === "catalogue" ? "min-[60rem]:max-w-[min(76rem,94vw)]" : ""}`}>
+    <div
+      className={`${SHELL} ${tab === "catalogue" ? "min-[60rem]:max-w-[min(76rem,94vw)]" : ""}`}
+      style={{ paddingBottom: shellPadding(!wide, podcast.active) }}
+    >
       <header className="flex items-baseline justify-between gap-4 border-b border-hairline pb-4">
         <h1 className="font-serif text-xl">
           Learn Japan<span className="ml-2 text-lg text-accent">日本語</span>
         </h1>
         <button
-          className="cursor-pointer px-2 py-1 text-xl leading-none text-muted hover:text-text"
+          className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center text-xl leading-none text-muted hover:text-text"
           onClick={openPanel}
           aria-label="Paramètres"
         >
@@ -221,20 +247,22 @@ function AppShell() {
         </button>
       </header>
 
-      <nav className="mt-6 mb-8 flex gap-4">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            className="cursor-pointer border-b-2 border-transparent py-1 font-sans text-sm tracking-wide text-muted aria-[current=true]:border-accent aria-[current=true]:text-text"
-            aria-current={tab === t.id}
-            onClick={() => navigate(t.path)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      {wide && (
+        <nav className="mt-6 mb-8 flex gap-4">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className="cursor-pointer border-b-2 border-transparent py-1 font-sans text-sm tracking-wide text-muted aria-[current=true]:border-accent aria-[current=true]:text-text"
+              aria-current={tab === t.id}
+              onClick={() => navigate(t.path)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      )}
 
-      <div key={refreshKey}>
+      <div key={refreshKey} className={wide ? "" : "mt-6"}>
         {tab === "home" && (
           <Home
             onOpenStory={openStory}
@@ -251,6 +279,8 @@ function AppShell() {
         Lecteur de japonais extensif et adaptatif, local-first et hors-ligne — furigana et gloss
         déterministes (kuromoji), révision espacée FSRS.
       </footer>
+
+      {!wide && <BottomNav tabs={TABS} active={tab} onNavigate={navigate} />}
     </div>
   );
 }

@@ -24,18 +24,25 @@ export function ReaderPage({ title, onBack, children }: Props) {
   const [slotEl, setSlotEl] = useState<HTMLDivElement | null>(null);
   return (
     <ReaderHeaderSlot.Provider value={slotEl}>
-      <div className="sticky top-0 z-20 -mx-4 flex items-center gap-4 border-b border-hairline bg-bg px-4 py-3">
+      <div
+        className="sticky top-0 z-20 -mx-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline bg-bg px-4 py-1 sm:flex-nowrap"
+        style={{ paddingTop: "calc(var(--safe-t) + 0.25rem)" }}
+      >
         <button
-          className="cursor-pointer py-1 font-sans text-sm tracking-wide text-muted transition-colors hover:text-text"
+          className="flex min-h-11 cursor-pointer items-center font-sans text-sm tracking-wide text-muted transition-colors hover:text-text"
           onClick={onBack}
         >
           ← Retour
         </button>
-        {title && <span className="min-w-0 flex-1 truncate font-serif text-lg text-text">{title}</span>}
-        <div ref={setSlotEl} className="flex shrink-0 items-center gap-2" />
+        {title && (
+          <span className="order-first basis-full min-w-0 truncate text-center font-serif text-lg text-text sm:order-none sm:basis-auto sm:flex-1 sm:text-left">
+            {title}
+          </span>
+        )}
+        <div ref={setSlotEl} className="flex shrink-0 items-center gap-2 ml-auto sm:ml-0" />
         {showGear && (
           <button
-            className="cursor-pointer px-1 text-xl leading-none text-muted hover:text-text"
+            className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center text-xl leading-none text-muted hover:text-text"
             onClick={openPanel}
             aria-label="Paramètres"
           >

@@ -8,6 +8,8 @@ import type { SrsGrade } from "../lib/srs";
 import { ensureComprehensionQuiz } from "../lib/stories";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { ExerciseCard } from "./ExerciseCard";
+import { Button } from "./kit/Button";
+import { Sheet } from "./kit/Sheet";
 import { SessionSummary } from "./SessionSummary";
 
 const STATE_LABEL: Record<GenState, string> = {
@@ -104,17 +106,12 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
 
   function shell(body: ReactNode) {
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-bg">
-        <div className="mx-auto flex max-w-[44rem] flex-col gap-4 px-4 py-6">
-          <button
-            className="cursor-pointer self-end rounded-sm border border-hairline px-3 py-1 text-sm text-text transition-colors hover:border-accent"
-            onClick={onClose}
-          >
-            ✕ Fermer
-          </button>
-          {body}
-        </div>
-      </div>
+      <Sheet open onClose={onClose} variant="fullscreen">
+        <Button variant="ghost" className="self-end" onClick={onClose}>
+          ✕ Fermer
+        </Button>
+        {body}
+      </Sheet>
     );
   }
 

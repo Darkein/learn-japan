@@ -78,7 +78,7 @@ export interface StoryRecord {
   title: string;
   text: string; // texte japonais source
   /** « Pourquoi cette histoire » : les contraintes de génération. */
-  params: { theme?: string; grammar?: string[]; level?: number };
+  params: { theme?: string; grammar?: string[]; grammarIds?: string[]; level?: number };
   /** Rattachement optionnel à une leçon du curriculum (SPEC §3). */
   lessonId?: string;
   /** Numéro de variante (1, 2, …) pour les histoires de leçon pré-générées. */

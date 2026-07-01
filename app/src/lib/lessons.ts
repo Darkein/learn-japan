@@ -167,6 +167,15 @@ export function getCumulativeObjectives(id: string): LessonObjectives {
   return { vocab: [...vocab.values()], grammar: [...grammar] };
 }
 
+/** Leçons qui introduisent au moins une des règles de grammaire données (par id), triées par ordre. */
+export function lessonsForGrammar(grammarIds: string[]): CurriculumEntry[] {
+  if (grammarIds.length === 0) return [];
+  const ids = new Set(grammarIds);
+  return CURRICULUM.filter((c) => c.introduces.grammar.some((g) => ids.has(g))).sort(
+    (a, b) => a.level !== b.level ? b.level - a.level : a.order - b.order,
+  );
+}
+
 // Promesse mémoïsée de l'index R2 : un seul appel par session, même si listLessons est rappelé.
 // On ne mémoïse pas les échecs (réseau flaky) : si fetchGenerated échoue, la prochaine hydration
 // retente.
@@ -279,6 +288,17 @@ export async function listLessons(): Promise<Lesson[]> {
   return lessons;
 }
 
+/** Ids de grammaire introduits par une leçon débloquée (non verrouillée), pour la mise en avant. */
+export async function getUnlockedGrammarIds(): Promise<string[]> {
+  const lessons = await listLessons();
+  const ids = new Set<string>();
+  for (const l of lessons) {
+    if (l.locked) continue;
+    for (const g of l.introduces.grammar) ids.add(g);
+  }
+  return [...ids];
+}
+
 export async function getLesson(id: string): Promise<Lesson | undefined> {
   const entry = getCurriculumEntry(id);
   if (!entry) return undefined;
@@ -355,6 +375,23 @@ export async function ensureLessonFraming(
   return framing;
 }
 
+// Révision (leçons précédentes) mélangée aux histoires — dosage léger, pondéré plus bas que
+// les cibles de la leçon courante. Tirage aléatoire à chaque variante pour éviter qu'un même
+// thème (ex. un mot vu en leçon 1) ne revienne systématiquement.
+const REVIEW_VOCAB_COUNT = 6;
+const REVIEW_GRAMMAR_COUNT = 2;
+const AVOID_TITLES_MAX = 5;
+
+/** Tire `n` éléments au hasard dans `arr` (Fisher-Yates), sans dépasser sa taille. */
+function sample<T>(arr: T[], n: number): T[] {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
 /**
  * Génère (et sauve) une nouvelle histoire pour la leçon.
  * `variant` : numéro de variante explicite (pour ouvrir une variante distante précise) ou
@@ -372,6 +409,20 @@ export async function addLessonStory(
     return Math.max(localMax, remoteMax) + 1;
   })();
 
+  // Révision : union des acquis des leçons précédentes, moins les cibles de la leçon courante.
+  const cumulative = getCumulativeObjectives(lesson.id);
+  const currentVocabKeys = new Set(lesson.objectives.vocab.map((v) => v.ja + "|" + (v.yomi ?? "")));
+  const currentGrammarKeys = new Set(lesson.objectives.grammar);
+  const reviewVocabPool = cumulative.vocab.filter((v) => !currentVocabKeys.has(v.ja + "|" + (v.yomi ?? "")));
+  const reviewGrammarPool = cumulative.grammar.filter((g) => !currentGrammarKeys.has(g));
+
+  const reviewVocab = sample(reviewVocabPool, REVIEW_VOCAB_COUNT);
+  const reviewGrammar = sample(reviewGrammarPool, REVIEW_GRAMMAR_COUNT);
+  const avoidTitles = lesson.stories
+    .map((s) => (s.titleFr ? `${s.title} (${s.titleFr})` : s.title))
+    .filter(Boolean)
+    .slice(-AVOID_TITLES_MAX);
+
   const text = await generateLessonStory(
     {
       lessonId: lesson.id,
@@ -379,6 +430,9 @@ export async function addLessonStory(
       level: lesson.level,
       vocab: lesson.objectives.vocab,
       grammar: lesson.objectives.grammar,
+      reviewVocab,
+      reviewGrammar,
+      avoidTitles,
     },
     resolvedVariant,
     onState,

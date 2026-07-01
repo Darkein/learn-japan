@@ -117,7 +117,17 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
 
 ## 8. Mise en œuvre
 
-- Tokens dans `app/src/styles/theme.css` (`:root` = dark ; `@media (prefers-color-scheme: light)`
-  et `[data-theme="light"]` = washi ; `[data-theme="dark"]` force le sombre).
-- Styles composant en **CSS Modules** consommant **uniquement** les variables ci-dessus.
+- Tokens dans `app/src/styles/theme.css` (couleurs, `:root` = dark ; `@media
+  (prefers-color-scheme: light)` et `[data-theme="light"]` = washi ; `[data-theme="dark"]`
+  force le sombre) et `app/src/styles/global.css` (`@theme` : typo, rayons, mouvement,
+  exposés comme utilitaires Tailwind).
+- Styles composant en **classes utilitaires Tailwind v4**, consommant **uniquement** les
+  tokens ci-dessus (`bg-bg`, `text-muted`, `border-hairline`, `text-accent`…) — jamais de
+  couleur/rayon/ombre en dur.
+- Les patterns qui se répètent (bouton, panneau, badge, filet de progression, toggle,
+  groupe de bascules, feuille/tiroir) vivent dans `app/src/ui/kit/` : composants sur-mesure
+  qui encapsulent ces classes Tailwind, pas une librairie de composants générique.
+- **Mobile-first** : les classes sans préfixe ciblent le téléphone ; `sm:` (40rem) élargit
+  pour un grand téléphone/petite tablette ; `min-[60rem]:` réintroduit les vues desktop
+  (splits liste/détail). Aucun style ne part du desktop.
 - Toute nouvelle couleur passe d'abord par un token ajouté ici.

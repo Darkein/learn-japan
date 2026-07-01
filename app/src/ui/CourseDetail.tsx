@@ -9,6 +9,9 @@ import { ReaderHeaderSlot } from "./ReaderPage";
 import { useLessonGen } from "./useLessonGen";
 import { useSettings } from "./useSettings";
 import { Markdown } from "./LessonMarkdown";
+import { Button } from "./kit/Button";
+import { Card } from "./kit/Card";
+import { SectionLabel } from "./kit/SectionLabel";
 
 interface Props {
   lesson: Lesson;
@@ -41,22 +44,20 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 
   const actionButtons = (
     <>
-      <button
-        className="cursor-pointer rounded-sm border border-accent px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+      <Button
         onClick={() => podcast.startLesson(lesson.id)}
         disabled={podcastBusy}
         title="Cadrage parlé, quiz audio, puis l'histoire en écoute bilingue"
       >
         {podcastBusy ? `… ${podcast.preparing ?? ""}` : "▶ Podcast"}
-      </button>
+      </Button>
       {onStartReview && (
-        <button
-          className="cursor-pointer rounded-sm border border-accent px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent hover:text-white"
+        <Button
           onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
           title="Questions immédiates sur tout le vocabulaire et la grammaire"
         >
           S'entraîner
-        </button>
+        </Button>
       )}
     </>
   );
@@ -74,7 +75,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
       <div className="flex flex-col gap-4 pt-4">
 
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-sans text-sm uppercase tracking-widest text-muted">Le cours</h3>
+        <SectionLabel as="h3">Le cours</SectionLabel>
       </div>
         <Cours lesson={lesson} />
 
@@ -83,56 +84,45 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
             <hr className="border-hairline" />
 
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-sans text-sm uppercase tracking-widest text-muted">Histoires liées</h3>
+              <SectionLabel as="h3">Histoires liées</SectionLabel>
             </div>
-            <div className="rounded-sm border border-hairline bg-surface px-4 py-4">
+            <Card>
               <ul className="flex list-none flex-col">
                 {stories.map((s, i) => (
                   <li key={s.id}>
                     {i > 0 && <hr className="my-2 border-hairline" />}
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <span className="min-w-0 flex-1">
                         <span className="font-jp text-sm text-text">{s.title}</span>
                         {s.titleFr && <span className="ml-1 font-sans text-sm text-muted">({s.titleFr})</span>}
                       </span>
-                      <button
-                        className="cursor-pointer shrink-0 rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => void read(s)}
-                      >
+                      <Button variant="ghost" onClick={() => void read(s)}>
                         Lire →
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
                 {lesson.remoteStoryVariants.map((v, i) => (
                   <li key={`remote-${v}`}>
                     {(stories.length > 0 || i > 0) && <hr className="my-2 border-hairline" />}
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <span className="flex-1 text-sm italic text-muted">Histoire {v} (disponible)</span>
-                      <button
-                        className="cursor-pointer shrink-0 rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => void addStory(v)}
-                        disabled={busy}
-                      >
+                      <Button variant="ghost" onClick={() => void addStory(v)} disabled={busy}>
                         {busy ? "Chargement…" : "Ouvrir →"}
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
               </ul>
-            </div>
+            </Card>
 
             {storyInProgress && <GenProgress label={label} progress={progress} />}
 
             {!storyInProgress && (
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  className="cursor-pointer rounded-sm border border-hairline px-4 py-2 text-sm text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => void addStory()}
-                  disabled={busy}
-                >
+                <Button variant="ghost" onClick={() => void addStory()} disabled={busy}>
                   {busy ? "Génération…" : "Ajouter une histoire"}
-                </button>
+                </Button>
               </div>
             )}
           </>
@@ -161,16 +151,14 @@ function Cours({ lesson }: { lesson: Lesson }) {
   const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);
   return (
     <div>
-      {lesson.framing && <Markdown text={lesson.framing} reveal={settings.furiganaDefault} />}
-
       {(grammar.length > 0 || lesson.objectives.vocab.length > 0) && (
-        <div className="mt-6 flex flex-col gap-4 rounded-sm border border-hairline bg-surface px-4 py-4">
+        <Card className="flex flex-col gap-4">
           {grammar.length > 0 && (
             <div>
-              <p className="mb-2 font-sans text-xs uppercase tracking-wider text-muted">Grammaire</p>
+              <SectionLabel as="p" className="mb-2">Grammaire</SectionLabel>
               <ul className="flex list-none flex-col gap-1">
                 {grammar.map((g) => (
-                  <li key={g.id} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
+                  <li key={g.id} className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[6rem_1fr] sm:items-baseline sm:gap-3">
                     <span className="font-jp text-sm text-text">{g.name}</span>
                     <span className="font-sans text-sm text-text">
                       {g.ruleFr} <em>ex. {g.exampleJa}</em>
@@ -182,10 +170,10 @@ function Cours({ lesson }: { lesson: Lesson }) {
           )}
           {lesson.objectives.vocab.length > 0 && (
             <div>
-              <p className="mb-2 font-sans text-xs uppercase tracking-wider text-muted">Vocabulaire</p>
+              <SectionLabel as="p" className="mb-2">Vocabulaire</SectionLabel>
               <ul className="flex list-none flex-col gap-1">
                 {lesson.objectives.vocab.map((v) => (
-                  <li key={v.ja} className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
+                  <li key={v.ja} className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[6rem_1fr] sm:items-baseline sm:gap-3">
                     <span className="font-jp text-sm text-text">
                       {v.ja}
                       {v.yomi && v.yomi !== v.ja && (
@@ -198,6 +186,12 @@ function Cours({ lesson }: { lesson: Lesson }) {
               </ul>
             </div>
           )}
+        </Card>
+      )}
+
+      {lesson.framing && (
+        <div className="mt-6">
+          <Markdown text={lesson.framing} reveal={settings.furiganaDefault} />
         </div>
       )}
     </div>

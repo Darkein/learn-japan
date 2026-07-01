@@ -23,11 +23,19 @@ import {
 } from "../lib/podcast";
 import { synthesizeText, TtsUnconfiguredError } from "../lib/ttsClient";
 
+const RESUME_KEY = "podcast.resume";
+
 interface PodcastState {
   active: boolean;
+  lessonId: string | null;
   title: string;
   segments: PodcastSegment[];
   index: number;
+  /** Avancement (0..1) du segment en cours (temps réel en mode cloud, estimé en mode speech). */
+  segProgress: number;
+  /** Position de la leçon en cours dans le programme (curriculum), -1 si inconnue. */
+  lessonIndex: number;
+  lessonTotal: number;
   playing: boolean;
   /** Message de progression pendant la pré-génération (null si prêt). */
   preparing: string | null;
@@ -60,9 +68,13 @@ function pickVoice(lang: PodcastSegment["lang"]): SpeechSynthesisVoice | null {
 export function PodcastProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PodcastState>({
     active: false,
+    lessonId: null,
     title: "",
     segments: [],
     index: 0,
+    segProgress: 0,
+    lessonIndex: -1,
+    lessonTotal: 0,
     playing: false,
     preparing: null,
     error: null,
@@ -75,9 +87,11 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const modeRef = useRef<"cloud" | "speech">("cloud");
   const chainTargetRef = useRef<string | null>(null); // leçon suivante (ou première = boucle)
   const startLessonRef = useRef<(lessonId: string) => void>(() => undefined);
+  const restoringRef = useRef(false); // reprise en cours au montage : ne pas écraser RESUME_KEY entre-temps
   const playingRef = useRef(false); // miroir de state.playing pour toggle (sans closure périmée)
   const loadTokenRef = useRef(0); // invalide une pré-génération devenue obsolète (close / relance)
 
@@ -87,6 +101,10 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
+    }
+    if (speechTimerRef.current) {
+      clearInterval(speechTimerRef.current);
+      speechTimerRef.current = null;
     }
     if (audioRef.current) {
       audioRef.current.pause();
@@ -133,10 +151,24 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       u.lang = LANG_TAG[seg.lang];
       const v = pickVoice(seg.lang);
       if (v) u.voice = v;
-      u.onend = () => afterSegment(i, run);
+      // Pas d'événement de progression natif en Web Speech : estimation par durée/débit de lecture.
+      const estMs = Math.max(400, (seg.text.length / 5) * 1000);
+      const startedAt = Date.now();
+      if (speechTimerRef.current) clearInterval(speechTimerRef.current);
+      speechTimerRef.current = setInterval(() => {
+        if (run !== runRef.current) return;
+        patch({ segProgress: Math.min(1, (Date.now() - startedAt) / estMs) });
+      }, 150);
+      u.onend = () => {
+        if (speechTimerRef.current) {
+          clearInterval(speechTimerRef.current);
+          speechTimerRef.current = null;
+        }
+        afterSegment(i, run);
+      };
       window.speechSynthesis.speak(u);
     },
-    [afterSegment],
+    [afterSegment, patch],
   );
 
   const playCloud = useCallback(
@@ -163,6 +195,11 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.onended = () => afterSegment(i, run);
+      audio.ontimeupdate = () => {
+        if (run !== runRef.current) return;
+        const d = audio.duration;
+        if (d && isFinite(d) && d > 0) patch({ segProgress: Math.min(1, audio.currentTime / d) });
+      };
       try {
         await audio.play();
       } catch {
@@ -183,7 +220,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       return;
     }
     indexRef.current = i;
-    patch({ index: i });
+    patch({ index: i, segProgress: 0 });
     if (modeRef.current === "speech") speakSegment(i, run);
     else void playCloud(i, run);
   };
@@ -205,17 +242,26 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     }
   }, [halt, patch, startAt]);
 
-  const next = useCallback(() => {
-    if (!segmentsRef.current.length) return;
-    startAt(Math.min(indexRef.current + 1, segmentsRef.current.length - 1));
-  }, [startAt]);
+  // Change de segment sans relancer la lecture si le lecteur est en pause (seul `toggle` démarre).
+  const seek = useCallback(
+    (i: number) => {
+      if (!segmentsRef.current.length) return;
+      const clamped = Math.min(Math.max(i, 0), segmentsRef.current.length - 1);
+      if (playingRef.current) {
+        startAt(clamped);
+      } else {
+        indexRef.current = clamped;
+        patch({ index: clamped, segProgress: 0 });
+      }
+    },
+    [patch, startAt],
+  );
 
-  const prev = useCallback(() => {
-    if (!segmentsRef.current.length) return;
-    startAt(Math.max(indexRef.current - 1, 0));
-  }, [startAt]);
+  const next = useCallback(() => seek(indexRef.current + 1), [seek]);
 
-  const jumpTo = useCallback((i: number) => startAt(i), [startAt]);
+  const prev = useCallback(() => seek(indexRef.current - 1), [seek]);
+
+  const jumpTo = useCallback((i: number) => seek(i), [seek]);
 
   const close = useCallback(() => {
     halt();
@@ -223,16 +269,40 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     chainTargetRef.current = null;
     segmentsRef.current = [];
     indexRef.current = 0;
-    setState({ active: false, title: "", segments: [], index: 0, playing: false, preparing: null, error: null });
+    setState({
+      active: false,
+      lessonId: null,
+      title: "",
+      segments: [],
+      index: 0,
+      segProgress: 0,
+      lessonIndex: -1,
+      lessonTotal: 0,
+      playing: false,
+      preparing: null,
+      error: null,
+    });
   }, [halt]);
 
-  const startLesson = useCallback(
-    async (lessonId: string) => {
+  // Charge le pack d'une leçon. `resumeIndex`/`autoplay` servent à reprendre une session
+  // (après rechargement de page) sur le segment où l'on s'était arrêté, sans lecture auto
+  // (bloquée par le navigateur sans geste utilisateur).
+  const loadLesson = useCallback(
+    async (lessonId: string, opts?: { resumeIndex?: number; autoplay?: boolean }) => {
+      const autoplay = opts?.autoplay ?? true;
+      const startIndex = opts?.resumeIndex ?? 0;
       halt();
       const token = ++loadTokenRef.current; // toute relance/fermeture invalide ce chargement
       modeRef.current = "cloud";
-      indexRef.current = 0;
-      patch({ active: true, playing: false, error: null, preparing: "Préparation…", index: 0 });
+      indexRef.current = startIndex;
+      patch({
+        active: true,
+        playing: false,
+        error: null,
+        preparing: "Préparation…",
+        index: startIndex,
+        segProgress: 0,
+      });
       try {
         const lesson = await getLesson(lessonId);
         if (!lesson) throw new Error(`Leçon introuvable : ${lessonId}`);
@@ -259,17 +329,61 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         await markLessonStarted(lessonId);
         chainTargetRef.current = nextEntry?.id ?? order[0]?.id ?? null;
         segmentsRef.current = pack.segments;
-        patch({ title: lesson.title, segments: pack.segments, preparing: null });
-        startAt(0);
+        const clampedIndex = Math.min(startIndex, Math.max(0, pack.segments.length - 1));
+        indexRef.current = clampedIndex;
+        patch({
+          lessonId,
+          title: lesson.title,
+          segments: pack.segments,
+          preparing: null,
+          index: clampedIndex,
+          lessonIndex: idx,
+          lessonTotal: order.length,
+        });
+        if (autoplay) startAt(clampedIndex);
       } catch (e) {
         if (token === loadTokenRef.current) {
+          if (typeof window !== "undefined") localStorage.removeItem(RESUME_KEY);
           patch({ preparing: null, playing: false, error: String(e instanceof Error ? e.message : e) });
         }
       }
     },
     [halt, patch, startAt],
   );
-  startLessonRef.current = (id) => void startLesson(id);
+  startLessonRef.current = (id) => void loadLesson(id, { autoplay: true });
+
+  const startLesson = useCallback((lessonId: string) => void loadLesson(lessonId, { autoplay: true }), [loadLesson]);
+
+  // Reprise après rechargement de page : si un lecteur était ouvert, on réouvre la même
+  // leçon au même segment (sans lecture auto, bloquée sans geste utilisateur).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as { lessonId?: string; index?: number };
+      if (saved.lessonId) {
+        restoringRef.current = true;
+        void loadLesson(saved.lessonId, { resumeIndex: saved.index ?? 0, autoplay: false }).finally(() => {
+          restoringRef.current = false;
+        });
+      }
+    } catch {
+      localStorage.removeItem(RESUME_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sauvegarde la position courante pour la reprise après rechargement (cf. effet ci-dessus).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (restoringRef.current) return; // reprise en cours : éviter d'écraser la clé avant qu'elle aboutisse
+    if (state.active && state.lessonId) {
+      localStorage.setItem(RESUME_KEY, JSON.stringify({ lessonId: state.lessonId, index: state.index }));
+    } else {
+      localStorage.removeItem(RESUME_KEY);
+    }
+  }, [state.active, state.lessonId, state.index]);
 
   // Miroir impératif de l'état de lecture (lu par toggle sans closure périmée).
   useEffect(() => {

@@ -3,6 +3,7 @@ import type { ItemStatus } from "../lib/db";
 import { speakWord } from "../lib/tts";
 import { isContent, meaningFor, type StatusAction } from "../lib/vocab";
 import type { KuromojiToken } from "../lib/tokenizer";
+import { Sheet } from "./kit/Sheet";
 
 const POS_FR: Record<string, string> = {
   名詞: "nom",
@@ -46,54 +47,45 @@ export function WordSheet({
   const content = isContent(token);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/35"
-      onClick={onClose}
-    >
-      <div
-        className="flex w-full max-w-[44rem] animate-rise flex-col gap-3 rounded-t-md border-t border-hairline bg-surface px-4 pt-6 pb-8"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-      >
-        <div className="flex items-baseline gap-3">
-          <span className="font-jp text-2xl">{token.surface_form}</span>
-          {reading && reading !== token.surface_form && (
-            <span className="text-lg text-muted">{reading}</span>
-          )}
-          <button
-            className="cursor-pointer rounded-sm border border-hairline px-2 py-0.5 text-base leading-none transition-colors hover:border-accent"
-            onClick={() => speakWord(token.surface_form)}
-            aria-label="Écouter le mot"
-            title="Écouter"
-          >
-            🔊
-          </button>
-          <span className="ml-auto font-sans text-xs uppercase tracking-wider text-muted">
-            {POS_FR[token.pos] ?? token.pos}
-          </span>
-        </div>
-
-        <div className="text-lg">{meaningFor(token)}</div>
-        <div className="text-sm text-muted">Statut : {STATUS_FR[status]}</div>
-
-        {content ? (
-          <div className="mt-2 flex flex-wrap gap-3">
-            {ACTIONS.map((a) => (
-              <button
-                key={a.id}
-                className="grow basis-24 cursor-pointer rounded-sm border border-hairline p-3 text-text transition-colors hover:border-accent"
-                onClick={() => onAction(a.id)}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted">
-            Morphème grammatical — suivi dans la piste grammaire (à venir), pas en vocabulaire.
-          </p>
+    <Sheet open onClose={onClose} className="gap-3 px-4 pt-6">
+      <div className="flex items-baseline gap-3">
+        <span className="font-jp text-2xl">{token.surface_form}</span>
+        {reading && reading !== token.surface_form && (
+          <span className="text-lg text-muted">{reading}</span>
         )}
+        <button
+          className="cursor-pointer rounded-sm border border-hairline px-2 py-0.5 text-base leading-none transition-colors hover:border-accent"
+          onClick={() => speakWord(token.surface_form)}
+          aria-label="Écouter le mot"
+          title="Écouter"
+        >
+          🔊
+        </button>
+        <span className="ml-auto font-sans text-xs uppercase tracking-wider text-muted">
+          {POS_FR[token.pos] ?? token.pos}
+        </span>
       </div>
-    </div>
+
+      <div className="text-lg">{meaningFor(token)}</div>
+      <div className="text-sm text-muted">Statut : {STATUS_FR[status]}</div>
+
+      {content ? (
+        <div className="mt-2 flex flex-wrap gap-3">
+          {ACTIONS.map((a) => (
+            <button
+              key={a.id}
+              className="grow basis-24 min-h-11 cursor-pointer rounded-sm border border-hairline p-3 text-text transition-colors hover:border-accent"
+              onClick={() => onAction(a.id)}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted">
+          Morphème grammatical — suivi dans la piste grammaire (à venir), pas en vocabulaire.
+        </p>
+      )}
+    </Sheet>
   );
 }
