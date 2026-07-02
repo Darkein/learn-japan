@@ -29,6 +29,7 @@ import {
   getLesson,
   invalidateGeneratedIndex,
   markLessonStarted,
+  nextStoryVariant,
   type Lesson,
 } from "./lessons";
 
@@ -71,10 +72,6 @@ export function jobsSnapshot(): GenJobRecord[] {
   return [...jobs.values()];
 }
 
-export function jobFor(lessonId: string): GenJobRecord | undefined {
-  return jobs.get(lessonId);
-}
-
 /** Un job tourne-t-il ? (sert à cadencer la barre de progression côté UI). */
 export function hasRunningJob(): boolean {
   for (const j of jobs.values()) if (j.status === "running") return true;
@@ -106,13 +103,6 @@ async function remove(lessonId: string): Promise<void> {
   jobs.delete(lessonId);
   await deleteGenJob(lessonId);
   emit();
-}
-
-/** Prochaine variante d'histoire non encore matérialisée (locale ∪ distante). */
-function nextVariant(lesson: Lesson): number {
-  const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
-  const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
-  return Math.max(localMax, remoteMax) + 1;
 }
 
 /**
@@ -183,7 +173,7 @@ export async function startLessonJob(lesson: Lesson): Promise<void> {
 /** Lance la génération d'une histoire supplémentaire (variante explicite ou suivante). */
 export async function addStoryJob(lesson: Lesson, variant?: number): Promise<void> {
   if (jobs.get(lesson.id)?.status === "running") return;
-  const resolved = variant ?? nextVariant(lesson);
+  const resolved = variant ?? nextStoryVariant(lesson);
   const now = Date.now();
   const job: GenJobRecord = {
     lessonId: lesson.id,

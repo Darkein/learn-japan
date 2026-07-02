@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseComprehensionQcm, parseStoryTranslation } from "./genClient";
+import { parseComprehensionQcm, parseStoryTranslation } from "./genParsers";
 
 // La composition des prompts (cadrage, histoire, traduction) vit désormais côté Worker
 // — voir worker/src/prompts.test.ts. Le client ne fait plus que parser la réponse.

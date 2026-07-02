@@ -5,7 +5,7 @@ import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { dueCards, gradeCard, buildSession } from "./warmup";
+import { gradeCard, buildSession } from "./reviewSession";
 
 const TODAY = "2026-06-30";
 const NOW = new Date(`${TODAY}T08:00:00`);
@@ -27,14 +27,14 @@ describe("échauffement SRS (existant)", () => {
       cards: { written: newCard(new Date("2020-01-01")) },
     });
 
-    const due = await dueCards(NOW);
+    const due = await buildSession(NOW, { scope: "due" });
     const card = due.find((c) => c.id === "水|みず");
     expect(card).toBeDefined();
     expect(card!.front).toBe("eau");
     expect(card!.back).toBe("水（みず）");
 
     await gradeCard(card!, "easy", NOW);
-    const due2 = await dueCards(NOW);
+    const due2 = await buildSession(NOW, { scope: "due" });
     expect(due2.find((c) => c.id === "水|みず")).toBeUndefined();
   });
 
@@ -48,7 +48,7 @@ describe("échauffement SRS (existant)", () => {
       status: "review",
       cards: { written: newCard(new Date("2020-01-01")) },
     });
-    const card = (await dueCards(NOW)).find((c) => c.id === "猫|ねこ")!;
+    const card = (await buildSession(NOW, { scope: "due" })).find((c) => c.id === "猫|ねこ")!;
     expect(card.mode).toBe("type");
     expect(card.front).toBe("chat");
     if (card.mode !== "type") throw new Error("expected type exercise");
@@ -188,7 +188,7 @@ describe("buildSession", () => {
 
 describe("priorisation des nouveaux items", () => {
   it("les objectifs d'une leçon commencée passent avant le vocabulaire incident", async () => {
-    const { getCurriculum } = await import("./lessons");
+    const { getCurriculum } = await import("./curriculum");
     const first = getCurriculum()[0];
     const lessonVocabIds = first.introduces.vocab.slice(0, 3);
     if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester

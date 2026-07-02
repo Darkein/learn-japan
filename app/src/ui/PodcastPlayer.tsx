@@ -3,7 +3,7 @@
 // une tracklist repliable (chapitres Cours / Quiz / Histoire) où l'on peut sauter.
 
 import { useRef, useState } from "react";
-import type { PodcastSegment } from "../lib/podcast";
+import type { PodcastSegment } from "../lib/podcastScript";
 import { BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { useHashRoute } from "./useHashRoute";

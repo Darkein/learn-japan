@@ -81,6 +81,24 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // 429 (quota), 500/503 (modèle surchargé) sont transitoires → on réessaie.
 const TRANSIENT = new Set([429, 500, 503]);
 
+/**
+ * POST JSON avec backoff exponentiel (0,5 s → 1 s → 2 s) sur erreurs transitoires.
+ * Renvoie la DERNIÈRE réponse, réussie ou non : l'appelant interprète le statut/corps.
+ */
+async function postWithRetry(url: string, body: string, maxAttempts = 4): Promise<Response> {
+  let res!: Response;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+    if (res.ok || !TRANSIENT.has(res.status) || attempt === maxAttempts) break;
+    await sleep(500 * 2 ** (attempt - 1));
+  }
+  return res;
+}
+
 // Un maillon de la chaîne de génération. `keyEnv` nomme la variable d'env qui
 // porte la clé → forme extensible (un autre fournisseur = un autre keyEnv/adaptateur).
 interface ModelEntry {
@@ -164,29 +182,16 @@ async function callModel(env: Env, entry: ModelEntry, prompt: string): Promise<s
     generationConfig: genConfig(entry.model),
   });
 
-  const maxAttempts = 4;
-  let lastErr = "";
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
-      };
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      if (!text.trim()) throw new Error(`Réponse vide (${entry.model})`);
-      return text.trim();
-    }
-
-    lastErr = `HTTP ${res.status} ${(await res.text()).slice(0, 200)}`;
-    if (!TRANSIENT.has(res.status) || attempt === maxAttempts) break;
-    await sleep(500 * 2 ** (attempt - 1)); // 0,5s → 1s → 2s
+  const res = await postWithRetry(url, body);
+  if (!res.ok) {
+    throw new Error(`${entry.model}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
   }
-  throw new Error(`${entry.model}: ${lastErr || "échec inconnu"}`);
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error(`Réponse vide (${entry.model})`);
+  return text.trim();
 }
 
 /**
@@ -264,7 +269,9 @@ async function synthesize(env: Env, body: TtsRequest, refresh = false): Promise<
 
   const languageCode = body.languageCode || "ja-JP";
   const voice = body.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
-  const rate = body.rate ?? Number(env.TTS_RATE ?? "1") ?? 1;
+  // `Number("")`/`Number("abc")` donnent NaN → repli sur 1 (sinon NaN part à Cloud TTS
+  // et pollue la clé de cache).
+  const rate = body.rate ?? (Number(env.TTS_RATE) || 1);
   const ssml = useMarks ? buildSsml(segments) : undefined;
 
   // Cache R2 de l'audio (économise le quota Cloud TTS). Clé = paramètres effectifs résolus.
@@ -282,34 +289,21 @@ async function synthesize(env: Env, body: TtsRequest, refresh = false): Promise<
     ...(useMarks ? { enableTimePointing: ["SSML_MARK"] } : {}),
   });
 
-  const maxAttempts = 4;
-  let lastErr = "";
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as {
-        audioContent?: string;
-        timepoints?: { markName?: string; timeSeconds?: number }[];
-      };
-      if (!data.audioContent) throw new Error("Réponse TTS sans audio");
-      const marks = (data.timepoints ?? [])
-        .map((tp) => ({ i: Number((tp.markName ?? "t0").slice(1)), t: tp.timeSeconds ?? 0 }))
-        .sort((a, b) => a.t - b.t);
-      const result: TtsResult = { audio: data.audioContent, marks };
-      await cachePut(env.TTS_CACHE, cacheKey, result);
-      return result;
-    }
-
-    lastErr = `HTTP ${res.status} ${(await res.text()).slice(0, 200)}`;
-    if (!TRANSIENT.has(res.status) || attempt === maxAttempts) break;
-    await sleep(500 * 2 ** (attempt - 1));
+  const res = await postWithRetry(url, payload);
+  if (!res.ok) {
+    throw new Error(`TTS : HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
   }
-  throw new Error(`TTS : ${lastErr || "échec inconnu"}`);
+  const data = (await res.json()) as {
+    audioContent?: string;
+    timepoints?: { markName?: string; timeSeconds?: number }[];
+  };
+  if (!data.audioContent) throw new Error("Réponse TTS sans audio");
+  const marks = (data.timepoints ?? [])
+    .map((tp) => ({ i: Number((tp.markName ?? "t0").slice(1)), t: tp.timeSeconds ?? 0 }))
+    .sort((a, b) => a.t - b.t);
+  const result: TtsResult = { audio: data.audioContent, marks };
+  await cachePut(env.TTS_CACHE, cacheKey, result);
+  return result;
 }
 
 export default {
@@ -355,9 +349,10 @@ export default {
       }
 
       try {
+        const keyed = hasAnyKey(env); // calculé une fois (resolveChain est reconstruit à chaque appel)
         const text = await generate(env, prompt);
         // On ne met en cache que de vraies générations (pas le stub « clé absente »).
-        if (hasAnyKey(env)) await cachePut(env.GEN_CACHE, key, { text, createdAt: Date.now() });
+        if (keyed) await cachePut(env.GEN_CACHE, key, { text, createdAt: Date.now() });
         return json({ text, cached: false });
       } catch (e) {
         return json({ error: String(e) }, 502);

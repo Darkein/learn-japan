@@ -42,11 +42,6 @@ export function isDue(card: Card, now: Date = new Date()): boolean {
   return card.due.getTime() <= now.getTime();
 }
 
-/** Trie des cartes par urgence (la plus en retard / due le plus tôt d'abord). */
-export function byUrgency<T extends { card: Card }>(items: T[]): T[] {
-  return [...items].sort((a, b) => a.card.due.getTime() - b.card.due.getTime());
-}
-
 /** La carte est-elle maîtrisée (FSRS Review + intervalle ≥ seuil) ? */
 export function isMastered(card: Card): boolean {
   return card.state === State.Review && card.scheduled_days >= SRS.masteredIntervalDays;

@@ -12,15 +12,19 @@ import {
   getGrammar,
   getSrsDaily,
   getVocab,
+  localDateString,
   putGrammar,
   putVocab,
 } from "./db";
 import { conjugationExercise, type DrillVerb } from "./conjugation";
 import type { GrammarItem, VocabItem } from "./db";
 import { gradeExercise, type Exercise } from "./exercise";
-import { comprehensionReviewExercise, grammarReviewExercise } from "./exerciseBuild";
-import { normalizeReading } from "./kana";
-import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./lessons";
+import {
+  comprehensionReviewExercise,
+  grammarReviewExercise,
+  vocabTypeExercise,
+} from "./exerciseBuild";
+import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
 import { isDue, newCard, State, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
@@ -32,14 +36,7 @@ export interface SessionOpts {
   lessonId?: string;
 }
 
-function localDateString(d: Date = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-export async function leechIds(): Promise<Set<string>> {
+async function leechIds(): Promise<Set<string>> {
   const db = await getDB();
   const reviews = await db.getAll("reviews");
   const lapses = new Map<string, number>();
@@ -174,36 +171,24 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
   const due: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
-  const vocabAll = await allVocab();
+
+  // Un seul chargement de chaque store (réutilisé par les passes dues / écoute / nouveaux).
+  const [vocabAll, grammarAll, comprehensionAll] = await Promise.all([
+    allVocab(), allGrammar(), allComprehension(),
+  ]);
   const verbPool = drillVerbPool(vocabAll);
 
   // Collecte items dus (avec carte FSRS)
   for (const v of vocabAll) {
     const c = v.cards.written;
-    if (c && isDue(c, horizon)) {
-      const hasMeaning = !!v.meaning && v.meaning !== "—";
-      due.push({
-        mode: "type",
-        key: `vocab:${v.id}`,
-        track: "vocab",
-        id: v.id,
-        front: hasMeaning ? v.meaning : v.surface,
-        back: `${v.surface}（${v.reading}）`,
-        due: c.due.getTime(),
-        prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-        answers: hasMeaning
-          ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-          : [normalizeReading(v.reading)],
-        ...(v.example?.ja ? { context: v.example.ja } : {}),
-      });
-    }
+    if (c && isDue(c, horizon)) due.push(vocabTypeExercise(v, c.due.getTime()));
   }
-  for (const g of await allGrammar()) {
+  for (const g of grammarAll) {
     if (g.card && isDue(g.card, horizon)) {
       due.push(await grammarSessionExercise(g, g.card.due.getTime(), verbPool));
     }
   }
-  for (const c of await allComprehension()) {
+  for (const c of comprehensionAll) {
     if (c.card && isDue(c.card, horizon)) {
       due.push(comprehensionReviewExercise(c, c.card.due.getTime()));
     }
@@ -215,30 +200,11 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   // stabilisés à l'écrit (état Review) qui ont une phrase d'exemple.
   const LISTEN_MAX = 5;
   const LISTEN_SEEDS = 2;
-  const listenExercise = (v: VocabItem, due: number): Exercise => {
-    const hasMeaning = !!v.meaning && v.meaning !== "—";
-    return {
-      mode: "type",
-      key: `vocab-listen:${v.id}`,
-      track: "vocab",
-      skill: "oral",
-      id: v.id,
-      front: v.example!.ja,
-      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
-      due,
-      audio: { word: v.surface },
-      context: v.example!.ja,
-      prompt: "Écoute et tape le mot souligné",
-      answers: hasMeaning
-        ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-        : [normalizeReading(v.reading)],
-    };
-  };
   let listenCount = 0;
   for (const v of vocabAll) {
     if (listenCount >= LISTEN_MAX) break;
     if (v.cards.oral && isDue(v.cards.oral, horizon) && v.example?.ja) {
-      due.push(listenExercise(v, v.cards.oral.due.getTime()));
+      due.push(vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true }));
       listenCount++;
     }
   }
@@ -257,7 +223,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       const card = newCard(now);
       v.cards.oral = card;
       await putVocab(v);
-      out.push(listenExercise(v, card.due.getTime()));
+      out.push(vocabTypeExercise(v, card.due.getTime(), { listen: true }));
       listenCount++;
       listenSeeds++;
       room--;
@@ -281,26 +247,12 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       v.cards.written = card;
       await putVocab(v);
       await bumpSrsDaily(dateStr, { introduced: 1 });
-      const hasMeaning = !!v.meaning && v.meaning !== "—";
-      newCards.push({
-        mode: "type",
-        key: `vocab:${v.id}`,
-        track: "vocab",
-        id: v.id,
-        front: hasMeaning ? v.meaning : v.surface,
-        back: `${v.surface}（${v.reading}）`,
-        due: card.due.getTime(),
-        prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-        answers: hasMeaning
-          ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-          : [normalizeReading(v.reading)],
-        ...(v.example?.ja ? { context: v.example.ja } : {}),
-      });
+      newCards.push(vocabTypeExercise(v, card.due.getTime()));
     }
 
     // Grammaire sans carte — même priorisation.
     if (newCards.length < toPromote) {
-      for (const g of prioritizeNewGrammar(await allGrammar(), started)) {
+      for (const g of prioritizeNewGrammar(grammarAll, started)) {
         if (newCards.length >= toPromote) break;
         const card = newCard(now);
         g.card = card;
@@ -333,22 +285,7 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
       v.cards.written = newCard(now);
       await putVocab(v);
     }
-    const c = v.cards.written!;
-    const hasMeaning = !!v.meaning && v.meaning !== "—";
-    out.push({
-      mode: "type",
-      key: `vocab:${v.id}`,
-      track: "vocab",
-      id: v.id,
-      front: hasMeaning ? v.meaning : v.surface,
-      back: `${v.surface}（${v.reading}）`,
-      due: c.due.getTime(),
-      prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-      answers: hasMeaning
-        ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-        : [normalizeReading(v.reading)],
-      ...(v.example?.ja ? { context: v.example.ja } : {}),
-    });
+    out.push(vocabTypeExercise(v, v.cards.written!.due.getTime()));
   }
 
   // Grammaire — drill de conjugaison si possible, sur les verbes de la leçon d'abord.
@@ -372,6 +309,3 @@ export async function gradeCard(ex: Exercise, grade: SrsGrade, now: Date = new D
   await gradeExercise(ex, grade, now);
   await bumpSrsDaily(localDateString(now), { reviewed: 1 });
 }
-
-/** @deprecated Use buildSession instead. */
-export const dueCards = (now?: Date) => buildSession(now, { scope: "due" });

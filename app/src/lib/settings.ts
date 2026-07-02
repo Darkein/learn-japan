@@ -15,7 +15,7 @@ export interface AppSettings {
   storyRate: number;
 }
 
-export const DEFAULT_SETTINGS: AppSettings = {
+const DEFAULT_SETTINGS: AppSettings = {
   furiganaDefault: false,
   glossDefault: true,
   glossHideKnown: true,

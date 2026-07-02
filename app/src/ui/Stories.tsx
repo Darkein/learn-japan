@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { allStories, deleteStory, type StoryRecord } from "../lib/db";
-import { getCurriculum, lessonsForGrammar } from "../lib/lessons";
+import { getCurriculum, lessonsForGrammar } from "../lib/curriculum";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
@@ -20,7 +20,7 @@ interface Props {
 }
 
 /** Onglet Histoires : liste seule des histoires enregistrées + panneau de génération. */
-export function Histoires({ onOpen }: Props) {
+export function Stories({ onOpen }: Props) {
   const [stories, setStories] = useState<StoryRecord[] | null>(null);
   const lessonTitles = useMemo(() => {
     const m = new Map<string, { order: number; title: string }>();

@@ -3,7 +3,7 @@ import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
-import type { LessonObjectives } from "../lib/lessons";
+import type { LessonObjectives } from "../lib/curriculum";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
@@ -49,7 +49,7 @@ interface Props {
 }
 
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
-export function ReaderPoc({ incoming }: Props) {
+export function Reader({ incoming }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());

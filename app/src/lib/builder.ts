@@ -1,6 +1,7 @@
 // Reconstruction de phrase (rappel actif) : à partir de la traduction française, l'utilisateur
 // réordonne des tuiles de mots japonais. Helpers PURS (sans React/DOM) → testables.
 
+import { shuffle } from "./random";
 import type { KuromojiToken } from "./tokenizer";
 
 /** Une tuile à poser : surface du mot + clé stable (gère les surfaces dupliquées, ex. deux « は »). */
@@ -16,14 +17,9 @@ export function toTiles(tokens: KuromojiToken[]): string[] {
     .map((t) => t.surface_form);
 }
 
-/** Mélange (Fisher-Yates) en attribuant une clé stable par tuile, pour le rendu et le retrait. */
+/** Mélange en attribuant une clé stable par tuile, pour le rendu et le retrait. */
 export function shuffleTiles(tiles: string[]): Tile[] {
-  const arr = tiles.map((tile, key) => ({ tile, key }));
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+  return shuffle(tiles.map((tile, key) => ({ tile, key })));
 }
 
 /** Vrai si la suite de surfaces assemblée reproduit la cible (doublons compris). */

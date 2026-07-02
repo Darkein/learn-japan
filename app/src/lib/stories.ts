@@ -1,5 +1,6 @@
 // Sauvegarde / liste des histoires générées (relecture, « pourquoi cette histoire »).
 import { getStory, putStory, type StoryRecord } from "./db";
+import { splitJaSentences } from "./kana";
 import {
   generateComprehensionQcm,
   type ComprehensionQuestion,
@@ -59,15 +60,6 @@ export async function saveStory(
   };
   await putStory(story);
   return story;
-}
-
-/** Découpe un texte japonais en phrases (sur la ponctuation finale 。．！？), pour la génération. */
-function splitJaSentences(text: string): string[] {
-  return text
-    .replace(/\s*\n+\s*/g, " ")
-    .split(/(?<=[。．！？!?])/)
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 /**

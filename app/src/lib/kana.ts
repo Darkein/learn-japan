@@ -55,3 +55,29 @@ export function hasKanji(s: string): boolean {
 export function normalizeReading(s: string): string {
   return kataToHira(s).replace(/\s+/g, "").trim();
 }
+
+const JA_SENTENCE_END = /[。！？．!?]/;
+
+/**
+ * Découpe un texte japonais en phrases (sur la ponctuation finale et les sauts de ligne),
+ * en conservant la ponctuation. Déterministe → mêmes bornes pour la traduction alignée,
+ * le QCM de compréhension et l'assemblage du podcast.
+ */
+export function splitJaSentences(text: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (const ch of text) {
+    if (ch === "\n") {
+      if (cur.trim()) out.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+    if (JA_SENTENCE_END.test(ch)) {
+      if (cur.trim()) out.push(cur.trim());
+      cur = "";
+    }
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}

@@ -6,13 +6,16 @@
 // - à générer : seulement les objectifs sont définis ; l'utilisateur peut lancer la génération.
 // - terminée : marquée lue ; n'empêche pas de la relire.
 
-import curriculumData from "../data/curriculum.json";
 import { fetchGenerated, generateLesson, generateLessonStory, type GeneratedIndex, type GenState } from "./genClient";
-import { resolveGrammar, resolveVocab } from "./inventory";
 import { saveStory } from "./stories";
 import {
+  getCumulativeObjectives,
+  getCurriculum,
+  getCurriculumEntry,
+  type CurriculumEntry,
+} from "./curriculum";
+import {
   allGrammar,
-  allLessonProgress,
   allVocab,
   getGeneratedLesson,
   getLessonProgress,
@@ -26,34 +29,9 @@ import {
   type VocabItem,
 } from "./db";
 import { enrollLesson } from "./enroll";
+import { sample } from "./random";
 import { isMastered, isUnlockReady, type Card } from "./srs";
 import { SRS } from "./config";
-
-export interface VocabEntry {
-  ja: string;
-  /** Lecture en hiragana (absente si `ja` est déjà entièrement en kana). */
-  yomi?: string;
-  fr: string;
-}
-
-export interface LessonObjectives {
-  vocab: VocabEntry[];
-  grammar: string[];
-}
-
-export interface CurriculumEntry {
-  id: string;
-  order: number;
-  level: number;
-  title: string;
-  summary?: string;
-  /** Unité (chunk) à laquelle appartient la leçon. */
-  unitId?: string;
-  unitTitle?: string;
-  objectives: LessonObjectives;
-  /** Identifiants bruts vers l'inventaire (pour assembler le cours structuré). */
-  introduces: Introduces;
-}
 
 /** Une leçon est « prête » dès qu'elle a au moins une histoire à lire (locale ou distante). */
 export type LessonState = "ready" | "to-generate";
@@ -84,98 +62,6 @@ export interface Lesson extends CurriculumEntry {
   unlockedNaturally?: boolean;
   /** La notification de déblocage a-t-elle déjà été envoyée ? */
   notifiedUnlock?: boolean;
-}
-
-// ---- Curriculum v3 : niveau → unité → leçon, avec références à l'inventaire ----
-
-export interface Introduces {
-  vocab: string[];
-  grammar: string[];
-}
-interface RawLesson {
-  id: string;
-  order: number;
-  title: string;
-  summary?: string;
-  introduces: Introduces;
-}
-interface RawUnit {
-  id: string;
-  title: string;
-  lessons: RawLesson[];
-}
-interface RawLevel {
-  level: number;
-  units: RawUnit[];
-}
-interface CurriculumFileV3 {
-  version: number;
-  levels: RawLevel[];
-}
-
-/** Résout les identifiants `introduces` en objectifs affichables via l'inventaire. */
-function resolveObjectives(intro: Introduces): LessonObjectives {
-  return {
-    vocab: intro.vocab.map(resolveVocab),
-    grammar: intro.grammar.map(resolveGrammar),
-  };
-}
-
-const CURRICULUM: CurriculumEntry[] = (curriculumData as CurriculumFileV3).levels
-  .flatMap((lvl) =>
-    lvl.units.flatMap((unit) =>
-      unit.lessons.map(
-        (l): CurriculumEntry => ({
-          id: l.id,
-          order: l.order,
-          level: lvl.level,
-          title: l.title,
-          summary: l.summary,
-          unitId: unit.id,
-          unitTitle: unit.title,
-          objectives: resolveObjectives(l.introduces),
-          introduces: l.introduces,
-        }),
-      ),
-    ),
-  )
-  .sort((a, b) => a.level !== b.level ? b.level - a.level : a.order - b.order);
-
-export function getCurriculum(): CurriculumEntry[] {
-  return CURRICULUM;
-}
-
-export function getCurriculumEntry(id: string): CurriculumEntry | undefined {
-  return CURRICULUM.find((c) => c.id === id);
-}
-
-/**
- * Lexique cumulé connu à la leçon `id` : union des objectifs de toutes les leçons
- * déjà vues (niveau supérieur, ou même niveau d'ordre <= celui de la leçon). Sert à
- * contraindre la génération pour qu'une histoire n'emploie que du vocabulaire déjà introduit.
- */
-export function getCumulativeObjectives(id: string): LessonObjectives {
-  const target = getCurriculumEntry(id);
-  if (!target) return { vocab: [], grammar: [] };
-  const seen = CURRICULUM.filter(
-    (c) => c.level > target.level || (c.level === target.level && c.order <= target.order),
-  );
-  const vocab = new Map<string, VocabEntry>();
-  const grammar = new Set<string>();
-  for (const c of seen) {
-    for (const v of c.objectives.vocab) vocab.set(v.ja + "|" + (v.yomi ?? ""), v);
-    for (const g of c.objectives.grammar) grammar.add(g);
-  }
-  return { vocab: [...vocab.values()], grammar: [...grammar] };
-}
-
-/** Leçons qui introduisent au moins une des règles de grammaire données (par id), triées par ordre. */
-export function lessonsForGrammar(grammarIds: string[]): CurriculumEntry[] {
-  if (grammarIds.length === 0) return [];
-  const ids = new Set(grammarIds);
-  return CURRICULUM.filter((c) => c.introduces.grammar.some((g) => ids.has(g))).sort(
-    (a, b) => a.level !== b.level ? b.level - a.level : a.order - b.order,
-  );
 }
 
 // Promesse mémoïsée de l'index R2 : un seul appel par session, même si listLessons est rappelé.
@@ -278,16 +164,24 @@ async function hydrate(
   };
 }
 
+/** Charge les items SRS indexés par id (pour le calcul de maîtrise). */
+async function loadSrsMaps(): Promise<{
+  vocabMap: Map<string, VocabItem>;
+  grammarMap: Map<string, GrammarItem>;
+}> {
+  const [allVocabItems, allGrammarItems] = await Promise.all([allVocab(), allGrammar()]);
+  return {
+    vocabMap: new Map(allVocabItems.map((v) => [v.id, v])),
+    grammarMap: new Map(allGrammarItems.map((g) => [g.id, g])),
+  };
+}
+
 export async function listLessons(): Promise<Lesson[]> {
   const remoteIndex = await loadGeneratedIndex();
-  const [allVocabItems, allGrammarItems] = await Promise.all([
-    allVocab(), allGrammar(),
-  ]);
-  const vocabMap = new Map(allVocabItems.map((v) => [v.id, v]));
-  const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
+  const { vocabMap, grammarMap } = await loadSrsMaps();
 
   const lessons = await Promise.all(
-    CURRICULUM.map((e) => hydrate(e, remoteIndex)),
+    getCurriculum().map((e) => hydrate(e, remoteIndex)),
   );
 
   for (let i = 0; i < lessons.length; i++) {
@@ -326,11 +220,7 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   const entry = getCurriculumEntry(id);
   if (!entry) return undefined;
   const remoteIndex = await loadGeneratedIndex();
-  const [allVocabItems, allGrammarItems] = await Promise.all([
-    allVocab(), allGrammar(),
-  ]);
-  const vocabMap = new Map(allVocabItems.map((v) => [v.id, v]));
-  const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
+  const { vocabMap, grammarMap } = await loadSrsMaps();
   const lesson = await hydrate(entry, remoteIndex);
   lesson.mastery = computeMastery(lesson, vocabMap, grammarMap);
   lesson.unlockProgress = computeUnlockProgress(lesson, vocabMap, grammarMap);
@@ -347,7 +237,7 @@ export async function markUnlockNotified(lessonId: string): Promise<void> {
 }
 
 /** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
-export async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
+async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
   const rec: GeneratedLessonRecord = { id, framing, createdAt: Date.now() };
   await putGeneratedLesson(rec);
   return rec;
@@ -360,7 +250,7 @@ export async function markLessonStarted(id: string): Promise<void> {
   void enrollLesson(id);
 }
 
-export async function markLessonCompleted(id: string): Promise<void> {
+async function markLessonCompleted(id: string): Promise<void> {
   const prev = (await getLessonProgress(id)) ?? { id };
   const next: LessonProgressRecord = {
     ...prev,
@@ -368,10 +258,6 @@ export async function markLessonCompleted(id: string): Promise<void> {
     completedAt: Date.now(),
   };
   await putLessonProgress(next);
-}
-
-export async function allProgress(): Promise<LessonProgressRecord[]> {
-  return allLessonProgress();
 }
 
 // ---- Génération de contenu d'une leçon (partagée UI / podcast) --------------
@@ -406,32 +292,24 @@ const REVIEW_VOCAB_COUNT = 6;
 const REVIEW_GRAMMAR_COUNT = 2;
 const AVOID_TITLES_MAX = 5;
 
-/** Tire `n` éléments au hasard dans `arr` (Fisher-Yates), sans dépasser sa taille. */
-function sample<T>(arr: T[], n: number): T[] {
-  const copy = arr.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, n);
+/** Prochaine variante d'histoire non encore matérialisée : max(local ∪ distant) + 1. */
+export function nextStoryVariant(lesson: Lesson): number {
+  const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
+  const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
+  return Math.max(localMax, remoteMax) + 1;
 }
 
 /**
  * Génère (et sauve) une nouvelle histoire pour la leçon.
  * `variant` : numéro de variante explicite (pour ouvrir une variante distante précise) ou
- * auto-calculé = max(local ∪ distant) + 1 (prochaine variante non encore matérialisée).
+ * auto-calculé = prochaine variante non encore matérialisée.
  */
 export async function addLessonStory(
   lesson: Lesson,
   variant?: number,
   onState?: (s: GenState) => void,
 ): Promise<StoryRecord> {
-  // Calcul de la variante si non fournie : prochaine non matérialisée.
-  const resolvedVariant = variant ?? (() => {
-    const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
-    const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
-    return Math.max(localMax, remoteMax) + 1;
-  })();
+  const resolvedVariant = variant ?? nextStoryVariant(lesson);
 
   // Révision : union des acquis des leçons précédentes, moins les cibles de la leçon courante.
   const cumulative = getCumulativeObjectives(lesson.id);

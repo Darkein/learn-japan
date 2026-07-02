@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
-import { sessionStats, type SessionStats } from "../lib/warmup";
+import { sessionStats, type SessionStats } from "../lib/reviewSession";
 import { LessonList } from "./LessonList";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
@@ -18,18 +18,18 @@ interface Props {
   onGoCatalogue: () => void;
 }
 
-function localDateStr(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function buildDailyStats(stats: SessionStats, daily7: SrsDailyRecord[], dailyGoal: number) {
-  const today = daily7.find((d) => d.date === localDateStr()) ?? { date: localDateStr(), introduced: 0, reviewed: 0 };
+function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
+  const todayStr = localDateString();
+  const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
+  // Série de jours consécutifs à objectif atteint. Un aujourd'hui encore incomplet ne
+  // casse pas la série (la journée n'est pas finie) : on l'ignore et on compte depuis hier.
   let streak = 0;
-  const sorted = [...daily7].sort((a, b) => b.date.localeCompare(a.date));
+  const sorted = daily.filter((d) => d.date !== todayStr).sort((a, b) => b.date.localeCompare(a.date));
   for (const d of sorted) {
     if (d.reviewed >= dailyGoal) streak++;
     else break;
   }
+  if (today.reviewed >= dailyGoal) streak++;
   return {
     reviewed: today.reviewed,
     goal: dailyGoal,
@@ -46,13 +46,13 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
   const { settings } = useSettings();
 
   async function refresh() {
-    const [ls, stats, daily7] = await Promise.all([
+    const [ls, stats, daily] = await Promise.all([
       listLessons(),
       sessionStats(),
-      recentSrsDaily(7),
+      recentSrsDaily(30), // 30 jours : ne plafonne pas la série affichée à 7
     ]);
     setLessons(ls);
-    setDailyData(buildDailyStats(stats, daily7, settings.dailyGoal));
+    setDailyData(buildDailyStats(stats, daily, settings.dailyGoal));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
   }

@@ -7,7 +7,7 @@ import {
   getVocab, putVocab, getGrammar, putGrammar,
   type VocabItem, type GrammarItem,
 } from "./db";
-import { getCurriculumEntry } from "./lessons";
+import { getCurriculumEntry } from "./curriculum";
 import { isContent, itemIdFor, meaningFor } from "./vocab";
 import { tokenize } from "./tokenizer";
 import { kataToHira } from "./kana";
