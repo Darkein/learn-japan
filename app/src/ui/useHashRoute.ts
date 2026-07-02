@@ -28,7 +28,7 @@ export function navigate(to: string): void {
   window.location.hash = path;
 }
 
-export function parseRoute(location: string): Route {
+function parseRoute(location: string): Route {
   const [path, query] = location.split("?");
   const params = new URLSearchParams(query ?? "");
   const from = params.get("from") ? decodeURIComponent(params.get("from")!) : "/";

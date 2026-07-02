@@ -12,7 +12,6 @@ import { resolveGrammar, resolveVocab } from "./inventory";
 import { saveStory } from "./stories";
 import {
   allGrammar,
-  allLessonProgress,
   allVocab,
   getGeneratedLesson,
   getLessonProgress,
@@ -154,7 +153,7 @@ export function getCurriculumEntry(id: string): CurriculumEntry | undefined {
  * déjà vues (niveau supérieur, ou même niveau d'ordre <= celui de la leçon). Sert à
  * contraindre la génération pour qu'une histoire n'emploie que du vocabulaire déjà introduit.
  */
-export function getCumulativeObjectives(id: string): LessonObjectives {
+function getCumulativeObjectives(id: string): LessonObjectives {
   const target = getCurriculumEntry(id);
   if (!target) return { vocab: [], grammar: [] };
   const seen = CURRICULUM.filter(
@@ -347,7 +346,7 @@ export async function markUnlockNotified(lessonId: string): Promise<void> {
 }
 
 /** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
-export async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
+async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
   const rec: GeneratedLessonRecord = { id, framing, createdAt: Date.now() };
   await putGeneratedLesson(rec);
   return rec;
@@ -360,7 +359,7 @@ export async function markLessonStarted(id: string): Promise<void> {
   void enrollLesson(id);
 }
 
-export async function markLessonCompleted(id: string): Promise<void> {
+async function markLessonCompleted(id: string): Promise<void> {
   const prev = (await getLessonProgress(id)) ?? { id };
   const next: LessonProgressRecord = {
     ...prev,
@@ -368,10 +367,6 @@ export async function markLessonCompleted(id: string): Promise<void> {
     completedAt: Date.now(),
   };
   await putLessonProgress(next);
-}
-
-export async function allProgress(): Promise<LessonProgressRecord[]> {
-  return allLessonProgress();
 }
 
 // ---- Génération de contenu d'une leçon (partagée UI / podcast) --------------

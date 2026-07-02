@@ -7,7 +7,6 @@
 // L'audio est pré-généré « par pack » et mis en cache (store `tts`) → écoute hors-ligne.
 
 import {
-  getPodcast,
   getStory,
   putPodcast,
   putStory,
@@ -380,7 +379,7 @@ function translationIsClean(story: StoryRecord): boolean {
  * (auto-réparation des packs générés avant le durcissement du prompt). Nettoie en plus
  * défensivement (`cleanFrench`) pour ne jamais relire un mot déjà prononcé en japonais.
  */
-export async function ensureStoryTranslation(story: StoryRecord): Promise<StoryRecord> {
+async function ensureStoryTranslation(story: StoryRecord): Promise<StoryRecord> {
   if (translationIsClean(story)) return story;
   const ja = splitJaSentences(story.text);
   const { titleFr, sentences } = await generateStoryTranslation(ja, story.params.level ?? 5);
@@ -484,9 +483,4 @@ export async function generatePodcastPack(
   const rec: PodcastRecord = { id: lessonId, segments, createdAt: Date.now(), version: PACK_VERSION };
   await putPodcast(rec);
   return rec;
-}
-
-/** Récupère un pack déjà généré (ou undefined). */
-export async function getPodcastPack(lessonId: string): Promise<PodcastRecord | undefined> {
-  return getPodcast(lessonId);
 }

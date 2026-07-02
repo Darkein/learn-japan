@@ -25,18 +25,6 @@ export interface VocabItem {
   example?: { ja: string; fr?: string };
 }
 
-export interface KanjiItem {
-  id: string; // le kanji lui-même
-  kanji: string;
-  meanings: string[];
-  on: string[];
-  kun: string[];
-  tags: string[];
-  jlpt?: number;
-  status: ItemStatus;
-  card?: Card;
-}
-
 export interface GrammarItem {
   id: string;
   name: string;
@@ -51,7 +39,7 @@ export interface GrammarItem {
 export interface ReviewLog {
   id?: number;
   itemId: string;
-  track: "vocab" | "kanji" | "grammar" | "comprehension";
+  track: "vocab" | "grammar" | "comprehension";
   skill?: Skill;
   grade: string;
   at: number; // epoch ms
@@ -157,7 +145,6 @@ export interface GenJobRecord {
 
 interface LearnDB extends DBSchema {
   vocab: { key: string; value: VocabItem; indexes: { status: string } };
-  kanji: { key: string; value: KanjiItem; indexes: { status: string } };
   grammar: { key: string; value: GrammarItem; indexes: { status: string } };
   /** Piste « compréhension » : carte FSRS dédiée par point de grammaire. */
   comprehension: { key: string; value: ComprehensionItem; indexes: { status: string } };
@@ -185,7 +172,7 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -196,9 +183,6 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
       upgrade(db, _oldVersion, _newVersion, transaction) {
         if (!db.objectStoreNames.contains("vocab")) {
           db.createObjectStore("vocab", { keyPath: "id" }).createIndex("status", "status");
-        }
-        if (!db.objectStoreNames.contains("kanji")) {
-          db.createObjectStore("kanji", { keyPath: "id" }).createIndex("status", "status");
         }
         if (!db.objectStoreNames.contains("grammar")) {
           db.createObjectStore("grammar", { keyPath: "id" }).createIndex("status", "status");
@@ -244,6 +228,10 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         if (!db.objectStoreNames.contains("srsDaily")) {
           db.createObjectStore("srsDaily", { keyPath: "date" });
         }
+        // v11: le SRS kanji a été retiré de l'app → on purge le store orphelin.
+        if (db.objectStoreNames.contains("kanji" as never)) {
+          db.deleteObjectStore("kanji" as never);
+        }
       },
     });
   }
@@ -264,17 +252,6 @@ export async function allVocab(): Promise<VocabItem[]> {
 
 export async function logReview(entry: ReviewLog): Promise<void> {
   await (await getDB()).add("reviews", entry);
-}
-
-// Kanji ----------------------------------------------------------------------
-export async function putKanji(item: KanjiItem): Promise<void> {
-  await (await getDB()).put("kanji", item);
-}
-export async function getKanji(id: string): Promise<KanjiItem | undefined> {
-  return (await getDB()).get("kanji", id);
-}
-export async function allKanji(): Promise<KanjiItem[]> {
-  return (await getDB()).getAll("kanji");
 }
 
 // Grammaire ------------------------------------------------------------------
@@ -327,9 +304,6 @@ export async function putGeneratedLesson(rec: GeneratedLessonRecord): Promise<vo
 export async function getGeneratedLesson(id: string): Promise<GeneratedLessonRecord | undefined> {
   return (await getDB()).get("lessons", id);
 }
-export async function deleteGeneratedLesson(id: string): Promise<void> {
-  await (await getDB()).delete("lessons", id);
-}
 
 // Packs podcast ---------------------------------------------------------------
 export async function putPodcast(rec: PodcastRecord): Promise<void> {
@@ -337,9 +311,6 @@ export async function putPodcast(rec: PodcastRecord): Promise<void> {
 }
 export async function getPodcast(id: string): Promise<PodcastRecord | undefined> {
   return (await getDB()).get("podcasts", id);
-}
-export async function deletePodcast(id: string): Promise<void> {
-  await (await getDB()).delete("podcasts", id);
 }
 
 // Progression des leçons -----------------------------------------------------
@@ -356,9 +327,6 @@ export async function allLessonProgress(): Promise<LessonProgressRecord[]> {
 // Jobs de génération (reprise après rechargement) ----------------------------
 export async function putGenJob(rec: GenJobRecord): Promise<void> {
   await (await getDB()).put("genJobs", rec);
-}
-export async function getGenJob(lessonId: string): Promise<GenJobRecord | undefined> {
-  return (await getDB()).get("genJobs", lessonId);
 }
 export async function allGenJobs(): Promise<GenJobRecord[]> {
   return (await getDB()).getAll("genJobs");
@@ -399,7 +367,7 @@ function localDateString(d: Date = new Date()): string {
 export async function getSrsDaily(date: string): Promise<SrsDailyRecord | undefined> {
   return (await getDB()).get("srsDaily", date);
 }
-export async function putSrsDaily(rec: SrsDailyRecord): Promise<void> {
+async function putSrsDaily(rec: SrsDailyRecord): Promise<void> {
   await (await getDB()).put("srsDaily", rec);
 }
 export async function bumpSrsDaily(

@@ -37,7 +37,7 @@ function defaultDicPath(): string {
 let tokenizerPromise: Promise<Tokenizer> | null = null;
 
 /** Construit (une seule fois) et mémorise le tokenizer. */
-export function getTokenizer(dicPath: string = defaultDicPath()): Promise<Tokenizer> {
+function getTokenizer(dicPath: string = defaultDicPath()): Promise<Tokenizer> {
   if (!tokenizerPromise) {
     tokenizerPromise = new Promise((resolve, reject) => {
       kuromoji

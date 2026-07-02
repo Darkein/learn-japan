@@ -39,7 +39,7 @@ function localDateString(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-export async function leechIds(): Promise<Set<string>> {
+async function leechIds(): Promise<Set<string>> {
   const db = await getDB();
   const reviews = await db.getAll("reviews");
   const lapses = new Map<string, number>();
@@ -372,6 +372,3 @@ export async function gradeCard(ex: Exercise, grade: SrsGrade, now: Date = new D
   await gradeExercise(ex, grade, now);
   await bumpSrsDaily(localDateString(now), { reviewed: 1 });
 }
-
-/** @deprecated Use buildSession instead. */
-export const dueCards = (now?: Date) => buildSession(now, { scope: "due" });

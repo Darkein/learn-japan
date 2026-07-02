@@ -87,7 +87,7 @@ function shift(a: SentenceAudio, baseIndex: number): SentenceAudio {
 }
 
 /** Clé de cache d'un segment podcast (texte entier, voix selon la langue). */
-export function ttsTextCacheId(text: string, lang: TtsLang): string {
+function ttsTextCacheId(text: string, lang: TtsLang): string {
   return `${TTS_VOICES[lang].voice}|${RATE}|${text.trim()}`;
 }
 

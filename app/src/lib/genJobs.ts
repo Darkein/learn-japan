@@ -71,10 +71,6 @@ export function jobsSnapshot(): GenJobRecord[] {
   return [...jobs.values()];
 }
 
-export function jobFor(lessonId: string): GenJobRecord | undefined {
-  return jobs.get(lessonId);
-}
-
 /** Un job tourne-t-il ? (sert à cadencer la barre de progression côté UI). */
 export function hasRunningJob(): boolean {
   for (const j of jobs.values()) if (j.status === "running") return true;

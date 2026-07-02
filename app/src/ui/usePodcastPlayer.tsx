@@ -14,10 +14,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { getPodcast } from "../lib/db";
 import { getCurriculum, getLesson, markLessonStarted } from "../lib/lessons";
 import {
   generatePodcastPack,
-  getPodcastPack,
   PACK_VERSION,
   type PodcastSegment,
 } from "../lib/podcast";
@@ -313,7 +313,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         const nextEntry = idx >= 0 ? order[idx + 1] : undefined;
 
         // Pack réutilisé seulement s'il est à jour ; sinon régénéré (correctifs de format).
-        const existing = await getPodcastPack(lessonId);
+        const existing = await getPodcast(lessonId);
         const pack =
           existing && existing.version === PACK_VERSION
             ? existing
