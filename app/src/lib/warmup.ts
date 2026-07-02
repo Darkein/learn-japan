@@ -125,7 +125,7 @@ async function grammarSessionExercise(
 
 async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
-  const out: Exercise[] = [];
+  const due: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
   const vocabAll = await allVocab();
   const verbPool = drillVerbPool(vocabAll);
@@ -135,7 +135,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     const c = v.cards.written;
     if (c && isDue(c, horizon)) {
       const hasMeaning = !!v.meaning && v.meaning !== "—";
-      out.push({
+      due.push({
         mode: "type",
         key: `vocab:${v.id}`,
         track: "vocab",
@@ -153,12 +153,12 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   }
   for (const g of await allGrammar()) {
     if (g.card && isDue(g.card, horizon)) {
-      out.push(await grammarSessionExercise(g, g.card.due.getTime(), verbPool));
+      due.push(await grammarSessionExercise(g, g.card.due.getTime(), verbPool));
     }
   }
   for (const c of await allComprehension()) {
     if (c.card && isDue(c.card, horizon)) {
-      out.push(comprehensionReviewExercise(c, c.card.due.getTime()));
+      due.push(comprehensionReviewExercise(c, c.card.due.getTime()));
     }
   }
 
@@ -191,13 +191,21 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   for (const v of vocabAll) {
     if (listenCount >= LISTEN_MAX) break;
     if (v.cards.oral && isDue(v.cards.oral, horizon) && v.example?.ja) {
-      out.push(listenExercise(v, v.cards.oral.due.getTime()));
+      due.push(listenExercise(v, v.cards.oral.due.getTime()));
       listenCount++;
     }
   }
+
+  // Plafond de session : items dus triés par urgence, coupés à `sessionCap`. Le reste
+  // attendra la session suivante — mieux qu'une session-fleuve après quelques jours
+  // d'absence. Les amorces (écoute) et les nouveautés ne prennent que la place restante.
+  due.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
+  const out: Exercise[] = due.slice(0, SRS.sessionCap);
+  let room = SRS.sessionCap - out.length;
+
   let listenSeeds = 0;
   for (const v of vocabAll) {
-    if (listenCount >= LISTEN_MAX || listenSeeds >= LISTEN_SEEDS) break;
+    if (room <= 0 || listenCount >= LISTEN_MAX || listenSeeds >= LISTEN_SEEDS) break;
     if (!v.cards.oral && v.example?.ja && v.cards.written?.state === State.Review) {
       const card = newCard(now);
       v.cards.oral = card;
@@ -205,6 +213,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       out.push(listenExercise(v, card.due.getTime()));
       listenCount++;
       listenSeeds++;
+      room--;
     }
   }
 
@@ -213,9 +222,9 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const daily = await getSrsDaily(dateStr);
   const budget = Math.max(0, s.newPerDay - (daily?.introduced ?? 0));
 
-  if (out.length < s.dailyGoal && budget > 0) {
+  if (out.length < s.dailyGoal && budget > 0 && room > 0) {
     const newCards: Exercise[] = [];
-    const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length));
+    const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length, room));
 
     // Vocab sans carte
     for (const v of vocabAll) {

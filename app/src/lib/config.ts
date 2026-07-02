@@ -20,6 +20,12 @@ export type TtsLang = keyof typeof TTS_VOICES;
 export const SRS = {
   newPerDay: 10,
   dailyGoal: 20,
+  /**
+   * Taille maximale d'une session de révision. `dailyGoal` ne borne que les nouveautés :
+   * sans plafond, un backlog de quelques jours d'absence produit une session-fleuve
+   * décourageante. Les items les plus urgents passent d'abord, le reste attend.
+   */
+  sessionCap: 30,
   masteredIntervalDays: 21,
   /**
    * Intervalle FSRS (jours) à partir duquel un item compte pour le DÉBLOCAGE de la leçon

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { SRS } from "../lib/config";
 import { daysBeforeGrade, TRACK_FR, type Exercise } from "../lib/exercise";
 import type { SrsGrade } from "../lib/srs";
-import { buildSession, gradeCard, type SessionOpts } from "../lib/warmup";
+import { buildSession, gradeCard, sessionStats, type SessionOpts } from "../lib/warmup";
 import { ExerciseCard } from "./ExerciseCard";
 import { SessionSummary } from "./SessionSummary";
 import { useSettings } from "./useSettings";
@@ -15,10 +16,17 @@ export function Warmup({ opts, onExit }: Props) {
   const { settings, update } = useSettings();
   const [cards, setCards] = useState<Exercise[] | null>(null);
   const [i, setI] = useState(0);
+  const [backlog, setBacklog] = useState(0);
   const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
 
   useEffect(() => {
     void buildSession(new Date(), opts ?? {}).then(setCards);
+    // Session plafonnée : indique combien d'éléments urgents attendront la suivante.
+    if ((opts?.scope ?? "due") === "due") {
+      void sessionStats().then((stats) =>
+        setBacklog(Math.max(0, stats.dueCount - SRS.sessionCap)),
+      );
+    }
   }, []);
 
   const card = cards && i < cards.length ? cards[i] : null;
@@ -70,6 +78,12 @@ export function Warmup({ opts, onExit }: Props) {
         Échauffement {i + 1} / {cards.length} ·{" "}
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
+      {backlog > 0 && (
+        <p className="m-0 text-xs text-muted">
+          Session plafonnée aux {SRS.sessionCap} éléments les plus urgents — {backlog} autre
+          {backlog > 1 ? "s" : ""} attendront la prochaine.
+        </p>
+      )}
       <ExerciseCard
         key={card.key}
         exercise={card}

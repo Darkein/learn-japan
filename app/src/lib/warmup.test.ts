@@ -186,6 +186,43 @@ describe("buildSession", () => {
   });
 });
 
+describe("plafond de session (sessionCap)", () => {
+  it("coupe aux items les plus urgents et n'ajoute pas de nouveauté", async () => {
+    // sessionCap + 10 items dus, échéances étalées (les plus anciens = les plus urgents)
+    for (let i = 0; i < SRS.sessionCap + 10; i++) {
+      await putVocab({
+        id: `due|${i}`,
+        surface: `due${i}`,
+        reading: `due${i}`,
+        meaning: `m${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+      });
+    }
+    // Et des candidats nouveaux qui ne doivent PAS être promus (plus de place)
+    for (let i = 0; i < 3; i++) {
+      await putVocab({
+        id: `fresh|${i}`,
+        surface: `fresh${i}`,
+        reading: `fresh${i}`,
+        meaning: `f${i}`,
+        tags: [],
+        status: "unknown",
+        cards: {},
+      });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.length).toBe(SRS.sessionCap);
+    // Les plus urgents (dates les plus anciennes) sont gardés
+    expect(session.some((c) => c.id === "due|0")).toBe(true);
+    expect(session.some((c) => c.id === `due|${SRS.sessionCap + 9}`)).toBe(false);
+    // Aucune nouveauté promue, et le budget du jour n'a pas été consommé
+    expect(session.some((c) => c.id.startsWith("fresh|"))).toBe(false);
+    expect((await getSrsDaily(TODAY))?.introduced ?? 0).toBe(0);
+  });
+});
+
 /** Carte FSRS stabilisée (état Review, due dans le futur). */
 function stableCard(dueInDays: number): Card {
   const due = new Date(NOW);
