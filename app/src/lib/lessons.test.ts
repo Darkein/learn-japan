@@ -164,7 +164,7 @@ describe("locked / prevUnlockProgress dans listLessons", () => {
   });
 
   it("des items stables (≥ unlockIntervalDays) débloquent SANS être maîtrisés (21 j)", async () => {
-    const { getCurriculum } = await import("./lessons");
+    const { getCurriculum } = await import("./curriculum");
     const curriculum = getCurriculum();
     if (curriculum.length < 2) return;
     const prev = curriculum[0];

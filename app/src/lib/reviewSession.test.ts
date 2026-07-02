@@ -188,7 +188,7 @@ describe("buildSession", () => {
 
 describe("priorisation des nouveaux items", () => {
   it("les objectifs d'une leçon commencée passent avant le vocabulaire incident", async () => {
-    const { getCurriculum } = await import("./lessons");
+    const { getCurriculum } = await import("./curriculum");
     const first = getCurriculum()[0];
     const lessonVocabIds = first.introduces.vocab.slice(0, 3);
     if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester
