@@ -4,6 +4,7 @@ import type { SrsGrade } from "../../lib/srs";
 import { speakWord } from "../../lib/tts";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
+import { IconPlay } from "../kit/Icon";
 import { BuildInput } from "./BuildInput";
 import { ChoiceInput } from "./ChoiceInput";
 import { TypeInput } from "./TypeInput";
@@ -48,7 +49,8 @@ export function ExerciseCard({
         <>
           <div className="font-jp text-3xl">{ex.front}</div>
           <Button variant="primary" onClick={handleListen}>
-            ▶ Écouter
+            <IconPlay size={16} />
+            Écouter
           </Button>
         </>
       ) : ex.mode === "choice" ? (

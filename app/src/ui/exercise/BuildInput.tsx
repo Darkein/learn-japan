@@ -54,7 +54,7 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
         {shuffled.map((t) => (
           <button
             key={t.key}
-            className="min-h-11 cursor-pointer rounded-sm border border-hairline bg-bg px-3 py-1.5 font-jp text-lg text-text transition-colors hover:border-accent disabled:opacity-30"
+            className="min-h-11 cursor-pointer rounded-sm border border-hairline-strong bg-bg px-3 py-1.5 font-jp text-lg text-text transition-colors hover:border-accent disabled:cursor-default disabled:border-hairline disabled:text-muted"
             onClick={() => place(t)}
             disabled={placedKeys.has(t.key) || checked !== null}
           >
