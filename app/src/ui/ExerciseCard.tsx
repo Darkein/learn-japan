@@ -64,7 +64,8 @@ export function ExerciseCard({
   function pickChoice(idx: number) {
     if (ex.mode !== "choice" || picked !== null) return;
     setPicked(idx);
-    onGraded(idx === ex.answerIndex ? "good" : "again");
+    // La note est différée au choix Bien/Facile (réponse correcte) ou Continuer (ratée) —
+    // voir le commentaire sur checkBuild ci-dessous.
   }
 
   const placedKeys = new Set(placed.map((t) => t.key));
@@ -80,7 +81,12 @@ export function ExerciseCard({
     if (ex.mode !== "build") return;
     const ok = isCorrectOrder(placed.map((t) => t.tile), ex.target);
     setChecked(ok);
-    onGraded(ok ? "good" : "again");
+    // Note différée (comme le mode "type") : une réponse correcte propose Bien/Facile,
+    // au lieu de toujours noter "good". FSRS n'atteint l'état Review (et donc ne compte
+    // pour le déblocage/la maîtrise) qu'après DEUX révisions espacées de 10 min avec la
+    // note "good" — un "easy" saute directement en Review. Sans ce choix, les exercices
+    // QCM/construction (grammaire, particules) ne pouvaient jamais avancer en une session,
+    // contrairement au vocabulaire (marqué « connu » = easy) qui débloquait aussitôt.
   }
 
   return (
@@ -133,12 +139,46 @@ export function ExerciseCard({
           </div>
           {picked !== null && (
             <>
-              <span className="text-sm text-muted">
-                {picked === ex.answerIndex ? "Correct." : `Réponse : ${ex.back}`}
-              </span>
-              <Button variant="primary" onClick={onNext}>
-                Suivant
-              </Button>
+              {picked === ex.answerIndex ? (
+                <>
+                  <span className="text-sm text-accent-2">Correct.</span>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      variant="ghost"
+                      className="grow basis-24"
+                      onClick={() => {
+                        onGraded("good");
+                        onNext();
+                      }}
+                    >
+                      Bien
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="grow basis-24"
+                      onClick={() => {
+                        onGraded("easy");
+                        onNext();
+                      }}
+                    >
+                      Facile
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-muted">Réponse : {ex.back}</span>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      onGraded("again");
+                      onNext();
+                    }}
+                  >
+                    Continuer
+                  </Button>
+                </>
+              )}
             </>
           )}
         </>
@@ -174,13 +214,43 @@ export function ExerciseCard({
             <Button variant="primary" onClick={checkBuild} disabled={placed.length === 0}>
               Vérifier
             </Button>
+          ) : checked ? (
+            <>
+              <div className="text-sm text-accent-2">✓ Correct</div>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="grow basis-24"
+                  onClick={() => {
+                    onGraded("good");
+                    onNext();
+                  }}
+                >
+                  Bien
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="grow basis-24"
+                  onClick={() => {
+                    onGraded("easy");
+                    onNext();
+                  }}
+                >
+                  Facile
+                </Button>
+              </div>
+            </>
           ) : (
             <>
-              <div className={`text-sm ${checked ? "text-accent-2" : "text-accent"}`}>
-                {checked ? "✓ Correct" : `✗ Ordre attendu : ${ex.target.join(" ")}`}
-              </div>
-              <Button variant="primary" onClick={onNext}>
-                Suivant
+              <div className="text-sm text-accent">✗ Ordre attendu : {ex.target.join(" ")}</div>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  onGraded("again");
+                  onNext();
+                }}
+              >
+                Continuer
               </Button>
             </>
           )}

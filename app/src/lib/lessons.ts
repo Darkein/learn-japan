@@ -26,7 +26,7 @@ import {
   type VocabItem,
 } from "./db";
 import { enrollLesson } from "./enroll";
-import { isMastered } from "./srs";
+import { isMastered, isUnlockReady, type Card } from "./srs";
 import { SRS } from "./config";
 
 export interface VocabEntry {
@@ -70,12 +70,14 @@ export interface Lesson extends CurriculumEntry {
   pregenerated: boolean;
   /** Numéros de variantes disponibles en R2 mais pas encore matérialisées localement. */
   remoteStoryVariants: number[];
-  /** Part des items maîtrisés (0..1). */
+  /** Part des items maîtrisés (0..1) — intervalle ≥ 21 j, objectif long terme affiché. */
   mastery: number;
-  /** La leçon est-elle verrouillée par le seuil de maîtrise de la précédente ? */
+  /** Part des items assez stables pour le déblocage (0..1) — seuil léger, voir isUnlockReady. */
+  unlockProgress: number;
+  /** La leçon est-elle verrouillée par le seuil de déblocage de la précédente ? */
   locked: boolean;
-  /** Maîtrise de la leçon précédente (pour afficher le message de débloquage). */
-  prevMastery?: number;
+  /** Progression de déblocage de la leçon précédente (pour la jauge du verrou). */
+  prevUnlockProgress?: number;
   /** Titre de la leçon précédente (pour le message de débloquage). */
   prevTitle?: string;
   /** Leçon débloquée naturellement (par maîtrise, pas par "commencer quand même"). */
@@ -195,30 +197,49 @@ export function invalidateGeneratedIndex(): void {
   _generatedIndexPromise = null;
 }
 
-/** Calcule la part des items d'une leçon qui sont maîtrisés (0..1). */
+/** Part des items d'une leçon dont la carte satisfait `pred` (0..1). */
+function computeProgress(
+  entry: Pick<CurriculumEntry, "introduces">,
+  vocabMap: Map<string, VocabItem>,
+  grammarMap: Map<string, GrammarItem>,
+  pred: (card: Card) => boolean,
+): number {
+  let total = 0;
+  let ok = 0;
+  for (const id of entry.introduces.vocab) {
+    total++;
+    const card = vocabMap.get(id)?.cards.written;
+    if (card && pred(card)) ok++;
+  }
+  for (const id of entry.introduces.grammar) {
+    total++;
+    const card = grammarMap.get(id)?.card;
+    if (card && pred(card)) ok++;
+  }
+  return total === 0 ? 0 : ok / total;
+}
+
+/** Calcule la part des items d'une leçon qui sont maîtrisés (0..1) — affichage long terme. */
 export function computeMastery(
   entry: Pick<CurriculumEntry, "introduces">,
   vocabMap: Map<string, VocabItem>,
   grammarMap: Map<string, GrammarItem>,
 ): number {
-  let total = 0;
-  let mastered = 0;
-  for (const id of entry.introduces.vocab) {
-    total++;
-    const card = vocabMap.get(id)?.cards.written;
-    if (card && isMastered(card)) mastered++;
-  }
-  for (const id of entry.introduces.grammar) {
-    total++;
-    const card = grammarMap.get(id)?.card;
-    if (card && isMastered(card)) mastered++;
-  }
-  return total === 0 ? 0 : mastered / total;
+  return computeProgress(entry, vocabMap, grammarMap, isMastered);
 }
 
-/** Marque la leçon comme terminée dès que sa maîtrise SRS atteint le seuil de déblocage. */
+/** Part des items assez stables pour débloquer la leçon suivante (0..1) — seuil léger. */
+export function computeUnlockProgress(
+  entry: Pick<CurriculumEntry, "introduces">,
+  vocabMap: Map<string, VocabItem>,
+  grammarMap: Map<string, GrammarItem>,
+): number {
+  return computeProgress(entry, vocabMap, grammarMap, isUnlockReady);
+}
+
+/** Marque la leçon comme terminée dès que sa progression de déblocage atteint le seuil. */
 function maybeAutoComplete(lesson: Lesson): void {
-  if (lesson.completedAt || !lesson.startedAt || lesson.mastery < SRS.unlockMastery) return;
+  if (lesson.completedAt || !lesson.startedAt || lesson.unlockProgress < SRS.unlockMastery) return;
   lesson.completedAt = Date.now();
   void markLessonCompleted(lesson.id);
 }
@@ -251,6 +272,7 @@ async function hydrate(
     pregenerated,
     remoteStoryVariants,
     mastery: 0,
+    unlockProgress: 0,
     locked: false,
     notifiedUnlock: progress?.unlockedNotified ?? false,
   };
@@ -270,15 +292,16 @@ export async function listLessons(): Promise<Lesson[]> {
 
   for (let i = 0; i < lessons.length; i++) {
     lessons[i].mastery = computeMastery(lessons[i], vocabMap, grammarMap);
+    lessons[i].unlockProgress = computeUnlockProgress(lessons[i], vocabMap, grammarMap);
     maybeAutoComplete(lessons[i]);
     const prev = i > 0 ? lessons[i - 1] : null;
-    const prevMastery = prev ? prev.mastery : 1;
-    lessons[i].prevMastery = prev ? prevMastery : undefined;
+    const prevUnlock = prev ? prev.unlockProgress : 1;
+    lessons[i].prevUnlockProgress = prev ? prevUnlock : undefined;
     lessons[i].prevTitle = prev ? prev.title : undefined;
-    lessons[i].locked = !!prev && prevMastery < SRS.unlockMastery && !lessons[i].startedAt;
+    lessons[i].locked = !!prev && prevUnlock < SRS.unlockMastery && !lessons[i].startedAt;
     lessons[i].unlockedNaturally =
       !!prev &&
-      prevMastery >= SRS.unlockMastery &&
+      prevUnlock >= SRS.unlockMastery &&
       !lessons[i].startedAt &&
       !lessons[i].completedAt &&
       lessons[i].state === "ready" &&
@@ -310,10 +333,11 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
   const lesson = await hydrate(entry, remoteIndex);
   lesson.mastery = computeMastery(lesson, vocabMap, grammarMap);
+  lesson.unlockProgress = computeUnlockProgress(lesson, vocabMap, grammarMap);
   maybeAutoComplete(lesson);
   // locked non calculable sans la leçon précédente
   lesson.locked = false;
-  lesson.prevMastery = undefined;
+  lesson.prevUnlockProgress = undefined;
   return lesson;
 }
 

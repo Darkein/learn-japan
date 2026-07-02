@@ -105,11 +105,11 @@ describe("computeMastery", () => {
   });
 });
 
-describe("locked / prevMastery dans listLessons", () => {
+describe("locked / prevUnlockProgress dans listLessons", () => {
   it("première leçon jamais locked", async () => {
     const lessons = await listLessons();
     expect(lessons[0].locked).toBe(false);
-    expect(lessons[0].prevMastery).toBeUndefined();
+    expect(lessons[0].prevUnlockProgress).toBeUndefined();
   });
 
   it("leçon suivante locked si prev mastery < 0.8 et non démarrée", async () => {
@@ -159,7 +159,33 @@ describe("locked / prevMastery dans listLessons", () => {
     const lessons = await listLessons();
     if (lessons.length < 2) return;
     expect(lessons[0].mastery).toBeCloseTo(1.0);
-    expect(lessons[1].prevMastery).toBeCloseTo(1.0);
+    expect(lessons[0].unlockProgress).toBeCloseTo(1.0);
+    expect(lessons[1].prevUnlockProgress).toBeCloseTo(1.0);
+    expect(lessons[1].locked).toBe(false);
+  });
+
+  it("des items stables (≥ unlockIntervalDays) débloquent SANS être maîtrisés (21 j)", async () => {
+    const { getCurriculum } = await import("./lessons");
+    const curriculum = getCurriculum();
+    if (curriculum.length < 2) return;
+    const prev = curriculum[0];
+    const stableCard = { ...masteredCard(), scheduled_days: 5, elapsed_days: 5 } as Card;
+    for (const id of prev.introduces.vocab) {
+      await putVocab({
+        id, surface: id, reading: "", meaning: "", tags: [],
+        status: "review", cards: { written: stableCard },
+      });
+    }
+    for (const id of prev.introduces.grammar) {
+      await putGrammar({
+        id, name: id, rule: "", examples: [], tags: [],
+        status: "review", card: stableCard,
+      });
+    }
+    const lessons = await listLessons();
+    if (lessons.length < 2) return;
+    expect(lessons[0].mastery).toBe(0); // 5 j < 21 j : pas maîtrisé…
+    expect(lessons[0].unlockProgress).toBeCloseTo(1.0); // …mais débloquant
     expect(lessons[1].locked).toBe(false);
   });
 });

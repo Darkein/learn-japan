@@ -11,6 +11,7 @@ import {
   putComprehensionItem,
   putGrammar,
   putVocab,
+  type Skill,
 } from "./db";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
@@ -29,6 +30,9 @@ interface ExerciseBase {
   key: string;
   /** Piste SRS notée. */
   track: ExerciseTrack;
+  /** Compétence notée (piste vocab uniquement) : carte FSRS dédiée par compétence.
+   *  Absent = "written". "oral" = écoute, planifiée indépendamment de l'écrit. */
+  skill?: Skill;
   /** Id de l'item SRS (VocabItem.id | GrammarItem.id | ComprehensionItem.id). */
   id: string;
   /** Face avant : mot FR, point de grammaire, ou question. */
@@ -89,8 +93,10 @@ export async function gradeExercise(
   if (ex.track === "vocab") {
     const v = await getVocab(ex.id);
     if (!v) return;
-    v.cards.written = review(v.cards.written ?? newCard(now), grade, now);
-    v.status = grade === "easy" ? "known" : "review";
+    const skill = ex.skill ?? "written";
+    v.cards[skill] = review(v.cards[skill] ?? newCard(now), grade, now);
+    // Le statut affiché (soulignement du lecteur) reflète la reconnaissance écrite.
+    if (skill === "written") v.status = grade === "easy" ? "known" : "review";
     await putVocab(v);
   } else if (ex.track === "comprehension") {
     const c = (await getComprehensionItem(ex.id)) ?? {
@@ -117,14 +123,20 @@ export async function gradeExercise(
     g.status = "review";
     await putGrammar(g);
   }
-  await logReview({ itemId: ex.id, track: ex.track, grade, at: now.getTime() });
+  await logReview({
+    itemId: ex.id,
+    track: ex.track,
+    grade,
+    at: now.getTime(),
+    ...(ex.track === "vocab" ? { skill: ex.skill ?? "written" } : {}),
+  });
 }
 
 /** Échéance FSRS (en jours) avant la note, pour comparer dans le Bilan. */
 export async function daysBeforeGrade(ex: Exercise): Promise<number> {
   if (ex.track === "vocab") {
     const item = await getVocab(ex.id);
-    return item?.cards?.written?.scheduled_days ?? 0;
+    return item?.cards?.[ex.skill ?? "written"]?.scheduled_days ?? 0;
   } else if (ex.track === "grammar") {
     const item = await getGrammar(ex.id);
     return item?.card?.scheduled_days ?? 0;

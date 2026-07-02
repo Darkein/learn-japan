@@ -5,6 +5,8 @@ export type Theme = "system" | "dark" | "light";
 export interface AppSettings {
   furiganaDefault: boolean;
   glossDefault: boolean;
+  /** Estompage : masque gloss et furigana des mots marqués « connus » dans le lecteur. */
+  glossHideKnown: boolean;
   dailyGoal: number;
   newPerDay: number;
   theme: Theme;
@@ -16,6 +18,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   furiganaDefault: false,
   glossDefault: true,
+  glossHideKnown: true,
   dailyGoal: SRS.dailyGoal,
   newPerDay: SRS.newPerDay,
   theme: "system",

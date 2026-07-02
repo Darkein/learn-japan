@@ -4,6 +4,7 @@ import { getCurriculum, lessonsForGrammar } from "../lib/lessons";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
+import { ReadabilityBadge } from "./ReadabilityBadge";
 
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
@@ -64,23 +65,22 @@ export function Histoires({ onOpen }: Props) {
                 <span className="text-sm text-muted">
                   {new Date(s.createdAt).toLocaleString("fr-FR")}
                 </span>
-                {(lesson || derivedLessons.length > 0 || chips(s.params).length > 0) && (
-                  <div className="flex flex-wrap gap-2">
-                    {lesson && (
-                      <Badge variant="accent">
-                        Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
-                      </Badge>
-                    )}
-                    {derivedLessons.map((l) => (
-                      <Badge key={l.id} variant="accent">
-                        Leçon {l.order.toString().padStart(2, "0")} — {l.title}
-                      </Badge>
-                    ))}
-                    {chips(s.params).map((c) => (
-                      <Badge key={c}>{c}</Badge>
-                    ))}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  <ReadabilityBadge text={s.text} />
+                  {lesson && (
+                    <Badge variant="accent">
+                      Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
+                    </Badge>
+                  )}
+                  {derivedLessons.map((l) => (
+                    <Badge key={l.id} variant="accent">
+                      Leçon {l.order.toString().padStart(2, "0")} — {l.title}
+                    </Badge>
+                  ))}
+                  {chips(s.params).map((c) => (
+                    <Badge key={c}>{c}</Badge>
+                  ))}
+                </div>
                 <div className="mt-1 flex flex-wrap gap-3">
                   <Button onClick={() => onOpen(s)}>Ouvrir</Button>
                   <Button onClick={() => void remove(s.id)}>Supprimer</Button>
