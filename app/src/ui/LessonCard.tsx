@@ -32,13 +32,16 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
   const summary = summarize(lesson);
-  const showMastery = lesson.mastery > 0 && !lesson.locked;
+  // Leçon en cours : c'est ELLE qui porte la jauge de déblocage (sa propre progression vers
+  // le déblocage de la suivante). La leçon verrouillée juste en dessous n'a plus de barre —
+  // elle répétait la même information (la progression de la leçon précédente).
+  const inProgress = !!lesson.startedAt && !lesson.completedAt;
 
   const [gaugeWidth, setGaugeWidth] = useState(0);
   useEffect(() => {
-    const t = setTimeout(() => setGaugeWidth(Math.round((lesson.prevUnlockProgress ?? 0) * 100)), 50);
+    const t = setTimeout(() => setGaugeWidth(Math.round(lesson.unlockProgress * 100)), 50);
     return () => clearTimeout(t);
-  }, [lesson.prevUnlockProgress]);
+  }, [lesson.unlockProgress]);
 
   return (
     <li
@@ -80,14 +83,15 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
         {lesson.summary && <p className="m-0 text-muted">{lesson.summary}</p>}
         {summary && <p className="m-0 text-sm tracking-wide text-muted">{summary}</p>}
 
-        {lesson.locked && (
+        {lesson.locked ? (
+          <p className="m-0 text-sm text-muted">
+            Consolide{lesson.prevTitle ? (
+              <> <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
+            ) : null}{" "}
+            pour débloquer cette leçon
+          </p>
+        ) : inProgress ? (
           <div className="flex flex-col gap-1.5">
-            <p className="m-0 text-sm text-muted">
-              Consolide{lesson.prevTitle ? (
-                <> <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
-              ) : null}{" "}
-              pour débloquer cette leçon
-            </p>
             <div className="relative h-2 w-full">
               <div className="absolute inset-0 rounded-full bg-hairline" />
               <div
@@ -101,12 +105,16 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
             </div>
             <div className="flex justify-between text-xs text-muted">
               <span>{gaugeWidth} %</span>
-              <span>objectif : {Math.round(SRS.unlockMastery * 100)} %</span>
+              <span>
+                {lesson.unlockProgress >= SRS.unlockMastery
+                  ? "leçon suivante débloquée ✓"
+                  : `débloque la suite à ${Math.round(SRS.unlockMastery * 100)} %`}
+              </span>
             </div>
           </div>
-        )}
-
-        {showMastery && <ProgressBar value={Math.round(lesson.mastery * 100)} />}
+        ) : lesson.mastery > 0 ? (
+          <ProgressBar value={Math.round(lesson.mastery * 100)} />
+        ) : null}
       </button>
 
       {lesson.locked && (
