@@ -29,6 +29,11 @@ export function SettingsSections({ quick }: Props) {
             value={settings.glossDefault}
             onChange={(v) => update({ glossDefault: v })}
           />
+          <Toggle
+            label="Masquer gloss et furigana des mots connus"
+            value={settings.glossHideKnown}
+            onChange={(v) => update({ glossHideKnown: v })}
+          />
         </div>
       </section>
 

@@ -137,6 +137,12 @@ export function ReaderPoc({ incoming }: Props) {
             {result.tokens.map((tok, i) => {
               const g = result.gloss[i];
               const active = i === player.currentTokenIndex;
+              // Estompage : un mot marqué « connu » perd ses béquilles (gloss, furigana) —
+              // le sens reste accessible au tap. Ne concerne que les mots de contenu suivis.
+              const known =
+                settings.glossHideKnown &&
+                isContent(tok.token) &&
+                statuses.get(itemIdFor(tok.token)) === "known";
               return (
                 <span
                   key={i}
@@ -149,9 +155,9 @@ export function ReaderPoc({ incoming }: Props) {
                     className={`font-jp text-2xl border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
                     style={{ borderBottomColor: underlineColor(tok, statuses) }}
                   >
-                    <Ruby segments={tok.segments} reveal={settings.furiganaDefault} />
+                    <Ruby segments={tok.segments} reveal={settings.furiganaDefault && !known} />
                   </span>
-                  {settings.glossDefault && (
+                  {settings.glossDefault && !known && (
                     <span
                       className={`max-w-28 truncate text-center font-sans text-xs text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
                       title={g.gloss}
