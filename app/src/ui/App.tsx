@@ -8,12 +8,12 @@ import { Button } from "./kit/Button";
 import { IconGear } from "./kit/Icon";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
-import { Histoires } from "./Histoires";
+import { Stories } from "./Stories";
 import { Home } from "./Home";
 import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
-import { ReaderPoc, type IncomingStory } from "./ReaderPoc";
+import { Reader, type IncomingStory } from "./Reader";
 import { useMediaQuery } from "./useMediaQuery";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
@@ -26,7 +26,7 @@ import {
 } from "./useHashRoute";
 import { Settings } from "./Settings";
 import { SettingsPanel } from "./SettingsPanel";
-import { Warmup } from "./Warmup";
+import { ReviewSession } from "./ReviewSession";
 import { SettingsProvider, useSettings } from "./useSettings";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
@@ -190,7 +190,7 @@ function AppShell() {
     return (
       <div className={SHELL} style={subpagePadding}>
         <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
-          <ReaderPoc incoming={reader.incoming} />
+          <Reader incoming={reader.incoming} />
         </ReaderPage>
       </div>
     );
@@ -199,7 +199,7 @@ function AppShell() {
     return (
       <div className={SHELL} style={subpagePadding}>
         <ReaderPage title="Révision" onBack={back}>
-          <Warmup opts={reviewOpts} onExit={back} />
+          <ReviewSession opts={reviewOpts} onExit={back} />
         </ReaderPage>
       </div>
     );
@@ -270,7 +270,7 @@ function AppShell() {
             onGoCatalogue={() => navigate("/catalogue")}
           />
         )}
-        {tab === "stories" && <Histoires onOpen={openStory} />}
+        {tab === "stories" && <Stories onOpen={openStory} />}
         {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={openCourse} />}
       </div>
 

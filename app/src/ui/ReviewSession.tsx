@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { SRS } from "../lib/config";
 import { daysBeforeGrade, TRACK_FR, type Exercise } from "../lib/exercise";
 import type { SrsGrade } from "../lib/srs";
-import { buildSession, gradeCard, sessionStats, type SessionOpts } from "../lib/warmup";
+import { buildSession, gradeCard, sessionStats, type SessionOpts } from "../lib/reviewSession";
 import { ExerciseCard } from "./exercise/ExerciseCard";
 import { SessionSummary } from "./SessionSummary";
 import { useSettings } from "./useSettings";
@@ -12,7 +12,7 @@ interface Props {
   onExit?: () => void;
 }
 
-export function Warmup({ opts, onExit }: Props) {
+export function ReviewSession({ opts, onExit }: Props) {
   const { settings, update } = useSettings();
   const [cards, setCards] = useState<Exercise[] | null>(null);
   const [i, setI] = useState(0);

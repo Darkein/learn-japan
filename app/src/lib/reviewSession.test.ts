@@ -5,7 +5,7 @@ import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession } from "./warmup";
+import { gradeCard, buildSession } from "./reviewSession";
 
 const TODAY = "2026-06-30";
 const NOW = new Date(`${TODAY}T08:00:00`);

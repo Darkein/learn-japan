@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
-import { sessionStats, type SessionStats } from "../lib/warmup";
+import { sessionStats, type SessionStats } from "../lib/reviewSession";
 import { LessonList } from "./LessonList";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";

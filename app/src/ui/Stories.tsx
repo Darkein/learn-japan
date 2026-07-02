@@ -20,7 +20,7 @@ interface Props {
 }
 
 /** Onglet Histoires : liste seule des histoires enregistrées + panneau de génération. */
-export function Histoires({ onOpen }: Props) {
+export function Stories({ onOpen }: Props) {
   const [stories, setStories] = useState<StoryRecord[] | null>(null);
   const lessonTitles = useMemo(() => {
     const m = new Map<string, { order: number; title: string }>();

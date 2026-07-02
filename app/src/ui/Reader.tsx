@@ -49,7 +49,7 @@ interface Props {
 }
 
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
-export function ReaderPoc({ incoming }: Props) {
+export function Reader({ incoming }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
