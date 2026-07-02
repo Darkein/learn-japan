@@ -14,6 +14,8 @@ import {
   putGrammar,
   putVocab,
 } from "./db";
+import { conjugationExercise, type DrillVerb } from "./conjugation";
+import type { GrammarItem, VocabItem } from "./db";
 import { gradeExercise, type Exercise } from "./exercise";
 import { comprehensionReviewExercise, grammarReviewExercise } from "./exerciseBuild";
 import { normalizeReading } from "./kana";
@@ -99,10 +101,31 @@ export async function buildSession(
   return exercises;
 }
 
+/** Pool de verbes pour les drills de conjugaison : mots déjà en rotation SRS. */
+function drillVerbPool(vocab: VocabItem[]): DrillVerb[] {
+  return vocab
+    .filter((v) => v.cards.written)
+    .map((v) => ({ surface: v.surface, reading: v.reading, meaning: v.meaning }));
+}
+
+/**
+ * Exercice de révision d'un point de grammaire : drill de conjugaison (production sur un
+ * verbe du pool) quand le point est une forme couverte, sinon QCM/reconstruction.
+ */
+async function grammarSessionExercise(
+  g: GrammarItem,
+  due: number,
+  verbs: DrillVerb[],
+): Promise<Exercise> {
+  const drill = await conjugationExercise(g, verbs, due);
+  return drill ?? grammarReviewExercise(g, due);
+}
+
 async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
   const out: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
+  const verbPool = drillVerbPool(await allVocab());
 
   // Collecte items dus (avec carte FSRS)
   for (const v of await allVocab()) {
@@ -127,7 +150,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   }
   for (const g of await allGrammar()) {
     if (g.card && isDue(g.card, horizon)) {
-      out.push(await grammarReviewExercise(g, g.card.due.getTime()));
+      out.push(await grammarSessionExercise(g, g.card.due.getTime(), verbPool));
     }
   }
   for (const c of await allComprehension()) {
@@ -206,7 +229,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
           g.card = card;
           await putGrammar(g);
           await bumpSrsDaily(dateStr, { introduced: 1 });
-          newCards.push(await grammarReviewExercise(g, card.due.getTime()));
+          newCards.push(await grammarSessionExercise(g, card.due.getTime(), verbPool));
         }
       }
     }
@@ -223,11 +246,13 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
 
   const out: Exercise[] = [];
   const { vocab: vocabIds, grammar: grammarIds } = entry.introduces;
+  const lessonVerbs: DrillVerb[] = [];
 
   // Vocab
   for (const id of vocabIds) {
     const v = await getVocab(id);
     if (!v) continue;
+    lessonVerbs.push({ surface: v.surface, reading: v.reading, meaning: v.meaning });
     if (!v.cards.written) {
       v.cards.written = newCard(now);
       await putVocab(v);
@@ -250,7 +275,8 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
     });
   }
 
-  // Grammaire
+  // Grammaire — drill de conjugaison si possible, sur les verbes de la leçon d'abord.
+  const verbPool = lessonVerbs.length ? lessonVerbs : drillVerbPool(await allVocab());
   for (const id of grammarIds) {
     const g = await getGrammar(id);
     if (!g) continue;
@@ -258,7 +284,7 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
       g.card = newCard(now);
       await putGrammar(g);
     }
-    out.push(await grammarReviewExercise(g, g.card!.due.getTime()));
+    out.push(await grammarSessionExercise(g, g.card!.due.getTime(), verbPool));
   }
 
   // Urgents d'abord, nouveaux à la fin
