@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { GenState } from "../lib/genClient";
-import { ensureStoryTranslationById, splitJaSentences } from "../lib/podcast";
+import { splitJaSentences } from "../lib/kana";
+import { ensureStoryTranslationById } from "../lib/podcast";
 
 const STATE_LABEL: Record<GenState, string> = {
   queued: "en file",

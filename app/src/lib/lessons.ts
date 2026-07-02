@@ -25,6 +25,7 @@ import {
   type VocabItem,
 } from "./db";
 import { enrollLesson } from "./enroll";
+import { sample } from "./random";
 import { isMastered, isUnlockReady, type Card } from "./srs";
 import { SRS } from "./config";
 
@@ -120,6 +121,11 @@ function resolveObjectives(intro: Introduces): LessonObjectives {
   };
 }
 
+/** Ordre pédagogique : niveau JLPT décroissant (N5 d'abord), puis ordre dans le niveau. */
+function byLevelThenOrder(a: CurriculumEntry, b: CurriculumEntry): number {
+  return a.level !== b.level ? b.level - a.level : a.order - b.order;
+}
+
 const CURRICULUM: CurriculumEntry[] = (curriculumData as CurriculumFileV3).levels
   .flatMap((lvl) =>
     lvl.units.flatMap((unit) =>
@@ -138,7 +144,7 @@ const CURRICULUM: CurriculumEntry[] = (curriculumData as CurriculumFileV3).level
       ),
     ),
   )
-  .sort((a, b) => a.level !== b.level ? b.level - a.level : a.order - b.order);
+  .sort(byLevelThenOrder);
 
 export function getCurriculum(): CurriculumEntry[] {
   return CURRICULUM;
@@ -173,7 +179,7 @@ export function lessonsForGrammar(grammarIds: string[]): CurriculumEntry[] {
   if (grammarIds.length === 0) return [];
   const ids = new Set(grammarIds);
   return CURRICULUM.filter((c) => c.introduces.grammar.some((g) => ids.has(g))).sort(
-    (a, b) => a.level !== b.level ? b.level - a.level : a.order - b.order,
+    byLevelThenOrder,
   );
 }
 
@@ -277,13 +283,21 @@ async function hydrate(
   };
 }
 
+/** Charge les items SRS indexés par id (pour le calcul de maîtrise). */
+async function loadSrsMaps(): Promise<{
+  vocabMap: Map<string, VocabItem>;
+  grammarMap: Map<string, GrammarItem>;
+}> {
+  const [allVocabItems, allGrammarItems] = await Promise.all([allVocab(), allGrammar()]);
+  return {
+    vocabMap: new Map(allVocabItems.map((v) => [v.id, v])),
+    grammarMap: new Map(allGrammarItems.map((g) => [g.id, g])),
+  };
+}
+
 export async function listLessons(): Promise<Lesson[]> {
   const remoteIndex = await loadGeneratedIndex();
-  const [allVocabItems, allGrammarItems] = await Promise.all([
-    allVocab(), allGrammar(),
-  ]);
-  const vocabMap = new Map(allVocabItems.map((v) => [v.id, v]));
-  const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
+  const { vocabMap, grammarMap } = await loadSrsMaps();
 
   const lessons = await Promise.all(
     CURRICULUM.map((e) => hydrate(e, remoteIndex)),
@@ -325,11 +339,7 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   const entry = getCurriculumEntry(id);
   if (!entry) return undefined;
   const remoteIndex = await loadGeneratedIndex();
-  const [allVocabItems, allGrammarItems] = await Promise.all([
-    allVocab(), allGrammar(),
-  ]);
-  const vocabMap = new Map(allVocabItems.map((v) => [v.id, v]));
-  const grammarMap = new Map(allGrammarItems.map((g) => [g.id, g]));
+  const { vocabMap, grammarMap } = await loadSrsMaps();
   const lesson = await hydrate(entry, remoteIndex);
   lesson.mastery = computeMastery(lesson, vocabMap, grammarMap);
   lesson.unlockProgress = computeUnlockProgress(lesson, vocabMap, grammarMap);
@@ -401,32 +411,24 @@ const REVIEW_VOCAB_COUNT = 6;
 const REVIEW_GRAMMAR_COUNT = 2;
 const AVOID_TITLES_MAX = 5;
 
-/** Tire `n` éléments au hasard dans `arr` (Fisher-Yates), sans dépasser sa taille. */
-function sample<T>(arr: T[], n: number): T[] {
-  const copy = arr.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, n);
+/** Prochaine variante d'histoire non encore matérialisée : max(local ∪ distant) + 1. */
+export function nextStoryVariant(lesson: Lesson): number {
+  const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
+  const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
+  return Math.max(localMax, remoteMax) + 1;
 }
 
 /**
  * Génère (et sauve) une nouvelle histoire pour la leçon.
  * `variant` : numéro de variante explicite (pour ouvrir une variante distante précise) ou
- * auto-calculé = max(local ∪ distant) + 1 (prochaine variante non encore matérialisée).
+ * auto-calculé = prochaine variante non encore matérialisée.
  */
 export async function addLessonStory(
   lesson: Lesson,
   variant?: number,
   onState?: (s: GenState) => void,
 ): Promise<StoryRecord> {
-  // Calcul de la variante si non fournie : prochaine non matérialisée.
-  const resolvedVariant = variant ?? (() => {
-    const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
-    const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
-    return Math.max(localMax, remoteMax) + 1;
-  })();
+  const resolvedVariant = variant ?? nextStoryVariant(lesson);
 
   // Révision : union des acquis des leçons précédentes, moins les cibles de la leçon courante.
   const cumulative = getCumulativeObjectives(lesson.id);

@@ -29,6 +29,7 @@ import {
   getLesson,
   invalidateGeneratedIndex,
   markLessonStarted,
+  nextStoryVariant,
   type Lesson,
 } from "./lessons";
 
@@ -104,13 +105,6 @@ async function remove(lessonId: string): Promise<void> {
   emit();
 }
 
-/** Prochaine variante d'histoire non encore matérialisée (locale ∪ distante). */
-function nextVariant(lesson: Lesson): number {
-  const localMax = Math.max(0, ...lesson.stories.map((s) => s.variant ?? 0));
-  const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
-  return Math.max(localMax, remoteMax) + 1;
-}
-
 /**
  * Exécute (ou reprend) un job. Chaque étape est idempotente :
  *  - le cours est sauté s'il existe déjà (framing présent) ;
@@ -179,7 +173,7 @@ export async function startLessonJob(lesson: Lesson): Promise<void> {
 /** Lance la génération d'une histoire supplémentaire (variante explicite ou suivante). */
 export async function addStoryJob(lesson: Lesson, variant?: number): Promise<void> {
   if (jobs.get(lesson.id)?.status === "running") return;
-  const resolved = variant ?? nextVariant(lesson);
+  const resolved = variant ?? nextStoryVariant(lesson);
   const now = Date.now();
   const job: GenJobRecord = {
     lessonId: lesson.id,

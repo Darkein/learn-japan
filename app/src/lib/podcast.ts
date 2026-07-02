@@ -14,7 +14,7 @@ import {
   type StoryRecord,
 } from "./db";
 import { generateStoryTranslation, type ComprehensionQuestion } from "./genClient";
-import { isKana, isKanji } from "./kana";
+import { isKana, isKanji, splitJaSentences } from "./kana";
 import {
   addLessonStory,
   ensureLessonFraming,
@@ -80,34 +80,6 @@ export function cleanFrench(s: string): string {
     .replace(/\s+([,.;:!?»])/g, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
-}
-
-// ---------- Découpage des phrases japonaises --------------------------------
-
-const JA_SENTENCE_END = /[。！？．!?]/;
-
-/**
- * Découpe un texte japonais en phrases (sur la ponctuation finale et les sauts de ligne),
- * en conservant la ponctuation. Déterministe → sert à la fois pour la traduction alignée et
- * pour l'assemblage du podcast (mêmes bornes des deux côtés = alignement garanti).
- */
-export function splitJaSentences(text: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  for (const ch of text) {
-    if (ch === "\n") {
-      if (cur.trim()) out.push(cur.trim());
-      cur = "";
-      continue;
-    }
-    cur += ch;
-    if (JA_SENTENCE_END.test(ch)) {
-      if (cur.trim()) out.push(cur.trim());
-      cur = "";
-    }
-  }
-  if (cur.trim()) out.push(cur.trim());
-  return out;
 }
 
 // ---------- Quiz de vocabulaire (déterministe, varié) -----------------------

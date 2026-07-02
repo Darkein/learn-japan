@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Lesson } from "./lessons";
+import { splitJaSentences } from "./kana";
 import {
   buildComprehensionAudio,
   buildPodcastScript,
@@ -8,7 +9,6 @@ import {
   COMP_PAUSE_MS,
   containsJa,
   QUIZ_PAUSE_MS,
-  splitJaSentences,
   stripFurigana,
   titleSegment,
 } from "./podcast";

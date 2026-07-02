@@ -7,6 +7,7 @@
 // proxy LLM générique « hors japonais ».
 
 import { WORKER_URL } from "./config";
+import { shuffleTracking } from "./random";
 
 export interface GenParams {
   kind?: "story" | "lesson" | "lesson-story" | "story-translation" | "comprehension-qcm";
@@ -249,19 +250,6 @@ export interface ComprehensionQuestion {
   answerIndex: number;
   /** Point de grammaire testé (résolu depuis le tag [Gk]) ; absent si compréhension générale. */
   targetGrammarId?: string;
-}
-
-/** Mélange un tableau (Fisher-Yates) en renvoyant aussi le nouvel index d'un élément suivi. */
-function shuffleTracking<T>(items: T[], trackedIndex: number): { items: T[]; index: number } {
-  const arr = items.slice();
-  let tracked = trackedIndex;
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    if (i === tracked) tracked = j;
-    else if (j === tracked) tracked = i;
-  }
-  return { items: arr, index: tracked };
 }
 
 /**

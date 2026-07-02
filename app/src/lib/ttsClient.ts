@@ -20,7 +20,7 @@ export interface SentenceAudio {
   marks: { i: number; t: number }[];
 }
 
-const VOICE = "ja-JP-Neural2-B";
+const VOICE = TTS_VOICES.ja.voice;
 const RATE = 1.0;
 
 /** base64 → Blob MP3 (sans passer par fetch(dataURL), plus rapide et sûr). */
@@ -29,6 +29,44 @@ function base64ToBlob(b64: string, type = "audio/mpeg"): Blob {
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Blob([bytes], { type });
+}
+
+interface TtsResponse {
+  audio: Blob;
+  marks: { i: number; t: number }[];
+}
+
+/**
+ * Poste une requête au Worker /tts et renvoie l'audio décodé (+ timepoints éventuels).
+ * @throws TtsUnconfiguredError si le Worker n'a pas de clé TTS (HTTP 503).
+ */
+async function postTts(body: Record<string, unknown>, timeoutMs: number): Promise<TtsResponse> {
+  let res: Response;
+  try {
+    res = await fetch(`${WORKER_URL}/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    throw new Error(`Worker injoignable (TTS) : ${String(e)}`);
+  }
+
+  if (res.status === 503) throw new TtsUnconfiguredError();
+
+  const data = (await res.json().catch(() => ({}))) as {
+    audio?: string;
+    marks?: { i: number; t: number }[];
+    error?: string;
+  };
+  if (!res.ok || data.error) {
+    if (data.error === "tts_unconfigured") throw new TtsUnconfiguredError();
+    throw new Error(data.error ?? `tts HTTP ${res.status}`);
+  }
+  if (!data.audio) throw new Error("Réponse TTS vide");
+
+  return { audio: base64ToBlob(data.audio), marks: data.marks ?? [] };
 }
 
 /**
@@ -49,33 +87,10 @@ export async function synthesizeSentence(
   const cached = await getTtsCache(cacheId);
   if (cached) return shift(cached, baseIndex);
 
-  let res: Response;
-  try {
-    res = await fetch(`${WORKER_URL}/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ segments, voice: VOICE, rate: RATE }),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
-    });
-  } catch (e) {
-    throw new Error(`Worker injoignable (TTS) : ${String(e)}`);
-  }
-
-  if (res.status === 503) throw new TtsUnconfiguredError();
-
-  const data = (await res.json().catch(() => ({}))) as {
-    audio?: string;
-    marks?: { i: number; t: number }[];
-    error?: string;
-  };
-  if (!res.ok || data.error) {
-    if (data.error === "tts_unconfigured") throw new TtsUnconfiguredError();
-    throw new Error(data.error ?? `tts HTTP ${res.status}`);
-  }
-  if (!data.audio) throw new Error("Réponse TTS vide");
-
-  const audio = base64ToBlob(data.audio);
-  const marks = data.marks ?? [];
+  const { audio, marks } = await postTts(
+    { segments, voice: VOICE, rate: RATE },
+    opts.timeoutMs ?? 30_000,
+  );
   await putTtsCache(cacheId, audio, marks); // cache avec index LOCAUX (0-based)
   return shift({ audio, marks }, baseIndex);
 }
@@ -110,28 +125,10 @@ export async function synthesizeText(
   const cached = await getTtsCache(cacheId);
   if (cached) return cached.audio;
 
-  let res: Response;
-  try {
-    res = await fetch(`${WORKER_URL}/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: clean, voice, languageCode, rate: RATE }),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
-    });
-  } catch (e) {
-    throw new Error(`Worker injoignable (TTS) : ${String(e)}`);
-  }
-
-  if (res.status === 503) throw new TtsUnconfiguredError();
-
-  const data = (await res.json().catch(() => ({}))) as { audio?: string; error?: string };
-  if (!res.ok || data.error) {
-    if (data.error === "tts_unconfigured") throw new TtsUnconfiguredError();
-    throw new Error(data.error ?? `tts HTTP ${res.status}`);
-  }
-  if (!data.audio) throw new Error("Réponse TTS vide");
-
-  const audio = base64ToBlob(data.audio);
+  const { audio } = await postTts(
+    { text: clean, voice, languageCode, rate: RATE },
+    opts.timeoutMs ?? 30_000,
+  );
   await putTtsCache(cacheId, audio, []);
   return audio;
 }

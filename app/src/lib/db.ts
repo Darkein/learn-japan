@@ -357,7 +357,8 @@ export async function putTtsCache(id: string, audio: Blob, marks: { i: number; t
 }
 
 // Compteurs SRS journaliers ---------------------------------------------------
-function localDateString(d: Date = new Date()): string {
+/** Date locale « YYYY-MM-DD » (clé du store `srsDaily`, affichage des séries). */
+export function localDateString(d: Date = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");

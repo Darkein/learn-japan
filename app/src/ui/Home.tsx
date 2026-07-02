@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/warmup";
 import { LessonList } from "./LessonList";
@@ -18,12 +18,8 @@ interface Props {
   onGoCatalogue: () => void;
 }
 
-function localDateStr(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
-  const todayStr = localDateStr();
+  const todayStr = localDateString();
   const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
   // Série de jours consécutifs à objectif atteint. Un aujourd'hui encore incomplet ne
   // casse pas la série (la journée n'est pas finie) : on l'ignore et on compte depuis hier.

@@ -3,24 +3,17 @@
 // phrase (tokenisation + traduction). Pas de logique de notation ici (voir gradeExercise).
 
 import { toTiles, shuffleTiles } from "./builder";
-import type { ComprehensionItem, GrammarItem } from "./db";
-import type { ChoiceExercise, BuildExercise, Exercise } from "./exercise";
+import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
+import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
 import type { ComprehensionQuestion } from "./genClient";
 import { allGrammarInv, grammarDetail } from "./inventory";
+import { normalizeReading } from "./kana";
 import { PARTICLE_GLOSS } from "./particles";
+import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const PARTICLE_POOL = ["は", "が", "を", "に", "で", "へ", "と", "も", "から", "まで"];
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 function particleChoices(answer: string): string[] {
   const distractors = shuffle(PARTICLE_POOL.filter((p) => p !== answer)).slice(0, 3);
@@ -52,6 +45,50 @@ export function particleExercises(tokens: KuromojiToken[], max = 8): ChoiceExerc
   });
 
   return shuffle(out).slice(0, max);
+}
+
+/**
+ * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
+ * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
+ * entendu (exige `v.example`).
+ */
+export function vocabTypeExercise(
+  v: VocabItem,
+  due: number,
+  opts: { listen?: boolean } = {},
+): TypeExercise {
+  const hasMeaning = !!v.meaning && v.meaning !== "—";
+  const answers = hasMeaning
+    ? [normalizeReading(v.surface), normalizeReading(v.reading)]
+    : [normalizeReading(v.reading)];
+  if (opts.listen) {
+    return {
+      mode: "type",
+      key: `vocab-listen:${v.id}`,
+      track: "vocab",
+      skill: "oral",
+      id: v.id,
+      front: v.example?.ja ?? v.surface,
+      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+      due,
+      audio: { word: v.surface },
+      context: v.example?.ja,
+      prompt: "Écoute et tape le mot souligné",
+      answers,
+    };
+  }
+  return {
+    mode: "type",
+    key: `vocab:${v.id}`,
+    track: "vocab",
+    id: v.id,
+    front: hasMeaning ? v.meaning : v.surface,
+    back: `${v.surface}（${v.reading}）`,
+    due,
+    prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+    answers,
+    ...(v.example?.ja ? { context: v.example.ja } : {}),
+  };
 }
 
 /** QCM de compréhension (LLM) déjà généré → exercices `choice` (piste compréhension). */
