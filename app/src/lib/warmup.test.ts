@@ -1,8 +1,9 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, beforeEach } from "vitest";
-import { putVocab, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
-import { newCard } from "./srs";
+import type { Card } from "ts-fsrs";
+import { getVocab, putVocab, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
+import { newCard, State } from "./srs";
 import { SRS } from "./config";
 import { dueCards, gradeCard, buildSession } from "./warmup";
 
@@ -182,5 +183,91 @@ describe("buildSession", () => {
   it("scope:all sans lessonId → []", async () => {
     const result = await buildSession(NOW, { scope: "all" });
     expect(result).toEqual([]);
+  });
+});
+
+/** Carte FSRS stabilisée (état Review, due dans le futur). */
+function stableCard(dueInDays: number): Card {
+  const due = new Date(NOW);
+  due.setDate(due.getDate() + dueInDays);
+  return {
+    ...newCard(new Date("2026-06-01")),
+    due,
+    state: State.Review,
+    scheduled_days: 7,
+    reps: 3,
+  };
+}
+
+describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
+  it("carte écoute due → exercice d'écoute, même si l'écrit n'est pas dû", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
+      example: { ja: "水を飲む" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    const listen = session.find((c) => c.key === "vocab-listen:水|みず");
+    expect(listen).toBeDefined();
+    expect(listen!.skill).toBe("oral");
+    // L'écrit n'est pas dû : pas d'exercice écrit en double.
+    expect(session.find((c) => c.key === "vocab:水|みず")).toBeUndefined();
+  });
+
+  it("amorçage : un mot stable à l'écrit (Review) avec exemple gagne une carte écoute", async () => {
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10) },
+      example: { ja: "猫がいる" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.find((c) => c.key === "vocab-listen:猫|ねこ")).toBeDefined();
+    const item = await getVocab("猫|ねこ");
+    expect(item?.cards.oral).toBeDefined();
+  });
+
+  it("pas d'amorçage pour un mot encore en apprentissage à l'écrit", async () => {
+    await putVocab({
+      id: "犬|いぬ",
+      surface: "犬",
+      reading: "いぬ",
+      meaning: "chien",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")) }, // état New, dû
+      example: { ja: "犬が走る" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.find((c) => c.key === "vocab-listen:犬|いぬ")).toBeUndefined();
+  });
+
+  it("noter un exercice d'écoute met à jour cards.oral, pas cards.written", async () => {
+    const written = stableCard(10);
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written, oral: newCard(new Date("2020-01-01")) },
+      example: { ja: "水を飲む" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    const listen = session.find((c) => c.key === "vocab-listen:水|みず")!;
+    await gradeCard(listen, "good", NOW);
+    const item = await getVocab("水|みず");
+    expect(item!.cards.oral!.due.getTime()).toBeGreaterThan(NOW.getTime());
+    expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
   });
 });

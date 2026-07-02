@@ -20,7 +20,7 @@ import { gradeExercise, type Exercise } from "./exercise";
 import { comprehensionReviewExercise, grammarReviewExercise } from "./exerciseBuild";
 import { normalizeReading } from "./kana";
 import { getCurriculumEntry } from "./lessons";
-import { isDue, newCard, type SrsGrade } from "./srs";
+import { isDue, newCard, State, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
 
@@ -69,6 +69,8 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
     else newCount++;
+    // Compétence écoute : carte dédiée, planifiée indépendamment.
+    if (v.cards.oral && isDue(v.cards.oral, horizon)) dueCount++;
   }
   for (const g of grammar) {
     if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
@@ -125,10 +127,11 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
   const out: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
-  const verbPool = drillVerbPool(await allVocab());
+  const vocabAll = await allVocab();
+  const verbPool = drillVerbPool(vocabAll);
 
   // Collecte items dus (avec carte FSRS)
-  for (const v of await allVocab()) {
+  for (const v of vocabAll) {
     const c = v.cards.written;
     if (c && isDue(c, horizon)) {
       const hasMeaning = !!v.meaning && v.meaning !== "—";
@@ -159,29 +162,49 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     }
   }
 
-  // Cartes écoute (max 5) — vocab dus avec phrase d'exemple
+  // Écoute — compétence dédiée (`cards.oral`), planifiée indépendamment de l'écrit :
+  // un mot n'est plus noté deux fois sur la même carte dans une session. Les cartes
+  // écoute DUES passent d'abord ; puis on amorce l'écoute de quelques mots déjà
+  // stabilisés à l'écrit (état Review) qui ont une phrase d'exemple.
+  const LISTEN_MAX = 5;
+  const LISTEN_SEEDS = 2;
+  const listenExercise = (v: VocabItem, due: number): Exercise => {
+    const hasMeaning = !!v.meaning && v.meaning !== "—";
+    return {
+      mode: "type",
+      key: `vocab-listen:${v.id}`,
+      track: "vocab",
+      skill: "oral",
+      id: v.id,
+      front: v.example!.ja,
+      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+      due,
+      audio: { word: v.surface },
+      context: v.example!.ja,
+      prompt: "Écoute et tape le mot souligné",
+      answers: hasMeaning
+        ? [normalizeReading(v.surface), normalizeReading(v.reading)]
+        : [normalizeReading(v.reading)],
+    };
+  };
   let listenCount = 0;
-  for (const v of await allVocab()) {
-    if (listenCount >= 5) break;
-    const c = v.cards.written;
-    if (c && isDue(c, horizon) && v.example?.ja) {
-      const hasMeaning = !!v.meaning && v.meaning !== "—";
-      out.push({
-        mode: "type",
-        key: `vocab-listen:${v.id}`,
-        track: "vocab",
-        id: v.id,
-        front: v.example.ja,
-        back: `${v.surface}（${v.reading}）— ${v.meaning}`,
-        due: c.due.getTime(),
-        audio: { word: v.surface },
-        context: v.example.ja,
-        prompt: "Écoute et tape le mot souligné",
-        answers: hasMeaning
-          ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-          : [normalizeReading(v.reading)],
-      });
+  for (const v of vocabAll) {
+    if (listenCount >= LISTEN_MAX) break;
+    if (v.cards.oral && isDue(v.cards.oral, horizon) && v.example?.ja) {
+      out.push(listenExercise(v, v.cards.oral.due.getTime()));
       listenCount++;
+    }
+  }
+  let listenSeeds = 0;
+  for (const v of vocabAll) {
+    if (listenCount >= LISTEN_MAX || listenSeeds >= LISTEN_SEEDS) break;
+    if (!v.cards.oral && v.example?.ja && v.cards.written?.state === State.Review) {
+      const card = newCard(now);
+      v.cards.oral = card;
+      await putVocab(v);
+      out.push(listenExercise(v, card.due.getTime()));
+      listenCount++;
+      listenSeeds++;
     }
   }
 
@@ -195,7 +218,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length));
 
     // Vocab sans carte
-    for (const v of await allVocab()) {
+    for (const v of vocabAll) {
       if (newCards.length >= toPromote) break;
       if (!v.cards.written) {
         const card = newCard(now);

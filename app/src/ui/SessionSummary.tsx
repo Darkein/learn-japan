@@ -42,7 +42,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
         let fsrsCard: import("ts-fsrs").Card | undefined;
         if (r.card.track === "vocab") {
           const item = await getVocab(r.card.id);
-          fsrsCard = item?.cards?.written;
+          fsrsCard = item?.cards?.[r.card.skill ?? "written"];
         } else if (r.card.track === "grammar") {
           const item = await getGrammar(r.card.id);
           fsrsCard = item?.card;
