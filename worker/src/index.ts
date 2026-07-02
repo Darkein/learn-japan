@@ -264,7 +264,9 @@ async function synthesize(env: Env, body: TtsRequest, refresh = false): Promise<
 
   const languageCode = body.languageCode || "ja-JP";
   const voice = body.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
-  const rate = body.rate ?? Number(env.TTS_RATE ?? "1") ?? 1;
+  // `Number("")`/`Number("abc")` donnent NaN → repli sur 1 (sinon NaN part à Cloud TTS
+  // et pollue la clé de cache).
+  const rate = body.rate ?? (Number(env.TTS_RATE) || 1);
   const ssml = useMarks ? buildSsml(segments) : undefined;
 
   // Cache R2 de l'audio (économise le quota Cloud TTS). Clé = paramètres effectifs résolus.

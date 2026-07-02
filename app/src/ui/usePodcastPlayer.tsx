@@ -402,16 +402,17 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     };
   }, [state.active]);
 
-  // MediaSession : contrôles média OS / Bluetooth / volant (SPEC §11).
+  // MediaSession : contrôles média OS / Bluetooth / volant (SPEC §11). Seulement quand le
+  // lecteur podcast est ACTIF : sinon on volerait les contrôles au lecteur d'article
+  // (useArticlePlayer), qui enregistre les siens pendant la lecture d'une histoire.
   useEffect(() => {
+    if (!state.active) return;
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
     const ms = navigator.mediaSession;
-    if (state.active) {
-      try {
-        ms.metadata = new MediaMetadata({ title: state.title || "Podcast", artist: "Learn Japan" });
-      } catch {
-        /* MediaMetadata indisponible */
-      }
+    try {
+      ms.metadata = new MediaMetadata({ title: state.title || "Podcast", artist: "Learn Japan" });
+    } catch {
+      /* MediaMetadata indisponible */
     }
     ms.setActionHandler("play", () => toggle());
     ms.setActionHandler("pause", () => toggle());

@@ -174,7 +174,11 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
   const due: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
-  const vocabAll = await allVocab();
+
+  // Un seul chargement de chaque store (réutilisé par les passes dues / écoute / nouveaux).
+  const [vocabAll, grammarAll, comprehensionAll] = await Promise.all([
+    allVocab(), allGrammar(), allComprehension(),
+  ]);
   const verbPool = drillVerbPool(vocabAll);
 
   // Collecte items dus (avec carte FSRS)
@@ -198,12 +202,12 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       });
     }
   }
-  for (const g of await allGrammar()) {
+  for (const g of grammarAll) {
     if (g.card && isDue(g.card, horizon)) {
       due.push(await grammarSessionExercise(g, g.card.due.getTime(), verbPool));
     }
   }
-  for (const c of await allComprehension()) {
+  for (const c of comprehensionAll) {
     if (c.card && isDue(c.card, horizon)) {
       due.push(comprehensionReviewExercise(c, c.card.due.getTime()));
     }
@@ -300,7 +304,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
 
     // Grammaire sans carte — même priorisation.
     if (newCards.length < toPromote) {
-      for (const g of prioritizeNewGrammar(await allGrammar(), started)) {
+      for (const g of prioritizeNewGrammar(grammarAll, started)) {
         if (newCards.length >= toPromote) break;
         const card = newCard(now);
         g.card = card;
