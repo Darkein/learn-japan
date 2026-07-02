@@ -198,7 +198,7 @@ function AppShell() {
   if (route.kind === "review") {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <ReaderPage title="Révision" onBack={back}>
+        <ReaderPage title={reviewOpts.scope === "all" ? "Entraînement" : "Révision"} onBack={back}>
           <ReviewSession opts={reviewOpts} onExit={back} />
         </ReaderPage>
       </div>
