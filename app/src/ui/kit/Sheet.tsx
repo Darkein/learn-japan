@@ -10,8 +10,8 @@ interface Props {
   className?: string;
 }
 
-/** Overlay sur-mesure (DESIGN.md §6) : bord = filet, jamais d'ombre. Gère Escape, clic sur le
- * fond pour fermer, et l'encoche (safe-area) des appareils mobiles. */
+/** Overlay sur-mesure (DESIGN.md §6) : bord = filet + élévation `--elev`. Gère Escape, clic
+ * sur le fond pour fermer, et l'encoche (safe-area) des appareils mobiles. */
 export function Sheet({ open, onClose, variant = "bottom", children, className = "" }: Props) {
   useEffect(() => {
     if (!open) return;
@@ -45,9 +45,9 @@ export function Sheet({ open, onClose, variant = "bottom", children, className =
       <div className="absolute inset-0 bg-black/35" aria-hidden="true" />
       <div
         role="dialog"
-        className={`relative z-10 flex flex-col overflow-y-auto bg-surface ${
+        className={`relative z-10 flex flex-col overflow-y-auto bg-surface shadow-elev ${
           variant === "right"
-            ? "h-full w-64 max-w-[80vw] border-l border-hairline"
+            ? "h-full w-72 max-w-[85vw] border-l border-hairline"
             : "w-full max-w-[44rem] animate-rise rounded-t-md border-t border-hairline"
         } ${className}`}
         style={variant === "bottom" ? { paddingBottom: "calc(var(--safe-b) + 1.5rem)" } : undefined}

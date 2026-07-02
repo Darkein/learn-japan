@@ -24,14 +24,14 @@ export function SegmentedControl<T extends string | number>({
 }: Props<T>) {
   return (
     <div
-      className={`inline-flex overflow-hidden rounded-sm border border-hairline ${className}`}
+      className={`inline-flex overflow-hidden rounded-sm border border-hairline-strong ${className}`}
       role="group"
       aria-label={ariaLabel}
     >
       {options.map((o) => (
         <button
           key={o.value}
-          className={`min-h-11 cursor-pointer border-l border-hairline px-3 text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:text-text ${fullWidth ? "flex-1" : ""}`}
+          className={`min-h-11 cursor-pointer border-l border-hairline text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:font-medium aria-pressed:text-text ${fullWidth ? "flex-1 px-2" : "px-3"}`}
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
         >

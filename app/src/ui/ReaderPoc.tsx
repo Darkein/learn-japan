@@ -9,6 +9,7 @@ import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
+import { IconPause, IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReaderExercises } from "./ReaderExercises";
 import { Ruby } from "./Ruby";
@@ -152,7 +153,7 @@ export function ReaderPoc({ incoming }: Props) {
                   </span>
                   {settings.glossDefault && (
                     <span
-                      className={`max-w-24 truncate text-center font-sans text-xs leading-none text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
+                      className={`max-w-28 truncate text-center font-sans text-xs text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
                       title={g.gloss}
                     >
                       {g.gloss}
@@ -164,17 +165,25 @@ export function ReaderPoc({ incoming }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              className={`min-h-11 cursor-pointer rounded-sm border px-4 py-2 text-text transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-50 ${player.playing ? "border-accent bg-accent text-white" : "border-hairline"}`}
+            <Button
+              active={player.playing}
               onClick={player.toggle}
               disabled={player.loading || sentences.length === 0}
             >
-              {player.loading
-                ? "Chargement…"
-                : player.playing
-                  ? "⏸ Pause"
-                  : "▶ Écouter l'article"}
-            </button>
+              {player.loading ? (
+                "Chargement…"
+              ) : player.playing ? (
+                <>
+                  <IconPause size={16} />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <IconPlay size={16} />
+                  Écouter l'article
+                </>
+              )}
+            </Button>
             <Button variant="primary" onClick={() => setExoOpen(true)}>
               Exercices
             </Button>

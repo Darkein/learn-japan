@@ -8,6 +8,16 @@ import { BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { useHashRoute } from "./useHashRoute";
 import { useMediaQuery } from "./useMediaQuery";
+import { Button } from "./kit/Button";
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconClose,
+  IconNext,
+  IconPause,
+  IconPlay,
+  IconPrev,
+} from "./kit/Icon";
 
 const CHAPTER_LABEL: Record<PodcastSegment["chapter"], string> = {
   cours: "Cours",
@@ -85,7 +95,7 @@ export function PodcastPlayer() {
               return (
                 <li key={seg.id}>
                   {showHeader && (
-                    <div className="bg-surface-2 px-3 py-1 font-sans text-[0.65rem] uppercase tracking-widest text-muted">
+                    <div className="bg-surface-2 px-3 py-1 font-sans text-xs uppercase tracking-widest text-muted">
                       {CHAPTER_LABEL[seg.chapter]}
                     </div>
                   )}
@@ -94,8 +104,10 @@ export function PodcastPlayer() {
                     aria-current={isCurrent}
                     onClick={() => p.jumpTo(i)}
                   >
-                    <span className={`shrink-0 font-sans ${isCurrent ? "text-accent" : "text-text"}`}>
-                      {isCurrent ? "▸ " : ""}
+                    <span
+                      className={`flex shrink-0 items-center gap-1.5 font-sans ${isCurrent ? "font-medium text-accent" : "text-text"}`}
+                    >
+                      {isCurrent && <IconPlay size={12} />}
                       {seg.label}
                     </span>
                   </button>
@@ -119,20 +131,13 @@ export function PodcastPlayer() {
               </span>
             )}
           </div>
-          <button
-            className="min-h-11 cursor-pointer rounded-sm border border-hairline px-3 text-xs text-muted transition-colors hover:border-accent"
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-          >
-            {open ? "▾ Liste" : "▴ Liste"}
-          </button>
-          <button
-            className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-hairline px-3 text-xs text-muted transition-colors hover:border-accent"
-            onClick={p.close}
-            aria-label="Fermer le lecteur"
-          >
-            ✕
-          </button>
+          <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            Liste
+            {open ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
+          </Button>
+          <Button size="icon" variant="quiet" onClick={p.close} aria-label="Fermer le lecteur">
+            <IconClose />
+          </Button>
         </div>
 
         {p.segments.length > 0 && (
@@ -161,33 +166,36 @@ export function PodcastPlayer() {
           </div>
         )}
 
-        <div className="flex items-center gap-3">
-          <button
-            className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-hairline text-text transition-colors hover:border-accent disabled:opacity-40"
-            onClick={() => goToTrack(-1)}
-            disabled={!!p.preparing}
-            aria-label="Élément précédent"
-          >
-            ⏮
-          </button>
-          <button
-            className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-accent bg-accent text-white transition-colors disabled:opacity-40"
-            onClick={p.toggle}
-            disabled={!!p.preparing}
-            aria-label={p.playing ? "Pause" : "Lecture"}
-          >
-            {p.playing ? "⏸" : "▶"}
-          </button>
-          <button
-            className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-hairline text-text transition-colors hover:border-accent disabled:opacity-40"
-            onClick={() => goToTrack(1)}
-            disabled={!!p.preparing}
-            aria-label="Élément suivant"
-          >
-            ⏭
-          </button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex shrink-0 items-center gap-3">
+            <Button
+              size="icon"
+              onClick={() => goToTrack(-1)}
+              disabled={!!p.preparing}
+              aria-label="Élément précédent"
+            >
+              <IconPrev />
+            </Button>
+            <Button
+              size="icon"
+              variant="primary"
+              onClick={p.toggle}
+              disabled={!!p.preparing}
+              aria-label={p.playing ? "Pause" : "Lecture"}
+            >
+              {p.playing ? <IconPause /> : <IconPlay />}
+            </Button>
+            <Button
+              size="icon"
+              onClick={() => goToTrack(1)}
+              disabled={!!p.preparing}
+              aria-label="Élément suivant"
+            >
+              <IconNext />
+            </Button>
+          </div>
 
-          <div className="min-w-0 flex-1 text-xs text-muted">
+          <div className="min-w-0 basis-full text-sm text-muted sm:basis-auto sm:flex-1">
             {p.preparing ? (
               p.preparing
             ) : p.error ? (

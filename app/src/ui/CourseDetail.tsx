@@ -11,6 +11,7 @@ import { useSettings } from "./useSettings";
 import { Markdown } from "./LessonMarkdown";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
+import { IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
 
 interface Props {
@@ -45,11 +46,19 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
   const actionButtons = (
     <>
       <Button
+        variant="primary"
         onClick={() => podcast.startLesson(lesson.id)}
         disabled={podcastBusy}
         title="Cadrage parlé, quiz audio, puis l'histoire en écoute bilingue"
       >
-        {podcastBusy ? `… ${podcast.preparing ?? ""}` : "▶ Podcast"}
+        {podcastBusy ? (
+          `… ${podcast.preparing ?? ""}`
+        ) : (
+          <>
+            <IconPlay size={16} />
+            Podcast
+          </>
+        )}
       </Button>
       {onStartReview && (
         <Button
@@ -67,9 +76,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
       {headerSlot && createPortal(actionButtons, headerSlot)}
 
       {!headerSlot && (
-        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-hairline bg-bg py-3">
-          {actionButtons}
-        </div>
+        <div className="flex flex-wrap items-center gap-2 py-3">{actionButtons}</div>
       )}
 
       <div className="flex flex-col gap-4 pt-4">
@@ -177,7 +184,7 @@ function Cours({ lesson }: { lesson: Lesson }) {
                     <span className="font-jp text-sm text-text">
                       {v.ja}
                       {v.yomi && v.yomi !== v.ja && (
-                        <span className="ml-2 font-jp text-xs italic text-muted">{v.yomi}</span>
+                        <span className="ml-2 font-jp text-sm italic text-muted">{v.yomi}</span>
                       )}
                     </span>
                     <span className="font-sans text-sm text-text">{v.fr}</span>
