@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, beforeEach } from "vitest";
 import type { Card } from "ts-fsrs";
-import { getVocab, putVocab, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
+import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
 import { dueCards, gradeCard, buildSession } from "./warmup";
@@ -183,6 +183,48 @@ describe("buildSession", () => {
   it("scope:all sans lessonId → []", async () => {
     const result = await buildSession(NOW, { scope: "all" });
     expect(result).toEqual([]);
+  });
+});
+
+describe("priorisation des nouveaux items", () => {
+  it("les objectifs d'une leçon commencée passent avant le vocabulaire incident", async () => {
+    const { getCurriculum } = await import("./lessons");
+    const first = getCurriculum()[0];
+    const lessonVocabIds = first.introduces.vocab.slice(0, 3);
+    if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester
+    await putLessonProgress({ id: first.id, startedAt: Date.now() });
+
+    // Mot incident (histoire) avec un id alphabétiquement AVANT ceux de la leçon.
+    await putVocab({
+      id: "ああ|ああ",
+      surface: "ああ",
+      reading: "ああ",
+      meaning: "ah",
+      tags: [],
+      status: "unknown",
+      cards: {},
+    });
+    for (const id of lessonVocabIds) {
+      const [surface, reading] = id.split("|");
+      await putVocab({
+        id,
+        surface,
+        reading: reading ?? surface,
+        meaning: "test",
+        tags: [],
+        status: "unknown",
+        cards: {},
+      });
+    }
+
+    const session = await buildSession(NOW, { scope: "due" });
+    const ids = session.map((c) => c.id);
+    const incidentIdx = ids.indexOf("ああ|ああ");
+    for (const id of lessonVocabIds) {
+      const idx = ids.indexOf(id);
+      expect(idx).toBeGreaterThanOrEqual(0);
+      if (incidentIdx !== -1) expect(idx).toBeLessThan(incidentIdx);
+    }
   });
 });
 

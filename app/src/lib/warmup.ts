@@ -5,6 +5,7 @@
 import {
   allComprehension,
   allGrammar,
+  allLessonProgress,
   allVocab,
   bumpSrsDaily,
   getDB,
@@ -19,7 +20,7 @@ import type { GrammarItem, VocabItem } from "./db";
 import { gradeExercise, type Exercise } from "./exercise";
 import { comprehensionReviewExercise, grammarReviewExercise } from "./exerciseBuild";
 import { normalizeReading } from "./kana";
-import { getCurriculumEntry } from "./lessons";
+import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./lessons";
 import { isDue, newCard, State, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
@@ -101,6 +102,52 @@ export async function buildSession(
     if (leeches.has(ex.id)) ex.isLeech = true;
   }
   return exercises;
+}
+
+/** Leçons commencées, dans l'ordre du curriculum (pour prioriser leurs objectifs). */
+async function startedCurriculumEntries(): Promise<CurriculumEntry[]> {
+  const progress = await allLessonProgress();
+  const started = new Set(progress.filter((p) => p.startedAt).map((p) => p.id));
+  return getCurriculum().filter((e) => started.has(e.id));
+}
+
+/**
+ * Ordre de promotion des NOUVEAUX items de vocabulaire : d'abord les objectifs des leçons
+ * commencées (dans l'ordre du curriculum), puis le vocabulaire incident des histoires.
+ * Sans cela, l'ordre des clés IndexedDB (alphabétique) décidait quels mots entraient en
+ * rotation — les mots-cibles d'une leçon pouvaient passer après un mot croisé au hasard.
+ */
+function prioritizeNewVocab(vocabAll: VocabItem[], started: CurriculumEntry[]): VocabItem[] {
+  const byId = new Map(vocabAll.filter((v) => !v.cards.written).map((v) => [v.id, v]));
+  const ordered: VocabItem[] = [];
+  for (const entry of started) {
+    for (const id of entry.introduces.vocab) {
+      const v = byId.get(id);
+      if (v) {
+        ordered.push(v);
+        byId.delete(id);
+      }
+    }
+  }
+  ordered.push(...byId.values());
+  return ordered;
+}
+
+/** Même priorisation pour la grammaire : points des leçons commencées d'abord. */
+function prioritizeNewGrammar(grammarAll: GrammarItem[], started: CurriculumEntry[]): GrammarItem[] {
+  const byId = new Map(grammarAll.filter((g) => !g.card).map((g) => [g.id, g]));
+  const ordered: GrammarItem[] = [];
+  for (const entry of started) {
+    for (const id of entry.introduces.grammar) {
+      const g = byId.get(id);
+      if (g) {
+        ordered.push(g);
+        byId.delete(id);
+      }
+    }
+  }
+  ordered.push(...byId.values());
+  return ordered;
 }
 
 /** Pool de verbes pour les drills de conjugaison : mots déjà en rotation SRS. */
@@ -225,44 +272,41 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   if (out.length < s.dailyGoal && budget > 0 && room > 0) {
     const newCards: Exercise[] = [];
     const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length, room));
+    const started = await startedCurriculumEntries();
 
-    // Vocab sans carte
-    for (const v of vocabAll) {
+    // Vocab sans carte — objectifs des leçons commencées d'abord, incidents ensuite.
+    for (const v of prioritizeNewVocab(vocabAll, started)) {
       if (newCards.length >= toPromote) break;
-      if (!v.cards.written) {
-        const card = newCard(now);
-        v.cards.written = card;
-        await putVocab(v);
-        await bumpSrsDaily(dateStr, { introduced: 1 });
-        const hasMeaning = !!v.meaning && v.meaning !== "—";
-        newCards.push({
-          mode: "type",
-          key: `vocab:${v.id}`,
-          track: "vocab",
-          id: v.id,
-          front: hasMeaning ? v.meaning : v.surface,
-          back: `${v.surface}（${v.reading}）`,
-          due: card.due.getTime(),
-          prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-          answers: hasMeaning
-            ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-            : [normalizeReading(v.reading)],
-          ...(v.example?.ja ? { context: v.example.ja } : {}),
-        });
-      }
+      const card = newCard(now);
+      v.cards.written = card;
+      await putVocab(v);
+      await bumpSrsDaily(dateStr, { introduced: 1 });
+      const hasMeaning = !!v.meaning && v.meaning !== "—";
+      newCards.push({
+        mode: "type",
+        key: `vocab:${v.id}`,
+        track: "vocab",
+        id: v.id,
+        front: hasMeaning ? v.meaning : v.surface,
+        back: `${v.surface}（${v.reading}）`,
+        due: card.due.getTime(),
+        prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+        answers: hasMeaning
+          ? [normalizeReading(v.surface), normalizeReading(v.reading)]
+          : [normalizeReading(v.reading)],
+        ...(v.example?.ja ? { context: v.example.ja } : {}),
+      });
     }
 
-    // Grammaire sans carte
+    // Grammaire sans carte — même priorisation.
     if (newCards.length < toPromote) {
-      for (const g of await allGrammar()) {
+      for (const g of prioritizeNewGrammar(await allGrammar(), started)) {
         if (newCards.length >= toPromote) break;
-        if (!g.card) {
-          const card = newCard(now);
-          g.card = card;
-          await putGrammar(g);
-          await bumpSrsDaily(dateStr, { introduced: 1 });
-          newCards.push(await grammarSessionExercise(g, card.due.getTime(), verbPool));
-        }
+        const card = newCard(now);
+        g.card = card;
+        await putGrammar(g);
+        await bumpSrsDaily(dateStr, { introduced: 1 });
+        newCards.push(await grammarSessionExercise(g, card.due.getTime(), verbPool));
       }
     }
 
