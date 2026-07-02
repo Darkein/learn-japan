@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getComprehensionItem, getGrammar, getVocab } from "../lib/db";
 import type { Exercise } from "../lib/exercise";
-import { isMastered, type SrsGrade } from "../lib/srs";
+import { isMastered, isUnlockReady, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
@@ -12,6 +12,8 @@ interface SummaryEntry {
   card: Exercise;
   grade: SrsGrade;
   mastered: boolean;
+  /** Assez stable pour compter dans le déblocage de la leçon suivante (seuil léger, voir SRS.unlockIntervalDays). */
+  unlockReady: boolean;
   intervalDaysBefore: number;
   intervalDays: number;
 }
@@ -50,10 +52,14 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
           const item = await getComprehensionItem(r.card.id);
           fsrsCard = item?.card;
         }
+        // La piste compréhension ne compte pas dans le déblocage des leçons (voir
+        // computeUnlockProgress) : le badge n'a de sens que pour vocab/grammaire.
+        const countsForUnlock = r.card.track === "vocab" || r.card.track === "grammar";
         entries.push({
           card: r.card,
           grade: r.grade,
           mastered: fsrsCard ? isMastered(fsrsCard) : false,
+          unlockReady: countsForUnlock && fsrsCard ? isUnlockReady(fsrsCard) : false,
           intervalDaysBefore: r.daysBefore,
           intervalDays: fsrsCard?.scheduled_days ?? 0,
         });
@@ -112,12 +118,19 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
                       {entry.card.isLeech && <Badge>difficile</Badge>}
                       {entry.mastered ? (
                         <Badge variant="accent">maîtrisé</Badge>
+                      ) : entry.unlockReady ? (
+                        <Badge variant="accent">débloquant</Badge>
                       ) : entry.intervalDays === 0 ? (
                         <Badge>nouveau</Badge>
                       ) : null}
                     </div>
                   </div>
                   <div className="relative h-1 w-full overflow-hidden rounded-full bg-hairline">
+                    {/* Repère du seuil de déblocage (léger, bien avant la maîtrise à 21 j). */}
+                    <div
+                      className="absolute inset-y-0 w-px bg-text/30"
+                      style={{ left: `${Math.round((SRS.unlockIntervalDays / SRS.masteredIntervalDays) * 100)}%` }}
+                    />
                     <div
                       className="absolute inset-y-0 left-0 rounded-l-full bg-accent/30 transition-all"
                       style={{ width: `${beforePct}%` }}
