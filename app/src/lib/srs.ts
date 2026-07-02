@@ -51,3 +51,12 @@ export function byUrgency<T extends { card: Card }>(items: T[]): T[] {
 export function isMastered(card: Card): boolean {
   return card.state === State.Review && card.scheduled_days >= SRS.masteredIntervalDays;
 }
+
+/**
+ * La carte est-elle assez stable pour compter dans le DÉBLOCAGE de la leçon suivante
+ * (FSRS Review + intervalle ≥ seuil léger) ? Découplé de `isMastered` : la maîtrise (21 j)
+ * est l'objectif long terme, le déblocage ne doit pas attendre des semaines.
+ */
+export function isUnlockReady(card: Card): boolean {
+  return card.state === State.Review && card.scheduled_days >= SRS.unlockIntervalDays;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDue, isMastered, newCard, review } from "./srs";
+import { isDue, isMastered, isUnlockReady, newCard, review } from "./srs";
 import { State } from "ts-fsrs";
 
 describe("SRS (FSRS)", () => {
@@ -43,5 +43,22 @@ describe("isMastered", () => {
   it("retourne false pour une carte Review avec intervalle < 21", () => {
     const card = { ...newCard(), state: State.Review, scheduled_days: 20 };
     expect(isMastered(card)).toBe(false);
+  });
+});
+
+describe("isUnlockReady (seuil léger, découplé de la maîtrise)", () => {
+  it("false pour une carte vierge ou en Learning", () => {
+    expect(isUnlockReady(newCard())).toBe(false);
+    expect(isUnlockReady({ ...newCard(), state: State.Learning, scheduled_days: 30 })).toBe(false);
+  });
+
+  it("true dès Review + intervalle ≥ unlockIntervalDays (bien avant 21 j)", () => {
+    const card = { ...newCard(), state: State.Review, scheduled_days: 4 };
+    expect(isUnlockReady(card)).toBe(true);
+    expect(isMastered(card)).toBe(false);
+  });
+
+  it("false sous le seuil de déblocage", () => {
+    expect(isUnlockReady({ ...newCard(), state: State.Review, scheduled_days: 3 })).toBe(false);
   });
 });

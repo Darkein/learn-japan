@@ -21,6 +21,13 @@ export const SRS = {
   newPerDay: 10,
   dailyGoal: 20,
   masteredIntervalDays: 21,
+  /**
+   * Intervalle FSRS (jours) à partir duquel un item compte pour le DÉBLOCAGE de la leçon
+   * suivante. Volontairement bien plus bas que `masteredIntervalDays` : la maîtrise (21 j)
+   * reste l'objectif affiché, mais exiger 21 j pour avancer gèlerait la progression
+   * pendant des semaines.
+   */
+  unlockIntervalDays: 4,
   unlockMastery: 0.8,
   leechLapses: 4,
 } as const;

@@ -36,9 +36,9 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
 
   const [gaugeWidth, setGaugeWidth] = useState(0);
   useEffect(() => {
-    const t = setTimeout(() => setGaugeWidth(Math.round((lesson.prevMastery ?? 0) * 100)), 50);
+    const t = setTimeout(() => setGaugeWidth(Math.round((lesson.prevUnlockProgress ?? 0) * 100)), 50);
     return () => clearTimeout(t);
-  }, [lesson.prevMastery]);
+  }, [lesson.prevUnlockProgress]);
 
   return (
     <li
@@ -83,7 +83,7 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
         {lesson.locked && (
           <div className="flex flex-col gap-1.5">
             <p className="m-0 text-sm text-muted">
-              Maîtrise{lesson.prevTitle ? (
+              Consolide{lesson.prevTitle ? (
                 <> <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
               ) : null}{" "}
               pour débloquer cette leçon
