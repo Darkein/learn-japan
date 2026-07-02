@@ -3,7 +3,7 @@ import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
-import type { LessonObjectives } from "../lib/lessons";
+import type { LessonObjectives } from "../lib/curriculum";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";

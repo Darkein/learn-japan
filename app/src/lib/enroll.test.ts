@@ -63,7 +63,7 @@ vi.mock("./inventory", () => ({
 }));
 
 // Simule getCurriculumEntry pour enrollLesson
-vi.mock("./lessons", () => ({
+vi.mock("./curriculum", () => ({
   getCurriculumEntry: vi.fn((id: string) => {
     if (id === "lesson-test") {
       return {

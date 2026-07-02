@@ -30,9 +30,9 @@ const {
   computeMastery,
   getUnlockedGrammarIds,
   listLessons,
-  lessonsForGrammar,
   markUnlockNotified,
 } = await import("./lessons");
+const { getCurriculum, lessonsForGrammar } = await import("./curriculum");
 const genClient = await import("./genClient");
 
 function masteredCard(): Card {
@@ -129,7 +129,6 @@ describe("locked / prevUnlockProgress dans listLessons", () => {
   });
 
   it("locked=false quand prev mastery >= 0.8 (items maîtrisés en DB)", async () => {
-    const { getCurriculum } = await import("./lessons");
     const curriculum = getCurriculum();
     if (curriculum.length < 2) return;
     const prev = curriculum[0];
@@ -231,7 +230,6 @@ describe("markUnlockNotified", () => {
 
 describe("lessonsForGrammar", () => {
   it("retourne les leçons introduisant au moins une des règles données", async () => {
-    const { getCurriculum } = await import("./lessons");
     const curriculum = getCurriculum();
     const target = curriculum.find((c) => c.introduces.grammar.length > 0);
     if (!target) return; // skip si curriculum sans grammaire
@@ -250,7 +248,6 @@ describe("lessonsForGrammar", () => {
 
 describe("getUnlockedGrammarIds", () => {
   it("inclut la grammaire de la première leçon (jamais locked)", async () => {
-    const { getCurriculum } = await import("./lessons");
     const first = getCurriculum()[0];
     const ids = await getUnlockedGrammarIds();
     for (const g of first.introduces.grammar) {
@@ -259,7 +256,6 @@ describe("getUnlockedGrammarIds", () => {
   });
 
   it("exclut la grammaire d'une leçon locked", async () => {
-    const { getCurriculum } = await import("./lessons");
     const curriculum = getCurriculum();
     const lessons = await listLessons();
     const lockedIdx = lessons.findIndex((l) => l.locked);

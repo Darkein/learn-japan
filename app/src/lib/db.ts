@@ -4,7 +4,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Card } from "ts-fsrs";
 import type { ComprehensionQuestion } from "./genClient";
-import type { PodcastSegment } from "./podcast";
+import type { PodcastSegment } from "./podcastScript";
 
 /** Compétences suivies pour le vocabulaire (SPEC §2.2). */
 export type Skill = "written" | "oral" | "production";

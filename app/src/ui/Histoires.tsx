@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { allStories, deleteStory, type StoryRecord } from "../lib/db";
-import { getCurriculum, lessonsForGrammar } from "../lib/lessons";
+import { getCurriculum, lessonsForGrammar } from "../lib/curriculum";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";

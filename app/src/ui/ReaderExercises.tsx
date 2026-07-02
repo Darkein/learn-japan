@@ -8,7 +8,7 @@ import { ensureStoryTranslationById } from "../lib/podcast";
 import type { SrsGrade } from "../lib/srs";
 import { ensureComprehensionQuiz } from "../lib/stories";
 import type { KuromojiToken } from "../lib/tokenizer";
-import { ExerciseCard } from "./ExerciseCard";
+import { ExerciseCard } from "./exercise/ExerciseCard";
 import { Button } from "./kit/Button";
 import { IconClose } from "./kit/Icon";
 import { Sheet } from "./kit/Sheet";

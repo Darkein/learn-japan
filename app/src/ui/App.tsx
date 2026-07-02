@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
 import { enrollStory } from "../lib/enroll";
-import { getCurriculumEntry, getLesson, type Lesson } from "../lib/lessons";
+import { getCurriculumEntry } from "../lib/curriculum";
+import { getLesson, type Lesson } from "../lib/lessons";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { Button } from "./kit/Button";
 import { IconGear } from "./kit/Icon";

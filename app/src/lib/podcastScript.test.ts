@@ -11,7 +11,7 @@ import {
   QUIZ_PAUSE_MS,
   stripFurigana,
   titleSegment,
-} from "./podcast";
+} from "./podcastScript";
 
 describe("splitJaSentences", () => {
   it("découpe sur la ponctuation finale et les sauts de ligne", () => {

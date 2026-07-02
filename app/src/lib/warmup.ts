@@ -24,7 +24,7 @@ import {
   grammarReviewExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
-import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./lessons";
+import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
 import { isDue, newCard, State, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";

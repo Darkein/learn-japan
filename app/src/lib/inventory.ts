@@ -6,7 +6,7 @@ import kanjiInv from "../data/inventory/kanji.json";
 import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
-import type { VocabEntry } from "./lessons";
+import type { VocabEntry } from "./curriculum";
 
 interface KanjiInvEntry {
   id: string;
