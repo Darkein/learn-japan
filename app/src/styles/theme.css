@@ -5,13 +5,16 @@
 :root {
   /* Couleur — DARK (défaut) */
   --bg: #15130f;
-  --surface: #1e1b16;
-  --surface-2: #272219;
+  --surface: #24201a;
+  --surface-2: #2f2920;
   --text: #e8e2d4;
-  --text-muted: #9c9584;
+  --text-muted: #b0a898;
   --accent: #d8503c; /* 朱 vermillon */
   --accent-2: #7c8fc0; /* 藍 indigo */
-  --hairline: rgba(232, 226, 212, 0.1);
+  --on-accent: #15130f; /* texte sur aplat accent (l'encre, pas le blanc) */
+  --hairline: rgba(232, 226, 212, 0.14);
+  --hairline-strong: rgba(232, 226, 212, 0.32); /* bordures interactives (boutons, inputs) */
+  --elev: 0 1px 0 rgba(0, 0, 0, 0.25), 0 2px 10px rgba(0, 0, 0, 0.28); /* élévation panneaux */
 
   /* États de révision (teintes douces, jamais fluo) */
   --state-unknown: rgba(124, 143, 192, 0.55);
@@ -26,12 +29,15 @@
   :root:not([data-theme="dark"]) {
     --bg: #f7f3ec;
     --surface: #ffffff;
-    --surface-2: #f0eadf;
+    --surface-2: #ede6d8;
     --text: #1a1815;
-    --text-muted: #6f6857;
+    --text-muted: #544e40;
     --accent: #c0392b;
     --accent-2: #2e4374;
-    --hairline: rgba(26, 24, 21, 0.12);
+    --on-accent: #fff9f2;
+    --hairline: rgba(26, 24, 21, 0.16);
+    --hairline-strong: rgba(26, 24, 21, 0.34);
+    --elev: 0 1px 2px rgba(26, 24, 21, 0.05), 0 3px 10px rgba(26, 24, 21, 0.07);
     --state-unknown: rgba(46, 67, 116, 0.5);
     --state-review: rgba(192, 57, 43, 0.65);
     color-scheme: light;
@@ -41,12 +47,15 @@
 :root[data-theme="light"] {
   --bg: #f7f3ec;
   --surface: #ffffff;
-  --surface-2: #f0eadf;
+  --surface-2: #ede6d8;
   --text: #1a1815;
-  --text-muted: #6f6857;
+  --text-muted: #544e40;
   --accent: #c0392b;
   --accent-2: #2e4374;
-  --hairline: rgba(26, 24, 21, 0.12);
+  --on-accent: #fff9f2;
+  --hairline: rgba(26, 24, 21, 0.16);
+  --hairline-strong: rgba(26, 24, 21, 0.34);
+  --elev: 0 1px 2px rgba(26, 24, 21, 0.05), 0 3px 10px rgba(26, 24, 21, 0.07);
   --state-unknown: rgba(46, 67, 116, 0.5);
   --state-review: rgba(192, 57, 43, 0.65);
   color-scheme: light;

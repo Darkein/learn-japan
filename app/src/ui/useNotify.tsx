@@ -76,12 +76,12 @@ export function NotificationBanner() {
       {notifications.map((n) => (
         <div
           key={n.id}
-          className="pointer-events-auto flex w-full max-w-[28rem] items-center gap-3 rounded-sm border border-accent bg-surface px-4 py-3 shadow-lg"
+          className="pointer-events-auto flex w-full max-w-[28rem] items-center gap-3 rounded-sm border border-accent bg-surface px-4 py-3 shadow-elev"
         >
           <span className="flex-1 text-sm text-text">{n.message}</span>
           {n.action && (
             <button
-              className="cursor-pointer whitespace-nowrap rounded-sm border border-accent px-3 py-1 text-sm text-accent transition-colors hover:bg-accent hover:text-white"
+              className="cursor-pointer whitespace-nowrap rounded-sm border border-accent px-3 py-1 text-sm text-accent transition-colors hover:bg-accent hover:text-on-accent"
               onClick={() => {
                 n.action!.onClick();
                 dismiss(n.id);

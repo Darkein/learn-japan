@@ -18,7 +18,10 @@
   --font-sans: "Inter", system-ui, "Noto Sans JP", sans-serif;
   --font-jp: "Noto Serif JP", "Source Serif 4", serif;
 
-  /* Échelle typographique (DESIGN.md). xs/sm/base = défauts Tailwind. */
+  /* Échelle typographique (DESIGN.md). sm/base = défauts Tailwind.
+     xs relevé à 13px = taille minimale absolue de l'app. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
   --text-lg: 1.25rem;
   --text-lg--line-height: 1.4;
   --text-xl: 1.625rem;
@@ -53,9 +56,12 @@
   --color-muted: var(--text-muted);
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
+  --color-on-accent: var(--on-accent);
   --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
   --color-state-unknown: var(--state-unknown);
   --color-state-review: var(--state-review);
+  --shadow-elev: var(--elev);
 }
 
 @layer base {

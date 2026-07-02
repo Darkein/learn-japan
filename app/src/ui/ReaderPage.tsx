@@ -1,9 +1,11 @@
 import { createContext, useState, type ReactNode } from "react";
 import { useHashRoute } from "./useHashRoute";
 import { useSettings } from "./useSettings";
+import { Button } from "./kit/Button";
+import { IconArrowLeft, IconGear } from "./kit/Icon";
 
 interface Props {
-  /** Titre optionnel affiché dans la barre supérieure (titre de la leçon / histoire). */
+  /** Titre optionnel affiché sous la barre supérieure (titre de la leçon / histoire). */
   title?: string;
   onBack: () => void;
   children?: ReactNode;
@@ -14,8 +16,11 @@ export const ReaderHeaderSlot = createContext<HTMLDivElement | null>(null);
 
 /**
  * Page dédiée vers laquelle on navigue (lecture, révision) : remplace le shell à
- * onglets par une vue épurée avec une barre fine « ← Retour » + titre. Objectif :
- * navigation simple, page lisible (cf. DESIGN.md — filets, un seul accent).
+ * onglets par une vue épurée. La barre sticky ne porte que la navigation (retour,
+ * paramètres) ; le titre s'affiche en pleine largeur dessous (sans troncature), et
+ * les actions contextuelles injectées via `ReaderHeaderSlot` se placent sous le
+ * titre, à côté du contenu qu'elles concernent (cf. DESIGN.md — hiérarchie par la
+ * typographie, un seul accent).
  */
 export function ReaderPage({ title, onBack, children }: Props) {
   const { openPanel } = useSettings();
@@ -25,31 +30,29 @@ export function ReaderPage({ title, onBack, children }: Props) {
   return (
     <ReaderHeaderSlot.Provider value={slotEl}>
       <div
-        className="sticky top-0 z-20 -mx-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline bg-bg px-4 py-1 sm:flex-nowrap"
+        className="sticky top-0 z-20 -mx-4 flex items-center justify-between gap-4 border-b border-hairline bg-bg px-4 py-1"
         style={{ paddingTop: "calc(var(--safe-t) + 0.25rem)" }}
       >
         <button
-          className="flex min-h-11 cursor-pointer items-center font-sans text-sm tracking-wide text-muted transition-colors hover:text-text"
+          className="flex min-h-11 cursor-pointer items-center gap-2 font-sans text-sm tracking-wide text-muted transition-colors hover:text-text"
           onClick={onBack}
         >
-          ← Retour
+          <IconArrowLeft size={18} />
+          Retour
         </button>
-        {title && (
-          <span className="order-first basis-full min-w-0 truncate text-center font-serif text-lg text-text sm:order-none sm:basis-auto sm:flex-1 sm:text-left">
-            {title}
-          </span>
-        )}
-        <div ref={setSlotEl} className="flex shrink-0 items-center gap-2 ml-auto sm:ml-0" />
         {showGear && (
-          <button
-            className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center text-xl leading-none text-muted hover:text-text"
-            onClick={openPanel}
-            aria-label="Paramètres"
-          >
-            ⚙
-          </button>
+          <Button size="icon" variant="quiet" onClick={openPanel} aria-label="Paramètres">
+            <IconGear />
+          </Button>
         )}
       </div>
+      {title && (
+        <h1 className="mt-4 font-serif text-xl text-text sm:text-2xl">{title}</h1>
+      )}
+      <div
+        ref={setSlotEl}
+        className={`flex flex-wrap items-center gap-2 empty:hidden ${title ? "mt-3" : "mt-4"}`}
+      />
       <div className="mt-6 flex flex-col">{children}</div>
     </ReaderHeaderSlot.Provider>
   );

@@ -61,7 +61,7 @@ export function GrammarMultiSelect({ inputId, value, onChange, unlockedIds }: Pr
         groupHeading: () => "px-2 py-1 font-sans text-xs uppercase tracking-wider text-muted",
         option: ({ data, isFocused, isSelected }) =>
           `cursor-pointer px-2 py-2 text-sm ${
-            isSelected ? "bg-accent text-white" : isFocused ? "bg-surface-2 text-text" : data.locked ? "text-muted" : "text-text"
+            isSelected ? "bg-accent text-on-accent" : isFocused ? "bg-surface-2 text-text" : data.locked ? "text-muted" : "text-text"
           }`,
         noOptionsMessage: () => "px-2 py-1 text-sm text-muted",
       }}

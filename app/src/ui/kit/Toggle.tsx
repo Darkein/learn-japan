@@ -12,7 +12,7 @@ export function Toggle({ label, value, onChange }: Props) {
       <button
         role="switch"
         aria-checked={value}
-        className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-hairline px-3 text-xs tracking-wide text-muted transition-colors aria-checked:border-accent aria-checked:text-accent"
+        className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-hairline-strong px-3 text-xs tracking-wide text-muted transition-colors aria-checked:border-accent aria-checked:font-medium aria-checked:text-accent"
         onClick={() => onChange(!value)}
       >
         {value ? "Activé" : "Désactivé"}

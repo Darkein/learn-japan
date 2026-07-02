@@ -61,7 +61,7 @@ export function Histoires({ onOpen }: Props) {
                 className="flex flex-col gap-2 border-t border-hairline py-4 last:border-b"
               >
                 <span className="font-jp text-lg">{s.title}</span>
-                <span className="text-xs text-muted">
+                <span className="text-sm text-muted">
                   {new Date(s.createdAt).toLocaleString("fr-FR")}
                 </span>
                 {(lesson || derivedLessons.length > 0 || chips(s.params).length > 0) && (

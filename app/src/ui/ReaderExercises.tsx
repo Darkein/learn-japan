@@ -9,6 +9,7 @@ import { ensureComprehensionQuiz } from "../lib/stories";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { ExerciseCard } from "./ExerciseCard";
 import { Button } from "./kit/Button";
+import { IconClose } from "./kit/Icon";
 import { Sheet } from "./kit/Sheet";
 import { SessionSummary } from "./SessionSummary";
 
@@ -108,7 +109,8 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
     return (
       <Sheet open onClose={onClose} variant="fullscreen">
         <Button variant="ghost" className="self-end" onClick={onClose}>
-          ✕ Fermer
+          <IconClose size={16} />
+          Fermer
         </Button>
         {body}
       </Sheet>

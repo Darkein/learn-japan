@@ -24,7 +24,9 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 - Mouvement **discret** : transitions courtes (≤180ms), easing doux, jamais de rebond.
 
 **À éviter (anti-patterns)**
-- ❌ Ombres portées / `box-shadow` décoratives, cartes flottantes `rounded-2xl`.
+- ❌ Ombres **décoratives ou colorées**, cartes flottantes `rounded-2xl`. Une **unique ombre
+  d'élévation** (`--elev`, monochrome, blur ≤ 10px) est permise sur les panneaux/feuilles pour
+  les détacher du fond — jamais sur le texte, jamais en plusieurs couches visibles.
 - ❌ Dégradés tape-à-l'œil, néons, couleurs fluo (y compris pour les états de révision).
 - ❌ Librairies de composants génériques (shadcn, Tailwind UI, Material) — rendu non sur-mesure.
 - ❌ Coins très arrondis partout (rayon ≤ 6px ; souvent 0 sur les filets).
@@ -43,25 +45,31 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 | Token | Valeur | Usage |
 |---|---|---|
 | `--bg` | `#15130F` | fond (sumi profond, chaud) |
-| `--surface` | `#1E1B16` | panneaux, feuilles |
-| `--surface-2` | `#272219` | survol / élévation discrète |
-| `--text` | `#E8E2D4` | texte principal (papier) |
-| `--text-muted` | `#9C9584` | texte secondaire |
+| `--surface` | `#24201A` | panneaux, feuilles (nettement séparés du fond) |
+| `--surface-2` | `#2F2920` | survol / élévation discrète |
+| `--text` | `#E8E2D4` | texte principal (papier) — 14.4:1 sur `--bg` |
+| `--text-muted` | `#B0A898` | texte secondaire — ≈7.9:1 sur `--bg` |
 | `--accent` | `#D8503C` | vermillon 朱 (accent unique) |
 | `--accent-2` | `#7C8FC0` | indigo 藍 (secondaire, rare) |
-| `--hairline` | `rgba(232,226,212,0.10)` | filets / bordures |
+| `--on-accent` | `#15130F` | texte sur aplat `--accent` (l'encre — le blanc échoue AA) |
+| `--hairline` | `rgba(232,226,212,0.14)` | filets décoratifs / séparateurs |
+| `--hairline-strong` | `rgba(232,226,212,0.32)` | bordures **interactives** (boutons, inputs) |
+| `--elev` | `0 1px 0 rgba(0,0,0,.25), 0 2px 10px rgba(0,0,0,.28)` | ombre d'élévation des panneaux |
 
 ### Couleur — Light (washi)
 | Token | Valeur | Usage |
 |---|---|---|
 | `--bg` | `#F7F3EC` | papier washi |
-| `--surface` | `#FFFFFF` | panneaux |
-| `--surface-2` | `#F0EADF` | survol |
+| `--surface` | `#FFFFFF` | panneaux (détachés par `--elev` + hairline) |
+| `--surface-2` | `#EDE6D8` | survol / états actifs |
 | `--text` | `#1A1815` | encre sumi |
-| `--text-muted` | `#6F6857` | secondaire |
+| `--text-muted` | `#544E40` | secondaire — ≈7.5:1 sur `--bg` |
 | `--accent` | `#C0392B` | vermillon 朱 |
 | `--accent-2` | `#2E4374` | indigo 藍 |
-| `--hairline` | `rgba(26,24,21,0.12)` | filets |
+| `--on-accent` | `#FFF9F2` | texte sur aplat `--accent` (papier chaud, 5.2:1) |
+| `--hairline` | `rgba(26,24,21,0.16)` | filets |
+| `--hairline-strong` | `rgba(26,24,21,0.34)` | bordures interactives |
+| `--elev` | `0 1px 2px rgba(26,24,21,.05), 0 3px 10px rgba(26,24,21,.07)` | élévation panneaux |
 
 ### États de révision (jamais fluo — teintes douces)
 | Token | Dark | Light | Sens |
@@ -77,16 +85,19 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
 | `--font-serif` | `"Source Serif 4", "Noto Serif JP", Georgia, serif` (titres + lecture) |
 | `--font-sans` | `"Inter", system-ui, "Noto Sans JP", sans-serif` (UI, méta) |
 | `--font-jp` | `"Noto Serif JP", serif` (texte japonais en lecture) |
-- **Échelle** (modulaire ~1.25) : `--fs-xs .75rem`, `--fs-sm .875rem`, `--fs-base 1rem`,
+- **Échelle** (modulaire ~1.25) : `--fs-xs .8125rem`, `--fs-sm .875rem`, `--fs-base 1rem`,
   `--fs-lg 1.25rem`, `--fs-xl 1.625rem`, `--fs-2xl 2.25rem`, `--fs-3xl 3rem`.
+- **Taille minimale absolue : `--fs-xs` (13px).** Aucune valeur arbitraire `text-[…]`
+  inférieure, nulle part (y compris nav, player, badges).
 - **Lecture JP** : `line-height: 2` (pour loger les furigana), letter-spacing neutre.
 - **Méta / labels** : `--font-sans`, petites capitales, `letter-spacing: .06em`, `--text-muted`.
 
 ### Espacement (échelle 4px) & rayons
 - `--sp-1 4px … --sp-2 8px, --sp-3 12px, --sp-4 16px, --sp-6 24px, --sp-8 32px, --sp-12 48px,
   --sp-16 64px`.
-- `--radius-sm 4px`, `--radius 6px` (max). `--hairline-w 1px`.
-- **Pas de** token d'ombre. L'élévation se signale par `--surface`/`--surface-2` + filet.
+- `--radius-sm 4px` (boutons), `--radius 6px` (cartes/panneaux, max). `--hairline-w 1px`.
+- **Un seul token d'ombre : `--elev`** (§ couleurs). L'élévation = `--surface` + filet +
+  `--elev`. Aucune autre ombre, jamais.
 
 ### Mouvement
 - `--dur 140ms`, `--dur-slow 180ms`, `--ease cubic-bezier(.2,.0,.2,1)`.
@@ -104,14 +115,21 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
 
 - **Mot dans le texte** : pas de boîte. État de révision via soulignement filet (couleur =
   token d'état). Tap → **feuille** (sheet) latérale/inférieure, bord supérieur = filet, pas d'ombre.
-- **Boutons** : texte + filet (ghost) par défaut ; bouton primaire = aplat `--accent`, texte
-  papier ; rayon `--radius-sm`. Jamais d'ombre, jamais de dégradé.
+- **Boutons** (tous via `kit/Button.tsx`, jamais de classes ad hoc) :
+  - *ghost* (défaut) : fond `--surface` + filet `--hairline-strong` — jamais la hairline
+    décorative seule, un bouton doit se voir ;
+  - *primary* : aplat `--accent`, texte `--on-accent` (un seul par écran) ;
+  - *quiet* : texte seul, pour le tertiaire (liens d'action, fermeture) ;
+  - rayon `--radius-sm` ; désactivé = opacité 50 % uniquement (jamais 30/40) ;
+  - icônes = **SVG du kit** (`kit/Icon.tsx`, trait 1.5, `currentColor`), jamais de glyphes
+    unicode/emoji (⚙ ▶ ✕…) au rendu variable selon la plateforme.
 - **Listes (catalogue)** : lignes séparées par filets, libellés méta en petites capitales.
 - **Barre de progression** : filet de fond + remplissage `--accent`, hauteur 2–3px.
 
 ## 7. Accessibilité
 
-- Contraste texte/bg ≥ 7:1 (dark) et ≥ 8:1 (light) sur le texte principal.
+- Contraste : texte principal **et secondaire** ≥ 7:1 sur `--bg` (dark comme light) ;
+  ≥ 4.5:1 minimum sur les surfaces (`--surface`, `--surface-2`, aplat `--accent`).
 - Cibles tactiles ≥ 44px. Focus visible (filet `--accent`, 2px).
 - `prefers-reduced-motion` : désactiver les transitions non essentielles.
 

@@ -5,6 +5,7 @@ import { SRS } from "../lib/config";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
 import { Badge } from "./kit/Badge";
+import { IconLock } from "./kit/Icon";
 import { ProgressBar } from "./kit/ProgressBar";
 
 interface Props {
@@ -63,21 +64,25 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
           {(lesson.completedAt ?? !available) && (
             <Badge
               variant={!lesson.completedAt && available ? "accent" : "default"}
-              className={`uppercase tracking-wide ${lesson.completedAt ? "opacity-80" : ""}`}
+              className="uppercase tracking-wide"
             >
               {lesson.completedAt ? "terminée" : available ? "prête" : "à générer"}
             </Badge>
           )}
           <Badge>N{lesson.level}</Badge>
-          {lesson.locked && <Badge className="uppercase tracking-wide">🔒 </Badge>}
+          {lesson.locked && (
+            <Badge aria-label="Leçon verrouillée">
+              <IconLock size={12} />
+            </Badge>
+          )}
         </div>
 
         {lesson.summary && <p className="m-0 text-muted">{lesson.summary}</p>}
-        {summary && <p className="m-0 text-xs tracking-wide text-muted">{summary}</p>}
+        {summary && <p className="m-0 text-sm tracking-wide text-muted">{summary}</p>}
 
         {lesson.locked && (
           <div className="flex flex-col gap-1.5">
-            <p className="m-0 text-xs text-muted">
+            <p className="m-0 text-sm text-muted">
               Maîtrise{lesson.prevTitle ? (
                 <> <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
               ) : null}{" "}
@@ -96,7 +101,7 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
             </div>
             <div className="flex justify-between text-xs text-muted">
               <span>{gaugeWidth} %</span>
-              <span className="opacity-60">objectif : {Math.round(SRS.unlockMastery * 100)} %</span>
+              <span>objectif : {Math.round(SRS.unlockMastery * 100)} %</span>
             </div>
           </div>
         )}

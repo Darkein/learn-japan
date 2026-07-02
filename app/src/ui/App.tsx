@@ -3,6 +3,8 @@ import { getStory, type StoryRecord } from "../lib/db";
 import { enrollStory } from "../lib/enroll";
 import { getCurriculumEntry, getLesson, type Lesson } from "../lib/lessons";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
+import { Button } from "./kit/Button";
+import { IconGear } from "./kit/Icon";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
 import { Histoires } from "./Histoires";
@@ -238,13 +240,9 @@ function AppShell() {
         <h1 className="font-serif text-xl">
           Learn Japan<span className="ml-2 text-lg text-accent">日本語</span>
         </h1>
-        <button
-          className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center text-xl leading-none text-muted hover:text-text"
-          onClick={openPanel}
-          aria-label="Paramètres"
-        >
-          ⚙
-        </button>
+        <Button size="icon" variant="quiet" onClick={openPanel} aria-label="Paramètres">
+          <IconGear />
+        </Button>
       </header>
 
       {wide && (
@@ -275,7 +273,7 @@ function AppShell() {
         {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={openCourse} />}
       </div>
 
-      <footer className="mt-16 border-t border-hairline pt-4 text-xs leading-relaxed text-muted">
+      <footer className="mt-16 border-t border-hairline pt-4 text-sm leading-relaxed text-muted">
         Lecteur de japonais extensif et adaptatif, local-first et hors-ligne — furigana et gloss
         déterministes (kuromoji), révision espacée FSRS.
       </footer>
