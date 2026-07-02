@@ -13,6 +13,7 @@ import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
+import { ReadabilityBadge } from "./ReadabilityBadge";
 
 interface Props {
   lesson: Lesson;
@@ -99,9 +100,12 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
                   <li key={s.id}>
                     {i > 0 && <hr className="my-2 border-hairline" />}
                     <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="min-w-0 flex-1">
-                        <span className="font-jp text-sm text-text">{s.title}</span>
-                        {s.titleFr && <span className="ml-1 font-sans text-sm text-muted">({s.titleFr})</span>}
+                      <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-2">
+                        <span className="min-w-0">
+                          <span className="font-jp text-sm text-text">{s.title}</span>
+                          {s.titleFr && <span className="ml-1 font-sans text-sm text-muted">({s.titleFr})</span>}
+                        </span>
+                        <ReadabilityBadge text={s.text} />
                       </span>
                       <Button variant="ghost" onClick={() => void read(s)}>
                         Lire →
