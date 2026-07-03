@@ -64,8 +64,14 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       speechTimer = null;
     }
     if (audio) {
+      // Vide la source + reset (pas juste pause) : sur Chrome/Android, un <audio> Blob
+      // laissé en pause sans être déchargé peut garder le focus audio OS actif — donc le
+      // ducking du volume système — jusqu'au ramassage par le GC (potentiellement jamais
+      // tant que la page reste ouverte).
       audio.pause();
       audio.onended = null;
+      audio.removeAttribute("src");
+      audio.load();
       audio = null;
     }
     if (url) {
@@ -161,6 +167,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   function playFrom(i: number, r: number): void {
     if (r !== run) return;
     if (i >= segments.length) {
+      cleanupAudio(); // dernier segment terminé : décharge son <audio> avant d'enchaîner
       cb.onEnded();
       return;
     }

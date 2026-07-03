@@ -41,17 +41,27 @@ export function speakWord(text: string): void {
 
 let sentenceAudio: HTMLAudioElement | null = null;
 
+/**
+ * Décharge complètement un <audio> Blob (pause + source retirée + reset). Un élément
+ * simplement mis en pause et déréférencé peut, sur Chrome/Android, garder ses ressources
+ * média (et le focus audio OS, donc le ducking du volume système) tant qu'il n'est pas
+ * ramassé par le GC — ce qui peut prendre un moment, voire ne jamais survenir tant que
+ * l'utilisateur reste sur la page. Vider `src` + `load()` force Chromium à relâcher
+ * immédiatement le lecteur média sous-jacent.
+ */
+function unloadAudio(audio: HTMLAudioElement): void {
+  audio.pause();
+  audio.removeAttribute("src");
+  audio.load();
+}
+
 /** Coupe la lecture de phrase en cours (audio Cloud ET Web Speech). */
 export function stopSentence(): void {
   if (sentenceAudio) {
-    sentenceAudio.pause();
+    unloadAudio(sentenceAudio);
     sentenceAudio = null;
   }
   if (speechSupported()) window.speechSynthesis.cancel();
-  // Sans ça, l'élément <audio> Cloud TTS (Blob) peut garder le focus audio OS actif même
-  // une fois la lecture terminée — Chrome lui assigne une session média implicite dès qu'il
-  // joue du son, jamais explicitement relâchée ici — et le ducking du volume système reste
-  // actif jusqu'à la fermeture du navigateur.
   releaseMediaSession();
 }
 
@@ -70,6 +80,7 @@ export async function speakSentence(text: string): Promise<void> {
     sentenceAudio = audio;
     const release = () => {
       URL.revokeObjectURL(url);
+      unloadAudio(audio);
       if (sentenceAudio === audio) sentenceAudio = null;
       releaseMediaSession();
     };
@@ -187,7 +198,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
 
   const cleanupAudio = useCallback(() => {
     if (audioRef.current) {
-      audioRef.current.pause();
+      unloadAudio(audioRef.current);
       audioRef.current.onended = null;
       audioRef.current.ontimeupdate = null;
       audioRef.current = null;
@@ -213,6 +224,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
     const list = sentencesRef.current;
     if (run !== runRef.current) return;
     if (idx >= list.length) {
+      cleanupAudio();
       setPlaying(false);
       setCurrentTokenIndex(null);
       releaseMediaSession();
@@ -252,6 +264,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       const list = sentencesRef.current;
       if (run !== runRef.current) return;
       if (idx >= list.length) {
+        cleanupAudio();
         setPlaying(false);
         setCurrentTokenIndex(null);
         releaseMediaSession();
