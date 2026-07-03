@@ -15,9 +15,9 @@ interface Props {
 export function ReviewSession({ opts, onExit }: Props) {
   const { settings, update } = useSettings();
   // Deux modes, deux noms : "Révision" (SRS du jour, scope "due") et
-  // "Entraînement" (toute la leçon, scope "all") — cohérent avec le bouton d'entrée.
-  const training = (opts?.scope ?? "due") === "all";
-  const sessionName = training ? "Entraînement" : "Révision";
+  // "Vérification des acquis" (toute la leçon, scope "all") — cohérent avec le bouton d'entrée.
+  const checkup = (opts?.scope ?? "due") === "all";
+  const sessionName = checkup ? "Question" : "Révision";
   const [cards, setCards] = useState<Exercise[] | null>(null);
   const [i, setI] = useState(0);
   const [backlog, setBacklog] = useState(0);
@@ -39,7 +39,7 @@ export function ReviewSession({ opts, onExit }: Props) {
   if (cards.length === 0)
     return (
       <p className="text-muted">
-        {training
+        {checkup
           ? "Aucun exercice disponible pour cette leçon."
           : "Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici."}
       </p>
@@ -59,7 +59,7 @@ export function ReviewSession({ opts, onExit }: Props) {
     return (
       <SessionSummary
         results={results}
-        title={training ? "Entraînement terminé" : "Révision terminée"}
+        title={checkup ? "Acquis vérifiés" : "Révision terminée"}
         onRestart={() => restart()}
         onReplayMissed={(missed) => restart(missed)}
         onClose={onExit}
