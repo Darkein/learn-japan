@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AnnotatedToken } from "./furigana";
-import { synthesizeSentence, TtsUnconfiguredError } from "./ttsClient";
+import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
 // ---------- Web Speech : lecture d'un mot ------------------------------------
 
@@ -35,6 +35,45 @@ export function speakWord(text: string): void {
   const v = pickJaVoice();
   if (v) u.voice = v;
   window.speechSynthesis.speak(u);
+}
+
+// ---------- Lecture d'une phrase à la demande (correction d'exercice) --------
+
+let sentenceAudio: HTMLAudioElement | null = null;
+
+/** Coupe la lecture de phrase en cours (audio Cloud ET Web Speech). */
+export function stopSentence(): void {
+  if (sentenceAudio) {
+    sentenceAudio.pause();
+    sentenceAudio = null;
+  }
+  if (speechSupported()) window.speechSynthesis.cancel();
+}
+
+/**
+ * Lit une phrase entière : Cloud TTS (cache IndexedDB partagé avec le lecteur) si le
+ * Worker est configuré, sinon repli Web Speech. Résout au démarrage de la lecture.
+ */
+export async function speakSentence(text: string): Promise<void> {
+  const clean = text.trim();
+  if (!clean) return;
+  stopSentence();
+  try {
+    const blob = await synthesizeText(clean, "ja");
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    sentenceAudio = audio;
+    const release = () => {
+      URL.revokeObjectURL(url);
+      if (sentenceAudio === audio) sentenceAudio = null;
+    };
+    audio.onended = release;
+    audio.onerror = release;
+    await audio.play();
+  } catch {
+    // Worker sans clé TTS, injoignable, ou lecture refusée → voix du navigateur.
+    speakWord(clean);
+  }
 }
 
 // ---------- Segmentation en phrases ------------------------------------------

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toHiragana } from "wanakana";
-import type { TypeExercise } from "../../lib/exercise";
+import { translateExampleFr, type TypeExercise } from "../../lib/exercise";
 import { normalizeReading } from "../../lib/kana";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
+import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
   exercise: TypeExercise;
@@ -80,9 +81,18 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
           <div className={`text-sm ${correct ? "text-accent-2" : "text-accent"}`}>
             {correct ? "✓ Correct" : "✗ Raté"}
           </div>
+          {!correct && entry.trim() && (
+            <div className="text-sm text-accent">
+              Ta réponse : <span className="font-jp">{entry}</span>
+            </div>
+          )}
           <div className="font-jp text-xl text-muted">{ex.back}</div>
           {ex.context && (
-            <p className="mt-2 text-sm text-muted italic font-jp">{ex.context}</p>
+            <SentenceFeedback
+              ja={ex.context}
+              fr={ex.contextFr}
+              onTranslate={() => translateExampleFr(ex.context!, ex)}
+            />
           )}
           <div className="flex flex-wrap justify-center gap-2">
             {correct ? (

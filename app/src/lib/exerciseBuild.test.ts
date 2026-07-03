@@ -4,6 +4,7 @@ import {
   comprehensionReviewExercise,
   grammarReviewExercise,
   particleExercises,
+  vocabTypeExercise,
 } from "./exerciseBuild";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -108,5 +109,71 @@ describe("particleExercises", () => {
       expect(e.answerIndex).toBeGreaterThanOrEqual(0);
       expect(e.choices[e.answerIndex]).toBeDefined();
     }
+  });
+});
+
+describe("particleExercises — contextFr (traduction alignée)", () => {
+  const tokens = [
+    tok({ surface_form: "鳥", pos: "名詞", reading: "トリ" }),
+    tok({ surface_form: "は", pos: "助詞" }),
+    tok({ surface_form: "いる", pos: "動詞", reading: "イル" }),
+    tok({ surface_form: "。", pos: "記号" }),
+    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+    tok({ surface_form: "が", pos: "助詞" }),
+    tok({ surface_form: "走る", pos: "動詞", reading: "ハシル" }),
+    tok({ surface_form: "。", pos: "記号" }),
+  ];
+
+  it("attache la traduction de la phrase contenant le trou", () => {
+    const translation = {
+      ja: ["鳥はいる。", "猫が走る。"],
+      fr: ["Il y a un oiseau.", "Le chat court."],
+    };
+    const exs = particleExercises(tokens, 8, translation);
+    expect(exs.find((e) => e.front === "が")!.contextFr).toBe("Le chat court.");
+    expect(exs.find((e) => e.front === "は")!.contextFr).toBe("Il y a un oiseau.");
+  });
+
+  it("omet contextFr quand la phrase ne correspond à aucune traduction", () => {
+    const exs = particleExercises(tokens, 8, { ja: ["別の文。"], fr: ["Autre."] });
+    for (const e of exs) expect(e.contextFr).toBeUndefined();
+  });
+
+  it("omet contextFr sans traduction fournie", () => {
+    const exs = particleExercises(tokens, 8);
+    for (const e of exs) expect(e.contextFr).toBeUndefined();
+  });
+});
+
+describe("vocabTypeExercise — contextFr", () => {
+  function vocab(example?: { ja: string; fr?: string }) {
+    return {
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review" as const,
+      cards: {},
+      example,
+    };
+  }
+
+  it("transmet la traduction FR de la phrase d'exemple", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0);
+    expect(ex.context).toBe("猫が走る。");
+    expect(ex.contextFr).toBe("Le chat court.");
+  });
+
+  it("variante écoute : transmet aussi contextFr", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+      listen: true,
+    });
+    expect(ex.contextFr).toBe("Le chat court.");
+  });
+
+  it("absent quand l'exemple n'a pas de traduction", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0);
+    expect(ex.contextFr).toBeUndefined();
   });
 });

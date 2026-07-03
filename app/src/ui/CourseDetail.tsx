@@ -61,14 +61,6 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
           </>
         )}
       </Button>
-      {onStartReview && (
-        <Button
-          onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
-          title="Questions immédiates sur tout le vocabulaire et la grammaire"
-        >
-          S'entraîner
-        </Button>
-      )}
     </>
   );
 
@@ -86,6 +78,19 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
         <SectionLabel as="h3">Le cours</SectionLabel>
       </div>
         <Cours lesson={lesson} />
+
+        {/* En fin de leçon : on vérifie ses acquis après l'avoir parcourue. Les items
+            de la leçon entrent en rotation SRS et chaque réponse est replanifiée. */}
+        {onStartReview && (
+          <div className="flex justify-center py-2">
+            <Button
+              onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
+              title="Questions sur tout le vocabulaire et la grammaire de la leçon — les réponses alimentent la répétition espacée"
+            >
+              Vérifier mes acquis
+            </Button>
+          </div>
+        )}
 
         {ready ? (
           <>

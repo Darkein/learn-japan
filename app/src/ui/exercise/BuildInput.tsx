@@ -3,6 +3,7 @@ import { isCorrectOrder, shuffleTiles, type Tile } from "../../lib/builder";
 import type { BuildExercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
+import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
   exercise: BuildExercise;
@@ -69,6 +70,7 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
       ) : checked ? (
         <>
           <div className="text-sm text-accent-2">✓ Correct</div>
+          <SentenceFeedback tokens={ex.tokens} />
           <div className="flex flex-wrap justify-center gap-2">
             <Button
               variant="ghost"
@@ -95,6 +97,7 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
       ) : (
         <>
           <div className="text-sm text-accent">✗ Ordre attendu : {ex.target.join(" ")}</div>
+          <SentenceFeedback tokens={ex.tokens} />
           <Button
             variant="primary"
             onClick={() => {

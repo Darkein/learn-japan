@@ -83,16 +83,17 @@ beforeEach(() => {
   _resetDbForTests();
 });
 
-import { enrollLesson, enrollStory } from "./enroll";
+import { backfillExampleFr, enrollLesson, enrollStory } from "./enroll";
 import type { StoryRecord } from "./db";
 
-function makeStory(text: string): StoryRecord {
+function makeStory(text: string, translation?: string[]): StoryRecord {
   return {
     id: "story-1",
     createdAt: Date.now(),
     title: "Test",
     text,
     params: {},
+    ...(translation ? { translation } : {}),
   };
 }
 
@@ -160,5 +161,46 @@ describe("enrollStory", () => {
     const neko = await getVocab("猫|ねこ");
     expect(neko!.example).toBeDefined();
     expect(neko!.example!.ja).toContain("猫");
+  });
+
+  it("capture la traduction FR alignée quand l'histoire est déjà traduite", async () => {
+    const story = makeStory("猫は走る。", ["Le chat court."]);
+    await enrollStory(story);
+
+    const neko = await getVocab("猫|ねこ");
+    expect(neko!.example!.fr).toBe("Le chat court.");
+  });
+
+  it("pas de traduction → example.fr absent", async () => {
+    await enrollStory(makeStory("猫は走る。"));
+    const neko = await getVocab("猫|ねこ");
+    expect(neko!.example!.fr).toBeUndefined();
+  });
+});
+
+describe("backfillExampleFr", () => {
+  it("renseigne example.fr des items dont la phrase vient de l'histoire", async () => {
+    await enrollStory(makeStory("猫は走る。"));
+    await backfillExampleFr(makeStory("猫は走る。", ["Le chat court."]));
+
+    const neko = await getVocab("猫|ねこ");
+    expect(neko!.example!.fr).toBe("Le chat court.");
+  });
+
+  it("n'écrase jamais une traduction existante", async () => {
+    await enrollStory(makeStory("猫は走る。", ["Déjà traduite."]));
+    await backfillExampleFr(makeStory("猫は走る。", ["Autre traduction."]));
+
+    const neko = await getVocab("猫|ねこ");
+    expect(neko!.example!.fr).toBe("Déjà traduite.");
+  });
+
+  it("no-op sans traduction ou sans correspondance", async () => {
+    await enrollStory(makeStory("猫は走る。"));
+    await backfillExampleFr(makeStory("猫は走る。"));
+    await backfillExampleFr(makeStory("別の文です。", ["Autre phrase."]));
+
+    const neko = await getVocab("猫|ねこ");
+    expect(neko!.example!.fr).toBeUndefined();
   });
 });
