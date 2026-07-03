@@ -122,6 +122,41 @@ export interface ArticlePlayer {
 
 type Mode = "cloud" | "speech";
 
+function mediaSessionAvailable(): boolean {
+  return typeof navigator !== "undefined" && "mediaSession" in navigator;
+}
+
+/** Pose le titre affiché sur l'écran de verrouillage / notification média. */
+function setArticleMediaSessionMeta(): void {
+  if (!mediaSessionAvailable()) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: "Lecture", artist: "Learn Japan" });
+  } catch {
+    /* MediaMetadata indisponible — ignore */
+  }
+}
+
+function setMediaSessionPlaybackState(state: MediaSessionPlaybackState): void {
+  if (!mediaSessionAvailable()) return;
+  navigator.mediaSession.playbackState = state;
+}
+
+/**
+ * Libère complètement la session média OS (playbackState "none" + metadata vidée).
+ * Sans ça, Chrome considère qu'un média reste actif même après la fin réelle de la
+ * lecture, ce qui maintient le ducking du volume système jusqu'à la fermeture du
+ * navigateur.
+ */
+function releaseMediaSession(): void {
+  setMediaSessionPlaybackState("none");
+  if (!mediaSessionAvailable()) return;
+  try {
+    navigator.mediaSession.metadata = null;
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): ArticlePlayer {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -162,6 +197,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
     setPlaying(false);
     setLoading(false);
     setCurrentTokenIndex(null);
+    releaseMediaSession();
   }, [cleanupAudio]);
 
   // Repli Web Speech : lit une phrase, surligne le mot via onboundary (charIndex).
@@ -171,6 +207,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
     if (idx >= list.length) {
       setPlaying(false);
       setCurrentTokenIndex(null);
+      releaseMediaSession();
       return;
     }
     idxRef.current = idx;
@@ -209,6 +246,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       if (idx >= list.length) {
         setPlaying(false);
         setCurrentTokenIndex(null);
+        releaseMediaSession();
         return;
       }
       idxRef.current = idx;
@@ -267,6 +305,8 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       const run = ++runRef.current;
       setError(null);
       setPlaying(true);
+      setArticleMediaSessionMeta();
+      setMediaSessionPlaybackState("playing");
       if (modeRef.current === "speech") speakSentence(fromIdx, run);
       else void playCloud(fromIdx, run);
     },
@@ -282,6 +322,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
     }
     setPlaying(false);
     setLoading(false);
+    setMediaSessionPlaybackState("paused");
   }, []);
 
   const toggle = useCallback(() => {
@@ -313,14 +354,13 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
   useEffect(() => () => stop(), [stop]);
 
   // MediaSession : contrôles média OS / Bluetooth / volant (fondation mode voiture).
+  // Le playbackState/metadata sont gérés explicitement par start/pause/stop (voir
+  // releaseMediaSession) plutôt que par un effet réactif à `playing`, pour éviter que la
+  // session média OS reste active ("playing"/"paused") après la fin réelle de la lecture —
+  // ce qui maintiendrait le ducking du volume système jusqu'à la fermeture du navigateur.
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    if (!mediaSessionAvailable()) return;
     const ms = navigator.mediaSession;
-    try {
-      ms.metadata = new MediaMetadata({ title: "Lecture", artist: "Learn Japan" });
-    } catch {
-      /* MediaMetadata indisponible — ignore */
-    }
     ms.setActionHandler("play", () => start(idxRef.current));
     ms.setActionHandler("pause", () => pause());
     ms.setActionHandler("stop", () => stop());
@@ -336,13 +376,6 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       }
     };
   }, [start, pause, stop, sentences.length]);
-
-  // Reflète l'état play/pause vers l'OS (icône des contrôles média).
-  useEffect(() => {
-    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-      navigator.mediaSession.playbackState = playing ? "playing" : "paused";
-    }
-  }, [playing]);
 
   return {
     playing,
