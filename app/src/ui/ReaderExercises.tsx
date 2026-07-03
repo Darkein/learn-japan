@@ -43,13 +43,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-async function buildSentenceExercises(
-  storyId: string | undefined,
-  text: string,
-  level: number,
-): Promise<Exercise[]> {
-  const { sentences: fr } = await ensureStoryTranslationById(storyId, text, level);
-  const ja = splitJaSentences(text);
+async function buildSentenceExercises(ja: string[], fr: string[]): Promise<Exercise[]> {
   const sentences: { fr: string; tokens: KuromojiToken[] }[] = [];
   for (let k = 0; k < ja.length; k++) {
     const analyzed = await analyze(ja[k]);
@@ -76,13 +70,18 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
     setError(null);
     setGenState("queued");
     (async () => {
-      const particles = particleExercises(tokens);
-      const [comp, built] = await Promise.all([
-        ensureComprehensionQuiz(storyId, text, level, grammar ?? { ids: [], labels: [] }, (s) => {
+      // Traduction alignée d'abord : partagée entre particules (contextFr de la phrase
+      // du trou) et reconstruction de phrases — elle était déjà sur leur chemin critique.
+      const compPromise = ensureComprehensionQuiz(
+        storyId, text, level, grammar ?? { ids: [], labels: [] },
+        (s) => {
           if (!cancelled) setGenState(s);
-        }).then(comprehensionExercises),
-        buildSentenceExercises(storyId, text, level),
-      ]);
+        },
+      ).then(comprehensionExercises);
+      const { sentences: fr } = await ensureStoryTranslationById(storyId, text, level);
+      const ja = splitJaSentences(text);
+      const particles = particleExercises(tokens, 8, { ja, fr });
+      const [comp, built] = await Promise.all([compPromise, buildSentenceExercises(ja, fr)]);
       return shuffle([...particles, ...comp, ...built]);
     })()
       .then((mixed) => {

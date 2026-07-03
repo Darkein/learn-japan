@@ -13,6 +13,8 @@ import {
   putVocab,
   type Skill,
 } from "./db";
+import { generateStoryTranslation } from "./genClient";
+import { isJaSentenceEnd } from "./kana";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 import { applyStatus, isContent } from "./vocab";
@@ -40,6 +42,8 @@ interface ExerciseBase {
   /** Correction affichée après réponse. */
   back: string;
   context?: string;
+  /** Traduction FR de la phrase de contexte (affichée dans la correction). */
+  contextFr?: string;
   /** Lecture audio à faire avant de répondre. */
   audio?: { word: string };
   /** Élément difficile (≥ SRS.leechLapses échecs). */
@@ -76,6 +80,52 @@ export interface BuildExercise extends ExerciseBase {
 }
 
 export type Exercise = TypeExercise | ChoiceExercise | BuildExercise;
+
+/**
+ * Phrase contenant le trou d'un cloze : `before`/`after` peuvent couvrir l'article
+ * ENTIER (quiz particules) — on tronque aux bornes de phrase (。！？．!? ou saut de
+ * ligne) et on insère la réponse. Mêmes bornes que `splitJaSentences` → le résultat
+ * `.trim()`-correspond à une phrase de la traduction alignée.
+ */
+export function clozeSentence(cloze: { before: string; after: string }, answer: string): string {
+  let start = 0;
+  for (let i = 0; i < cloze.before.length; i++) {
+    const ch = cloze.before[i];
+    if (ch === "\n" || isJaSentenceEnd(ch)) start = i + 1;
+  }
+  let end = cloze.after.length;
+  for (let i = 0; i < cloze.after.length; i++) {
+    const ch = cloze.after[i];
+    if (ch === "\n") {
+      end = i;
+      break;
+    }
+    if (isJaSentenceEnd(ch)) {
+      end = i + 1;
+      break;
+    }
+  }
+  return (cloze.before.slice(start) + answer + cloze.after.slice(0, end)).trim();
+}
+
+/**
+ * Traduction FR à la demande d'une phrase de contexte (bouton « Traduire » de la
+ * correction). Mémorisée sur l'item vocab quand la phrase est son exemple, pour ne
+ * traduire qu'une fois. Renvoie null si le Worker ne produit rien d'exploitable.
+ */
+export async function translateExampleFr(ja: string, ex: Exercise): Promise<string | null> {
+  const { sentences } = await generateStoryTranslation([ja], 5);
+  const fr = sentences[0]?.trim();
+  if (!fr) return null;
+  if (ex.track === "vocab") {
+    const v = await getVocab(ex.id);
+    if (v?.example?.ja && v.example.ja.trim() === ja.trim() && !v.example.fr) {
+      v.example = { ja: v.example.ja, fr };
+      await putVocab(v);
+    }
+  }
+  return fr;
+}
 
 /** Note un exercice et replanifie via FSRS. Crée l'item SRS s'il n'existe pas encore. */
 export async function gradeExercise(

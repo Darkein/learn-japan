@@ -10,6 +10,7 @@ import {
   type PodcastRecord,
   type StoryRecord,
 } from "./db";
+import { backfillExampleFr } from "./enroll";
 import { generateStoryTranslation } from "./genClient";
 import { splitJaSentences } from "./kana";
 import {
@@ -51,6 +52,8 @@ async function ensureStoryTranslation(story: StoryRecord): Promise<StoryRecord> 
     translation: sentences.map(cleanFrench),
   };
   await putStory(updated);
+  // Les phrases d'exemple du vocab enrôlé depuis cette histoire gagnent leur FR.
+  await backfillExampleFr(updated);
   return updated;
 }
 

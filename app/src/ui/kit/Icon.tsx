@@ -64,6 +64,16 @@ export function IconPlay(props: IconProps) {
   );
 }
 
+export function IconSpeaker(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 9.5h3L12 5v14l-5-4.5H4a.8.8 0 0 1-.8-.8v-3.4a.8.8 0 0 1 .8-.8Z" fill="currentColor" stroke="none" />
+      <path d="M15.5 9a4.2 4.2 0 0 1 0 6" />
+      <path d="M18 6.5a7.5 7.5 0 0 1 0 11" />
+    </Svg>
+  );
+}
+
 export function IconPause(props: IconProps) {
   return (
     <Svg {...props}>

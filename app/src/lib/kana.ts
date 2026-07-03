@@ -58,6 +58,11 @@ export function normalizeReading(s: string): string {
 
 const JA_SENTENCE_END = /[。！？．!?]/;
 
+/** Vrai si le caractère est une ponctuation finale de phrase japonaise. */
+export function isJaSentenceEnd(ch: string): boolean {
+  return JA_SENTENCE_END.test(ch);
+}
+
 /**
  * Découpe un texte japonais en phrases (sur la ponctuation finale et les sauts de ligne),
  * en conservant la ponctuation. Déterministe → mêmes bornes pour la traduction alignée,

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { ChoiceExercise } from "../../lib/exercise";
+import { clozeSentence, translateExampleFr, type ChoiceExercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
+import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
   exercise: ChoiceExercise;
@@ -62,6 +63,15 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
       </div>
       {picked !== null && (
         <>
+          {ex.cloze && (
+            <SentenceFeedback
+              ja={clozeSentence(ex.cloze, ex.choices[ex.answerIndex])}
+              fr={ex.contextFr}
+              onTranslate={() =>
+                translateExampleFr(clozeSentence(ex.cloze!, ex.choices[ex.answerIndex]), ex)
+              }
+            />
+          )}
           {picked === ex.answerIndex ? (
             <>
               <span className="text-sm text-accent-2">Correct.</span>

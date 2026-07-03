@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { getComprehensionItem, getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
-import { gradeExercise, type BuildExercise, type ChoiceExercise, type TypeExercise } from "./exercise";
+import { clozeSentence, gradeExercise, type BuildExercise, type ChoiceExercise, type TypeExercise } from "./exercise";
 import { newCard } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -22,6 +22,43 @@ function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }):
     ...p,
   };
 }
+
+describe("clozeSentence", () => {
+  it("tronque un article entier à la phrase contenant le trou", () => {
+    const cloze = { before: "猫がいます。犬", after: "水を飲みます。鳥もいます。" };
+    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます。");
+  });
+
+  it("trou dans la première phrase (before sans borne)", () => {
+    const cloze = { before: "犬", after: "水を飲みます。鳥もいます。" };
+    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます。");
+  });
+
+  it("trou dans la dernière phrase (after sans borne)", () => {
+    const cloze = { before: "猫がいます。犬", after: "水を飲みます" };
+    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます");
+  });
+
+  it("before finissant exactement par une borne de phrase", () => {
+    const cloze = { before: "猫がいます。", after: "元気です。" };
+    expect(clozeSentence(cloze, "とても")).toBe("とても元気です。");
+  });
+
+  it("coupe aussi sur les sauts de ligne (borne exclue côté after)", () => {
+    const cloze = { before: "一行目\n犬", after: "水を飲みます\n二行目" };
+    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます");
+  });
+
+  it("texte sans ponctuation : renvoie le tout avec la réponse insérée", () => {
+    const cloze = { before: "犬", after: "好きです" };
+    expect(clozeSentence(cloze, "が")).toBe("犬が好きです");
+  });
+
+  it("gère les ponctuations ！ et ？", () => {
+    const cloze = { before: "すごい！犬", after: "来ますか？そうです。" };
+    expect(clozeSentence(cloze, "が")).toBe("犬が来ますか？");
+  });
+});
 
 describe("gradeExercise", () => {
   it("type/vocab : note la carte écrite existante", async () => {

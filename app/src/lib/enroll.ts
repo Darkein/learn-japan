@@ -10,7 +10,8 @@ import {
 import { getCurriculumEntry } from "./curriculum";
 import { isContent, itemIdFor, meaningFor } from "./vocab";
 import { tokenize } from "./tokenizer";
-import { kataToHira } from "./kana";
+import { kataToHira, splitJaSentences } from "./kana";
+import { allVocab } from "./db";
 import type { StoryRecord } from "./db";
 
 export async function enrollLesson(lessonId: string): Promise<void> {
@@ -55,8 +56,9 @@ export async function enrollLesson(lessonId: string): Promise<void> {
 
 export async function enrollStory(story: StoryRecord): Promise<void> {
   const tokens = await tokenize(story.text);
-  // Découpe en phrases sur 。！？
-  const sentences = story.text.split(/(?<=[。！？])/);
+  // Même découpage que la traduction alignée (splitJaSentences) : l'index de la phrase
+  // d'exemple donne directement sa traduction FR quand elle existe déjà.
+  const sentences = splitJaSentences(story.text);
 
   await Promise.all(
     tokens
@@ -67,7 +69,8 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
         if (existing) return;
 
         const surface = token.surface_form;
-        const sentence = sentences.find((s) => s.includes(surface)) ?? "";
+        const idx = sentences.findIndex((s) => s.includes(surface));
+        const fr = idx >= 0 ? story.translation?.[idx] : undefined;
 
         const item: VocabItem = {
           id,
@@ -77,7 +80,7 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
           tags: [],
           status: "unknown",
           cards: {},
-          example: sentence ? { ja: sentence } : undefined,
+          example: idx >= 0 ? { ja: sentences[idx], ...(fr ? { fr } : {}) } : undefined,
         };
         await putVocab(item);
       }),
@@ -102,4 +105,25 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
       }),
     );
   }
+}
+
+/**
+ * Renseigne `example.fr` des items vocab dont la phrase d'exemple vient de cette
+ * histoire, une fois sa traduction alignée disponible (générée APRÈS l'enrôlement :
+ * podcast ou traduction du lecteur). Idempotent, n'écrase jamais un `fr` existant.
+ */
+export async function backfillExampleFr(story: StoryRecord): Promise<void> {
+  if (!story.translation?.length) return;
+  const sentences = splitJaSentences(story.text);
+  const items = await allVocab();
+  await Promise.all(
+    items.map(async (item) => {
+      if (!item.example?.ja || item.example.fr) return;
+      const idx = sentences.indexOf(item.example.ja.trim());
+      const fr = idx >= 0 ? story.translation?.[idx] : undefined;
+      if (!fr) return;
+      item.example = { ja: sentences[idx], fr };
+      await putVocab(item);
+    }),
+  );
 }

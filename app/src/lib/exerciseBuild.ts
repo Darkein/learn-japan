@@ -4,7 +4,7 @@
 
 import { toTiles, shuffleTiles } from "./builder";
 import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
-import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
+import { clozeSentence, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
 import type { ComprehensionQuestion } from "./genClient";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import { normalizeReading } from "./kana";
@@ -20,14 +20,24 @@ function particleChoices(answer: string): string[] {
   return shuffle([answer, ...distractors]);
 }
 
-/** Quiz particule (rappel actif) : construit jusqu'à `max` questions à partir des tokens. */
-export function particleExercises(tokens: KuromojiToken[], max = 8): ChoiceExercise[] {
+/**
+ * Quiz particule (rappel actif) : construit jusqu'à `max` questions à partir des tokens.
+ * `translation` (phrases JA alignées avec leur FR, cf. `splitJaSentences`) : attache la
+ * traduction FR de la phrase contenant le trou, affichée dans la correction.
+ */
+export function particleExercises(
+  tokens: KuromojiToken[],
+  max = 8,
+  translation?: { ja: string[]; fr: string[] },
+): ChoiceExercise[] {
   const surfaces = tokens.map((t) => t.surface_form);
   const out: ChoiceExercise[] = [];
 
   tokens.forEach((t, i) => {
     if (t.pos === "助詞" && CORE_PARTICLES.has(t.surface_form)) {
       const choices = particleChoices(t.surface_form);
+      const cloze = { before: surfaces.slice(0, i).join(""), after: surfaces.slice(i + 1).join("") };
+      const idx = translation ? translation.ja.indexOf(clozeSentence(cloze, t.surface_form)) : -1;
       out.push({
         mode: "choice",
         key: `particle:${i}`,
@@ -37,9 +47,10 @@ export function particleExercises(tokens: KuromojiToken[], max = 8): ChoiceExerc
         back: t.surface_form,
         seedName: `particule ${t.surface_form}`,
         seedRule: PARTICLE_GLOSS[t.surface_form] ?? "",
-        cloze: { before: surfaces.slice(0, i).join(""), after: surfaces.slice(i + 1).join("") },
+        cloze,
         choices,
         answerIndex: choices.indexOf(t.surface_form),
+        ...(idx >= 0 && translation?.fr[idx] ? { contextFr: translation.fr[idx] } : {}),
       });
     }
   });
@@ -73,6 +84,7 @@ export function vocabTypeExercise(
       due,
       audio: { word: v.surface },
       context: v.example?.ja,
+      ...(v.example?.fr ? { contextFr: v.example.fr } : {}),
       prompt: "Écoute et tape le mot souligné",
       answers,
     };
@@ -88,6 +100,7 @@ export function vocabTypeExercise(
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
     answers,
     ...(v.example?.ja ? { context: v.example.ja } : {}),
+    ...(v.example?.fr ? { contextFr: v.example.fr } : {}),
   };
 }
 
