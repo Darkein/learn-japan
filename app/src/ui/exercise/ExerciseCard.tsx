@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Exercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
-import { speakWord } from "../../lib/tts";
+import { speakWord, stopSentence } from "../../lib/tts";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
 import { IconPlay } from "../kit/Icon";
@@ -35,6 +35,11 @@ export function ExerciseCard({
   onRomajiChange,
 }: Props) {
   const [listened, setListened] = useState(false);
+
+  // Carte suivante / démontage : coupe la synthèse vocale en cours (sinon l'utterance
+  // orpheline peut laisser le focus audio OS actif et le ducking du volume système
+  // jusqu'à la fermeture du navigateur — cf. stopSentence dans SentenceFeedback).
+  useEffect(() => () => stopSentence(), []);
 
   function handleListen() {
     speakWord(ex.audio!.word);

@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { kataToHira } from "../lib/kana";
 import type { ItemStatus } from "../lib/db";
-import { speakWord } from "../lib/tts";
+import { speakWord, stopSentence } from "../lib/tts";
 import { isContent, meaningFor, type StatusAction } from "../lib/vocab";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { Sheet } from "./kit/Sheet";
@@ -45,6 +46,10 @@ export function WordSheet({
 }) {
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
+
+  // Fermeture de la fiche : coupe la synthèse vocale en cours (sinon l'utterance
+  // orpheline peut laisser le focus audio OS actif et le ducking du volume système).
+  useEffect(() => () => stopSentence(), []);
 
   return (
     <Sheet open onClose={onClose} className="gap-3 px-4 pt-6">

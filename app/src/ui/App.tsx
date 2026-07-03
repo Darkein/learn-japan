@@ -28,6 +28,7 @@ import { Settings } from "./Settings";
 import { SettingsPanel } from "./SettingsPanel";
 import { ReviewSession } from "./ReviewSession";
 import { SettingsProvider, useSettings } from "./useSettings";
+import { stopSentence } from "../lib/tts";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
 // Hauteur approximative du lecteur podcast replié (hors safe-area) — réserve de la place
@@ -78,6 +79,20 @@ function buildIncoming(story: StoryRecord): IncomingStory {
 }
 
 export function App() {
+  // Coupe une prononciation ponctuelle (mot/phrase en révision ou lecture) quand l'app
+  // passe en arrière-plan : sur Chrome/Android, une SpeechSynthesisUtterance orpheline
+  // (onend jamais déclenché en tâche de fond) peut garder le focus audio OS actif et
+  // maintenir le ducking du volume système jusqu'à la fermeture du navigateur. Le lecteur
+  // d'article et le podcast ne sont volontairement pas coupés ici : ils sont conçus pour
+  // continuer en fond (fondation mode voiture).
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.hidden) stopSentence();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
   // Le lecteur podcast est porté ici (au-dessus du routage) pour persister entre les
   // onglets et les pages, et la barre est rendue par-dessus tout le contenu.
   return (
