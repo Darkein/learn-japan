@@ -18,6 +18,24 @@ function pickVoice(lang: PodcastSegment["lang"]): SpeechSynthesisVoice | null {
   return window.speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith(pref)) ?? null;
 }
 
+/**
+ * Bug connu de Chrome/Android : après une synthèse vocale (`speechSynthesis`), le focus
+ * audio système n'est pas toujours abandonné, ce qui laisse le volume média du téléphone
+ * durablement bas ("ducking") jusqu'à la fermeture du navigateur. Ouvrir puis refermer
+ * aussitôt un AudioContext force Chromium à réévaluer et relâcher ce focus.
+ */
+function nudgeAudioFocusRelease(): void {
+  type LegacyWindow = { webkitAudioContext?: typeof AudioContext };
+  const Ctx = window.AudioContext ?? (window as unknown as LegacyWindow).webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    const ctx = new Ctx();
+    void ctx.resume().finally(() => void ctx.close());
+  } catch {
+    /* ignore */
+  }
+}
+
 export interface SegmentPlayerCallbacks {
   /** Le segment `index` démarre (mettre à jour l'UI : index courant, progression à 0). */
   onSegmentStart: (index: number) => void;
@@ -83,7 +101,10 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   function halt(): void {
     run++;
     cleanupAudio();
-    if (speechSupported()) window.speechSynthesis.cancel();
+    if (speechSupported()) {
+      window.speechSynthesis.cancel();
+      if (mode === "speech") nudgeAudioFocusRelease();
+    }
   }
 
   // Avance après un segment (en respectant un éventuel blanc de réponse de quiz).
@@ -168,6 +189,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     if (r !== run) return;
     if (i >= segments.length) {
       cleanupAudio(); // dernier segment terminé : décharge son <audio> avant d'enchaîner
+      if (mode === "speech" && speechSupported()) nudgeAudioFocusRelease();
       cb.onEnded();
       return;
     }

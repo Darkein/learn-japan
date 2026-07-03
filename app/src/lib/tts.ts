@@ -26,6 +26,24 @@ function pickJaVoice(): SpeechSynthesisVoice | null {
   return voices.find((v) => v.lang?.toLowerCase().startsWith("ja")) ?? null;
 }
 
+/**
+ * Bug connu de Chrome/Android : après une synthèse vocale (`speechSynthesis`), le focus
+ * audio système n'est pas toujours abandonné, ce qui laisse le volume média du téléphone
+ * durablement bas ("ducking") jusqu'à la fermeture du navigateur. Ouvrir puis refermer
+ * aussitôt un AudioContext force Chromium à réévaluer et relâcher ce focus.
+ */
+function nudgeAudioFocusRelease(): void {
+  type LegacyWindow = { webkitAudioContext?: typeof AudioContext };
+  const Ctx = window.AudioContext ?? (window as unknown as LegacyWindow).webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    const ctx = new Ctx();
+    void ctx.resume().finally(() => void ctx.close());
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Lit un mot (ou une courte chaîne) en japonais via la Web Speech API. */
 export function speakWord(text: string): void {
   if (!speechSupported() || !text.trim()) return;
@@ -34,6 +52,7 @@ export function speakWord(text: string): void {
   u.lang = JA_LANG;
   const v = pickJaVoice();
   if (v) u.voice = v;
+  u.onend = nudgeAudioFocusRelease;
   window.speechSynthesis.speak(u);
 }
 
@@ -61,7 +80,10 @@ export function stopSentence(): void {
     unloadAudio(sentenceAudio);
     sentenceAudio = null;
   }
-  if (speechSupported()) window.speechSynthesis.cancel();
+  if (speechSupported()) {
+    window.speechSynthesis.cancel();
+    nudgeAudioFocusRelease();
+  }
   releaseMediaSession();
 }
 
@@ -212,7 +234,10 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
   const stop = useCallback(() => {
     runRef.current++; // invalide toute continuation en vol
     cleanupAudio();
-    if (speechSupported()) window.speechSynthesis.cancel();
+    if (speechSupported()) {
+      window.speechSynthesis.cancel();
+      if (modeRef.current === "speech") nudgeAudioFocusRelease();
+    }
     setPlaying(false);
     setLoading(false);
     setCurrentTokenIndex(null);
@@ -228,6 +253,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       setPlaying(false);
       setCurrentTokenIndex(null);
       releaseMediaSession();
+      if (modeRef.current === "speech") nudgeAudioFocusRelease();
       return;
     }
     idxRef.current = idx;
