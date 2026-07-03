@@ -48,6 +48,11 @@ export function stopSentence(): void {
     sentenceAudio = null;
   }
   if (speechSupported()) window.speechSynthesis.cancel();
+  // Sans ça, l'élément <audio> Cloud TTS (Blob) peut garder le focus audio OS actif même
+  // une fois la lecture terminée — Chrome lui assigne une session média implicite dès qu'il
+  // joue du son, jamais explicitement relâchée ici — et le ducking du volume système reste
+  // actif jusqu'à la fermeture du navigateur.
+  releaseMediaSession();
 }
 
 /**
@@ -66,9 +71,12 @@ export async function speakSentence(text: string): Promise<void> {
     const release = () => {
       URL.revokeObjectURL(url);
       if (sentenceAudio === audio) sentenceAudio = null;
+      releaseMediaSession();
     };
     audio.onended = release;
     audio.onerror = release;
+    setSpokenMediaSessionMeta();
+    setMediaSessionPlaybackState("playing");
     await audio.play();
   } catch {
     // Worker sans clé TTS, injoignable, ou lecture refusée → voix du navigateur.
@@ -127,7 +135,7 @@ function mediaSessionAvailable(): boolean {
 }
 
 /** Pose le titre affiché sur l'écran de verrouillage / notification média. */
-function setArticleMediaSessionMeta(): void {
+function setSpokenMediaSessionMeta(): void {
   if (!mediaSessionAvailable()) return;
   try {
     navigator.mediaSession.metadata = new MediaMetadata({ title: "Lecture", artist: "Learn Japan" });
@@ -305,7 +313,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       const run = ++runRef.current;
       setError(null);
       setPlaying(true);
-      setArticleMediaSessionMeta();
+      setSpokenMediaSessionMeta();
       setMediaSessionPlaybackState("playing");
       if (modeRef.current === "speech") speakSentence(fromIdx, run);
       else void playCloud(fromIdx, run);
