@@ -139,6 +139,17 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     chainTargetRef.current = null;
     player.setSegments([]);
     player.setIndex(0);
+    // Libère la session média OS : sans ça, Chrome garde le playbackState "playing"/"paused"
+    // même après fermeture du lecteur, ce qui maintient le ducking du volume système jusqu'à
+    // la fermeture complète du navigateur.
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "none";
+      try {
+        navigator.mediaSession.metadata = null;
+      } catch {
+        /* ignore */
+      }
+    }
     setState(INITIAL_STATE);
   }, [player]);
 
