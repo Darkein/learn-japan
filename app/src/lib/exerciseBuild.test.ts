@@ -5,6 +5,7 @@ import {
   comprehensionReviewExercise,
   grammarReviewExercise,
   particleExercises,
+  vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
 import { allGrammarInv } from "./inventory";
@@ -170,6 +171,37 @@ describe("particleExercises — contextFr (traduction alignée)", () => {
   it("omet contextFr sans traduction fournie", () => {
     const exs = particleExercises(tokens, 8);
     for (const e of exs) expect(e.contextFr).toBeUndefined();
+  });
+});
+
+describe("vocabListenMeaningExercise", () => {
+  function vocab(id: string, meaning: string, example?: { ja: string }) {
+    const [surface, reading] = id.split("|");
+    return { id, surface, reading, meaning, tags: [], status: "review" as const, cards: {}, example };
+  }
+  const pool = [
+    vocab("犬|いぬ", "chien"),
+    vocab("鳥|とり", "oiseau"),
+    vocab("本|ほん", "livre"),
+    vocab("水|みず", "eau"),
+  ];
+
+  it("QCM audio-only : 4 sens dont la réponse, phrase d'exemple en audio", () => {
+    const v = vocab("猫|ねこ", "chat", { ja: "猫がいる。" });
+    const ex = vocabListenMeaningExercise(v, 0, pool);
+    expect(ex).not.toBeNull();
+    expect(ex!.audioOnly).toBe(true);
+    expect(ex!.skill).toBe("oral");
+    expect(ex!.audio).toEqual({ sentence: "猫がいる。" });
+    expect(ex!.choices).toHaveLength(4);
+    expect(ex!.choices[ex!.answerIndex]).toBe("chat");
+    expect(new Set(ex!.choices).size).toBe(4);
+  });
+
+  it("null quand le pool ne fournit pas 3 distracteurs ou sans sens exploitable", () => {
+    const v = vocab("猫|ねこ", "chat", { ja: "猫がいる。" });
+    expect(vocabListenMeaningExercise(v, 0, pool.slice(0, 2))).toBeNull();
+    expect(vocabListenMeaningExercise(vocab("猫|ねこ", "—"), 0, pool)).toBeNull();
   });
 });
 

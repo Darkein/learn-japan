@@ -1,11 +1,29 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession } from "./reviewSession";
+import { gradeCard, buildSession, pickOralVariant } from "./reviewSession";
+import type { KuromojiToken } from "./tokenizer";
+
+// kuromoji ne tourne pas en node : chaque caractère devient un token 名詞 (suffit pour
+// tester les bornes de la dictée — nombre de tuiles = longueur de la phrase).
+vi.mock("./tokenizer", () => ({
+  tokenize: vi.fn(async (text: string): Promise<KuromojiToken[]> =>
+    [...text.replace(/[。、]/g, "")].map((ch) => ({
+      surface_form: ch,
+      pos: "名詞",
+      pos_detail_1: "*",
+      pos_detail_2: "*",
+      pos_detail_3: "*",
+      conjugated_type: "*",
+      conjugated_form: "*",
+      basic_form: ch,
+    })),
+  ),
+}));
 
 const TODAY = "2026-06-30";
 const NOW = new Date(`${TODAY}T08:00:00`);
@@ -328,6 +346,80 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     });
     const session = await buildSession(NOW, { scope: "due" });
     expect(session.find((c) => c.key === "vocab-listen:犬|いぬ")).toBeUndefined();
+  });
+
+  it("rotation des variantes d'écoute selon le nombre de révisions de la carte", () => {
+    const base = newCard(new Date("2020-01-01"));
+    expect(pickOralVariant({ ...base, reps: 0 })).toBe("type");
+    expect(pickOralVariant({ ...base, reps: 1 })).toBe("meaning");
+    expect(pickOralVariant({ ...base, reps: 2 })).toBe("dictation");
+    expect(pickOralVariant({ ...base, reps: 3 })).toBe("type");
+  });
+
+  it("variante sens : QCM audio-only quand le pool fournit 3 distracteurs", async () => {
+    for (let i = 0; i < 3; i++) {
+      await putVocab({
+        id: `pool|${i}`,
+        surface: `pool${i}`,
+        reading: `pool${i}`,
+        meaning: `sens${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: stableCard(10) },
+      });
+    }
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 1 } },
+      example: { ja: "水を飲む。" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    const listen = session.find((c) => c.key === "vocab-listen-meaning:水|みず");
+    expect(listen).toBeDefined();
+    expect(listen!.audioOnly).toBe(true);
+    expect(listen!.skill).toBe("oral");
+    if (listen!.mode !== "choice") throw new Error("expected choice exercise");
+    expect(listen!.choices).toContain("eau");
+    expect(listen!.choices).toHaveLength(4);
+  });
+
+  it("variante dictée : reconstruction audio-only pour une phrase courte", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 2 } },
+      example: { ja: "水を飲む。" }, // 4 tuiles avec le tokenizer simulé
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    const dictation = session.find((c) => c.key === "vocab-dictation:水|みず");
+    expect(dictation).toBeDefined();
+    expect(dictation!.mode).toBe("build");
+    expect(dictation!.audioOnly).toBe(true);
+  });
+
+  it("variante dictée retombe sur la saisie quand la phrase est trop longue", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 2 } },
+      example: { ja: "とてもながいぶんしょうをきいてかきとるのはむずかしい。" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.find((c) => c.key === "vocab-dictation:水|みず")).toBeUndefined();
+    expect(session.find((c) => c.key === "vocab-listen:水|みず")).toBeDefined();
   });
 
   it("noter un exercice d'écoute met à jour cards.oral, pas cards.written", async () => {

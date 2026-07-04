@@ -106,6 +106,78 @@ export function vocabTypeExercise(
   };
 }
 
+/** Bornes de la dictée : en dessous rien à reconstruire, au-dessus trop dur à retenir d'oreille. */
+const DICTATION_MIN_TILES = 2;
+const DICTATION_MAX_TILES = 8;
+
+/**
+ * Écoute → sens : la phrase d'exemple est jouée (texte masqué), l'utilisateur choisit le
+ * sens FR du mot cible parmi ceux d'autres mots en rotation. Null si le mot n'a pas de
+ * sens exploitable ou si le pool ne fournit pas 3 distracteurs.
+ */
+export function vocabListenMeaningExercise(
+  v: VocabItem,
+  due: number,
+  pool: VocabItem[],
+): ChoiceExercise | null {
+  if (!v.meaning || v.meaning === "—") return null;
+  const example = effectiveExample(v);
+  const meanings = [
+    ...new Set(
+      pool
+        .filter((p) => p.id !== v.id && p.meaning && p.meaning !== "—" && p.meaning !== v.meaning)
+        .map((p) => p.meaning),
+    ),
+  ];
+  const distractors = shuffle(meanings).slice(0, 3);
+  if (distractors.length < 3) return null;
+  const { choices, answerIndex } = shuffleWithAnswer(v.meaning, distractors);
+  return {
+    mode: "choice",
+    key: `vocab-listen-meaning:${v.id}`,
+    track: "vocab",
+    skill: "oral",
+    id: v.id,
+    front: "Quel mot as-tu entendu ?",
+    back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+    due,
+    audioOnly: true,
+    audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
+    context: example?.ja,
+    ...(example?.fr ? { contextFr: example.fr } : {}),
+    choices,
+    answerIndex,
+  };
+}
+
+/**
+ * Dictée : la phrase d'exemple est jouée (texte masqué), l'utilisateur la reconstruit
+ * par tuiles. Null sans exemple ou si la phrase est trop courte/longue pour l'oreille.
+ */
+export async function vocabDictationExercise(v: VocabItem, due: number): Promise<BuildExercise | null> {
+  const example = effectiveExample(v);
+  if (!example?.ja) return null;
+  const tokens = await tokenize(example.ja);
+  const target = toTiles(tokens);
+  if (target.length < DICTATION_MIN_TILES || target.length > DICTATION_MAX_TILES) return null;
+  return {
+    mode: "build",
+    key: `vocab-dictation:${v.id}`,
+    track: "vocab",
+    skill: "oral",
+    id: v.id,
+    front: "Reconstitue la phrase entendue",
+    back: target.join(" "),
+    due,
+    audioOnly: true,
+    audio: { sentence: example.ja },
+    context: example.ja,
+    ...(example.fr ? { contextFr: example.fr } : {}),
+    target,
+    tokens,
+  };
+}
+
 /** QCM de compréhension (LLM) déjà généré → exercices `choice` (piste compréhension). */
 export function comprehensionExercises(questions: ComprehensionQuestion[]): ChoiceExercise[] {
   return questions.map((q, i) => {

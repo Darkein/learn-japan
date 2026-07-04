@@ -22,10 +22,13 @@ import { gradeExercise, type Exercise } from "./exercise";
 import {
   comprehensionReviewExercise,
   grammarReviewExercise,
+  vocabDictationExercise,
+  vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
+import { synthesizeText } from "./ttsClient";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
-import { isDue, newCard, State, type SrsGrade } from "./srs";
+import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
 import { leechIds as leechIdsFromReviews } from "./stats";
@@ -147,6 +150,36 @@ function drillVerbPool(vocab: VocabItem[]): DrillVerb[] {
     .map((v) => ({ surface: v.surface, reading: v.reading, meaning: v.meaning }));
 }
 
+export type OralVariant = "type" | "meaning" | "dictation";
+
+/**
+ * Variante d'écoute pour une carte orale : rotation déterministe sur le nombre de
+ * révisions déjà faites (dictée d'abord type, puis QCM de sens, puis dictée complète).
+ */
+export function pickOralVariant(card: Card): OralVariant {
+  const variants: OralVariant[] = ["type", "meaning", "dictation"];
+  return variants[card.reps % variants.length];
+}
+
+/**
+ * Exercice d'écoute d'une carte orale due : la variante choisie retombe sur la dictée
+ * de mot (type) si elle n'est pas constructible (pas de sens exploitable, pas assez de
+ * distracteurs, phrase trop longue pour l'oreille…).
+ */
+async function oralExercise(v: VocabItem, card: Card, pool: VocabItem[]): Promise<Exercise> {
+  const due = card.due.getTime();
+  const variant = pickOralVariant(card);
+  if (variant === "meaning") {
+    const ex = vocabListenMeaningExercise(v, due, pool);
+    if (ex) return ex;
+  } else if (variant === "dictation") {
+    // Tokenisation ratée (dictionnaire kuromoji indisponible…) → repli, pas d'échec de session.
+    const ex = await vocabDictationExercise(v, due).catch(() => null);
+    if (ex) return ex;
+  }
+  return vocabTypeExercise(v, due, { listen: true });
+}
+
 /**
  * Exercice de révision d'un point de grammaire : drill de conjugaison (production sur un
  * verbe du pool) quand le point est une forme couverte, sinon QCM/reconstruction.
@@ -191,13 +224,11 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   // un mot n'est plus noté deux fois sur la même carte dans une session. Les cartes
   // écoute DUES passent d'abord ; puis on amorce l'écoute de quelques mots déjà
   // stabilisés à l'écrit (état Review) qui ont une phrase d'exemple.
-  const LISTEN_MAX = 5;
-  const LISTEN_SEEDS = 2;
   let listenCount = 0;
   for (const v of vocabAll) {
-    if (listenCount >= LISTEN_MAX) break;
+    if (listenCount >= SRS.listenMax) break;
     if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
-      due.push(vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true }));
+      due.push(await oralExercise(v, v.cards.oral, vocabAll));
       listenCount++;
     }
   }
@@ -211,12 +242,16 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
 
   let listenSeeds = 0;
   for (const v of vocabAll) {
-    if (room <= 0 || listenCount >= LISTEN_MAX || listenSeeds >= LISTEN_SEEDS) break;
-    if (!v.cards.oral && effectiveExample(v)?.ja && v.cards.written?.state === State.Review) {
+    if (room <= 0 || listenCount >= SRS.listenMax || listenSeeds >= SRS.listenSeeds) break;
+    const example = effectiveExample(v);
+    if (!v.cards.oral && example?.ja && v.cards.written?.state === State.Review) {
       const card = newCard(now);
       v.cards.oral = card;
       await putVocab(v);
       out.push(vocabTypeExercise(v, card.due.getTime(), { listen: true }));
+      // Amorçage = on est en session (plausiblement en ligne) : pré-chauffe le cache TTS
+      // de la phrase pour que les prochaines écoutes marchent aussi hors-ligne.
+      if (typeof window !== "undefined") synthesizeText(example.ja, "ja").catch(() => {});
       listenCount++;
       listenSeeds++;
       room--;

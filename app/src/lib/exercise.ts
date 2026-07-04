@@ -44,8 +44,11 @@ interface ExerciseBase {
   context?: string;
   /** Traduction FR de la phrase de contexte (affichée dans la correction). */
   contextFr?: string;
-  /** Lecture audio à faire avant de répondre. */
-  audio?: { word: string };
+  /** Lecture audio à faire avant de répondre : phrase (Cloud TTS + cache) ou mot (Web Speech). */
+  audio?: { word?: string; sentence?: string };
+  /** Exercice à l'aveugle : la face avant ne montre PAS le texte entendu (QCM de sens,
+   *  dictée) — bouton « Réécouter » et échappatoire « Afficher le texte » dans la carte. */
+  audioOnly?: boolean;
   /** Élément difficile (≥ SRS.leechLapses échecs). */
   isLeech?: boolean;
   /** Échéance FSRS (tri par urgence) ; absent côté Lecteur. */
@@ -133,7 +136,10 @@ export async function gradeExercise(
   grade: SrsGrade,
   now: Date = new Date(),
 ): Promise<void> {
-  if (ex.mode === "build" && ex.track === "vocab") {
+  // Reconstruction issue du Lecteur (sans compétence ciblée) : note les MOTS de la
+  // phrase individuellement. Une dictée (skill "oral") passe par la voie normale et
+  // replanifie la carte de sa compétence.
+  if (ex.mode === "build" && ex.track === "vocab" && !ex.skill) {
     await Promise.all(
       ex.tokens.filter(isContent).map((t) => applyStatus(t, grade === "again" ? "forgot" : "review", now)),
     );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Exercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
-import { speakWord, stopSentence } from "../../lib/tts";
+import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
 import { IconPlay } from "../kit/Icon";
@@ -35,6 +35,9 @@ export function ExerciseCard({
   onRomajiChange,
 }: Props) {
   const [listened, setListened] = useState(false);
+  // Échappatoire des exercices à l'aveugle : révèle la phrase (audio cassé, hors-ligne
+  // sans cache…) — l'exercice reste faisable, jamais de cul-de-sac.
+  const [textRevealed, setTextRevealed] = useState(false);
 
   // Carte suivante / démontage : coupe la synthèse vocale en cours (sinon l'utterance
   // orpheline peut laisser le focus audio OS actif et le ducking du volume système
@@ -42,7 +45,8 @@ export function ExerciseCard({
   useEffect(() => () => stopSentence(), []);
 
   function handleListen() {
-    speakWord(ex.audio!.word);
+    if (ex.audio?.sentence) void speakSentence(ex.audio.sentence);
+    else if (ex.audio?.word) speakWord(ex.audio.word);
     setListened(true);
   }
 
@@ -52,24 +56,48 @@ export function ExerciseCard({
 
       {ex.audio && !listened ? (
         <>
-          <div className="font-jp text-3xl">{ex.front}</div>
+          {ex.audioOnly ? (
+            <div className="text-lg text-muted">🔊 Écoute la phrase…</div>
+          ) : (
+            <div className="font-jp text-3xl">{ex.front}</div>
+          )}
           <Button variant="primary" onClick={handleListen}>
             <IconPlay size={16} />
             Écouter
           </Button>
         </>
-      ) : ex.mode === "choice" ? (
-        <ChoiceInput exercise={ex} onGraded={onGraded} onNext={onNext} />
-      ) : ex.mode === "build" ? (
-        <BuildInput exercise={ex} onGraded={onGraded} onNext={onNext} />
       ) : (
-        <TypeInput
-          exercise={ex}
-          onGraded={onGraded}
-          onNext={onNext}
-          romaji={romaji}
-          onRomajiChange={onRomajiChange}
-        />
+        <>
+          {ex.audioOnly && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button variant="ghost" onClick={handleListen}>
+                <IconPlay size={14} />
+                Réécouter
+              </Button>
+              {!textRevealed && ex.context && (
+                <Button variant="ghost" onClick={() => setTextRevealed(true)}>
+                  Afficher le texte
+                </Button>
+              )}
+            </div>
+          )}
+          {ex.audioOnly && textRevealed && ex.context && (
+            <div className="font-jp text-xl">{ex.context}</div>
+          )}
+          {ex.mode === "choice" ? (
+            <ChoiceInput exercise={ex} onGraded={onGraded} onNext={onNext} />
+          ) : ex.mode === "build" ? (
+            <BuildInput exercise={ex} onGraded={onGraded} onNext={onNext} />
+          ) : (
+            <TypeInput
+              exercise={ex}
+              onGraded={onGraded}
+              onNext={onNext}
+              romaji={romaji}
+              onRomajiChange={onRomajiChange}
+            />
+          )}
+        </>
       )}
     </div>
   );
