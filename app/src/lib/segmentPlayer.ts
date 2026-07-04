@@ -3,7 +3,7 @@
 // de réponse (`pauseAfterMs`), jeton d'exécution pour invalider les continuations annulées.
 // L'état React (contexte, reprise, MediaSession) vit dans ui/usePodcastPlayer.tsx.
 
-import { nudgeAudioFocusRelease } from "./audioFocus";
+import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { PodcastSegment } from "./podcastScript";
 import { synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
@@ -85,8 +85,11 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     run++;
     cleanupAudio();
     if (speechSupported()) {
+      // Nudge seulement si une synthèse tournait vraiment : halt() est aussi appelé au
+      // démontage du provider et avant chaque chargement de leçon.
+      const speechActive = window.speechSynthesis.speaking || window.speechSynthesis.pending;
       window.speechSynthesis.cancel();
-      if (mode === "speech") nudgeAudioFocusRelease();
+      if (speechActive) nudgeAudioFocusRelease();
     }
   }
 
@@ -123,13 +126,17 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       if (r !== run) return;
       cb.onProgress(Math.min(1, (Date.now() - startedAt) / estMs));
     }, 150);
-    u.onend = () => {
+    const done = () => {
       if (speechTimer) {
         clearInterval(speechTimer);
         speechTimer = null;
       }
       afterSegment(i, r);
     };
+    u.onend = done;
+    // Utterance en échec (moteur TTS indisponible, interruption) : sans ce handler la
+    // chaîne s'arrête net et le timer de progression fuit.
+    u.onerror = done;
     window.speechSynthesis.speak(u);
   }
 
@@ -195,6 +202,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       mode = "cloud";
     },
     start: (fromIndex) => {
+      primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
       playFrom(fromIndex, ++run);
     },
     halt,

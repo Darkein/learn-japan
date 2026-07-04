@@ -8,7 +8,7 @@
 // préchargement de la phrase suivante, et pose la base du mode voiture (SPEC §11-12).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { nudgeAudioFocusRelease } from "./audioFocus";
+import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { AnnotatedToken } from "./furigana";
 import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
@@ -30,12 +30,14 @@ function pickJaVoice(): SpeechSynthesisVoice | null {
 /** Lit un mot (ou une courte chaîne) en japonais via la Web Speech API. */
 export function speakWord(text: string): void {
   if (!speechSupported() || !text.trim()) return;
+  primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
   window.speechSynthesis.cancel(); // coupe toute lecture en cours
   const u = new SpeechSynthesisUtterance(text);
   u.lang = JA_LANG;
   const v = pickJaVoice();
   if (v) u.voice = v;
   u.onend = nudgeAudioFocusRelease;
+  u.onerror = nudgeAudioFocusRelease; // utterance interrompue/échouée : même libération
   window.speechSynthesis.speak(u);
 }
 
@@ -59,14 +61,16 @@ function unloadAudio(audio: HTMLAudioElement): void {
 
 /** Coupe la lecture de phrase en cours (audio Cloud ET Web Speech). */
 export function stopSentence(): void {
+  // Nudge seulement si une synthèse tournait vraiment : stopSentence est aussi appelée
+  // au démontage de chaque carte d'exercice et au début de chaque lecture.
+  const speechActive =
+    speechSupported() && (window.speechSynthesis.speaking || window.speechSynthesis.pending);
   if (sentenceAudio) {
     unloadAudio(sentenceAudio);
     sentenceAudio = null;
   }
-  if (speechSupported()) {
-    window.speechSynthesis.cancel();
-    nudgeAudioFocusRelease();
-  }
+  if (speechSupported()) window.speechSynthesis.cancel();
+  if (speechActive) nudgeAudioFocusRelease();
   releaseMediaSession();
 }
 
@@ -78,6 +82,7 @@ export async function speakSentence(text: string): Promise<void> {
   const clean = text.trim();
   if (!clean) return;
   stopSentence();
+  primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
   try {
     const blob = await synthesizeText(clean, "ja");
     const url = URL.createObjectURL(blob);
@@ -96,6 +101,7 @@ export async function speakSentence(text: string): Promise<void> {
     await audio.play();
   } catch {
     // Worker sans clé TTS, injoignable, ou lecture refusée → voix du navigateur.
+    releaseMediaSession(); // annule l'éventuel playbackState "playing" posé avant l'échec
     speakWord(clean);
   }
 }
@@ -218,8 +224,11 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
     runRef.current++; // invalide toute continuation en vol
     cleanupAudio();
     if (speechSupported()) {
+      // Nudge seulement si une synthèse tournait vraiment : stop() est aussi appelé au
+      // démontage du hook et à chaque changement d'article.
+      const speechActive = window.speechSynthesis.speaking || window.speechSynthesis.pending;
       window.speechSynthesis.cancel();
-      if (modeRef.current === "speech") nudgeAudioFocusRelease();
+      if (speechActive) nudgeAudioFocusRelease();
     }
     setPlaying(false);
     setLoading(false);
@@ -260,6 +269,12 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       setCurrentTokenIndex(s.baseIndex + local);
     };
     u.onend = () => {
+      if (run !== runRef.current) return;
+      speakSentence(idx + 1, run);
+    };
+    // Utterance en échec (moteur TTS indisponible, interruption) : sans ce handler la
+    // chaîne s'arrête net, `playing` reste vrai et le focus audio n'est jamais relâché.
+    u.onerror = () => {
       if (run !== runRef.current) return;
       speakSentence(idx + 1, run);
     };
@@ -335,6 +350,7 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
       const run = ++runRef.current;
       setError(null);
       setPlaying(true);
+      primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
       setSpokenMediaSessionMeta();
       setMediaSessionPlaybackState("playing");
       if (modeRef.current === "speech") speakSentence(fromIdx, run);
@@ -346,7 +362,11 @@ export function useArticlePlayer(sentences: PlayerSentence[], rate = 1): Article
   const pause = useCallback(() => {
     runRef.current++; // fige les continuations
     if (modeRef.current === "speech") {
-      if (speechSupported()) window.speechSynthesis.cancel();
+      if (speechSupported()) {
+        const speechActive = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+        window.speechSynthesis.cancel();
+        if (speechActive) nudgeAudioFocusRelease();
+      }
     } else if (audioRef.current) {
       audioRef.current.pause();
     }
