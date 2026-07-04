@@ -254,6 +254,10 @@ export async function logReview(entry: ReviewLog): Promise<void> {
   await (await getDB()).add("reviews", entry);
 }
 
+export async function allReviews(): Promise<ReviewLog[]> {
+  return (await getDB()).getAll("reviews");
+}
+
 // Grammaire ------------------------------------------------------------------
 export async function putGrammar(item: GrammarItem): Promise<void> {
   await (await getDB()).put("grammar", item);

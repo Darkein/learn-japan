@@ -28,6 +28,7 @@ import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curri
 import { isDue, newCard, State, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
+import { leechIds as leechIdsFromReviews } from "./stats";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
@@ -38,16 +39,7 @@ export interface SessionOpts {
 
 async function leechIds(): Promise<Set<string>> {
   const db = await getDB();
-  const reviews = await db.getAll("reviews");
-  const lapses = new Map<string, number>();
-  for (const r of reviews) {
-    if (r.grade === "again") lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
-  }
-  const ids = new Set<string>();
-  for (const [id, count] of lapses) {
-    if (count >= SRS.leechLapses) ids.add(id);
-  }
-  return ids;
+  return leechIdsFromReviews(await db.getAll("reviews"));
 }
 
 export interface SessionStats {
