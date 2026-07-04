@@ -13,6 +13,7 @@ import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
+import { effectiveExample } from "./vocab";
 
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
 
@@ -69,6 +70,7 @@ export function vocabTypeExercise(
   opts: { listen?: boolean } = {},
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
+  const example = effectiveExample(v);
   const answers = hasMeaning
     ? [normalizeReading(v.surface), normalizeReading(v.reading)]
     : [normalizeReading(v.reading)];
@@ -79,12 +81,12 @@ export function vocabTypeExercise(
       track: "vocab",
       skill: "oral",
       id: v.id,
-      front: v.example?.ja ?? v.surface,
+      front: example?.ja ?? v.surface,
       back: `${v.surface}（${v.reading}）— ${v.meaning}`,
       due,
       audio: { word: v.surface },
-      context: v.example?.ja,
-      ...(v.example?.fr ? { contextFr: v.example.fr } : {}),
+      context: example?.ja,
+      ...(example?.fr ? { contextFr: example.fr } : {}),
       prompt: "Écoute et tape le mot souligné",
       answers,
     };
@@ -99,8 +101,8 @@ export function vocabTypeExercise(
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
     answers,
-    ...(v.example?.ja ? { context: v.example.ja } : {}),
-    ...(v.example?.fr ? { contextFr: v.example.fr } : {}),
+    ...(example?.ja ? { context: example.ja } : {}),
+    ...(example?.fr ? { contextFr: example.fr } : {}),
   };
 }
 

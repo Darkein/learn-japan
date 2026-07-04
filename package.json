@@ -17,7 +17,8 @@
     "data:inventory": "tsx scripts/build-inventory.ts",
     "data:jmdict": "tsx scripts/build-jmdict.ts",
     "curriculum:check": "tsx scripts/check-curriculum.ts",
-    "content:batch": "tsx scripts/pregenerate.ts"
+    "content:batch": "tsx scripts/pregenerate.ts",
+    "data:examples": "tsx scripts/build-examples.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

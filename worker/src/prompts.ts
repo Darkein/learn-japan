@@ -18,7 +18,8 @@ export type GenKind =
   | "lesson"
   | "lesson-story"
   | "story-translation"
-  | "comprehension-qcm";
+  | "comprehension-qcm"
+  | "vocab-examples";
 
 /** Requête de génération : UNIQUEMENT des paramètres structurés (aucun prompt brut). */
 export interface GenerateRequest {
@@ -36,6 +37,8 @@ export interface GenerateRequest {
   avoidTitles?: string[];
   // kind: "story-translation" — phrases JP déjà découpées.
   sentences?: string[];
+  // kind: "vocab-examples" — lexique déjà connu à privilégier dans les phrases.
+  allowedVocab?: string[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
   variant?: number;
@@ -57,6 +60,9 @@ const LIMITS = {
   avoidTitleList: 8,
   sentence: 600,
   sentenceList: 200,
+  exampleVocabList: 20,
+  allowedVocabList: 400,
+  allowedVocabItem: 40,
 } as const;
 
 /** Retire les caractères de contrôle (dont sauts de ligne) et plafonne la longueur. */
@@ -301,6 +307,33 @@ export function buildComprehensionQcmPrompt(r: GenerateRequest): string {
 }
 
 /**
+ * Phrases d'exemple pour un lot de mots de vocabulaire (corpus statique, généré au
+ * build par scripts/build-examples.ts). Une phrase très courte par mot, contenant le
+ * mot tel quel, en privilégiant un lexique déjà connu de l'apprenant — la conformité
+ * est revérifiée côté script (tokenisation kuromoji), le prompt n'est qu'un premier filtre.
+ */
+export function buildVocabExamplesPrompt(r: GenerateRequest): string {
+  const level = cleanLevel(r.level);
+  const vocab = cleanVocab(r.vocab).slice(0, LIMITS.exampleVocabList);
+  const allowed = cleanList(r.allowedVocab, LIMITS.allowedVocabList, LIMITS.allowedVocabItem);
+  const numbered = vocab.map((v, i) => `${i + 1}. ${fmtVocab(v)}`).join("\n");
+  return [
+    `Voici ${vocab.length} mots de vocabulaire japonais (niveau JLPT N${level}) :`,
+    numbered,
+    "",
+    "Pour CHAQUE mot, écris UNE phrase d'exemple courte en japonais qui l'emploie naturellement, puis sa traduction française.",
+    `Contraintes : phrase très simple (grammaire N${level} uniquement), environ 8 à 20 caractères japonais, et le mot cible doit apparaître TEL QUEL dans la phrase (même graphie).`,
+    allowed.length
+      ? `En dehors du mot cible, n'utilise QUE ce vocabulaire déjà connu de l'apprenant (plus particules, copules et mots grammaticaux) : ${allowed.join("、")}.`
+      : "",
+    "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne : « N. phrase japonaise || traduction française ». Pas de furigana, pas de romaji.",
+    "Exemple : 1. 猫は水を飲みます。 || Le chat boit de l'eau.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
  * Point d'entrée : à partir d'une requête structurée, compose le prompt correspondant.
  * Lève si `kind` est inconnu → le Worker répond 400 (aucune génération « passe-partout »).
  */
@@ -314,6 +347,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildStoryTranslationPrompt(req);
     case "comprehension-qcm":
       return buildComprehensionQcmPrompt(req);
+    case "vocab-examples":
+      return buildVocabExamplesPrompt(req);
     case "story":
     case undefined:
       return buildStoryPrompt(req);

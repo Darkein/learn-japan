@@ -29,6 +29,7 @@ import { isDue, newCard, State, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
 import { leechIds as leechIdsFromReviews } from "./stats";
+import { effectiveExample } from "./vocab";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
@@ -195,7 +196,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   let listenCount = 0;
   for (const v of vocabAll) {
     if (listenCount >= LISTEN_MAX) break;
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && v.example?.ja) {
+    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
       due.push(vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true }));
       listenCount++;
     }
@@ -211,7 +212,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   let listenSeeds = 0;
   for (const v of vocabAll) {
     if (room <= 0 || listenCount >= LISTEN_MAX || listenSeeds >= LISTEN_SEEDS) break;
-    if (!v.cards.oral && v.example?.ja && v.cards.written?.state === State.Review) {
+    if (!v.cards.oral && effectiveExample(v)?.ja && v.cards.written?.state === State.Review) {
       const card = newCard(now);
       v.cards.oral = card;
       await putVocab(v);

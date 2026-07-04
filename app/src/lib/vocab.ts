@@ -10,6 +10,7 @@ import {
   type ItemStatus,
   type VocabItem,
 } from "./db";
+import { staticExample } from "./inventory";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -30,6 +31,15 @@ export function itemIdFor(token: KuromojiToken): string {
 export function meaningFor(token: KuromojiToken): string {
   const dict = contentDictSnapshot();
   return dict[token.basic_form] ?? dict[token.surface_form] ?? "—";
+}
+
+/**
+ * Phrase d'exemple effective d'un item : celle issue d'une histoire lue (contexte vécu,
+ * prioritaire), sinon celle du corpus statique. Null si aucune — l'item ne peut alors
+ * porter ni exercice d'écoute ni production en contexte.
+ */
+export function effectiveExample(v: VocabItem): { ja: string; fr?: string } | null {
+  return v.example ?? staticExample(v.id);
 }
 
 /** Action de l'utilisateur dans le panneau mot. */
