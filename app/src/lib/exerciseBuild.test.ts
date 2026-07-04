@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { grammarLessonOrder } from "./curriculum";
 import type { ComprehensionItem, GrammarItem } from "./db";
 import {
   comprehensionReviewExercise,
@@ -6,6 +7,7 @@ import {
   particleExercises,
   vocabTypeExercise,
 } from "./exerciseBuild";
+import { allGrammarInv } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
 
 // Simule le tokenizer (kuromoji ne tourne pas en node) — même approche que enroll.test.ts.
@@ -72,6 +74,32 @@ describe("comprehensionReviewExercise (remplace le mode reveal)", () => {
     expect(ex.mode).toBe("choice");
     expect(ex.choices).toContain("Pose le décor de la phrase.");
     expect(ex.choices[ex.answerIndex]).toBe("Pose le décor de la phrase.");
+  });
+
+  it("distracteurs tirés des points voisins dans le curriculum", () => {
+    // n5-wa-topic est introduit à la toute première leçon : ses 8 voisins les plus
+    // proches sont tous dans les ~6 premières leçons. Un point tardif (n5-soshite,
+    // n5-demo — leçon 25) ne doit jamais apparaître comme distracteur.
+    const order = grammarLessonOrder();
+    const target = order.get("n5-wa-topic")!;
+    const ruleToOrder = new Map(
+      allGrammarInv().map((g) => [g.ruleFr, order.get(g.id)]),
+    );
+    const c: ComprehensionItem = {
+      id: "n5-wa-topic",
+      name: "は (thème)",
+      rule: "Pose le décor de la phrase.",
+      status: "review",
+    };
+    for (let i = 0; i < 20; i++) {
+      const ex = comprehensionReviewExercise(c, 0);
+      for (const [idx, choice] of ex.choices.entries()) {
+        if (idx === ex.answerIndex) continue;
+        const o = ruleToOrder.get(choice);
+        expect(o).toBeDefined();
+        expect(Math.abs(o! - target)).toBeLessThanOrEqual(6);
+      }
+    }
   });
 });
 

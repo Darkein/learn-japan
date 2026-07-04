@@ -6,18 +6,18 @@ import { toTiles, shuffleTiles } from "./builder";
 import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
 import { clozeSentence, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
 import type { ComprehensionQuestion } from "./genClient";
+import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import { normalizeReading } from "./kana";
+import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 
-const PARTICLE_POOL = ["は", "が", "を", "に", "で", "へ", "と", "も", "から", "まで"];
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
 
 function particleChoices(answer: string): string[] {
-  const distractors = shuffle(PARTICLE_POOL.filter((p) => p !== answer)).slice(0, 3);
-  return shuffle([answer, ...distractors]);
+  return shuffle([answer, ...particleDistractors(answer)]);
 }
 
 /**
@@ -150,13 +150,30 @@ function shuffleWithAnswer(correct: string, distractors: string[]): { choices: s
   return { choices, answerIndex: choices.indexOf(correct) };
 }
 
-/** Règles d'autres points de grammaire (référentiel statique) → distracteurs sans LLM. */
+/** Parmi combien de points voisins (au sens du curriculum) tirer les distracteurs. */
+const RULE_NEIGHBORS = 8;
+
+/**
+ * Règles d'autres points de grammaire (référentiel statique) → distracteurs sans LLM.
+ * Priorité aux points introduits près du point cible dans le curriculum : des règles
+ * du même thème/moment d'apprentissage sont confondables, une règle sans rapport rend
+ * le QCM trivial par élimination.
+ */
 function ruleDistractors(excludeId: string, n = 3): string[] {
-  return shuffle(
-    allGrammarInv()
-      .filter((g) => g.id !== excludeId)
-      .map((g) => g.ruleFr),
-  ).slice(0, n);
+  const pool = allGrammarInv().filter((g) => g.id !== excludeId);
+  const order = grammarLessonOrder();
+  const target = order.get(excludeId);
+  const candidates =
+    target === undefined
+      ? pool
+      : [...pool]
+          .sort((a, b) => {
+            const da = order.has(a.id) ? Math.abs(order.get(a.id)! - target) : Infinity;
+            const db = order.has(b.id) ? Math.abs(order.get(b.id)! - target) : Infinity;
+            return da - db;
+          })
+          .slice(0, RULE_NEIGHBORS);
+  return shuffle(candidates.map((g) => g.ruleFr)).slice(0, n);
 }
 
 /**

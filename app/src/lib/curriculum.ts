@@ -119,6 +119,25 @@ export function getCumulativeObjectives(id: string): LessonObjectives {
   return { vocab: [...vocab.values()], grammar: [...grammar] };
 }
 
+let grammarOrder: Map<string, number> | null = null;
+
+/**
+ * Index curriculaire de chaque point de grammaire : position (dans l'ordre pédagogique)
+ * de la leçon qui l'introduit. Sert à choisir des distracteurs de QCM proches dans la
+ * progression (donc plausibles) plutôt que tirés dans tout l'inventaire.
+ */
+export function grammarLessonOrder(): Map<string, number> {
+  if (!grammarOrder) {
+    grammarOrder = new Map();
+    CURRICULUM.forEach((c, i) => {
+      for (const g of c.introduces.grammar) {
+        if (!grammarOrder!.has(g)) grammarOrder!.set(g, i);
+      }
+    });
+  }
+  return grammarOrder;
+}
+
 /** Leçons qui introduisent au moins une des règles de grammaire données (par id), triées par ordre. */
 export function lessonsForGrammar(grammarIds: string[]): CurriculumEntry[] {
   if (grammarIds.length === 0) return [];
