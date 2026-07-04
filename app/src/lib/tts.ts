@@ -8,6 +8,7 @@
 // préchargement de la phrase suivante, et pose la base du mode voiture (SPEC §11-12).
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { nudgeAudioFocusRelease } from "./audioFocus";
 import type { AnnotatedToken } from "./furigana";
 import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
@@ -24,24 +25,6 @@ function pickJaVoice(): SpeechSynthesisVoice | null {
   if (!speechSupported()) return null;
   const voices = window.speechSynthesis.getVoices();
   return voices.find((v) => v.lang?.toLowerCase().startsWith("ja")) ?? null;
-}
-
-/**
- * Bug connu de Chrome/Android : après une synthèse vocale (`speechSynthesis`), le focus
- * audio système n'est pas toujours abandonné, ce qui laisse le volume média du téléphone
- * durablement bas ("ducking") jusqu'à la fermeture du navigateur. Ouvrir puis refermer
- * aussitôt un AudioContext force Chromium à réévaluer et relâcher ce focus.
- */
-function nudgeAudioFocusRelease(): void {
-  type LegacyWindow = { webkitAudioContext?: typeof AudioContext };
-  const Ctx = window.AudioContext ?? (window as unknown as LegacyWindow).webkitAudioContext;
-  if (!Ctx) return;
-  try {
-    const ctx = new Ctx();
-    void ctx.resume().finally(() => void ctx.close());
-  } catch {
-    /* ignore */
-  }
 }
 
 /** Lit un mot (ou une courte chaîne) en japonais via la Web Speech API. */
