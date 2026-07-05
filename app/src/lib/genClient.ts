@@ -34,9 +34,13 @@ export interface GenParams {
   // Clé R2 structurée (lesson / lesson-story uniquement)
   lessonId?: string;
   variant?: number;
+  // kind: "lesson" — position dans le parcours (module la longueur du cours généré)
+  // et révision du contenu (clé de cache : jamais de cours périmé après un changement).
+  lessonOrder?: number;
+  rev?: number;
 }
 
-export type GeneratedIndex = Record<string, { cours: boolean; stories: number[] }>;
+export type GeneratedIndex = Record<string, { cours: boolean; coursRev?: number; stories: number[] }>;
 
 /**
  * Récupère la liste de tout le contenu pré-généré depuis le Worker.
@@ -122,6 +126,9 @@ export interface LessonGenInput {
   level: number;
   vocab: { ja: string; yomi?: string; fr: string }[];
   grammar: string[];
+  // kind: "lesson" uniquement — position dans le parcours et révision du contenu.
+  lessonOrder?: number;
+  rev?: number;
   // kind: "lesson-story" uniquement — révision (leçons précédentes) et anti-répétition.
   reviewVocab?: { ja: string; yomi?: string; fr: string }[];
   reviewGrammar?: string[];
@@ -142,6 +149,8 @@ export async function generateLesson(
         level: input.level,
         vocab: input.vocab,
         grammar: input.grammar,
+        lessonOrder: input.lessonOrder,
+        rev: input.rev,
       },
       onState,
       opts,

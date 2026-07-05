@@ -17,7 +17,7 @@
 // des gabarits fixes (voir prompts.ts). Aucune instruction libre ne transite → l'endpoint
 // ne peut pas être détourné en proxy LLM générique « hors japonais ».
 
-import { cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
+import { cleanRev, cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 
 export interface Env {
@@ -335,7 +335,7 @@ export default {
       const lessonId = cleanSlug(body.lessonId);
       let key: string;
       if (body.kind === "lesson" && lessonId) {
-        key = lessonCacheKey(lessonId);
+        key = lessonCacheKey(lessonId, cleanRev(body.rev));
       } else if (body.kind === "lesson-story" && lessonId) {
         const variant = cleanVariant(body.variant);
         key = lessonStoryCacheKey(lessonId, variant);

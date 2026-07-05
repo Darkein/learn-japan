@@ -63,7 +63,7 @@ function resolveGrammar(id: string): string {
 // ---- Curriculum (miroir minimal de app/src/lib/lessons.ts) ------------------
 
 interface Introduces { vocab: string[]; grammar: string[] }
-interface RawLesson { id: string; order: number; title: string; introduces: Introduces }
+interface RawLesson { id: string; order: number; rev?: number; title: string; introduces: Introduces }
 interface RawUnit { lessons: RawLesson[] }
 interface RawLevel { level: number; units: RawUnit[] }
 interface CurriculumFile { levels: RawLevel[] }
@@ -71,6 +71,7 @@ interface CurriculumFile { levels: RawLevel[] }
 interface Entry {
   id: string;
   order: number;
+  rev: number;
   level: number;
   title: string;
   introduces: Introduces;
@@ -85,6 +86,7 @@ const ENTRIES: Entry[] = curriculum.levels
       u.lessons.map((l) => ({
         id: l.id,
         order: l.order,
+        rev: l.rev ?? 1,
         level: lvl.level,
         title: l.title,
         introduces: l.introduces,
@@ -152,7 +154,7 @@ async function processLesson(e: Entry, args: Args): Promise<void> {
   console.log(`\n[N${e.level} #${e.order}] ${e.id} — ${e.title}`);
   const common = { lessonId: e.id, level: e.level, title: e.title, vocab: e.vocab, grammar: e.grammar };
 
-  await gen("cours (lesson)", { kind: "lesson", ...common }, args.refresh);
+  await gen("cours (lesson)", { kind: "lesson", ...common, lessonOrder: e.order, rev: e.rev }, args.refresh);
   if (args.lessonOnly) return;
 
   const story = await gen(

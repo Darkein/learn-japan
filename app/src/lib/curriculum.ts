@@ -20,6 +20,8 @@ export interface LessonObjectives {
 export interface CurriculumEntry {
   id: string;
   order: number;
+  /** Révision du contenu (curriculum.json, défaut 1) : invalide les cadrages générés pour d'anciens objectifs. */
+  rev: number;
   level: number;
   title: string;
   summary?: string;
@@ -40,6 +42,7 @@ export interface Introduces {
 interface RawLesson {
   id: string;
   order: number;
+  rev?: number;
   title: string;
   summary?: string;
   introduces: Introduces;
@@ -78,6 +81,7 @@ const CURRICULUM: CurriculumEntry[] = (curriculumData as CurriculumFileV3).level
         (l): CurriculumEntry => ({
           id: l.id,
           order: l.order,
+          rev: l.rev ?? 1,
           level: lvl.level,
           title: l.title,
           summary: l.summary,

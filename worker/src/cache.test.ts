@@ -30,6 +30,12 @@ describe("lessonCacheKey", () => {
   it("format structuré gen/lesson/<id>.json", () => {
     expect(lessonCacheKey("n5-u1-l1")).toBe("gen/lesson/n5-u1-l1.json");
   });
+
+  it("rev 1 = clé historique ; rev > 1 = suffixe -r<rev> (invalide l'ancien cours)", () => {
+    expect(lessonCacheKey("n5-u1-l1", 1)).toBe("gen/lesson/n5-u1-l1.json");
+    expect(lessonCacheKey("n5-u1-l1", 2)).toBe("gen/lesson/n5-u1-l1-r2.json");
+    expect(lessonCacheKey("n5-u1-l1", 2)).not.toBe(lessonCacheKey("n5-u1-l1", 1));
+  });
 });
 
 describe("lessonStoryCacheKey", () => {

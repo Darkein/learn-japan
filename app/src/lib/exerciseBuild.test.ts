@@ -24,8 +24,8 @@ vi.mock("./tokenizer", () => ({
       conjugated_form: "*",
       basic_form: surface_form,
     });
-    if (text === "私は学生です。") {
-      return [mk("私"), mk("は", "助詞"), mk("学生"), mk("です", "助動詞"), mk("。", "記号")];
+    if (text === "今日は本を読む。") {
+      return [mk("今日"), mk("は", "助詞"), mk("本"), mk("を", "助詞"), mk("読む", "動詞"), mk("。", "記号")];
     }
     return [];
   }),
@@ -44,7 +44,7 @@ describe("grammarReviewExercise (remplace le mode reveal)", () => {
     const ex = await grammarReviewExercise(g, 0);
     expect(ex.mode).toBe("build");
     if (ex.mode === "build") {
-      expect(ex.target).toEqual(["私", "は", "学生", "です"]); // ponctuation exclue
+      expect(ex.target).toEqual(["今日", "は", "本", "を", "読む"]); // ponctuation exclue
     }
   });
 

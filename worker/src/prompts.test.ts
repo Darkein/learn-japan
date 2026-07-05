@@ -22,13 +22,13 @@ describe("buildLessonPrompt", () => {
   const prompt = buildLessonPrompt(lesson);
 
   it("demande une vraie leçon développée (plus un simple cadrage bref)", () => {
-    expect(prompt).toContain("véritable leçon de grammaire");
+    expect(prompt).toContain("véritable leçon de japonais");
     expect(prompt).toContain("pas une simple introduction");
     expect(prompt).not.toContain("2 à 4 phrases courtes");
   });
 
-  it("exige plusieurs exemples travaillés (JP / traduction) dans des blocs :::example", () => {
-    expect(prompt).toContain("PLUSIEURS exemples");
+  it("exige des exemples travaillés (JP / traduction) dans des blocs :::example", () => {
+    expect(prompt).toContain("exemples concrets en japonais");
     expect(prompt).toContain(":::example");
     expect(prompt).toContain(":::pitfall");
     expect(prompt).toContain(":::summary");
@@ -37,6 +37,30 @@ describe("buildLessonPrompt", () => {
   it("n'enseigne QUE la grammaire (vocab/kanji = simple matière à exemples)", () => {
     expect(prompt).toContain("Enseigne UNIQUEMENT la grammaire");
     expect(prompt).toContain("NE dresse PAS la liste du vocabulaire");
+  });
+
+  it("borne la longueur selon le nombre de points de grammaire", () => {
+    expect(prompt).toContain("300 à 450 mots"); // 1 point
+    const two = buildLessonPrompt({ ...lesson, grammar: ["a", "b"] });
+    expect(two).toContain("450 à 650 mots");
+    const three = buildLessonPrompt({ ...lesson, grammar: ["a", "b", "c"] });
+    expect(three).toContain("650 à 850 mots");
+  });
+
+  it("toutes premières leçons (lessonOrder ≤ 5) : courtes et sans digressions", () => {
+    const intro = buildLessonPrompt({ ...lesson, lessonOrder: 1 });
+    expect(intro).toContain("250 à 400 mots");
+    expect(intro).toContain("débutant absolu");
+    expect(intro).not.toContain("en profondeur");
+    // Au-delà de la 5e leçon, retour au régime normal (profondeur + registre).
+    const later = buildLessonPrompt({ ...lesson, lessonOrder: 6 });
+    expect(later).toContain("en profondeur");
+  });
+
+  it("leçon sans grammaire : leçon de vocabulaire thématique, sans liste mot à mot", () => {
+    const vocabOnly = buildLessonPrompt({ ...lesson, grammar: [] });
+    expect(vocabOnly).toContain("leçon de vocabulaire thématique");
+    expect(vocabOnly).toContain("NE dresse PAS la liste du vocabulaire");
   });
 });
 

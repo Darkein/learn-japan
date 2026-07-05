@@ -141,7 +141,11 @@ async function hydrate(
   ]);
 
   const remote = remoteIndex[entry.id];
-  const pregenerated = Boolean(remote?.cours && remote.stories.length > 0);
+  // Un contenu généré pour une révision antérieure du curriculum (objectifs différents)
+  // est ignoré : la leçon se régénère comme si elle n'avait jamais été produite.
+  const remoteCoursOk = Boolean(remote?.cours) && (remote?.coursRev ?? 1) === entry.rev;
+  const localFraming = (generated?.rev ?? 1) === entry.rev ? generated?.framing : undefined;
+  const pregenerated = Boolean(remoteCoursOk && remote && remote.stories.length > 0);
   const localVariants = new Set(stories.map((s) => s.variant).filter((v): v is number => v != null));
   const remoteStoryVariants = (remote?.stories ?? []).filter((v) => !localVariants.has(v)).sort((a, b) => a - b);
 
@@ -150,8 +154,8 @@ async function hydrate(
     // Accessible (cours lisible) dès que le cadrage existe localement, qu'une histoire est
     // disponible (locale ou pré-générée distante). L'histoire peut alors se générer en
     // arrière-plan sans bloquer l'accès au cours.
-    state: generated?.framing || stories.length > 0 || pregenerated ? "ready" : "to-generate",
-    framing: generated?.framing,
+    state: localFraming || stories.length > 0 || pregenerated ? "ready" : "to-generate",
+    framing: localFraming,
     stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,
@@ -237,8 +241,8 @@ export async function markUnlockNotified(lessonId: string): Promise<void> {
 }
 
 /** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
-async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
-  const rec: GeneratedLessonRecord = { id, framing, createdAt: Date.now() };
+async function saveLesson(id: string, framing: string, rev: number): Promise<GeneratedLessonRecord> {
+  const rec: GeneratedLessonRecord = { id, framing, createdAt: Date.now(), rev };
   await putGeneratedLesson(rec);
   return rec;
 }
@@ -275,11 +279,13 @@ export async function ensureLessonFraming(
       level: lesson.level,
       vocab: lesson.objectives.vocab,
       grammar: lesson.objectives.grammar,
+      lessonOrder: lesson.order,
+      rev: lesson.rev,
     },
     onState,
   );
   if (framing) {
-    await saveLesson(lesson.id, framing);
+    await saveLesson(lesson.id, framing, lesson.rev);
     lesson.framing = framing;
   }
   return framing;

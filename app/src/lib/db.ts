@@ -101,6 +101,9 @@ export interface GeneratedLessonRecord {
   id: string; // = curriculum entry id
   framing: string; // leçon FR rédigée (corps du cours)
   createdAt: number;
+  /** Révision du curriculum pour laquelle ce cadrage a été généré (défaut 1). Un cadrage
+   * d'une révision antérieure est ignoré à l'hydratation → régénération automatique. */
+  rev?: number;
 }
 
 /** Progression locale d'une leçon (commencée, terminée). */

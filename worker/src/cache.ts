@@ -28,10 +28,12 @@ export async function genCacheKey(kind: string, prompt: string): Promise<string>
 
 /**
  * Clé R2 structurée et listable pour le cours d'une leçon.
- * Format : `gen/lesson/<lessonId>.json`
+ * Format : `gen/lesson/<lessonId>.json`, ou `gen/lesson/<lessonId>-r<rev>.json` quand la
+ * leçon a été révisée (rev > 1 dans curriculum.json) — un cours généré pour d'anciens
+ * objectifs ne doit jamais être resservi après un changement de contenu.
  */
-export function lessonCacheKey(lessonId: string): string {
-  return `gen/lesson/${lessonId}.json`;
+export function lessonCacheKey(lessonId: string, rev = 1): string {
+  return rev > 1 ? `gen/lesson/${lessonId}-r${rev}.json` : `gen/lesson/${lessonId}.json`;
 }
 
 /**
@@ -43,7 +45,7 @@ export function lessonStoryCacheKey(lessonId: string, variant: number): string {
 }
 
 export interface GeneratedIndex {
-  [lessonId: string]: { cours: boolean; stories: number[] };
+  [lessonId: string]: { cours: boolean; coursRev?: number; stories: number[] };
 }
 
 /**
@@ -70,10 +72,19 @@ export async function listGenerated(bucket: R2Bucket | undefined): Promise<Gener
 
   await populate("gen/lesson/", (lessonId, rest) => {
     if (rest) return; // unexpected subpath
-    const id = lessonId.endsWith(".json") ? lessonId.slice(0, -5) : lessonId;
+    let id = lessonId.endsWith(".json") ? lessonId.slice(0, -5) : lessonId;
     if (!id) return;
+    // Suffixe de révision (`<id>-r<rev>`, voir lessonCacheKey) : on expose la révision la
+    // plus récente disponible, le client compare avec le rev attendu du curriculum.
+    let rev = 1;
+    const m = /^(.*)-r(\d+)$/.exec(id);
+    if (m) {
+      id = m[1];
+      rev = parseInt(m[2], 10);
+    }
     if (!index[id]) index[id] = { cours: false, stories: [] };
     index[id].cours = true;
+    index[id].coursRev = Math.max(index[id].coursRev ?? 1, rev);
   });
 
   await populate("gen/lesson-story/", (lessonId, rest) => {
