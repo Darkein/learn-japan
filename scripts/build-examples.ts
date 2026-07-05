@@ -24,7 +24,8 @@ const OUT = join(INV, "examples.json");
 const DIC = join(ROOT, "node_modules", "@sglkc", "kuromoji", "dict");
 const read = <T>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
 
-const WORKER_URL = (process.env.WORKER_URL ?? "https://learn-japan-gen.learn-japan-gen.workers.dev").replace(
+// `||` (pas `??`) : en CI la variable peut exister mais être VIDE → retomber sur le défaut.
+const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-japan-gen.workers.dev").replace(
   /\/+$/,
   "",
 );
