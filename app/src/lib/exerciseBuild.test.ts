@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import { grammarLessonOrder } from "./curriculum";
 import type { ComprehensionItem, GrammarItem } from "./db";
 import {
   comprehensionReviewExercise,
   grammarReviewExercise,
   particleExercises,
+  vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
+import { allGrammarInv } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
 
 // Simule le tokenizer (kuromoji ne tourne pas en node) — même approche que enroll.test.ts.
@@ -72,6 +75,32 @@ describe("comprehensionReviewExercise (remplace le mode reveal)", () => {
     expect(ex.mode).toBe("choice");
     expect(ex.choices).toContain("Pose le décor de la phrase.");
     expect(ex.choices[ex.answerIndex]).toBe("Pose le décor de la phrase.");
+  });
+
+  it("distracteurs tirés des points voisins dans le curriculum", () => {
+    // n5-wa-topic est introduit à la toute première leçon : ses 8 voisins les plus
+    // proches sont tous dans les ~6 premières leçons. Un point tardif (n5-soshite,
+    // n5-demo — leçon 25) ne doit jamais apparaître comme distracteur.
+    const order = grammarLessonOrder();
+    const target = order.get("n5-wa-topic")!;
+    const ruleToOrder = new Map(
+      allGrammarInv().map((g) => [g.ruleFr, order.get(g.id)]),
+    );
+    const c: ComprehensionItem = {
+      id: "n5-wa-topic",
+      name: "は (thème)",
+      rule: "Pose le décor de la phrase.",
+      status: "review",
+    };
+    for (let i = 0; i < 20; i++) {
+      const ex = comprehensionReviewExercise(c, 0);
+      for (const [idx, choice] of ex.choices.entries()) {
+        if (idx === ex.answerIndex) continue;
+        const o = ruleToOrder.get(choice);
+        expect(o).toBeDefined();
+        expect(Math.abs(o! - target)).toBeLessThanOrEqual(6);
+      }
+    }
   });
 });
 
@@ -142,6 +171,67 @@ describe("particleExercises — contextFr (traduction alignée)", () => {
   it("omet contextFr sans traduction fournie", () => {
     const exs = particleExercises(tokens, 8);
     for (const e of exs) expect(e.contextFr).toBeUndefined();
+  });
+});
+
+describe("vocabListenMeaningExercise", () => {
+  function vocab(id: string, meaning: string, example?: { ja: string }) {
+    const [surface, reading] = id.split("|");
+    return { id, surface, reading, meaning, tags: [], status: "review" as const, cards: {}, example };
+  }
+  const pool = [
+    vocab("犬|いぬ", "chien"),
+    vocab("鳥|とり", "oiseau"),
+    vocab("本|ほん", "livre"),
+    vocab("水|みず", "eau"),
+  ];
+
+  it("QCM audio-only : 4 sens dont la réponse, phrase d'exemple en audio", () => {
+    const v = vocab("猫|ねこ", "chat", { ja: "猫がいる。" });
+    const ex = vocabListenMeaningExercise(v, 0, pool);
+    expect(ex).not.toBeNull();
+    expect(ex!.audioOnly).toBe(true);
+    expect(ex!.skill).toBe("oral");
+    expect(ex!.audio).toEqual({ sentence: "猫がいる。" });
+    expect(ex!.choices).toHaveLength(4);
+    expect(ex!.choices[ex!.answerIndex]).toBe("chat");
+    expect(new Set(ex!.choices).size).toBe(4);
+  });
+
+  it("null quand le pool ne fournit pas 3 distracteurs ou sans sens exploitable", () => {
+    const v = vocab("猫|ねこ", "chat", { ja: "猫がいる。" });
+    expect(vocabListenMeaningExercise(v, 0, pool.slice(0, 2))).toBeNull();
+    expect(vocabListenMeaningExercise(vocab("猫|ねこ", "—"), 0, pool)).toBeNull();
+  });
+});
+
+describe("vocabTypeExercise — production en contexte (produce)", () => {
+  function vocab(example?: { ja: string; fr?: string }) {
+    return {
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review" as const,
+      cards: {},
+      example,
+    };
+  }
+
+  it("cloze ◯◯ sur la phrase d'exemple, indice FR, notée sur la compétence production", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
+    expect(ex.skill).toBe("production");
+    expect(ex.front).toBe("◯◯が走る。");
+    expect(ex.prompt).toContain("Le chat court.");
+    expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
+  });
+
+  it("sans exemple exploitable : rappel isolé FR → mot, toujours en production", () => {
+    const ex = vocabTypeExercise(vocab(), 0, { produce: true });
+    expect(ex.skill).toBe("production");
+    expect(ex.front).toBe("chat");
+    expect(ex.key).toBe("vocab-produce:猫|ねこ");
   });
 });
 

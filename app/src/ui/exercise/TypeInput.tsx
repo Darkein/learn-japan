@@ -3,7 +3,9 @@ import { toHiragana } from "wanakana";
 import { translateExampleFr, type TypeExercise } from "../../lib/exercise";
 import { normalizeReading } from "../../lib/kana";
 import type { SrsGrade } from "../../lib/srs";
+import { isNearMiss } from "../../lib/typo";
 import { Button } from "../kit/Button";
+import { GradeButtons } from "./GradeButtons";
 import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
@@ -15,24 +17,30 @@ interface Props {
   onRomajiChange?: (v: boolean) => void;
 }
 
-/** Saisie texte : l'utilisateur tape la réponse, s'auto-évalue Bien/Facile si correcte. */
+type TypeResult = "correct" | "almost" | "wrong";
+
+/** Saisie texte : l'utilisateur tape la réponse, s'auto-évalue si correcte. Une réponse
+ *  à une coquille près (voir lib/typo.ts) est acceptée mais notée "hard" d'office. */
 export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChange }: Props) {
   const [entry, setEntry] = useState("");
-  const [correct, setCorrect] = useState<boolean | null>(null);
+  const [result, setResult] = useState<TypeResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (correct === null) inputRef.current?.focus();
-  }, [correct]);
+    if (result === null) inputRef.current?.focus();
+  }, [result]);
 
   function checkType() {
-    setCorrect(ex.answers.includes(normalizeReading(toHiragana(entry))));
+    const norm = normalizeReading(toHiragana(entry));
+    if (ex.answers.includes(norm)) setResult("correct");
+    else if (ex.answers.some((a) => isNearMiss(norm, a))) setResult("almost");
+    else setResult("wrong");
   }
 
   return (
     <>
       <div className="font-jp text-3xl">{ex.front}</div>
-      {correct === null ? (
+      {result === null ? (
         <>
           {ex.prompt && <span className="text-sm text-muted">{ex.prompt}</span>}
           <div className="relative w-full max-w-xs">
@@ -71,17 +79,17 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
             <Button variant="primary" onClick={checkType} disabled={!entry.trim()}>
               Vérifier
             </Button>
-            <Button variant="ghost" onClick={() => setCorrect(false)}>
+            <Button variant="ghost" onClick={() => setResult("wrong")}>
               Je ne sais pas
             </Button>
           </div>
         </>
       ) : (
         <>
-          <div className={`text-sm ${correct ? "text-accent-2" : "text-accent"}`}>
-            {correct ? "✓ Correct" : "✗ Raté"}
+          <div className={`text-sm ${result === "correct" ? "text-accent-2" : "text-accent"}`}>
+            {result === "correct" ? "✓ Correct" : result === "almost" ? "≈ Presque — coquille ?" : "✗ Raté"}
           </div>
-          {!correct && entry.trim() && (
+          {result !== "correct" && entry.trim() && (
             <div className="text-sm text-accent">
               Ta réponse : <span className="font-jp">{entry}</span>
             </div>
@@ -94,42 +102,29 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
               onTranslate={() => translateExampleFr(ex.context!, ex)}
             />
           )}
-          <div className="flex flex-wrap justify-center gap-2">
-            {correct ? (
-              <>
-                <Button
-                  variant="ghost"
-                  className="grow basis-24"
-                  onClick={() => {
-                    onGraded("good");
-                    onNext();
-                  }}
-                >
-                  Bien
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="grow basis-24"
-                  onClick={() => {
-                    onGraded("easy");
-                    onNext();
-                  }}
-                >
-                  Facile
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  onGraded("again");
-                  onNext();
-                }}
-              >
-                Continuer
-              </Button>
-            )}
-          </div>
+          {result === "correct" ? (
+            <GradeButtons onGraded={onGraded} onNext={onNext} />
+          ) : result === "almost" ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                onGraded("hard");
+                onNext();
+              }}
+            >
+              Difficile
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={() => {
+                onGraded("again");
+                onNext();
+              }}
+            >
+              Continuer
+            </Button>
+          )}
         </>
       )}
     </>

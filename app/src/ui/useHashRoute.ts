@@ -13,7 +13,8 @@ export type Route =
   | { kind: "review"; from: string }
   | { kind: "course"; id: string; from: string }
   | { kind: "reader"; id: string; from: string }
-  | { kind: "settings"; from: string };
+  | { kind: "settings"; from: string }
+  | { kind: "stats"; from: string };
 
 /** Emplacement courant (sans le « # »), normalisé avec un « / » initial. */
 export function currentLocation(): string {
@@ -51,6 +52,8 @@ function parseRoute(location: string): Route {
         : { kind: "home" };
     case "parametres":
       return { kind: "settings", from };
+    case "stats":
+      return { kind: "stats", from };
     default:
       return { kind: "home" };
   }

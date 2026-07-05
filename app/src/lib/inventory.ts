@@ -6,6 +6,7 @@ import kanjiInv from "../data/inventory/kanji.json";
 import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
+import examplesInv from "../data/inventory/examples.json";
 import type { VocabEntry } from "./curriculum";
 
 interface KanjiInvEntry {
@@ -40,6 +41,16 @@ const grammarById = new Map(
   (grammarInv as { items: GrammarInvEntry[] }).items.map((g) => [g.id, g]),
 );
 const vocabFr = vocabFrOverlay as Record<string, string>;
+const examplesById = examplesInv as Record<string, { ja: string; fr?: string }>;
+
+/**
+ * Phrase d'exemple du corpus statique (scripts/build-examples.ts) pour un id de
+ * vocabulaire, ou null. Fallback quand le mot n'a pas encore d'exemple issu d'une
+ * histoire lue (voir effectiveExample, lib/vocab.ts).
+ */
+export function staticExample(id: string): { ja: string; fr?: string } | null {
+  return examplesById[id] ?? null;
+}
 
 /** Résout un id de vocabulaire `surface|reading` en entrée affichable. */
 export function resolveVocab(id: string): VocabEntry {

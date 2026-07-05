@@ -1,8 +1,14 @@
 import "fake-indexeddb/auto";
-import { describe, expect, it } from "vitest";
-import { getVocab } from "./db";
-import { applyStatus, itemIdFor } from "./vocab";
+import { describe, expect, it, vi } from "vitest";
+import { getVocab, type VocabItem } from "./db";
+import { applyStatus, effectiveExample, itemIdFor } from "./vocab";
 import type { KuromojiToken } from "./tokenizer";
+
+vi.mock("./inventory", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./inventory")>()),
+  staticExample: (id: string) =>
+    id === "猫|ねこ" ? { ja: "猫は水を飲みます。", fr: "Le chat boit de l'eau." } : null,
+}));
 
 function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }): KuromojiToken {
   return {
@@ -36,5 +42,25 @@ describe("vocab ↔ SRS (IndexedDB)", () => {
     const item = await applyStatus(inu, "known");
     expect(item.status).toBe("known");
     expect((await getVocab(itemIdFor(inu)))?.status).toBe("known");
+  });
+});
+
+describe("effectiveExample", () => {
+  function vocab(p: Partial<VocabItem> & { id: string }): VocabItem {
+    return { surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review", cards: {}, ...p };
+  }
+
+  it("préfère l'exemple issu d'une histoire lue", () => {
+    const v = vocab({ id: "猫|ねこ", example: { ja: "猫がいます。" } });
+    expect(effectiveExample(v)?.ja).toBe("猫がいます。");
+  });
+
+  it("retombe sur le corpus statique quand l'item n'a pas d'exemple", () => {
+    const v = vocab({ id: "猫|ねこ" });
+    expect(effectiveExample(v)).toEqual({ ja: "猫は水を飲みます。", fr: "Le chat boit de l'eau." });
+  });
+
+  it("null quand ni exemple d'histoire ni corpus", () => {
+    expect(effectiveExample(vocab({ id: "犬|いぬ" }))).toBeNull();
   });
 });

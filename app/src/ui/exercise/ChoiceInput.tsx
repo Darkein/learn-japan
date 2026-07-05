@@ -2,6 +2,7 @@ import { useState } from "react";
 import { clozeSentence, translateExampleFr, type ChoiceExercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
+import { GradeButtons } from "./GradeButtons";
 import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
@@ -75,28 +76,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
           {picked === ex.answerIndex ? (
             <>
               <span className="text-sm text-accent-2">Correct.</span>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  variant="ghost"
-                  className="grow basis-24"
-                  onClick={() => {
-                    onGraded("good");
-                    onNext();
-                  }}
-                >
-                  Bien
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="grow basis-24"
-                  onClick={() => {
-                    onGraded("easy");
-                    onNext();
-                  }}
-                >
-                  Facile
-                </Button>
-              </div>
+              <GradeButtons onGraded={onGraded} onNext={onNext} />
             </>
           ) : (
             <>

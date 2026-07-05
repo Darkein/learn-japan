@@ -204,3 +204,30 @@ describe("buildComprehensionQcmPrompt", () => {
     expect(prompt).toContain("[G0]");
   });
 });
+
+describe("buildVocabExamplesPrompt", () => {
+  it("numérote les mots, impose le format || et transmet le lexique autorisé", () => {
+    const prompt = composePrompt({
+      kind: "vocab-examples",
+      level: 5,
+      vocab: [
+        { ja: "猫", yomi: "ねこ", fr: "chat" },
+        { ja: "水", yomi: "みず", fr: "eau" },
+      ],
+      allowedVocab: ["犬", "飲む"],
+    });
+    expect(prompt).toContain("1. 猫 (ねこ) = chat");
+    expect(prompt).toContain("2. 水 (みず) = eau");
+    expect(prompt).toContain("||");
+    expect(prompt).toContain("犬、飲む");
+    expect(prompt).toContain("N5");
+  });
+
+  it("tronque un lot à 20 mots et reste sûr sans lexique", () => {
+    const vocab = Array.from({ length: 30 }, (_, i) => ({ ja: `語${i}`, fr: `fr${i}` }));
+    const prompt = composePrompt({ kind: "vocab-examples", vocab });
+    expect(prompt).toContain("20 mots");
+    expect(prompt).not.toContain("語25");
+    expect(prompt).not.toContain("n'utilise QUE ce vocabulaire");
+  });
+});

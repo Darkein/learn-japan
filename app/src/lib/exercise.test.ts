@@ -86,6 +86,34 @@ describe("gradeExercise", () => {
     expect(v?.cards.written?.reps).toBe(1);
   });
 
+  it("type/vocab skill production : note cards.production, sans toucher written ni status", async () => {
+    const written = newCard(new Date("2020-01-01"));
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "known",
+      cards: { written, production: newCard(new Date("2020-01-01")) },
+    });
+    const ex: TypeExercise = {
+      mode: "type",
+      key: "vocab-produce:猫|ねこ",
+      track: "vocab",
+      skill: "production",
+      id: "猫|ねこ",
+      front: "◯◯が走る。",
+      back: "猫（ねこ）— chat",
+      answers: ["猫", "ねこ"],
+    };
+    await gradeExercise(ex, "good", new Date());
+    const v = await getVocab("猫|ねこ");
+    expect(v?.cards.production?.reps).toBe(1);
+    expect(v?.cards.written?.reps).toBe(0);
+    expect(v?.status).toBe("known");
+  });
+
   it("choice/grammar : crée l'item s'il n'existe pas (particule), avec seedName/seedRule", async () => {
     const ex: ChoiceExercise = {
       mode: "choice",
@@ -145,6 +173,39 @@ describe("gradeExercise", () => {
     expect(v?.status).toBe("review");
     const g = await getGrammar("build:0");
     expect(g).toBeUndefined();
+  });
+
+  it("build/vocab avec skill oral (dictée) : note cards.oral, pas les mots de la phrase", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { oral: newCard(new Date("2020-01-01")) },
+    });
+    const tokens = [
+      tok({ surface_form: "水", pos: "名詞", reading: "ミズ", basic_form: "水" }),
+      tok({ surface_form: "を", pos: "助詞" }),
+      tok({ surface_form: "飲む", pos: "動詞", reading: "ノム", basic_form: "飲む" }),
+    ];
+    const ex: BuildExercise = {
+      mode: "build",
+      key: "vocab-dictation:水|みず",
+      track: "vocab",
+      skill: "oral",
+      id: "水|みず",
+      front: "Reconstitue la phrase entendue",
+      back: "水 を 飲む",
+      target: ["水", "を", "飲む"],
+      tokens,
+    };
+    await gradeExercise(ex, "good", new Date());
+    const v = await getVocab("水|みず");
+    expect(v?.cards.oral?.reps).toBe(1);
+    // Le token 飲む n'a PAS été noté individuellement (pas de per-token applyStatus).
+    expect(await getVocab("飲む|のむ")).toBeUndefined();
   });
 
   it("build/grammar : note la carte grammaire, pas le vocabulaire des tokens", async () => {

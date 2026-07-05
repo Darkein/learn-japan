@@ -1,0 +1,57 @@
+name: Build examples corpus
+
+# Génère le corpus statique de phrases d'exemple (app/src/data/inventory/examples.json)
+# via le Worker (kind vocab-examples, cache R2) puis committe le résultat sur la branche
+# de dispatch. Manuel uniquement : la génération consomme du quota Gemini côté Worker.
+# Prérequis : le Worker déployé doit connaître le kind vocab-examples (deploy-worker.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Nombre de mots (vide = tout l'inventaire)"
+        required: false
+        default: ""
+      refresh:
+        description: "Ignorer le cache R2 et régénérer"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# Un seul run à la fois : deux générations concurrentes pousseraient des commits en conflit.
+concurrency:
+  group: build-examples
+  cancel-in-progress: false
+
+jobs:
+  build-examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Générer le corpus
+        run: >-
+          npm run data:examples --
+          ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
+          ${{ inputs.refresh && '--refresh' || '' }}
+        env:
+          # Même variable de repo que deploy.yml ; le script retombe sur le Worker déployé si absente.
+          WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+      - name: Committer le corpus regénéré
+        run: |
+          if git diff --quiet app/src/data/inventory/examples.json; then
+            echo "Corpus inchangé — rien à committer."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/data/inventory/examples.json
+          git commit -m "data: régénération du corpus d'exemples (workflow build-examples)"
+          git push

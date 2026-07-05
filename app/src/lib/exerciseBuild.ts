@@ -6,18 +6,19 @@ import { toTiles, shuffleTiles } from "./builder";
 import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
 import { clozeSentence, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
 import type { ComprehensionQuestion } from "./genClient";
+import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import { normalizeReading } from "./kana";
+import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
+import { effectiveExample } from "./vocab";
 
-const PARTICLE_POOL = ["は", "が", "を", "に", "で", "へ", "と", "も", "から", "まで"];
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
 
 function particleChoices(answer: string): string[] {
-  const distractors = shuffle(PARTICLE_POOL.filter((p) => p !== answer)).slice(0, 3);
-  return shuffle([answer, ...distractors]);
+  return shuffle([answer, ...particleDistractors(answer)]);
 }
 
 /**
@@ -61,17 +62,52 @@ export function particleExercises(
 /**
  * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
  * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
- * entendu (exige `v.example`).
+ * entendu (exige un exemple).
+ * `produce` : variante production en contexte (carte `production`) — cloze ◯◯ sur la
+ * phrase d'exemple avec la traduction FR en indice ; sans exemple exploitable, retombe
+ * sur le rappel isolé FR → mot, toujours noté sur la compétence production.
  */
 export function vocabTypeExercise(
   v: VocabItem,
   due: number,
-  opts: { listen?: boolean } = {},
+  opts: { listen?: boolean; produce?: boolean } = {},
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
+  const example = effectiveExample(v);
   const answers = hasMeaning
     ? [normalizeReading(v.surface), normalizeReading(v.reading)]
     : [normalizeReading(v.reading)];
+  if (opts.produce) {
+    const hit = example?.ja.includes(v.surface)
+      ? v.surface
+      : example?.ja.includes(v.reading)
+        ? v.reading
+        : null;
+    const base = {
+      mode: "type" as const,
+      key: `vocab-produce:${v.id}`,
+      track: "vocab" as const,
+      skill: "production" as const,
+      id: v.id,
+      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+      due,
+      answers,
+    };
+    if (example?.ja && hit) {
+      return {
+        ...base,
+        front: example.ja.replace(hit, "◯◯"),
+        prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
+        context: example.ja,
+        ...(example.fr ? { contextFr: example.fr } : {}),
+      };
+    }
+    return {
+      ...base,
+      front: hasMeaning ? v.meaning : v.surface,
+      prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+    };
+  }
   if (opts.listen) {
     return {
       mode: "type",
@@ -79,12 +115,12 @@ export function vocabTypeExercise(
       track: "vocab",
       skill: "oral",
       id: v.id,
-      front: v.example?.ja ?? v.surface,
+      front: example?.ja ?? v.surface,
       back: `${v.surface}（${v.reading}）— ${v.meaning}`,
       due,
       audio: { word: v.surface },
-      context: v.example?.ja,
-      ...(v.example?.fr ? { contextFr: v.example.fr } : {}),
+      context: example?.ja,
+      ...(example?.fr ? { contextFr: example.fr } : {}),
       prompt: "Écoute et tape le mot souligné",
       answers,
     };
@@ -99,8 +135,80 @@ export function vocabTypeExercise(
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
     answers,
-    ...(v.example?.ja ? { context: v.example.ja } : {}),
-    ...(v.example?.fr ? { contextFr: v.example.fr } : {}),
+    ...(example?.ja ? { context: example.ja } : {}),
+    ...(example?.fr ? { contextFr: example.fr } : {}),
+  };
+}
+
+/** Bornes de la dictée : en dessous rien à reconstruire, au-dessus trop dur à retenir d'oreille. */
+const DICTATION_MIN_TILES = 2;
+const DICTATION_MAX_TILES = 8;
+
+/**
+ * Écoute → sens : la phrase d'exemple est jouée (texte masqué), l'utilisateur choisit le
+ * sens FR du mot cible parmi ceux d'autres mots en rotation. Null si le mot n'a pas de
+ * sens exploitable ou si le pool ne fournit pas 3 distracteurs.
+ */
+export function vocabListenMeaningExercise(
+  v: VocabItem,
+  due: number,
+  pool: VocabItem[],
+): ChoiceExercise | null {
+  if (!v.meaning || v.meaning === "—") return null;
+  const example = effectiveExample(v);
+  const meanings = [
+    ...new Set(
+      pool
+        .filter((p) => p.id !== v.id && p.meaning && p.meaning !== "—" && p.meaning !== v.meaning)
+        .map((p) => p.meaning),
+    ),
+  ];
+  const distractors = shuffle(meanings).slice(0, 3);
+  if (distractors.length < 3) return null;
+  const { choices, answerIndex } = shuffleWithAnswer(v.meaning, distractors);
+  return {
+    mode: "choice",
+    key: `vocab-listen-meaning:${v.id}`,
+    track: "vocab",
+    skill: "oral",
+    id: v.id,
+    front: "Quel mot as-tu entendu ?",
+    back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+    due,
+    audioOnly: true,
+    audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
+    context: example?.ja,
+    ...(example?.fr ? { contextFr: example.fr } : {}),
+    choices,
+    answerIndex,
+  };
+}
+
+/**
+ * Dictée : la phrase d'exemple est jouée (texte masqué), l'utilisateur la reconstruit
+ * par tuiles. Null sans exemple ou si la phrase est trop courte/longue pour l'oreille.
+ */
+export async function vocabDictationExercise(v: VocabItem, due: number): Promise<BuildExercise | null> {
+  const example = effectiveExample(v);
+  if (!example?.ja) return null;
+  const tokens = await tokenize(example.ja);
+  const target = toTiles(tokens);
+  if (target.length < DICTATION_MIN_TILES || target.length > DICTATION_MAX_TILES) return null;
+  return {
+    mode: "build",
+    key: `vocab-dictation:${v.id}`,
+    track: "vocab",
+    skill: "oral",
+    id: v.id,
+    front: "Reconstitue la phrase entendue",
+    back: target.join(" "),
+    due,
+    audioOnly: true,
+    audio: { sentence: example.ja },
+    context: example.ja,
+    ...(example.fr ? { contextFr: example.fr } : {}),
+    target,
+    tokens,
   };
 }
 
@@ -150,13 +258,30 @@ function shuffleWithAnswer(correct: string, distractors: string[]): { choices: s
   return { choices, answerIndex: choices.indexOf(correct) };
 }
 
-/** Règles d'autres points de grammaire (référentiel statique) → distracteurs sans LLM. */
+/** Parmi combien de points voisins (au sens du curriculum) tirer les distracteurs. */
+const RULE_NEIGHBORS = 8;
+
+/**
+ * Règles d'autres points de grammaire (référentiel statique) → distracteurs sans LLM.
+ * Priorité aux points introduits près du point cible dans le curriculum : des règles
+ * du même thème/moment d'apprentissage sont confondables, une règle sans rapport rend
+ * le QCM trivial par élimination.
+ */
 function ruleDistractors(excludeId: string, n = 3): string[] {
-  return shuffle(
-    allGrammarInv()
-      .filter((g) => g.id !== excludeId)
-      .map((g) => g.ruleFr),
-  ).slice(0, n);
+  const pool = allGrammarInv().filter((g) => g.id !== excludeId);
+  const order = grammarLessonOrder();
+  const target = order.get(excludeId);
+  const candidates =
+    target === undefined
+      ? pool
+      : [...pool]
+          .sort((a, b) => {
+            const da = order.has(a.id) ? Math.abs(order.get(a.id)! - target) : Infinity;
+            const db = order.has(b.id) ? Math.abs(order.get(b.id)! - target) : Infinity;
+            return da - db;
+          })
+          .slice(0, RULE_NEIGHBORS);
+  return shuffle(candidates.map((g) => g.ruleFr)).slice(0, n);
 }
 
 /**

@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { isCorrectOrder, shuffleTiles, type Tile } from "../../lib/builder";
+import { isAcceptableOrder } from "../../lib/buildOrders";
 import type { BuildExercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
+import { GradeButtons } from "./GradeButtons";
 import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
@@ -16,9 +18,11 @@ interface Props {
  * note est différée au choix Bien/Facile (réponse correcte) ou Continuer (ratée) — comme
  * TypeInput — au lieu de toujours noter "good" : voir le commentaire de ChoiceInput.
  */
+type BuildResult = "exact" | "alt" | "wrong";
+
 export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
   const [placed, setPlaced] = useState<Tile[]>([]);
-  const [checked, setChecked] = useState<boolean | null>(null);
+  const [checked, setChecked] = useState<BuildResult | null>(null);
   const shuffled = useMemo(() => shuffleTiles(ex.target), [ex]);
 
   const placedKeys = new Set(placed.map((t) => t.key));
@@ -31,8 +35,10 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
     setPlaced((p) => p.filter((t) => t.key !== tile.key));
   }
   function checkBuild() {
-    const ok = isCorrectOrder(placed.map((t) => t.tile), ex.target);
-    setChecked(ok);
+    const tiles = placed.map((t) => t.tile);
+    if (isCorrectOrder(tiles, ex.target)) setChecked("exact");
+    else if (isAcceptableOrder(tiles, ex.tokens)) setChecked("alt");
+    else setChecked("wrong");
   }
 
   return (
@@ -67,32 +73,16 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
         <Button variant="primary" onClick={checkBuild} disabled={placed.length === 0}>
           Vérifier
         </Button>
-      ) : checked ? (
+      ) : checked !== "wrong" ? (
         <>
           <div className="text-sm text-accent-2">✓ Correct</div>
+          {checked === "alt" && (
+            <div className="text-sm text-muted">
+              Autre ordre valide — ordre du texte : <span className="font-jp">{ex.target.join(" ")}</span>
+            </div>
+          )}
           <SentenceFeedback tokens={ex.tokens} />
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button
-              variant="ghost"
-              className="grow basis-24"
-              onClick={() => {
-                onGraded("good");
-                onNext();
-              }}
-            >
-              Bien
-            </Button>
-            <Button
-              variant="ghost"
-              className="grow basis-24"
-              onClick={() => {
-                onGraded("easy");
-                onNext();
-              }}
-            >
-              Facile
-            </Button>
-          </div>
+          <GradeButtons onGraded={onGraded} onNext={onNext} />
         </>
       ) : (
         <>

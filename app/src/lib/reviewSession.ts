@@ -22,12 +22,17 @@ import { gradeExercise, type Exercise } from "./exercise";
 import {
   comprehensionReviewExercise,
   grammarReviewExercise,
+  vocabDictationExercise,
+  vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
+import { synthesizeText } from "./ttsClient";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
-import { isDue, newCard, State, type SrsGrade } from "./srs";
+import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
+import { leechIds as leechIdsFromReviews } from "./stats";
+import { effectiveExample } from "./vocab";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
@@ -38,16 +43,7 @@ export interface SessionOpts {
 
 async function leechIds(): Promise<Set<string>> {
   const db = await getDB();
-  const reviews = await db.getAll("reviews");
-  const lapses = new Map<string, number>();
-  for (const r of reviews) {
-    if (r.grade === "again") lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
-  }
-  const ids = new Set<string>();
-  for (const [id, count] of lapses) {
-    if (count >= SRS.leechLapses) ids.add(id);
-  }
-  return ids;
+  return leechIdsFromReviews(await db.getAll("reviews"));
 }
 
 export interface SessionStats {
@@ -67,8 +63,9 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
     else newCount++;
-    // Compétence écoute : carte dédiée, planifiée indépendamment.
+    // Compétences écoute et production : cartes dédiées, planifiées indépendamment.
     if (v.cards.oral && isDue(v.cards.oral, horizon)) dueCount++;
+    if (v.cards.production && isDue(v.cards.production, horizon)) dueCount++;
   }
   for (const g of grammar) {
     if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
@@ -154,6 +151,36 @@ function drillVerbPool(vocab: VocabItem[]): DrillVerb[] {
     .map((v) => ({ surface: v.surface, reading: v.reading, meaning: v.meaning }));
 }
 
+export type OralVariant = "type" | "meaning" | "dictation";
+
+/**
+ * Variante d'écoute pour une carte orale : rotation déterministe sur le nombre de
+ * révisions déjà faites (dictée d'abord type, puis QCM de sens, puis dictée complète).
+ */
+export function pickOralVariant(card: Card): OralVariant {
+  const variants: OralVariant[] = ["type", "meaning", "dictation"];
+  return variants[card.reps % variants.length];
+}
+
+/**
+ * Exercice d'écoute d'une carte orale due : la variante choisie retombe sur la dictée
+ * de mot (type) si elle n'est pas constructible (pas de sens exploitable, pas assez de
+ * distracteurs, phrase trop longue pour l'oreille…).
+ */
+async function oralExercise(v: VocabItem, card: Card, pool: VocabItem[]): Promise<Exercise> {
+  const due = card.due.getTime();
+  const variant = pickOralVariant(card);
+  if (variant === "meaning") {
+    const ex = vocabListenMeaningExercise(v, due, pool);
+    if (ex) return ex;
+  } else if (variant === "dictation") {
+    // Tokenisation ratée (dictionnaire kuromoji indisponible…) → repli, pas d'échec de session.
+    const ex = await vocabDictationExercise(v, due).catch(() => null);
+    if (ex) return ex;
+  }
+  return vocabTypeExercise(v, due, { listen: true });
+}
+
 /**
  * Exercice de révision d'un point de grammaire : drill de conjugaison (production sur un
  * verbe du pool) quand le point est une forme couverte, sinon QCM/reconstruction.
@@ -198,14 +225,24 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   // un mot n'est plus noté deux fois sur la même carte dans une session. Les cartes
   // écoute DUES passent d'abord ; puis on amorce l'écoute de quelques mots déjà
   // stabilisés à l'écrit (état Review) qui ont une phrase d'exemple.
-  const LISTEN_MAX = 5;
-  const LISTEN_SEEDS = 2;
   let listenCount = 0;
   for (const v of vocabAll) {
-    if (listenCount >= LISTEN_MAX) break;
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && v.example?.ja) {
-      due.push(vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true }));
+    if (listenCount >= SRS.listenMax) break;
+    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
+      due.push(await oralExercise(v, v.cards.oral, vocabAll));
       listenCount++;
+    }
+  }
+
+  // Production en contexte — carte dédiée (`cards.production`), même logique que l'écoute :
+  // les cartes dues d'abord, plafonnées par session.
+  let prodCount = 0;
+  for (const v of vocabAll) {
+    if (prodCount >= SRS.prodMax) break;
+    const c = v.cards.production;
+    if (c && isDue(c, horizon)) {
+      due.push(vocabTypeExercise(v, c.due.getTime(), { produce: true }));
+      prodCount++;
     }
   }
 
@@ -218,14 +255,40 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
 
   let listenSeeds = 0;
   for (const v of vocabAll) {
-    if (room <= 0 || listenCount >= LISTEN_MAX || listenSeeds >= LISTEN_SEEDS) break;
-    if (!v.cards.oral && v.example?.ja && v.cards.written?.state === State.Review) {
+    if (room <= 0 || listenCount >= SRS.listenMax || listenSeeds >= SRS.listenSeeds) break;
+    const example = effectiveExample(v);
+    if (!v.cards.oral && example?.ja && v.cards.written?.state === State.Review) {
       const card = newCard(now);
       v.cards.oral = card;
       await putVocab(v);
       out.push(vocabTypeExercise(v, card.due.getTime(), { listen: true }));
+      // Amorçage = on est en session (plausiblement en ligne) : pré-chauffe le cache TTS
+      // de la phrase pour que les prochaines écoutes marchent aussi hors-ligne.
+      if (typeof window !== "undefined") synthesizeText(example.ja, "ja").catch(() => {});
       listenCount++;
       listenSeeds++;
+      room--;
+    }
+  }
+
+  // Amorçage production : mots STABLES à l'écrit (Review + intervalle de déblocage, plus
+  // exigeant que l'amorçage écoute) avec une phrase d'exemple. Le gate d'intervalle
+  // décale la production derrière l'écoute — pas deux nouvelles cartes le même jour.
+  let prodSeeds = 0;
+  for (const v of vocabAll) {
+    if (room <= 0 || prodCount >= SRS.prodMax || prodSeeds >= SRS.prodSeeds) break;
+    if (
+      !v.cards.production &&
+      effectiveExample(v)?.ja &&
+      v.cards.written?.state === State.Review &&
+      v.cards.written.scheduled_days >= SRS.unlockIntervalDays
+    ) {
+      const card = newCard(now);
+      v.cards.production = card;
+      await putVocab(v);
+      out.push(vocabTypeExercise(v, card.due.getTime(), { produce: true }));
+      prodCount++;
+      prodSeeds++;
       room--;
     }
   }

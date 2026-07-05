@@ -26,6 +26,7 @@ import {
 } from "./useHashRoute";
 import { Settings } from "./Settings";
 import { SettingsPanel } from "./SettingsPanel";
+import { Stats } from "./Stats";
 import { ReviewSession } from "./ReviewSession";
 import { SettingsProvider, useSettings } from "./useSettings";
 import { stopSentence } from "../lib/tts";
@@ -237,6 +238,15 @@ function AppShell() {
       </div>
     );
   }
+  if (route.kind === "stats") {
+    return (
+      <div className={SHELL} style={subpagePadding}>
+        <ReaderPage title="Statistiques" onBack={back}>
+          <Stats />
+        </ReaderPage>
+      </div>
+    );
+  }
   // Sous-page demandée mais données pas encore résolues (rechargement direct) : on évite
   // d'afficher brièvement le shell à onglets en attendant getStory/getLesson.
   if (route.kind === "reader" || route.kind === "course") {
@@ -283,6 +293,7 @@ function AppShell() {
             onOpenCourse={openCourse}
             onStartReview={startReview}
             onGoCatalogue={() => navigate("/catalogue")}
+            onGoStats={() => navigate(`/stats?from=${encodeURIComponent(currentLocation())}`)}
           />
         )}
         {tab === "stories" && <Stories onOpen={openStory} />}

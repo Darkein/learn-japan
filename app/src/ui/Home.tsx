@@ -16,6 +16,7 @@ interface Props {
   onOpenCourse: (lesson: Lesson) => void;
   onStartReview: () => void;
   onGoCatalogue: () => void;
+  onGoStats: () => void;
 }
 
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
@@ -38,7 +39,7 @@ function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal
   };
 }
 
-export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }: Props) {
+export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, onGoStats }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
@@ -147,12 +148,20 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue }
         </p>
       )}
 
-      <button
-        className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
-        onClick={onGoCatalogue}
-      >
-        Voir tout le parcours →
-      </button>
+      <div className="flex flex-wrap gap-6">
+        <button
+          className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
+          onClick={onGoCatalogue}
+        >
+          Voir tout le parcours →
+        </button>
+        <button
+          className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
+          onClick={onGoStats}
+        >
+          Statistiques →
+        </button>
+      </div>
     </div>
   );
 }

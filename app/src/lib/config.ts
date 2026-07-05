@@ -36,4 +36,10 @@ export const SRS = {
   unlockIntervalDays: 4,
   unlockMastery: 0.8,
   leechLapses: 4,
+  /** Exercices d'écoute max par session (cartes dues), et amorces de nouvelles cartes écoute. */
+  listenMax: 5,
+  listenSeeds: 2,
+  /** Idem pour la production en contexte (cloze FR→JA sur la phrase d'exemple). */
+  prodMax: 4,
+  prodSeeds: 2,
 } as const;

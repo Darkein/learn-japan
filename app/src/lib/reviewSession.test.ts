@@ -1,11 +1,29 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession } from "./reviewSession";
+import { gradeCard, buildSession, pickOralVariant } from "./reviewSession";
+import type { KuromojiToken } from "./tokenizer";
+
+// kuromoji ne tourne pas en node : chaque caractère devient un token 名詞 (suffit pour
+// tester les bornes de la dictée — nombre de tuiles = longueur de la phrase).
+vi.mock("./tokenizer", () => ({
+  tokenize: vi.fn(async (text: string): Promise<KuromojiToken[]> =>
+    [...text.replace(/[。、]/g, "")].map((ch) => ({
+      surface_form: ch,
+      pos: "名詞",
+      pos_detail_1: "*",
+      pos_detail_2: "*",
+      pos_detail_3: "*",
+      conjugated_type: "*",
+      conjugated_form: "*",
+      basic_form: ch,
+    })),
+  ),
+}));
 
 const TODAY = "2026-06-30";
 const NOW = new Date(`${TODAY}T08:00:00`);
@@ -330,6 +348,80 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     expect(session.find((c) => c.key === "vocab-listen:犬|いぬ")).toBeUndefined();
   });
 
+  it("rotation des variantes d'écoute selon le nombre de révisions de la carte", () => {
+    const base = newCard(new Date("2020-01-01"));
+    expect(pickOralVariant({ ...base, reps: 0 })).toBe("type");
+    expect(pickOralVariant({ ...base, reps: 1 })).toBe("meaning");
+    expect(pickOralVariant({ ...base, reps: 2 })).toBe("dictation");
+    expect(pickOralVariant({ ...base, reps: 3 })).toBe("type");
+  });
+
+  it("variante sens : QCM audio-only quand le pool fournit 3 distracteurs", async () => {
+    for (let i = 0; i < 3; i++) {
+      await putVocab({
+        id: `pool|${i}`,
+        surface: `pool${i}`,
+        reading: `pool${i}`,
+        meaning: `sens${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: stableCard(10) },
+      });
+    }
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 1 } },
+      example: { ja: "水を飲む。" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    const listen = session.find((c) => c.key === "vocab-listen-meaning:水|みず");
+    expect(listen).toBeDefined();
+    expect(listen!.audioOnly).toBe(true);
+    expect(listen!.skill).toBe("oral");
+    if (listen!.mode !== "choice") throw new Error("expected choice exercise");
+    expect(listen!.choices).toContain("eau");
+    expect(listen!.choices).toHaveLength(4);
+  });
+
+  it("variante dictée : reconstruction audio-only pour une phrase courte", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 2 } },
+      example: { ja: "水を飲む。" }, // 4 tuiles avec le tokenizer simulé
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    const dictation = session.find((c) => c.key === "vocab-dictation:水|みず");
+    expect(dictation).toBeDefined();
+    expect(dictation!.mode).toBe("build");
+    expect(dictation!.audioOnly).toBe(true);
+  });
+
+  it("variante dictée retombe sur la saisie quand la phrase est trop longue", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 2 } },
+      example: { ja: "とてもながいぶんしょうをきいてかきとるのはむずかしい。" },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.find((c) => c.key === "vocab-dictation:水|みず")).toBeUndefined();
+    expect(session.find((c) => c.key === "vocab-listen:水|みず")).toBeDefined();
+  });
+
   it("noter un exercice d'écoute met à jour cards.oral, pas cards.written", async () => {
     const written = stableCard(10);
     await putVocab({
@@ -347,6 +439,79 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     await gradeCard(listen, "good", NOW);
     const item = await getVocab("水|みず");
     expect(item!.cards.oral!.due.getTime()).toBeGreaterThan(NOW.getTime());
+    expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
+  });
+});
+
+describe("compétence production (cards.production, cloze en contexte)", () => {
+  function vocabProd(id: string, cards: VocabCards, example = true) {
+    const [surface, reading] = id.split("|");
+    return putVocab({
+      id,
+      surface,
+      reading,
+      meaning: `sens-${surface}`,
+      tags: [],
+      status: "review",
+      cards,
+      ...(example ? { example: { ja: `${surface}がある。`, fr: `Il y a ${surface}.` } } : {}),
+    });
+  }
+  type VocabCards = Parameters<typeof putVocab>[0]["cards"];
+
+  it("carte production due → exercice cloze, plafonné à prodMax", async () => {
+    for (let i = 0; i < SRS.prodMax + 2; i++) {
+      await vocabProd(`prod${i}|prod${i}`, {
+        written: stableCard(10),
+        production: newCard(new Date("2020-01-01")),
+      });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
+    expect(prods.length).toBe(SRS.prodMax);
+    expect(prods[0].skill).toBe("production");
+  });
+
+  it("amorçage : écrit stable (Review + intervalle de déblocage) avec exemple, plafonné à prodSeeds", async () => {
+    for (let i = 0; i < SRS.prodSeeds + 1; i++) {
+      await vocabProd(`seed${i}|seed${i}`, { written: stableCard(10) });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
+    expect(prods.length).toBe(SRS.prodSeeds);
+    const seeded = await getVocab("seed0|seed0");
+    expect(seeded?.cards.production).toBeDefined();
+  });
+
+  it("pas d'amorçage sous l'intervalle de déblocage, ni sans exemple", async () => {
+    const fresh = { ...stableCard(10), scheduled_days: SRS.unlockIntervalDays - 1 };
+    await vocabProd("jeune|jeune", { written: fresh });
+    await vocabProd("nu|nu", { written: stableCard(10) }, false);
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.some((c) => c.key.startsWith("vocab-produce:"))).toBe(false);
+    expect((await getVocab("jeune|jeune"))?.cards.production).toBeUndefined();
+    expect((await getVocab("nu|nu"))?.cards.production).toBeUndefined();
+  });
+
+  it("sessionStats compte les cartes production dues", async () => {
+    await vocabProd("水|みず", {
+      written: stableCard(10),
+      oral: stableCard(10),
+      production: newCard(new Date("2020-01-01")),
+    });
+    const { sessionStats } = await import("./reviewSession");
+    const stats = await sessionStats(NOW);
+    expect(stats.dueCount).toBe(1);
+  });
+
+  it("noter une production met à jour cards.production uniquement", async () => {
+    const written = stableCard(10);
+    await vocabProd("本|ほん", { written, production: newCard(new Date("2020-01-01")) });
+    const session = await buildSession(NOW, { scope: "due" });
+    const prod = session.find((c) => c.key === "vocab-produce:本|ほん")!;
+    await gradeCard(prod, "good", NOW);
+    const item = await getVocab("本|ほん");
+    expect(item!.cards.production!.reps).toBe(1);
     expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
   });
 });
