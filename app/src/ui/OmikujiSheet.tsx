@@ -48,9 +48,7 @@ export function OmikujiSheet({ onClose }: Props) {
 
       {!rec && (
         <div className="flex flex-col items-center gap-4 py-4 text-center">
-          <PaperSlip>
-            <span className="font-jp text-2xl text-muted">御神籤</span>
-          </PaperSlip>
+          <PaperSlip text="御神籤" className="font-jp text-lg text-muted" />
           <p className="m-0 max-w-sm text-sm text-muted">
             Tire ta fortune au temple : une bandelette, un défi surprise pour aujourd'hui.
           </p>
@@ -62,9 +60,7 @@ export function OmikujiSheet({ onClose }: Props) {
 
       {rec && fortune && (
         <div className={`flex flex-col items-center gap-4 py-4 text-center ${drawn ? "animate-rise" : ""}`}>
-          <PaperSlip>
-            <span className="font-jp text-3xl text-text">{fortune.kanji}</span>
-          </PaperSlip>
+          <PaperSlip text={fortune.kanji} className="font-jp text-2xl text-text" />
           <div className="flex flex-col gap-1">
             <SectionLabel>{fortune.fr}</SectionLabel>
             {challenge && (
@@ -84,14 +80,15 @@ export function OmikujiSheet({ onClose }: Props) {
   );
 }
 
-/** La bandelette de papier : verticale, filets, écriture de haut en bas. */
-function PaperSlip({ children }: { children: React.ReactNode }) {
+/** La bandelette de papier : verticale, filets, caractères empilés de haut en bas. */
+function PaperSlip({ text, className }: { text: string; className: string }) {
   return (
-    <div
-      className="flex min-h-36 w-16 items-center justify-center border border-hairline-strong bg-bg px-2 py-4 shadow-elev"
-      style={{ writingMode: "vertical-rl" }}
-    >
-      {children}
+    <div className="flex min-h-36 w-16 flex-col items-center justify-center gap-1 border border-hairline-strong bg-bg px-2 py-4 shadow-elev">
+      {[...text].map((ch, i) => (
+        <span key={i} className={`leading-none ${className}`}>
+          {ch}
+        </span>
+      ))}
     </div>
   );
 }

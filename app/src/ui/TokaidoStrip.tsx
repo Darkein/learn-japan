@@ -25,7 +25,9 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
       aria-label="Voir le voyage sur le Tōkaidō"
     >
       <div className="flex items-baseline justify-between gap-4">
-        <SectionLabel>Tōkaidō · étape {pos.station.index}/{TOKAIDO.length - 1}</SectionLabel>
+        <SectionLabel className="shrink-0 whitespace-nowrap">
+          Tōkaidō · étape {pos.station.index}/{TOKAIDO.length - 1}
+        </SectionLabel>
         <span className="truncate text-xs text-muted">
           <span className="font-jp text-text">{pos.station.kanji}</span> {pos.station.romaji}
           {pos.next && (
