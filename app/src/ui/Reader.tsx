@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
+import { recordEncounters, type ReEncounter } from "../lib/encounters";
 import type { ItemStatus } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
@@ -53,6 +54,7 @@ export function Reader({ incoming }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
+  const [reEncounters, setReEncounters] = useState<ReEncounter[]>([]);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [exoOpen, setExoOpen] = useState(false);
   const [transOpen, setTransOpen] = useState(false);
@@ -87,6 +89,7 @@ export function Reader({ incoming }: Props) {
       setResult(analyzed);
       const ids = analyzed.tokens.filter((x) => isContent(x.token)).map((x) => itemIdFor(x.token));
       setStatuses(await statusesFor(ids));
+      setReEncounters(await recordEncounters(incoming.id, ids));
     } catch (e) {
       setError(
         "Tokenizer indisponible — vérifie que le dictionnaire kuromoji est servi sous /dict/. " +
@@ -197,6 +200,14 @@ export function Reader({ incoming }: Props) {
               {transOpen ? "Masquer la traduction" : "Traduction française"}
             </Button>
           </div>
+
+          {reEncounters.length > 0 && (
+            <p className="text-sm text-muted">
+              Tu as recroisé{" "}
+              <strong className="font-medium text-text">{reEncounters.length}</strong> mot
+              {reEncounters.length > 1 ? "s" : ""} que tu connais.
+            </p>
+          )}
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
 
