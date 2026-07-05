@@ -62,18 +62,52 @@ export function particleExercises(
 /**
  * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
  * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
- * entendu (exige `v.example`).
+ * entendu (exige un exemple).
+ * `produce` : variante production en contexte (carte `production`) — cloze ◯◯ sur la
+ * phrase d'exemple avec la traduction FR en indice ; sans exemple exploitable, retombe
+ * sur le rappel isolé FR → mot, toujours noté sur la compétence production.
  */
 export function vocabTypeExercise(
   v: VocabItem,
   due: number,
-  opts: { listen?: boolean } = {},
+  opts: { listen?: boolean; produce?: boolean } = {},
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
   const example = effectiveExample(v);
   const answers = hasMeaning
     ? [normalizeReading(v.surface), normalizeReading(v.reading)]
     : [normalizeReading(v.reading)];
+  if (opts.produce) {
+    const hit = example?.ja.includes(v.surface)
+      ? v.surface
+      : example?.ja.includes(v.reading)
+        ? v.reading
+        : null;
+    const base = {
+      mode: "type" as const,
+      key: `vocab-produce:${v.id}`,
+      track: "vocab" as const,
+      skill: "production" as const,
+      id: v.id,
+      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+      due,
+      answers,
+    };
+    if (example?.ja && hit) {
+      return {
+        ...base,
+        front: example.ja.replace(hit, "◯◯"),
+        prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
+        context: example.ja,
+        ...(example.fr ? { contextFr: example.fr } : {}),
+      };
+    }
+    return {
+      ...base,
+      front: hasMeaning ? v.meaning : v.surface,
+      prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+    };
+  }
   if (opts.listen) {
     return {
       mode: "type",

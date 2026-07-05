@@ -86,6 +86,34 @@ describe("gradeExercise", () => {
     expect(v?.cards.written?.reps).toBe(1);
   });
 
+  it("type/vocab skill production : note cards.production, sans toucher written ni status", async () => {
+    const written = newCard(new Date("2020-01-01"));
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "known",
+      cards: { written, production: newCard(new Date("2020-01-01")) },
+    });
+    const ex: TypeExercise = {
+      mode: "type",
+      key: "vocab-produce:猫|ねこ",
+      track: "vocab",
+      skill: "production",
+      id: "猫|ねこ",
+      front: "◯◯が走る。",
+      back: "猫（ねこ）— chat",
+      answers: ["猫", "ねこ"],
+    };
+    await gradeExercise(ex, "good", new Date());
+    const v = await getVocab("猫|ねこ");
+    expect(v?.cards.production?.reps).toBe(1);
+    expect(v?.cards.written?.reps).toBe(0);
+    expect(v?.status).toBe("known");
+  });
+
   it("choice/grammar : crée l'item s'il n'existe pas (particule), avec seedName/seedRule", async () => {
     const ex: ChoiceExercise = {
       mode: "choice",

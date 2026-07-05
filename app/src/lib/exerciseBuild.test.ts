@@ -205,6 +205,36 @@ describe("vocabListenMeaningExercise", () => {
   });
 });
 
+describe("vocabTypeExercise — production en contexte (produce)", () => {
+  function vocab(example?: { ja: string; fr?: string }) {
+    return {
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review" as const,
+      cards: {},
+      example,
+    };
+  }
+
+  it("cloze ◯◯ sur la phrase d'exemple, indice FR, notée sur la compétence production", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
+    expect(ex.skill).toBe("production");
+    expect(ex.front).toBe("◯◯が走る。");
+    expect(ex.prompt).toContain("Le chat court.");
+    expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
+  });
+
+  it("sans exemple exploitable : rappel isolé FR → mot, toujours en production", () => {
+    const ex = vocabTypeExercise(vocab(), 0, { produce: true });
+    expect(ex.skill).toBe("production");
+    expect(ex.front).toBe("chat");
+    expect(ex.key).toBe("vocab-produce:猫|ねこ");
+  });
+});
+
 describe("vocabTypeExercise — contextFr", () => {
   function vocab(example?: { ja: string; fr?: string }) {
     return {

@@ -63,8 +63,9 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
     else newCount++;
-    // Compétence écoute : carte dédiée, planifiée indépendamment.
+    // Compétences écoute et production : cartes dédiées, planifiées indépendamment.
     if (v.cards.oral && isDue(v.cards.oral, horizon)) dueCount++;
+    if (v.cards.production && isDue(v.cards.production, horizon)) dueCount++;
   }
   for (const g of grammar) {
     if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
@@ -233,6 +234,18 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     }
   }
 
+  // Production en contexte — carte dédiée (`cards.production`), même logique que l'écoute :
+  // les cartes dues d'abord, plafonnées par session.
+  let prodCount = 0;
+  for (const v of vocabAll) {
+    if (prodCount >= SRS.prodMax) break;
+    const c = v.cards.production;
+    if (c && isDue(c, horizon)) {
+      due.push(vocabTypeExercise(v, c.due.getTime(), { produce: true }));
+      prodCount++;
+    }
+  }
+
   // Plafond de session : items dus triés par urgence, coupés à `sessionCap`. Le reste
   // attendra la session suivante — mieux qu'une session-fleuve après quelques jours
   // d'absence. Les amorces (écoute) et les nouveautés ne prennent que la place restante.
@@ -254,6 +267,28 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       if (typeof window !== "undefined") synthesizeText(example.ja, "ja").catch(() => {});
       listenCount++;
       listenSeeds++;
+      room--;
+    }
+  }
+
+  // Amorçage production : mots STABLES à l'écrit (Review + intervalle de déblocage, plus
+  // exigeant que l'amorçage écoute) avec une phrase d'exemple. Le gate d'intervalle
+  // décale la production derrière l'écoute — pas deux nouvelles cartes le même jour.
+  let prodSeeds = 0;
+  for (const v of vocabAll) {
+    if (room <= 0 || prodCount >= SRS.prodMax || prodSeeds >= SRS.prodSeeds) break;
+    if (
+      !v.cards.production &&
+      effectiveExample(v)?.ja &&
+      v.cards.written?.state === State.Review &&
+      v.cards.written.scheduled_days >= SRS.unlockIntervalDays
+    ) {
+      const card = newCard(now);
+      v.cards.production = card;
+      await putVocab(v);
+      out.push(vocabTypeExercise(v, card.due.getTime(), { produce: true }));
+      prodCount++;
+      prodSeeds++;
       room--;
     }
   }

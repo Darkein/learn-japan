@@ -442,3 +442,76 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
   });
 });
+
+describe("compétence production (cards.production, cloze en contexte)", () => {
+  function vocabProd(id: string, cards: VocabCards, example = true) {
+    const [surface, reading] = id.split("|");
+    return putVocab({
+      id,
+      surface,
+      reading,
+      meaning: `sens-${surface}`,
+      tags: [],
+      status: "review",
+      cards,
+      ...(example ? { example: { ja: `${surface}がある。`, fr: `Il y a ${surface}.` } } : {}),
+    });
+  }
+  type VocabCards = Parameters<typeof putVocab>[0]["cards"];
+
+  it("carte production due → exercice cloze, plafonné à prodMax", async () => {
+    for (let i = 0; i < SRS.prodMax + 2; i++) {
+      await vocabProd(`prod${i}|prod${i}`, {
+        written: stableCard(10),
+        production: newCard(new Date("2020-01-01")),
+      });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
+    expect(prods.length).toBe(SRS.prodMax);
+    expect(prods[0].skill).toBe("production");
+  });
+
+  it("amorçage : écrit stable (Review + intervalle de déblocage) avec exemple, plafonné à prodSeeds", async () => {
+    for (let i = 0; i < SRS.prodSeeds + 1; i++) {
+      await vocabProd(`seed${i}|seed${i}`, { written: stableCard(10) });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
+    expect(prods.length).toBe(SRS.prodSeeds);
+    const seeded = await getVocab("seed0|seed0");
+    expect(seeded?.cards.production).toBeDefined();
+  });
+
+  it("pas d'amorçage sous l'intervalle de déblocage, ni sans exemple", async () => {
+    const fresh = { ...stableCard(10), scheduled_days: SRS.unlockIntervalDays - 1 };
+    await vocabProd("jeune|jeune", { written: fresh });
+    await vocabProd("nu|nu", { written: stableCard(10) }, false);
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.some((c) => c.key.startsWith("vocab-produce:"))).toBe(false);
+    expect((await getVocab("jeune|jeune"))?.cards.production).toBeUndefined();
+    expect((await getVocab("nu|nu"))?.cards.production).toBeUndefined();
+  });
+
+  it("sessionStats compte les cartes production dues", async () => {
+    await vocabProd("水|みず", {
+      written: stableCard(10),
+      oral: stableCard(10),
+      production: newCard(new Date("2020-01-01")),
+    });
+    const { sessionStats } = await import("./reviewSession");
+    const stats = await sessionStats(NOW);
+    expect(stats.dueCount).toBe(1);
+  });
+
+  it("noter une production met à jour cards.production uniquement", async () => {
+    const written = stableCard(10);
+    await vocabProd("本|ほん", { written, production: newCard(new Date("2020-01-01")) });
+    const session = await buildSession(NOW, { scope: "due" });
+    const prod = session.find((c) => c.key === "vocab-produce:本|ほん")!;
+    await gradeCard(prod, "good", NOW);
+    const item = await getVocab("本|ほん");
+    expect(item!.cards.production!.reps).toBe(1);
+    expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
+  });
+});
