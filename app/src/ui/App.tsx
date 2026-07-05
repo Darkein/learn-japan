@@ -27,6 +27,7 @@ import {
 import { Settings } from "./Settings";
 import { SettingsPanel } from "./SettingsPanel";
 import { Stats } from "./Stats";
+import { Voyage } from "./Voyage";
 import { ReviewSession } from "./ReviewSession";
 import { SettingsProvider, useSettings } from "./useSettings";
 import { stopSentence } from "../lib/tts";
@@ -247,6 +248,15 @@ function AppShell() {
       </div>
     );
   }
+  if (route.kind === "voyage") {
+    return (
+      <div className={SHELL} style={subpagePadding}>
+        <ReaderPage title="Voyage sur le Tōkaidō" onBack={back}>
+          <Voyage />
+        </ReaderPage>
+      </div>
+    );
+  }
   // Sous-page demandée mais données pas encore résolues (rechargement direct) : on évite
   // d'afficher brièvement le shell à onglets en attendant getStory/getLesson.
   if (route.kind === "reader" || route.kind === "course") {
@@ -294,6 +304,7 @@ function AppShell() {
             onStartReview={startReview}
             onGoCatalogue={() => navigate("/catalogue")}
             onGoStats={() => navigate(`/stats?from=${encodeURIComponent(currentLocation())}`)}
+            onGoVoyage={() => navigate(`/voyage?from=${encodeURIComponent(currentLocation())}`)}
           />
         )}
         {tab === "stories" && <Stories onOpen={openStory} />}

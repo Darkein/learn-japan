@@ -55,6 +55,7 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 | `--hairline` | `rgba(232,226,212,0.14)` | filets décoratifs / séparateurs |
 | `--hairline-strong` | `rgba(232,226,212,0.32)` | bordures **interactives** (boutons, inputs) |
 | `--elev` | `0 1px 0 rgba(0,0,0,.25), 0 2px 10px rgba(0,0,0,.28)` | ombre d'élévation des panneaux |
+| `--ink` | `rgba(232,226,212,0.55)` | trait d'illustration SVG (route Tōkaidō, torii) — jamais pour du texte |
 
 ### Couleur — Light (washi)
 | Token | Valeur | Usage |
@@ -70,6 +71,7 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 | `--hairline` | `rgba(26,24,21,0.16)` | filets |
 | `--hairline-strong` | `rgba(26,24,21,0.34)` | bordures interactives |
 | `--elev` | `0 1px 2px rgba(26,24,21,.05), 0 3px 10px rgba(26,24,21,.07)` | élévation panneaux |
+| `--ink` | `rgba(26,24,21,0.6)` | trait d'illustration SVG (route Tōkaidō, torii) |
 
 ### États de révision (jamais fluo — teintes douces)
 | Token | Dark | Light | Sens |

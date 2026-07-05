@@ -3,7 +3,10 @@ import type { StoryRecord } from "../lib/db";
 import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
+import { markStationCelebrated, tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
 import { LessonList } from "./LessonList";
+import { StationArrival } from "./StationArrival";
+import { TokaidoStrip } from "./TokaidoStrip";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { ProgressBar } from "./kit/ProgressBar";
@@ -17,6 +20,7 @@ interface Props {
   onStartReview: () => void;
   onGoCatalogue: () => void;
   onGoStats: () => void;
+  onGoVoyage: () => void;
 }
 
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
@@ -39,10 +43,11 @@ function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal
   };
 }
 
-export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, onGoStats }: Props) {
+export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
+  const [tokaido, setTokaido] = useState<TokaidoStatus | null>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
@@ -54,6 +59,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, 
     ]);
     setLessons(ls);
     setDailyData(buildDailyStats(stats, daily, settings.dailyGoal));
+    setTokaido(await tokaidoStatus(ls));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
   }
@@ -74,11 +80,27 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, 
   const next = lessons.find((l) => !l.startedAt && !l.completedAt);
   const todo = [...inProgress, ...(next ? [next] : [])];
 
+  async function closeArrival(stationIndex: number) {
+    await markStationCelebrated(stationIndex);
+    setTokaido((t) => (t ? { ...t, newlyArrived: undefined } : t));
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header>
         <h2 className="font-serif text-xl">Aujourd'hui</h2>
       </header>
+
+      {tokaido && (tokaido.pos.position > 0 || (dailyData && dailyData.reviewed > 0)) && (
+        <TokaidoStrip pos={tokaido.pos} onOpen={onGoVoyage} />
+      )}
+
+      {tokaido?.newlyArrived && (
+        <StationArrival
+          station={tokaido.newlyArrived}
+          onClose={() => void closeArrival(tokaido.newlyArrived!.index)}
+        />
+      )}
 
       {dailyData && (dailyData.reviewed > 0 || dailyData.dueCount > 0) && (
         <section className="flex flex-col gap-3">
