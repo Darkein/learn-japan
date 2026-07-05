@@ -1,7 +1,15 @@
+import { useState } from "react";
+import { ensurePeriodicSync } from "../lib/reminders";
 import { useSettings, THEMES, STORY_RATES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { SectionLabel } from "./kit/SectionLabel";
+
+const REMINDER_HOURS: { value: number; label: string }[] = [
+  { value: 9, label: "Matin" },
+  { value: 13, label: "Midi" },
+  { value: 19, label: "Soir" },
+];
 
 interface Props {
   /** Mode compact du tiroir latéral : masque la section Révision (réglages avancés)
@@ -13,6 +21,24 @@ interface Props {
  * mêmes libellés et mêmes sections partout, une seule source. */
 export function SettingsSections({ quick }: Props) {
   const { settings, update } = useSettings();
+  const [reminderError, setReminderError] = useState<string | null>(null);
+
+  async function toggleReminders(enabled: boolean) {
+    setReminderError(null);
+    if (enabled) {
+      if (typeof Notification === "undefined") {
+        setReminderError("Les notifications ne sont pas disponibles dans ce navigateur.");
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        setReminderError("Autorisation refusée par le navigateur — rappels impossibles.");
+        return;
+      }
+    }
+    update({ reminders: { ...settings.reminders, enabled } });
+    void ensurePeriodicSync(enabled);
+  }
 
   return (
     <div className={`flex flex-col ${quick ? "gap-6" : "gap-8"}`}>
@@ -76,6 +102,33 @@ export function SettingsSections({ quick }: Props) {
               value={settings.warmupRomaji}
               onChange={(v) => update({ warmupRomaji: v })}
             />
+          </div>
+        </section>
+      )}
+
+      {!quick && (
+        <section>
+          <SectionLabel as="h3" className="mb-3">Rappels</SectionLabel>
+          <div className="flex flex-col gap-3">
+            <Toggle
+              label="Me rappeler mes révisions"
+              value={settings.reminders.enabled}
+              onChange={(v) => void toggleReminders(v)}
+            />
+            {reminderError && <p className="m-0 text-sm text-accent">{reminderError}</p>}
+            {settings.reminders.enabled && (
+              <SegmentedControl
+                options={REMINDER_HOURS}
+                value={settings.reminders.hour}
+                onChange={(v) => update({ reminders: { ...settings.reminders, hour: v } })}
+                ariaLabel="Heure du rappel"
+              />
+            )}
+            <p className="m-0 text-xs leading-relaxed text-muted">
+              Notification locale quand des révisions t'attendent, au mieux des capacités du
+              navigateur (app installée sur Android recommandée). Aucune donnée ne quitte
+              l'appareil.
+            </p>
           </div>
         </section>
       )}

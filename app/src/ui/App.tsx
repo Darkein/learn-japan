@@ -30,6 +30,7 @@ import { Stats } from "./Stats";
 import { Voyage } from "./Voyage";
 import { ReviewSession } from "./ReviewSession";
 import { SettingsProvider, useSettings } from "./useSettings";
+import { initReminders, updateBadge } from "../lib/reminders";
 import { stopSentence } from "../lib/tts";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
@@ -91,8 +92,14 @@ export function App() {
 
 function AppShell() {
   const route = useHashRoute();
-  const { openPanel } = useSettings();
+  const { openPanel, settings } = useSettings();
   const podcast = usePodcastPlayer();
+
+  // Rappels : badge d'icône, periodic sync et notification « à l'ouverture ».
+  useEffect(
+    () => initReminders(settings.reminders),
+    [settings.reminders],
+  );
   // La nav du bas n'a de sens qu'en mobile (pouce) ; sur grand écran on garde des onglets
   // en haut, comme le reste des vues (splits Catalogue/LessonList au même seuil).
   const wide = useMediaQuery("(min-width: 60rem)");
@@ -173,6 +180,8 @@ function AppShell() {
   function back() {
     const from = "from" in route ? route.from : "/";
     setRefreshKey((n) => n + 1);
+    // Retour d'une session (révision, flux…) : le compte de cartes dues a pu changer.
+    void updateBadge();
     navigate(from);
   }
 
