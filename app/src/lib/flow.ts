@@ -7,6 +7,7 @@
 // Tout l'IO vit dans `gatherFlowState` (collecteur mince, non testé unitairement).
 
 import {
+  allStories,
   getMeta,
   getOmikuji,
   getSrsDaily,
@@ -14,6 +15,7 @@ import {
   type StoryRecord,
 } from "./db";
 import { listLessons, type Lesson } from "./lessons";
+import { currentMirrorCandidate } from "./mirror";
 import { sessionStats } from "./reviewSession";
 import { loadSettings } from "./settings";
 
@@ -153,17 +155,19 @@ export async function gatherFlowState(
   now: Date = new Date(),
 ): Promise<FlowGathered> {
   const today = localDateString(now);
-  const [lessons, stats, daily, omikujiRec] = await Promise.all([
+  const [lessons, stats, daily, omikujiRec, stories] = await Promise.all([
     listLessons(),
     sessionStats(now),
     getSrsDaily(today),
     getOmikuji(today),
+    allStories(),
   ]);
   const settings = loadSettings();
 
   const current = lessons.find((l) => l.startedAt && !l.completedAt);
   const unread = current ? await firstUnreadStory(current.stories) : undefined;
   const next = lessons.find((l) => !l.startedAt && !l.completedAt && !l.locked);
+  const mirror = await currentMirrorCandidate(stories, now);
 
   const state: FlowState = {
     dueCount: stats.dueCount,
@@ -180,8 +184,9 @@ export async function gatherFlowState(
         }
       : undefined,
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,
-    // Relecture-miroir : branchée en phase F (lib/mirror.ts).
-    mirrorCandidate: undefined,
+    mirrorCandidate: mirror
+      ? { storyId: mirror.storyId, title: mirror.title, ageDays: mirror.ageDays }
+      : undefined,
     omikuji: { drawnToday: !!omikujiRec, completedToday: !!omikujiRec?.completedAt },
     lastActivity,
   };

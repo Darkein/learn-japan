@@ -3,7 +3,9 @@ import { getSrsDaily, getStory, localDateString } from "../lib/db";
 import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
 import { getLesson, markLessonStarted, type Lesson } from "../lib/lessons";
+import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
 import { markStationCelebrated, tokaidoStatus } from "../lib/tokaido";
+import { MirrorDeltaView } from "./MirrorDelta";
 import type { TokaidoStation } from "../data/tokaido";
 import { formatMinutes } from "../lib/time";
 import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
@@ -25,6 +27,8 @@ type Phase =
 
 interface Props {
   onExit: () => void;
+  /** Activité imposée à l'entrée (ex. "miroir" depuis la carte de l'accueil). */
+  forced?: string;
 }
 
 /**
@@ -32,7 +36,7 @@ interface Props {
  * avec un checkpoint entre chaque bloc (récap + une suggestion + sortie). ReviewSession et
  * Reader sont embarqués tels quels — l'orchestration vit au-dessus.
  */
-export function FlowSession({ onExit }: Props) {
+export function FlowSession({ onExit, forced }: Props) {
   const { settings } = useSettings();
   const flowMs = useFlowClock();
   const [phase, setPhase] = useState<Phase>({ name: "loading" });
@@ -44,22 +48,44 @@ export function FlowSession({ onExit }: Props) {
     void (async () => {
       const { state } = await gatherFlowState();
       reviewedAtBlockStart.current = state.reviewedToday;
-      const first = pickNext(state);
+      // Entrée forcée depuis une carte de l'accueil (ex. relecture-miroir).
+      const first =
+        forced === "miroir" && state.mirrorCandidate
+          ? {
+              kind: "mirror" as const,
+              refId: state.mirrorCandidate.storyId,
+              title: `Relecture-miroir — ${state.mirrorCandidate.title}`,
+              reason: "",
+            }
+          : pickNext(state);
       setPhase(
         first.kind === "done"
           ? { name: "checkpoint", result: null, next: first }
           : { name: "activity", activity: first },
       );
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function toCheckpoint(finished: FlowActivity) {
     setPhase({ name: "loading" });
+    // Après une relecture-miroir : calcule le delta (à l'époque / aujourd'hui) et
+    // déclenche le refroidissement de 14 jours AVANT de re-collecter l'état.
+    let mirrorExtra: FlowBlockResult["extra"];
+    if (finished.kind === "mirror" && finished.refId) {
+      const story = await getStory(finished.refId);
+      if (story) {
+        const delta = await runMirrorDelta(story);
+        mirrorExtra = <MirrorDeltaView delta={delta} storyCreatedAt={story.createdAt} />;
+      }
+      await markMirrorDone();
+    }
     // Le défi omikuji peut venir d'être accompli par ce bloc : on l'évalue AVANT le
     // Tōkaidō pour que le bonus éventuel soit crédité dans la position lue juste après.
     const omikuji = await checkOmikuji();
     const { state, lessons } = await gatherFlowState(finished.kind);
     const recap = await recapFor(finished, reviewedAtBlockStart.current, omikuji?.completedNow ?? false);
+    if (mirrorExtra) recap.extra = mirrorExtra;
     // Une arrivée de station se fête au checkpoint (la progression vient d'être créditée).
     const tokaido = await tokaidoStatus(lessons);
     if (tokaido.newlyArrived) setArrival(tokaido.newlyArrived);

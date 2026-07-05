@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
 import { markStationCelebrated, tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
-import { formatMinutes } from "../lib/time";
+import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
 import { OmikujiCard } from "./OmikujiCard";
 import { StationArrival } from "./StationArrival";
@@ -21,6 +22,7 @@ interface Props {
   onOpenCourse: (lesson: Lesson) => void;
   onStartReview: () => void;
   onStartFlow: () => void;
+  onStartMirror: () => void;
   onGoCatalogue: () => void;
   onGoStats: () => void;
   onGoVoyage: () => void;
@@ -47,23 +49,26 @@ function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal
   };
 }
 
-export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
+export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, onStartMirror, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
   const [tokaido, setTokaido] = useState<TokaidoStatus | null>(null);
+  const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
   async function refresh() {
-    const [ls, stats, daily] = await Promise.all([
+    const [ls, stats, daily, stories] = await Promise.all([
       listLessons(),
       sessionStats(),
       recentSrsDaily(30), // 30 jours : ne plafonne pas la série affichée à 7
+      allStories(),
     ]);
     setLessons(ls);
     setDailyData(buildDailyStats(stats, daily, settings.dailyGoal));
     setTokaido(await tokaidoStatus(ls));
+    setMirror(await currentMirrorCandidate(stories));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
   }
@@ -151,6 +156,21 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
       )}
 
       <OmikujiCard />
+
+      {mirror && (
+        <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
+          <div className="flex flex-col">
+            <SectionLabel>Relecture-miroir</SectionLabel>
+            <span className="text-sm text-muted">
+              Relis « <span className="text-text">{mirror.title}</span> », écrite{" "}
+              {formatDaysAgo(mirror.createdAt)} — mesure le chemin parcouru.
+            </span>
+          </div>
+          <Button className="shrink-0" onClick={onStartMirror}>
+            Relire
+          </Button>
+        </div>
+      )}
 
       {unlockedLesson && (
         <Card accentFlag className="flex items-start justify-between gap-4">

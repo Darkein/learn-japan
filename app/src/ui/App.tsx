@@ -237,7 +237,7 @@ function AppShell() {
   if (route.kind === "flow") {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <FlowSession onExit={back} />
+        <FlowSession onExit={back} forced={route.activite} />
       </div>
     );
   }
@@ -287,6 +287,9 @@ function AppShell() {
             onOpenCourse={openCourse}
             onStartReview={startReview}
             onStartFlow={() => navigate(`/flux?from=${encodeURIComponent(currentLocation())}`)}
+            onStartMirror={() =>
+              navigate(`/flux?activite=miroir&from=${encodeURIComponent(currentLocation())}`)
+            }
             onGoCatalogue={() => navigate("/catalogue")}
             onGoStats={() => navigate(`/stats?from=${encodeURIComponent(currentLocation())}`)}
             onGoVoyage={() => navigate(`/voyage?from=${encodeURIComponent(currentLocation())}`)}
