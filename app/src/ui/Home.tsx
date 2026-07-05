@@ -4,6 +4,7 @@ import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db"
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
 import { markStationCelebrated, tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
+import { formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
 import { StationArrival } from "./StationArrival";
 import { TokaidoStrip } from "./TokaidoStrip";
@@ -18,6 +19,7 @@ interface Props {
   onOpenStory: (story: StoryRecord) => void;
   onOpenCourse: (lesson: Lesson) => void;
   onStartReview: () => void;
+  onStartFlow: () => void;
   onGoCatalogue: () => void;
   onGoStats: () => void;
   onGoVoyage: () => void;
@@ -40,10 +42,11 @@ function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal
     goal: dailyGoal,
     streak,
     dueCount: stats.dueCount,
+    flowMs: today.flowMs ?? 0,
   };
 }
 
-export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
+export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
@@ -115,22 +118,30 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, 
             )}
           </div>
           <ProgressBar value={(dailyData.reviewed / dailyData.goal) * 100} />
+          {dailyData.flowMs > 0 && (
+            <span className="text-xs text-muted">
+              {formatMinutes(dailyData.flowMs)} d'étude aujourd'hui
+            </span>
+          )}
           {dailyData.dueCount > 0 && (() => {
             const goalMet = dailyData.reviewed >= dailyData.goal;
             return (
               <Card accentFlag className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
-                  <SectionLabel>{goalMet ? "Renforcement" : "Révision"}</SectionLabel>
+                  <SectionLabel>{goalMet ? "Renforcement" : "Flux d'étude"}</SectionLabel>
                   <span className="font-serif text-lg text-text">
                     {dailyData.dueCount} élément{dailyData.dueCount > 1 ? "s" : ""}{" "}
-                    {goalMet ? "à consolider" : "à réviser"}
+                    {goalMet ? "à consolider" : "à réviser — puis la suite s'enchaîne"}
                   </span>
-                  {goalMet && (
-                    <span className="text-xs text-muted">En plus de ton objectif du jour atteint ✓</span>
-                  )}
+                  <button
+                    className="cursor-pointer self-start p-0 text-xs text-muted transition-colors hover:text-accent"
+                    onClick={onStartReview}
+                  >
+                    Seulement les révisions →
+                  </button>
                 </div>
-                <Button variant="primary" className="whitespace-nowrap" onClick={onStartReview}>
-                  {goalMet ? "Continuer" : "Réviser maintenant"}
+                <Button variant="primary" className="whitespace-nowrap" onClick={onStartFlow}>
+                  {goalMet ? "Continuer" : "Commencer"}
                 </Button>
               </Card>
             );

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
 import { enrollStory } from "../lib/enroll";
-import { getCurriculumEntry } from "../lib/curriculum";
 import { getLesson, type Lesson } from "../lib/lessons";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { Button } from "./kit/Button";
@@ -13,7 +12,7 @@ import { Home } from "./Home";
 import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
-import { Reader, type IncomingStory } from "./Reader";
+import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { useMediaQuery } from "./useMediaQuery";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
@@ -26,6 +25,7 @@ import {
 } from "./useHashRoute";
 import { Settings } from "./Settings";
 import { SettingsPanel } from "./SettingsPanel";
+import { FlowSession } from "./FlowSession";
 import { Stats } from "./Stats";
 import { Voyage } from "./Voyage";
 import { ReviewSession } from "./ReviewSession";
@@ -55,30 +55,6 @@ const TABS: { id: Tab; label: string; path: string }[] = [
   { id: "catalogue", label: "Catalogue", path: "/catalogue" },
 ];
 
-
-// Construit le contexte de lecture à partir d'une histoire enregistrée. Si l'histoire est
-// rattachée à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
-function buildIncoming(story: StoryRecord): IncomingStory {
-  const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
-  return {
-    id: story.id,
-    title: story.titleFr ?? story.title,
-    text: story.text,
-    params: story.params,
-    nonce: Date.now(),
-    lessonContext: entry
-      ? {
-          lessonId: entry.id,
-          title: entry.title,
-          level: entry.level,
-          objectives: entry.objectives,
-          grammarIds: entry.introduces.grammar,
-        }
-      : story.lessonId
-        ? { lessonId: story.lessonId }
-        : undefined,
-  };
-}
 
 export function App() {
   // Coupe une prononciation ponctuelle (mot/phrase en révision ou lecture) quand l'app
@@ -150,7 +126,7 @@ function AppShell() {
       if (reader?.id !== route.id) {
         getStory(route.id).then((story) => {
           if (cancelled) return;
-          if (story) setReader({ id: story.id, incoming: buildIncoming(story) });
+          if (story) setReader({ id: story.id, incoming: incomingFromStory(story) });
           else navigate("/"); // histoire introuvable (purge) → retour accueil
         });
       }
@@ -180,7 +156,7 @@ function AppShell() {
   // rechargement, et on pré-remplit l'état pour éviter un flash de chargement.
   function openStory(story: StoryRecord) {
     void enrollStory(story);
-    setReader({ id: story.id, incoming: buildIncoming(story) });
+    setReader({ id: story.id, incoming: incomingFromStory(story) });
     navigate(`/lecture/${encodeURIComponent(story.id)}?from=${encodeURIComponent(currentLocation())}`);
   }
 
@@ -257,6 +233,14 @@ function AppShell() {
       </div>
     );
   }
+  // Le flux porte son propre en-tête (durée + « Terminer ») : pas de ReaderPage.
+  if (route.kind === "flow") {
+    return (
+      <div className={SHELL} style={subpagePadding}>
+        <FlowSession onExit={back} />
+      </div>
+    );
+  }
   // Sous-page demandée mais données pas encore résolues (rechargement direct) : on évite
   // d'afficher brièvement le shell à onglets en attendant getStory/getLesson.
   if (route.kind === "reader" || route.kind === "course") {
@@ -302,6 +286,7 @@ function AppShell() {
             onOpenStory={openStory}
             onOpenCourse={openCourse}
             onStartReview={startReview}
+            onStartFlow={() => navigate(`/flux?from=${encodeURIComponent(currentLocation())}`)}
             onGoCatalogue={() => navigate("/catalogue")}
             onGoStats={() => navigate(`/stats?from=${encodeURIComponent(currentLocation())}`)}
             onGoVoyage={() => navigate(`/voyage?from=${encodeURIComponent(currentLocation())}`)}

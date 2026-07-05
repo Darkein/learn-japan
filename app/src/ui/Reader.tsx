@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import { recordEncounters, type ReEncounter } from "../lib/encounters";
-import type { ItemStatus } from "../lib/db";
+import type { ItemStatus, StoryRecord } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
-import type { LessonObjectives } from "../lib/curriculum";
+import { getCurriculumEntry, type LessonObjectives } from "../lib/curriculum";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
@@ -35,6 +35,31 @@ export interface IncomingStory {
   params: StoryParams;
   nonce: number;
   lessonContext?: LessonContext;
+}
+
+// Construit le contexte de lecture à partir d'une histoire enregistrée. Si l'histoire est
+// rattachée à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
+// Partagé entre le shell (ouverture d'une histoire) et le flux d'étude.
+export function incomingFromStory(story: StoryRecord): IncomingStory {
+  const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
+  return {
+    id: story.id,
+    title: story.titleFr ?? story.title,
+    text: story.text,
+    params: story.params,
+    nonce: Date.now(),
+    lessonContext: entry
+      ? {
+          lessonId: entry.id,
+          title: entry.title,
+          level: entry.level,
+          objectives: entry.objectives,
+          grammarIds: entry.introduces.grammar,
+        }
+      : story.lessonId
+        ? { lessonId: story.lessonId }
+        : undefined,
+  };
 }
 
 function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>): string {
