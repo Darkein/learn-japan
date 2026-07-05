@@ -182,9 +182,7 @@ export async function gatherFlowState(
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,
     // Relecture-miroir : branchée en phase F (lib/mirror.ts).
     mirrorCandidate: undefined,
-    // TODO(phase E) : drawnToday viendra du vrai tirage — forcé à true tant que
-    // l'activité omikuji n'a pas d'écran (sinon le moteur proposerait un bloc vide).
-    omikuji: { drawnToday: true, completedToday: !!omikujiRec?.completedAt },
+    omikuji: { drawnToday: !!omikujiRec, completedToday: !!omikujiRec?.completedAt },
     lastActivity,
   };
   return { state, lessons };

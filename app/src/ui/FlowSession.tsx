@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { getSrsDaily, getStory, localDateString } from "../lib/db";
 import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
+import { checkOmikuji } from "../lib/omikuji";
 import { getLesson, markLessonStarted, type Lesson } from "../lib/lessons";
 import { markStationCelebrated, tokaidoStatus } from "../lib/tokaido";
 import type { TokaidoStation } from "../data/tokaido";
 import { formatMinutes } from "../lib/time";
 import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
+import { OmikujiSheet } from "./OmikujiSheet";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { ReviewSession } from "./ReviewSession";
 import { StationArrival } from "./StationArrival";
@@ -53,8 +55,11 @@ export function FlowSession({ onExit }: Props) {
 
   async function toCheckpoint(finished: FlowActivity) {
     setPhase({ name: "loading" });
+    // Le défi omikuji peut venir d'être accompli par ce bloc : on l'évalue AVANT le
+    // Tōkaidō pour que le bonus éventuel soit crédité dans la position lue juste après.
+    const omikuji = await checkOmikuji();
     const { state, lessons } = await gatherFlowState(finished.kind);
-    const recap = await recapFor(finished, reviewedAtBlockStart.current);
+    const recap = await recapFor(finished, reviewedAtBlockStart.current, omikuji?.completedNow ?? false);
     // Une arrivée de station se fête au checkpoint (la progression vient d'être créditée).
     const tokaido = await tokaidoStatus(lessons);
     if (tokaido.newlyArrived) setArrival(tokaido.newlyArrived);
@@ -114,23 +119,31 @@ export function FlowSession({ onExit }: Props) {
   );
 }
 
-async function recapFor(activity: FlowActivity, reviewedBefore: number): Promise<FlowBlockResult> {
+async function recapFor(
+  activity: FlowActivity,
+  reviewedBefore: number,
+  omikujiDone: boolean,
+): Promise<FlowBlockResult> {
+  const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur le Tōkaidō." : "";
   if (activity.kind === "review" || activity.kind === "reinforce") {
     const daily = await getSrsDaily(localDateString());
     const delta = Math.max(0, (daily?.reviewed ?? 0) - reviewedBefore);
     return {
       kind: activity.kind,
       recap:
-        delta > 0
+        (delta > 0
           ? `${delta} révision${delta > 1 ? "s" : ""} faite${delta > 1 ? "s" : ""} — ${daily?.reviewed ?? 0} aujourd'hui.`
-          : "Bloc de révision terminé.",
+          : "Bloc de révision terminé.") + suffix,
     };
   }
   if (activity.kind === "read-story" || activity.kind === "mirror") {
-    return { kind: activity.kind, recap: "Histoire lue — chaque page recroise tes acquis." };
+    return { kind: activity.kind, recap: "Histoire lue — chaque page recroise tes acquis." + suffix };
   }
   if (activity.kind === "lesson") {
-    return { kind: activity.kind, recap: "Leçon découverte — ses mots arrivent en révision." };
+    return { kind: activity.kind, recap: "Leçon découverte — ses mots arrivent en révision." + suffix };
+  }
+  if (activity.kind === "omikuji") {
+    return { kind: activity.kind, recap: "Fortune tirée — le défi du jour est lancé." };
   }
   return { kind: activity.kind };
 }
@@ -155,7 +168,9 @@ function ActivityBlock({
   if (activity.kind === "lesson") {
     return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} />;
   }
-  // omikuji : branché en phase E (OmikujiSheet).
+  if (activity.kind === "omikuji") {
+    return <OmikujiSheet onClose={onDone} />;
+  }
   return null;
 }
 

@@ -6,6 +6,7 @@ import { sessionStats, type SessionStats } from "../lib/reviewSession";
 import { markStationCelebrated, tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
 import { formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
+import { OmikujiCard } from "./OmikujiCard";
 import { StationArrival } from "./StationArrival";
 import { TokaidoStrip } from "./TokaidoStrip";
 import { Button } from "./kit/Button";
@@ -148,6 +149,8 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
           })()}
         </section>
       )}
+
+      <OmikujiCard />
 
       {unlockedLesson && (
         <Card accentFlag className="flex items-start justify-between gap-4">
