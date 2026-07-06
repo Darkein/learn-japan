@@ -17,7 +17,7 @@ import { generateStoryTranslation } from "./genClient";
 import { isJaSentenceEnd } from "./kana";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
-import { applyStatus, isContent } from "./vocab";
+import { applyStatus, isContent, type StatusAction } from "./vocab";
 
 export type ExerciseTrack = "vocab" | "grammar" | "comprehension";
 
@@ -56,6 +56,9 @@ interface ExerciseBase {
   /** Nom/règle utilisés pour CRÉER l'item SRS s'il n'existe pas encore (sinon `front`/`back`). */
   seedName?: string;
   seedRule?: string;
+  /** Token source (exercices mono-mot dérivés d'une histoire : lecture/choix de kanji) —
+   *  la note passe par `applyStatus`, qui CRÉE l'item vocab s'il n'existe pas encore. */
+  token?: KuromojiToken;
 }
 
 export interface TypeExercise extends ExerciseBase {
@@ -87,12 +90,15 @@ export interface BuildExercise extends ExerciseBase {
 export type Exercise = TypeExercise | ChoiceExercise | BuildExercise;
 
 /**
- * Phrase contenant le trou d'un cloze : `before`/`after` peuvent couvrir l'article
- * ENTIER (quiz particules) — on tronque aux bornes de phrase (。！？．!? ou saut de
- * ligne) et on insère la réponse. Mêmes bornes que `splitJaSentences` → le résultat
- * `.trim()`-correspond à une phrase de la traduction alignée.
+ * Restreint un cloze à la SEULE phrase contenant le trou : `before`/`after` peuvent
+ * couvrir l'article entier (quiz particules) ; on coupe aux bornes de phrase (。！？．!?
+ * ou saut de ligne). Mêmes bornes que `splitJaSentences`. Sert à n'afficher que la phrase
+ * en cours (plus tout l'article) et à retrouver la traduction alignée.
  */
-export function clozeSentence(cloze: { before: string; after: string }, answer: string): string {
+export function clozeSentenceParts(cloze: { before: string; after: string }): {
+  before: string;
+  after: string;
+} {
   let start = 0;
   for (let i = 0; i < cloze.before.length; i++) {
     const ch = cloze.before[i];
@@ -110,7 +116,13 @@ export function clozeSentence(cloze: { before: string; after: string }, answer: 
       break;
     }
   }
-  return (cloze.before.slice(start) + answer + cloze.after.slice(0, end)).trim();
+  return { before: cloze.before.slice(start).replace(/^\s+/, ""), after: cloze.after.slice(0, end) };
+}
+
+/** Phrase (trou comblé) contenant le cloze, tronquée à ses bornes de phrase. */
+export function clozeSentence(cloze: { before: string; after: string }, answer: string): string {
+  const { before, after } = clozeSentenceParts(cloze);
+  return (before + answer + after).trim();
 }
 
 /**
@@ -132,6 +144,14 @@ export async function translateExampleFr(ja: string, ex: Exercise): Promise<stri
   return fr;
 }
 
+/** Note FSRS → action de statut vocab (pour les exercices notés via `applyStatus`). */
+const GRADE_TO_STATUS: Record<SrsGrade, StatusAction> = {
+  again: "forgot",
+  hard: "review",
+  good: "review",
+  easy: "known",
+};
+
 /** Note un exercice et replanifie via FSRS. Crée l'item SRS s'il n'existe pas encore. */
 export async function gradeExercise(
   ex: Exercise,
@@ -145,6 +165,14 @@ export async function gradeExercise(
     await Promise.all(
       ex.tokens.filter(isContent).map((t) => applyStatus(t, grade === "again" ? "forgot" : "review", now)),
     );
+    return;
+  }
+
+  // Exercice mono-mot dérivé d'une histoire (lecture d'un kanji, choix du kanji d'un mot
+  // FR) : reconnaissance ÉCRITE. On note via `applyStatus`, qui crée l'item vocab s'il
+  // n'existe pas encore — les mots d'histoire ne sont pas forcément déjà en base.
+  if (ex.track === "vocab" && ex.token && (ex.skill ?? "written") === "written") {
+    await applyStatus(ex.token, GRADE_TO_STATUS[grade], now);
     return;
   }
 

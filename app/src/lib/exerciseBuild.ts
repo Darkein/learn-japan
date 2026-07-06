@@ -4,16 +4,16 @@
 
 import { toTiles, shuffleTiles } from "./builder";
 import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
-import { clozeSentence, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
+import { clozeSentence, clozeSentenceParts, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
 import type { ComprehensionQuestion } from "./genClient";
 import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
-import { normalizeReading } from "./kana";
+import { hasKanji, normalizeReading } from "./kana";
 import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
-import { effectiveExample } from "./vocab";
+import { effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
 
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
 
@@ -37,7 +37,12 @@ export function particleExercises(
   tokens.forEach((t, i) => {
     if (t.pos === "助詞" && CORE_PARTICLES.has(t.surface_form)) {
       const choices = particleChoices(t.surface_form);
-      const cloze = { before: surfaces.slice(0, i).join(""), after: surfaces.slice(i + 1).join("") };
+      // On ne montre que la PHRASE contenant le trou, pas tout l'article : on borne
+      // `before`/`after` à ses limites de phrase.
+      const cloze = clozeSentenceParts({
+        before: surfaces.slice(0, i).join(""),
+        after: surfaces.slice(i + 1).join(""),
+      });
       const idx = translation ? translation.ja.indexOf(clozeSentence(cloze, t.surface_form)) : -1;
       out.push({
         mode: "choice",
@@ -56,6 +61,82 @@ export function particleExercises(
     }
   });
 
+  return shuffle(out).slice(0, max);
+}
+
+/**
+ * Lecture d'un kanji (rappel actif) : le mot est affiché en kanji, l'apprenant tape sa
+ * lecture en kana (furigana). Construit depuis les mots de contenu de l'histoire qui
+ * portent au moins un kanji ; dédupliqué par item, borné à `max`. La lecture vient de
+ * kuromoji (katakana → hiragana). Noté sur la compétence « écrite » (via `applyStatus`).
+ */
+export function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): TypeExercise[] {
+  const seen = new Set<string>();
+  const out: TypeExercise[] = [];
+  tokens.forEach((t, i) => {
+    if (!isContent(t) || !hasKanji(t.surface_form) || !t.reading) return;
+    const id = itemIdFor(t);
+    if (seen.has(id)) return;
+    seen.add(id);
+    const reading = normalizeReading(t.reading);
+    if (!reading) return;
+    const meaning = meaningFor(t);
+    const hint = meaning && meaning !== "—" ? ` — ${meaning}` : "";
+    out.push({
+      mode: "type",
+      key: `kanji-reading:${i}`,
+      track: "vocab",
+      skill: "written",
+      id,
+      token: t,
+      front: t.surface_form,
+      back: `${t.surface_form}（${reading}）${hint}`,
+      prompt: "Écris la lecture en kana (furigana)",
+      answers: [reading],
+    });
+  });
+  return shuffle(out).slice(0, max);
+}
+
+/**
+ * Choix du bon kanji pour un mot donné en français : la face avant montre le sens FR,
+ * l'apprenant choisit la graphie correcte parmi des mots-kanji de l'histoire. Ne se
+ * construit que s'il y a assez de noms-kanji distincts (≥ 4) pour fournir 3 distracteurs
+ * plausibles et de même niveau. Noté sur la compétence « écrite ».
+ */
+export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceExercise[] {
+  const pool: { token: KuromojiToken; surface: string; meaning: string; id: string }[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    if (t.pos !== "名詞" || t.pos_detail_1 === "非自立" || !hasKanji(t.surface_form)) continue;
+    const meaning = meaningFor(t);
+    if (!meaning || meaning === "—") continue;
+    const id = itemIdFor(t);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pool.push({ token: t, surface: t.surface_form, meaning, id });
+  }
+  if (pool.length < 4) return []; // pas assez de distracteurs plausibles
+  const out: ChoiceExercise[] = [];
+  pool.forEach((item, i) => {
+    const distractors = shuffle(
+      pool.filter((p) => p.surface !== item.surface).map((p) => p.surface),
+    ).slice(0, 3);
+    if (distractors.length < 3) return;
+    const { choices, answerIndex } = shuffleWithAnswer(item.surface, distractors);
+    out.push({
+      mode: "choice",
+      key: `kanji-choice:${i}`,
+      track: "vocab",
+      skill: "written",
+      id: item.id,
+      token: item.token,
+      front: `Quel mot s'écrit « ${item.meaning} » ?`,
+      back: `${item.surface}（${normalizeReading(item.token.reading ?? "")}）— ${item.meaning}`,
+      choices,
+      answerIndex,
+    });
+  });
   return shuffle(out).slice(0, max);
 }
 

@@ -1,6 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { analyze } from "../lib/analyze";
-import { comprehensionExercises, particleExercises, sentenceBuildExercises } from "../lib/exerciseBuild";
+import { loadContentDict } from "../lib/data";
+import {
+  comprehensionExercises,
+  kanjiChoiceExercises,
+  kanjiReadingExercises,
+  particleExercises,
+  sentenceBuildExercises,
+} from "../lib/exerciseBuild";
 import { daysBeforeGrade, gradeExercise, TRACK_FR, type Exercise } from "../lib/exercise";
 import type { GenState } from "../lib/genClient";
 import { splitJaSentences } from "../lib/kana";
@@ -70,6 +77,9 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
     setError(null);
     setGenState("queued");
     (async () => {
+      // Dico de contenu chargé d'abord : les exercices de kanji ont besoin des sens FR
+      // (meaningFor lit l'instantané synchrone). Idempotent et mis en cache après coup.
+      await loadContentDict();
       // Traduction alignée d'abord : partagée entre particules (contextFr de la phrase
       // du trou) et reconstruction de phrases — elle était déjà sur leur chemin critique.
       const compPromise = ensureComprehensionQuiz(
@@ -81,8 +91,10 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
       const { sentences: fr } = await ensureStoryTranslationById(storyId, text, level);
       const ja = splitJaSentences(text);
       const particles = particleExercises(tokens, 8, { ja, fr });
+      const kanjiRead = kanjiReadingExercises(tokens);
+      const kanjiChoice = kanjiChoiceExercises(tokens);
       const [comp, built] = await Promise.all([compPromise, buildSentenceExercises(ja, fr)]);
-      return shuffle([...particles, ...comp, ...built]);
+      return shuffle([...particles, ...comp, ...built, ...kanjiRead, ...kanjiChoice]);
     })()
       .then((mixed) => {
         if (cancelled) return;

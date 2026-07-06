@@ -4,12 +4,21 @@ import type { ComprehensionItem, GrammarItem } from "./db";
 import {
   comprehensionReviewExercise,
   grammarReviewExercise,
+  kanjiChoiceExercises,
+  kanjiReadingExercises,
   particleExercises,
   vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
+
+// meaningFor lit l'instantané du dico de contenu (vide en test) : on l'alimente pour les
+// exercices de choix de kanji, qui exigent un sens FR.
+vi.mock("./data", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./data")>()),
+  contentDictSnapshot: () => ({ 猫: "chat", 水: "eau", 本: "livre", 牛乳: "lait", 今日: "aujourd'hui" }),
+}));
 
 // Corpus d'exemples statique neutralisé : les tests qui veulent un exemple le passent
 // explicitement — le corpus réel (examples.json) évolue via le workflow build-examples.
@@ -153,6 +162,82 @@ describe("particleExercises", () => {
       expect(e.answerIndex).toBeGreaterThanOrEqual(0);
       expect(e.choices[e.answerIndex]).toBeDefined();
     }
+  });
+});
+
+describe("particleExercises — n'affiche que la phrase du trou", () => {
+  const tokens = [
+    tok({ surface_form: "鳥", pos: "名詞", reading: "トリ" }),
+    tok({ surface_form: "は", pos: "助詞" }),
+    tok({ surface_form: "いる", pos: "動詞", reading: "イル" }),
+    tok({ surface_form: "。", pos: "記号" }),
+    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+    tok({ surface_form: "が", pos: "助詞" }),
+    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+    tok({ surface_form: "を", pos: "助詞" }),
+    tok({ surface_form: "飲む", pos: "動詞", reading: "ノム" }),
+    tok({ surface_form: "。", pos: "記号" }),
+  ];
+
+  it("borne le cloze à la phrase courante (pas tout l'article)", () => {
+    const exs = particleExercises(tokens, 8);
+    const ga = exs.find((e) => e.choices[e.answerIndex] === "が" && e.cloze)!;
+    // Le trou de « 猫が水を飲む。 » ne doit PAS embarquer la phrase précédente (鳥はいる。).
+    expect(ga.cloze!.before).toBe("猫");
+    expect(ga.cloze!.after).toBe("水を飲む。");
+    expect(ga.cloze!.before).not.toContain("鳥");
+  });
+});
+
+describe("kanjiReadingExercises", () => {
+  const tokens = [
+    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+    tok({ surface_form: "が", pos: "助詞" }),
+    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+    tok({ surface_form: "を", pos: "助詞" }),
+    tok({ surface_form: "飲み", pos: "動詞", basic_form: "飲む", reading: "ノミ" }),
+    tok({ surface_form: "ます", pos: "助動詞" }),
+    tok({ surface_form: "ねこ", pos: "名詞", reading: "ネコ" }), // sans kanji → ignoré
+  ];
+
+  it("mot en kanji → saisie de la lecture en hiragana, noté sur la carte écrite", () => {
+    const exs = kanjiReadingExercises(tokens, 10);
+    const surfaces = exs.map((e) => e.front);
+    expect(surfaces).toContain("水");
+    expect(surfaces).not.toContain("ねこ"); // pas de kanji
+    expect(surfaces).not.toContain("が"); // particule, pas un mot de contenu
+    const mizu = exs.find((e) => e.front === "水")!;
+    expect(mizu.mode).toBe("type");
+    expect(mizu.skill).toBe("written");
+    expect(mizu.answers).toEqual(["みず"]);
+    expect(mizu.token).toBeDefined();
+  });
+});
+
+describe("kanjiChoiceExercises", () => {
+  it("sens FR → choix du bon kanji, avec 3 distracteurs (pool ≥ 4 mots-kanji)", () => {
+    const tokens = [
+      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+      tok({ surface_form: "本", pos: "名詞", reading: "ホン" }),
+      tok({ surface_form: "牛乳", pos: "名詞", reading: "ギュウニュウ" }),
+    ];
+    const exs = kanjiChoiceExercises(tokens, 10);
+    expect(exs.length).toBeGreaterThan(0);
+    const neko = exs.find((e) => e.id.startsWith("猫"))!;
+    expect(neko.front).toContain("chat");
+    expect(neko.choices).toHaveLength(4);
+    expect(neko.choices).toContain("猫");
+    expect(neko.choices[neko.answerIndex]).toBe("猫");
+    expect(new Set(neko.choices).size).toBe(4);
+  });
+
+  it("pool trop petit (< 4 mots-kanji distincts) → aucun exercice", () => {
+    const tokens = [
+      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+    ];
+    expect(kanjiChoiceExercises(tokens)).toEqual([]);
   });
 });
 
