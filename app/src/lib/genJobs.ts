@@ -122,7 +122,8 @@ async function run(job: GenJobRecord): Promise<void> {
 
     // Phase 1 — le cours (framing), puis on rend la leçon accessible immédiatement.
     if (job.withFraming) {
-      if (!lesson.framing) {
+      // Absent OU périmé (curriculum changé sous cet id) : ensureLessonFraming décide.
+      if (!lesson.framing || lesson.framingStale) {
         setPhase(job, "framing");
         await persist(job);
         await ensureLessonFraming(lesson);

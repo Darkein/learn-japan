@@ -94,7 +94,21 @@ npm run content:batch -- --refresh     # ignore le cache et régénère
 ```
 
 Le batch ne parle qu'au Worker (aucune clé en local). Cible par défaut l'URL déployée ;
-surchargeable via `WORKER_URL=https://…`.
+surchargeable via `WORKER_URL=https://…`. Le même batch se lance **depuis GitHub** sans
+rien installer : workflow manuel **Pregenerate lesson content** (onglet Actions —
+options niveau / limite / cours seuls / refresh).
+
+### Mettre à jour les leçons (changement de curriculum)
+
+1. **Merger** le changement de `curriculum.json` (mêmes ids de leçons = progression
+   locale conservée).
+2. **Lancer** le workflow *Pregenerate lesson content* avec **refresh** coché : les clés
+   R2 des cours/histoires de leçon sont par id (`gen/lesson/<id>.json`) — sans refresh,
+   l'ancien contenu serait resservi.
+3. Sur l'appareil, rien à faire : chaque cours généré porte une **empreinte des objectifs**
+   de sa leçon ; si le curriculum a changé, l'app régénère le cours à l'ouverture (avec
+   `refresh` côté Worker), en gardant l'ancien tant que la régénération n'a pas abouti.
+   Les histoires déjà générées restent lisibles telles quelles.
 
 ## Tout automatisé depuis GitHub — réglages uniques
 

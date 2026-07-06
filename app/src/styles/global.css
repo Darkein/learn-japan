@@ -61,6 +61,7 @@
   --color-hairline-strong: var(--hairline-strong);
   --color-state-unknown: var(--state-unknown);
   --color-state-review: var(--state-review);
+  --color-ink: var(--ink);
   --shadow-elev: var(--elev);
 }
 
@@ -120,9 +121,25 @@
   }
 }
 
+/* Révélation d'un trait d'encre (StationArrival) : le path se dessine (pathLength=1). */
+@keyframes ink-reveal {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.ink-reveal {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ink-reveal 320ms cubic-bezier(0.2, 0, 0.2, 1) 120ms forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
     animation: none !important;
+  }
+  /* Sans animation, le trait doit être visible d'emblée (pas resté « non dessiné »). */
+  .ink-reveal {
+    stroke-dashoffset: 0;
   }
 }

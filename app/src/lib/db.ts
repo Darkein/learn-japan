@@ -104,6 +104,13 @@ export interface GeneratedLessonRecord {
   /** Révision du curriculum pour laquelle ce cadrage a été généré (défaut 1). Un cadrage
    * d'une révision antérieure est ignoré à l'hydratation → régénération automatique. */
   rev?: number;
+  /**
+   * Empreinte des objectifs de la leçon au moment de la génération (voir
+   * objectivesHash, lib/lessons.ts). Si le curriculum change pour ce même id, le
+   * cours est considéré périmé et régénéré à l'ouverture. Absent = enregistrement
+   * antérieur à cette mécanique → traité comme périmé.
+   */
+  objectivesHash?: string;
 }
 
 /** Progression locale d'une leçon (commencée, terminée). */
@@ -114,11 +121,52 @@ export interface LessonProgressRecord {
   unlockedNotified?: boolean;
 }
 
-/** Compteurs journaliers SRS (nouveaux mots + révisions). */
+/** Compteurs journaliers SRS (nouveaux mots + révisions) et d'activité. */
 export interface SrsDailyRecord {
   date: string; // "YYYY-MM-DD"
   introduced: number;
   reviewed: number;
+  /** v12 — temps actif cumulé dans le flux d'étude (ms). Absent sur les anciens jours. */
+  flowMs?: number;
+  /** v12 — histoires ouvertes en lecture ce jour. Absent sur les anciens jours. */
+  storiesRead?: number;
+}
+
+/**
+ * Rencontre d'un mot DÉJÀ APPRIS dans une histoire lue (« retrouvailles », SPEC engagement).
+ * Un mot croisé dans une nouvelle histoire incrémente `count` — le vocabulaire devient un
+ * casting récurrent qu'on a plaisir à recroiser.
+ */
+export interface EncounterRecord {
+  id: string; // = VocabItem.id ("暗記|あんき")
+  count: number;
+  firstAt: number; // epoch ms
+  lastAt: number;
+  /** Dernière histoire comptée — anti-double-comptage à la réouverture. */
+  lastStoryId?: string;
+}
+
+/** Niveaux de fortune omikuji (décoratifs — n'influent sur rien). */
+export type OmikujiFortune = "daikichi" | "kichi" | "chukichi" | "shokichi" | "suekichi";
+
+/** Tirage omikuji du jour (un par date locale). */
+export interface OmikujiRecord {
+  date: string; // "YYYY-MM-DD" (localDateString)
+  challengeId: string; // id du catalogue lib/omikuji.ts
+  fortune: OmikujiFortune;
+  drawnAt: number;
+  completedAt?: number;
+  /** Instantané des compteurs au tirage — les détecteurs mesurent « depuis le tirage ». */
+  baseline: { reviewed: number; prodOk: number; oralOk: number; storiesRead: number };
+}
+
+/**
+ * Petit KV persistant pour les marqueurs d'engagement : tokaido.maxReached, tokaido.bonus,
+ * tokaido.lastCelebrated, mirror.lastAt, storyRead.<id>, reminders, reminder.lastShown…
+ */
+export interface MetaRecord {
+  key: string;
+  value: unknown;
 }
 
 /** Phase d'un job de génération : le cours (framing) puis l'histoire. */
@@ -172,10 +220,16 @@ interface LearnDB extends DBSchema {
   };
   /** Compteurs journaliers SRS (nouveaux mots + révisions). */
   srsDaily: { key: string; value: SrsDailyRecord };
+  /** Retrouvailles : compteur de rencontres par mot appris (v12). */
+  encounters: { key: string; value: EncounterRecord };
+  /** Tirage omikuji du jour, clé = date locale (v12). */
+  omikuji: { key: string; value: OmikujiRecord };
+  /** KV persistant pour les marqueurs d'engagement (v12). */
+  meta: { key: string; value: MetaRecord };
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -234,6 +288,16 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         // v11: le SRS kanji a été retiré de l'app → on purge le store orphelin.
         if (db.objectStoreNames.contains("kanji" as never)) {
           db.deleteObjectStore("kanji" as never);
+        }
+        // v12: engagement — retrouvailles, omikuji, méta persistante.
+        if (!db.objectStoreNames.contains("encounters")) {
+          db.createObjectStore("encounters", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("omikuji")) {
+          db.createObjectStore("omikuji", { keyPath: "date" });
+        }
+        if (!db.objectStoreNames.contains("meta")) {
+          db.createObjectStore("meta", { keyPath: "key" });
         }
       },
     });
@@ -380,13 +444,15 @@ async function putSrsDaily(rec: SrsDailyRecord): Promise<void> {
 }
 export async function bumpSrsDaily(
   date: string,
-  delta: { introduced?: number; reviewed?: number },
+  delta: { introduced?: number; reviewed?: number; flowMs?: number; storiesRead?: number },
 ): Promise<void> {
   const existing = (await getSrsDaily(date)) ?? { date, introduced: 0, reviewed: 0 };
   await putSrsDaily({
     ...existing,
     introduced: existing.introduced + (delta.introduced ?? 0),
     reviewed: existing.reviewed + (delta.reviewed ?? 0),
+    flowMs: (existing.flowMs ?? 0) + (delta.flowMs ?? 0),
+    storiesRead: (existing.storiesRead ?? 0) + (delta.storiesRead ?? 0),
   });
 }
 export async function recentSrsDaily(nDays: number): Promise<SrsDailyRecord[]> {
@@ -399,6 +465,34 @@ export async function recentSrsDaily(nDays: number): Promise<SrsDailyRecord[]> {
     result.push((await getSrsDaily(date)) ?? { date, introduced: 0, reviewed: 0 });
   }
   return result;
+}
+
+// Retrouvailles (rencontres de mots appris) ------------------------------------
+export async function getEncounter(id: string): Promise<EncounterRecord | undefined> {
+  return (await getDB()).get("encounters", id);
+}
+export async function putEncounter(rec: EncounterRecord): Promise<void> {
+  await (await getDB()).put("encounters", rec);
+}
+export async function allEncounters(): Promise<EncounterRecord[]> {
+  return (await getDB()).getAll("encounters");
+}
+
+// Omikuji ----------------------------------------------------------------------
+export async function getOmikuji(date: string): Promise<OmikujiRecord | undefined> {
+  return (await getDB()).get("omikuji", date);
+}
+export async function putOmikuji(rec: OmikujiRecord): Promise<void> {
+  await (await getDB()).put("omikuji", rec);
+}
+
+// Méta (KV persistant) ---------------------------------------------------------
+export async function getMeta<T>(key: string): Promise<T | undefined> {
+  const rec = await (await getDB()).get("meta", key);
+  return rec?.value as T | undefined;
+}
+export async function putMeta(key: string, value: unknown): Promise<void> {
+  await (await getDB()).put("meta", { key, value });
 }
 
 export function _resetDbForTests(): void {

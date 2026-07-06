@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
+import { markStationCelebrated, tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
+import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
+import { OmikujiCard } from "./OmikujiCard";
+import { StationArrival } from "./StationArrival";
+import { TokaidoStrip } from "./TokaidoStrip";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { ProgressBar } from "./kit/ProgressBar";
@@ -15,8 +21,11 @@ interface Props {
   onOpenStory: (story: StoryRecord) => void;
   onOpenCourse: (lesson: Lesson) => void;
   onStartReview: () => void;
+  onStartFlow: () => void;
+  onStartMirror: () => void;
   onGoCatalogue: () => void;
   onGoStats: () => void;
+  onGoVoyage: () => void;
 }
 
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
@@ -36,24 +45,30 @@ function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal
     goal: dailyGoal,
     streak,
     dueCount: stats.dueCount,
+    flowMs: today.flowMs ?? 0,
   };
 }
 
-export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, onGoStats }: Props) {
+export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, onStartMirror, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
+  const [tokaido, setTokaido] = useState<TokaidoStatus | null>(null);
+  const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
   async function refresh() {
-    const [ls, stats, daily] = await Promise.all([
+    const [ls, stats, daily, stories] = await Promise.all([
       listLessons(),
       sessionStats(),
       recentSrsDaily(30), // 30 jours : ne plafonne pas la série affichée à 7
+      allStories(),
     ]);
     setLessons(ls);
     setDailyData(buildDailyStats(stats, daily, settings.dailyGoal));
+    setTokaido(await tokaidoStatus(ls));
+    setMirror(await currentMirrorCandidate(stories));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
   }
@@ -74,11 +89,27 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, 
   const next = lessons.find((l) => !l.startedAt && !l.completedAt);
   const todo = [...inProgress, ...(next ? [next] : [])];
 
+  async function closeArrival(stationIndex: number) {
+    await markStationCelebrated(stationIndex);
+    setTokaido((t) => (t ? { ...t, newlyArrived: undefined } : t));
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header>
         <h2 className="font-serif text-xl">Aujourd'hui</h2>
       </header>
+
+      {tokaido && (tokaido.pos.position > 0 || (dailyData && dailyData.reviewed > 0)) && (
+        <TokaidoStrip pos={tokaido.pos} onOpen={onGoVoyage} />
+      )}
+
+      {tokaido?.newlyArrived && (
+        <StationArrival
+          station={tokaido.newlyArrived}
+          onClose={() => void closeArrival(tokaido.newlyArrived!.index)}
+        />
+      )}
 
       {dailyData && (dailyData.reviewed > 0 || dailyData.dueCount > 0) && (
         <section className="flex flex-col gap-3">
@@ -93,27 +124,52 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onGoCatalogue, 
             )}
           </div>
           <ProgressBar value={(dailyData.reviewed / dailyData.goal) * 100} />
+          {dailyData.flowMs > 0 && (
+            <span className="text-xs text-muted">
+              {formatMinutes(dailyData.flowMs)} d'étude aujourd'hui
+            </span>
+          )}
           {dailyData.dueCount > 0 && (() => {
             const goalMet = dailyData.reviewed >= dailyData.goal;
             return (
               <Card accentFlag className="flex items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
-                  <SectionLabel>{goalMet ? "Renforcement" : "Révision"}</SectionLabel>
+                  <SectionLabel>{goalMet ? "Renforcement" : "Flux d'étude"}</SectionLabel>
                   <span className="font-serif text-lg text-text">
                     {dailyData.dueCount} élément{dailyData.dueCount > 1 ? "s" : ""}{" "}
-                    {goalMet ? "à consolider" : "à réviser"}
+                    {goalMet ? "à consolider" : "à réviser — puis la suite s'enchaîne"}
                   </span>
-                  {goalMet && (
-                    <span className="text-xs text-muted">En plus de ton objectif du jour atteint ✓</span>
-                  )}
+                  <button
+                    className="cursor-pointer self-start p-0 text-xs text-muted transition-colors hover:text-accent"
+                    onClick={onStartReview}
+                  >
+                    Seulement les révisions →
+                  </button>
                 </div>
-                <Button variant="primary" className="whitespace-nowrap" onClick={onStartReview}>
-                  {goalMet ? "Continuer" : "Réviser maintenant"}
+                <Button variant="primary" className="whitespace-nowrap" onClick={onStartFlow}>
+                  {goalMet ? "Continuer" : "Commencer"}
                 </Button>
               </Card>
             );
           })()}
         </section>
+      )}
+
+      <OmikujiCard />
+
+      {mirror && (
+        <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
+          <div className="flex flex-col">
+            <SectionLabel>Relecture-miroir</SectionLabel>
+            <span className="text-sm text-muted">
+              Relis « <span className="text-text">{mirror.title}</span> », écrite{" "}
+              {formatDaysAgo(mirror.createdAt)} — mesure le chemin parcouru.
+            </span>
+          </div>
+          <Button className="shrink-0" onClick={onStartMirror}>
+            Relire
+          </Button>
+        </div>
       )}
 
       {unlockedLesson && (

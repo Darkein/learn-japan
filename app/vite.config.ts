@@ -59,21 +59,15 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      // Le dictionnaire kuromoji (~12 Mo) est volumineux : on l'EXCLUT du precache
-      // et on le sert via un runtime cache (chargé à la demande, puis offline).
-      workbox: {
+      // SW custom (src/sw.ts) : même precache/runtime-cache qu'avant (le dictionnaire
+      // kuromoji ~12 Mo reste hors precache, servi en CacheFirst) + rappels de révisions
+      // (periodic background sync → notification locale). Voir src/sw.ts.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,woff2}"],
         globIgnores: ["**/dict/**"],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.includes("/dict/"),
-            handler: "CacheFirst",
-            options: {
-              cacheName: "kuromoji-dict",
-              expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
-        ],
       },
       manifest: {
         name: "Learn Japan — lecteur de japonais",

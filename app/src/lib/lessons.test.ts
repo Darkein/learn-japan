@@ -28,12 +28,16 @@ beforeEach(() => {
 const {
   addLessonStory,
   computeMastery,
+  ensureLessonFraming,
+  getLesson,
   getUnlockedGrammarIds,
   listLessons,
   markUnlockNotified,
+  objectivesHash,
 } = await import("./lessons");
 const { getCurriculum, lessonsForGrammar } = await import("./curriculum");
 const genClient = await import("./genClient");
+const { getGeneratedLesson, putGeneratedLesson } = await import("./db");
 
 function masteredCard(): Card {
   return {
@@ -268,5 +272,83 @@ describe("getUnlockedGrammarIds", () => {
     if (onlyLocked.length === 0) return; // skip si la règle est partagée avec une leçon débloquée
     const ids = await getUnlockedGrammarIds();
     expect(ids).not.toContain(onlyLocked[0]);
+  });
+});
+
+describe("objectivesHash / invalidation du cours (framingStale)", () => {
+  it("empreinte stable pour les mêmes objectifs, différente si les objectifs changent", () => {
+    const entry = getCurriculum()[0];
+    expect(objectivesHash(entry)).toBe(objectivesHash(entry));
+    const modified = {
+      ...entry,
+      introduces: { ...entry.introduces, grammar: [...entry.introduces.grammar, "n5-nouveau"] },
+    };
+    expect(objectivesHash(modified)).not.toBe(objectivesHash(entry));
+    const renamed = { ...entry, title: "Autre titre" };
+    expect(objectivesHash(renamed)).not.toBe(objectivesHash(entry));
+  });
+
+  it("un cours sans empreinte (ancien enregistrement) est périmé ; avec la bonne empreinte, il est frais", async () => {
+    const entry = getCurriculum()[0];
+    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1, rev: entry.rev });
+    let lesson = await getLesson(entry.id);
+    expect(lesson?.framingStale).toBe(true);
+
+    await putGeneratedLesson({
+      id: entry.id,
+      framing: "cours à jour",
+      createdAt: 2,
+      rev: entry.rev,
+      objectivesHash: objectivesHash(entry),
+    });
+    lesson = await getLesson(entry.id);
+    expect(lesson?.framingStale).toBe(false);
+  });
+
+  it("ensureLessonFraming régénère un cours périmé avec refresh:true et persiste la nouvelle empreinte", async () => {
+    const entry = getCurriculum()[0];
+    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1, rev: entry.rev });
+    const lesson = (await getLesson(entry.id))!;
+    expect(lesson.framingStale).toBe(true);
+
+    vi.mocked(genClient.generateLesson).mockResolvedValueOnce("cours régénéré");
+    const framing = await ensureLessonFraming(lesson);
+
+    expect(framing).toBe("cours régénéré");
+    expect(genClient.generateLesson).toHaveBeenCalledWith(
+      expect.objectContaining({ lessonId: entry.id, refresh: true }),
+      undefined,
+    );
+    expect(lesson.framingStale).toBe(false);
+    const rec = await getGeneratedLesson(entry.id);
+    expect(rec?.framing).toBe("cours régénéré");
+    expect(rec?.objectivesHash).toBe(objectivesHash(entry));
+  });
+
+  it("ensureLessonFraming ne régénère PAS un cours frais", async () => {
+    const entry = getCurriculum()[0];
+    await putGeneratedLesson({
+      id: entry.id,
+      framing: "cours à jour",
+      createdAt: 2,
+      rev: entry.rev,
+      objectivesHash: objectivesHash(entry),
+    });
+    const lesson = (await getLesson(entry.id))!;
+    vi.mocked(genClient.generateLesson).mockClear();
+    const framing = await ensureLessonFraming(lesson);
+    expect(framing).toBe("cours à jour");
+    expect(genClient.generateLesson).not.toHaveBeenCalled();
+  });
+
+  it("échec de régénération : l'ancien cours est conservé", async () => {
+    const entry = getCurriculum()[0];
+    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1, rev: entry.rev });
+    const lesson = (await getLesson(entry.id))!;
+    vi.mocked(genClient.generateLesson).mockRejectedValueOnce(new Error("hors-ligne"));
+    await expect(ensureLessonFraming(lesson)).rejects.toThrow("hors-ligne");
+    const rec = await getGeneratedLesson(entry.id);
+    expect(rec?.framing).toBe("ancien cours");
+    expect(lesson.framing).toBe("ancien cours");
   });
 });
