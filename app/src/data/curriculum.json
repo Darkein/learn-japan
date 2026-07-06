@@ -1710,7 +1710,1588 @@
     {
       "level": 4,
       "title": "N4 — Élémentaire (à venir)",
-      "units": []
+      "units": [
+        {
+          "id": "n4-u1-rattrapage",
+          "title": "Rattrapage : cause, temps et permission",
+          "summary": "から, とき, てもいい : les outils du quotidien qui prolongent le N5.",
+          "lessons": [
+            {
+              "id": "n4-01-pourquoi-kara-node",
+              "order": 1,
+              "title": "Dire pourquoi : から et ので",
+              "summary": "Deux façons de donner une raison : 寝坊したから、遅れました。",
+              "introduces": {
+                "vocab": [
+                  "だから|だから",
+                  "理由|りゆう",
+                  "原因|げんいん",
+                  "遅れる|おくれる",
+                  "寝坊|ねぼう",
+                  "急ぐ|いそぐ",
+                  "間に合う|まにあう"
+                ],
+                "grammar": [
+                  "n4-kara-cause",
+                  "n4-node-cause"
+                ]
+              }
+            },
+            {
+              "id": "n4-02-toki-quand",
+              "order": 2,
+              "title": "〜とき : dire quand ça se passe",
+              "summary": "Relier un moment à une action : 寝るとき、電気を消す。",
+              "introduces": {
+                "vocab": [
+                  "今夜|こんや",
+                  "昼間|ひるま",
+                  "昼休み|ひるやすみ",
+                  "さっき|さっき",
+                  "この頃|このごろ",
+                  "眠い|ねむい",
+                  "眠る|ねむる"
+                ],
+                "grammar": [
+                  "n4-toki"
+                ]
+              }
+            },
+            {
+              "id": "n4-03-avant-apres",
+              "order": 3,
+              "title": "Avant et après : 〜前に et 〜た後で",
+              "summary": "Ordonner deux actions dans le temps : 仕事が済んだ後で、帰ります。",
+              "introduces": {
+                "vocab": [
+                  "明日|あす",
+                  "再来月|さらいげつ",
+                  "再来週|さらいしゅう",
+                  "起こす|おこす",
+                  "帰り|かえり",
+                  "済む|すむ",
+                  "始める|はじめる"
+                ],
+                "grammar": [
+                  "n4-mae-ni",
+                  "n4-ato-de"
+                ]
+              }
+            },
+            {
+              "id": "n4-04-tari-experience",
+              "order": 4,
+              "title": "Activités en vrac et vécu : 〜たり et 〜たことがある",
+              "summary": "Lister des activités sans ordre et raconter son expérience : 一度日本へ行ったことがある。",
+              "introduces": {
+                "vocab": [
+                  "一度|いちど",
+                  "経験|けいけんする",
+                  "日記|にっき",
+                  "たまに|たまに",
+                  "大抵|たいてい",
+                  "この間|このあいだ"
+                ],
+                "grammar": [
+                  "n4-tari",
+                  "n4-ta-koto-ga-aru"
+                ]
+              }
+            },
+            {
+              "id": "n4-05-permission-interdiction",
+              "order": 5,
+              "title": "Permis ou interdit : 〜てもいい et 〜てはいけない",
+              "summary": "Demander la permission et poser les limites du quotidien : ここに座ってもいいですか。",
+              "introduces": {
+                "vocab": [
+                  "かまう|かまう",
+                  "習慣|しゅうかん",
+                  "慣れる|なれる",
+                  "生活|せいかつする",
+                  "片付ける|かたづける",
+                  "用事|ようじ"
+                ],
+                "grammar": [
+                  "n4-temo-ii",
+                  "n4-te-wa-ikenai"
+                ]
+              }
+            },
+            {
+              "id": "n4-06-temps-qui-file",
+              "order": 6,
+              "title": "Le temps qui file : suffixes et verbes de durée",
+              "summary": "〜おき, 〜ばかり, 〜続ける : les petits mots qui découpent le temps.",
+              "introduces": {
+                "vocab": [
+                  "～おき|～おき",
+                  "～おわる|～おわる",
+                  "～代|～だい",
+                  "～だす|～だす",
+                  "～月|～つき",
+                  "～続ける|～つづける",
+                  "～ばかり|～ばかり",
+                  "～始める|～はじめる",
+                  "終わり|おわり",
+                  "暮れる|くれる",
+                  "今度|こんど",
+                  "最近|さいきん",
+                  "最後|さいご",
+                  "最初|さいしょ",
+                  "しばらく|しばらく",
+                  "そろそろ|そろそろ",
+                  "続く|つづく",
+                  "続ける|つづける",
+                  "もうすぐ|もうすぐ"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u2-comparer-devenir",
+          "title": "Comparer et devenir",
+          "summary": "より, いちばん, くなる : mesurer les différences et suivre les changements.",
+          "lessons": [
+            {
+              "id": "n4-07-comparer-yori",
+              "order": 7,
+              "title": "Comparer : より et のほうが",
+              "summary": "Mettre deux choses face à face : 電車のほうがバスより速い。",
+              "introduces": {
+                "vocab": [
+                  "比べる|くらべる",
+                  "程|ほど",
+                  "倍|ばい",
+                  "似る|にる",
+                  "深い|ふかい",
+                  "浅い|あさい",
+                  "うまい|うまい",
+                  "苦い|にがい"
+                ],
+                "grammar": [
+                  "n4-yori",
+                  "n4-no-hou-ga"
+                ]
+              }
+            },
+            {
+              "id": "n4-08-superlatif-ichiban",
+              "order": 8,
+              "title": "Le superlatif : いちばん",
+              "summary": "Dire le meilleur de tous : クラスでいちばん背が高い。",
+              "introduces": {
+                "vocab": [
+                  "最も|もっとも",
+                  "～目|～め",
+                  "以下|いか",
+                  "以上|いじょう",
+                  "以内|いない",
+                  "以外|いがい",
+                  "味|あじ",
+                  "趣味|しゅみ",
+                  "興味|きょうみ"
+                ],
+                "grammar": [
+                  "n4-ichiban"
+                ]
+              }
+            },
+            {
+              "id": "n4-09-devenir-deshou",
+              "order": 9,
+              "title": "Devenir et prédire : 〜くなる et でしょう",
+              "summary": "Les choses changent (寒くなる) et on suppose (明日は雨でしょう).",
+              "introduces": {
+                "vocab": [
+                  "変える|かえる",
+                  "変わる|かわる",
+                  "どんどん|どんどん",
+                  "美しい|うつくしい",
+                  "堅; 硬; 固い|かたい",
+                  "柔らかい|やわらかい",
+                  "細かい|こまかい",
+                  "形|かたち",
+                  "合う|あう"
+                ],
+                "grammar": [
+                  "n4-deshou",
+                  "n4-ku-ni-naru"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u3-forme-te-suite",
+          "title": "La forme て, suite",
+          "summary": "てみる, ておく, てしまう : les nuances d'aspect, valise à la main.",
+          "lessons": [
+            {
+              "id": "n4-10-essayer-regretter",
+              "order": 10,
+              "title": "Essayer et regretter : 〜てみる et 〜てしまう",
+              "summary": "食べてみる pour tenter, 忘れてしまった pour l'irréparable.",
+              "introduces": {
+                "vocab": [
+                  "～(て) しまう|～(て) しまう",
+                  "すっかり|すっかり",
+                  "とうとう|とうとう",
+                  "失敗|しっぱい",
+                  "写す|うつす",
+                  "見物|けんぶつ",
+                  "お土産|おみやげ",
+                  "連れる|つれる"
+                ],
+                "grammar": [
+                  "n4-temiru",
+                  "n4-teshimau"
+                ]
+              }
+            },
+            {
+              "id": "n4-11-preparer-teoku",
+              "order": 11,
+              "title": "Préparer et évoluer : 〜ておく, 〜ていく, 〜てくる",
+              "summary": "ホテルを予約しておく : tout préparer avant le départ.",
+              "introduces": {
+                "vocab": [
+                  "準備|じゅんびする",
+                  "用意|ようい",
+                  "支度|したくする",
+                  "予約|よやく",
+                  "まず|まず",
+                  "スーツケース|スーツケース",
+                  "案内|あんないする",
+                  "泊まる|とまる"
+                ],
+                "grammar": [
+                  "n4-teoku",
+                  "n4-teiku-tekuru"
+                ]
+              }
+            },
+            {
+              "id": "n4-12-tekara-naide",
+              "order": 12,
+              "title": "Après avoir… et sans faire : 〜てから et 〜ないで",
+              "summary": "切符を買ってから乗る ; 朝ごはんを食べないで出発した。",
+              "introduces": {
+                "vocab": [
+                  "出発|しゅっぱつする",
+                  "空港|くうこう",
+                  "飛行場|ひこうじょう",
+                  "海岸|かいがん",
+                  "景色|けしき",
+                  "島|しま",
+                  "湖|みずうみ",
+                  "港|みなと",
+                  "旅館|りょかん"
+                ],
+                "grammar": [
+                  "n4-te-kara",
+                  "n4-naide"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u4-donner-recevoir",
+          "title": "Donner et recevoir",
+          "summary": "あげる, くれる, もらう : la géométrie japonaise du cadeau.",
+          "lessons": [
+            {
+              "id": "n4-13-ageru-kureru",
+              "order": 13,
+              "title": "あげる et くれる : donner dans les deux sens",
+              "summary": "Qui donne à qui ? 友だちがプレゼントをくれた。",
+              "introduces": {
+                "vocab": [
+                  "あげる|あげる",
+                  "くれる|くれる",
+                  "くださる|くださる",
+                  "差し上げる|さしあげる",
+                  "プレゼント|プレゼント",
+                  "贈り物|おくりもの",
+                  "包む|つつむ",
+                  "お祝い|おいわい"
+                ],
+                "grammar": [
+                  "n4-te-ageru",
+                  "n4-te-kureru"
+                ]
+              }
+            },
+            {
+              "id": "n4-14-te-morau",
+              "order": 14,
+              "title": "〜てもらう : obtenir un service",
+              "summary": "Ce qu'on reçoit des autres : 先輩に手伝ってもらった。",
+              "introduces": {
+                "vocab": [
+                  "もらう|もらう",
+                  "いただく|頂く",
+                  "手伝う|てつだう",
+                  "世話|せわする",
+                  "お陰|おかげ",
+                  "お礼|おれい",
+                  "親切|しんせつ",
+                  "優しい|やさしい"
+                ],
+                "grammar": [
+                  "n4-te-morau"
+                ]
+              }
+            },
+            {
+              "id": "n4-15-famille",
+              "order": 15,
+              "title": "La famille : de 赤ちゃん à 祖母",
+              "summary": "Parents, enfants, jouets : le vocabulaire des liens familiaux.",
+              "introduces": {
+                "vocab": [
+                  "赤ちゃん|あかちゃん",
+                  "赤ん坊|あかんぼう",
+                  "夫|おっと",
+                  "妻|つま",
+                  "親|おや",
+                  "パパ|パパ",
+                  "息子|むすこ",
+                  "娘|むすめ",
+                  "祖父|そふ",
+                  "祖母|そぼ",
+                  "子|こ",
+                  "育てる|そだてる",
+                  "関係|かんけい",
+                  "おもちゃ|おもちゃ",
+                  "人形|にんぎょう",
+                  "送る|おくる"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u5-capacites-manieres",
+          "title": "Capacités et manières",
+          "summary": "Le potentiel, 〜すぎる, 〜方 : parler de ce qu'on sait faire.",
+          "lessons": [
+            {
+              "id": "n4-16-potentiel",
+              "order": 16,
+              "title": "Le potentiel : dire ce qu'on sait faire",
+              "summary": "日本語が話せる ; 見える et 聞こえる pour ce que perçoivent les sens.",
+              "introduces": {
+                "vocab": [
+                  "聞こえる|きこえる",
+                  "見える|みえる",
+                  "できるだけ|できるだけ",
+                  "発音|はつおん",
+                  "翻訳|ほんやく",
+                  "字|じ",
+                  "文法|ぶんぽう",
+                  "～家|～か"
+                ],
+                "grammar": [
+                  "n4-potential"
+                ]
+              }
+            },
+            {
+              "id": "n4-17-facile-difficile-trop",
+              "order": 17,
+              "title": "Facile, difficile, trop : 〜やすい, 〜にくい, 〜すぎる",
+              "summary": "この字は読みにくい ; この問題は複雑すぎる。",
+              "introduces": {
+                "vocab": [
+                  "～にくい|～にくい",
+                  "～やすい|～やすい",
+                  "過ぎる|すぎる",
+                  "簡単|かんたん",
+                  "複雑|ふくざつ",
+                  "間違える|まちがえる",
+                  "正しい|ただしい",
+                  "真面目|まじめ"
+                ],
+                "grammar": [
+                  "n4-yasui-nikui",
+                  "n4-sugiru"
+                ]
+              }
+            },
+            {
+              "id": "n4-18-maniere-restriction",
+              "order": 18,
+              "title": "La manière et la restriction : 〜方 et しか〜ない",
+              "summary": "漢字の読み方 ; 辞書が一つしかない。",
+              "introduces": {
+                "vocab": [
+                  "仕方|しかた",
+                  "辞典|じてん",
+                  "テキスト|テキスト",
+                  "調べる|しらべる",
+                  "復習|ふくしゅう",
+                  "予習|よしゅう",
+                  "試験|しけん",
+                  "頑張る|がんばる"
+                ],
+                "grammar": [
+                  "n4-kata",
+                  "n4-shika-nai"
+                ]
+              }
+            },
+            {
+              "id": "n4-19-vie-etudiante",
+              "order": 19,
+              "title": "À l'université : matières et recherche",
+              "summary": "数学, 文学, 講義 : le vocabulaire de la vie étudiante.",
+              "introduces": {
+                "vocab": [
+                  "～学部|～がくぶ",
+                  "一生懸命|いっしょうけんめい",
+                  "受ける|うける",
+                  "科学|かがく",
+                  "通う|かよう",
+                  "研究|けんきゅう",
+                  "研究室|けんきゅうしつ",
+                  "講義|こうぎ",
+                  "数学|すうがく",
+                  "専門|せんもん",
+                  "地理|ちり",
+                  "熱心|ねっしん",
+                  "文学|ぶんがく",
+                  "レポート; リポート|レポート; リポート"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u6-volonte-projets",
+          "title": "Volonté et projets",
+          "summary": "Le volitif et つもり : dire ce qu'on compte faire.",
+          "lessons": [
+            {
+              "id": "n4-20-volitif",
+              "order": 20,
+              "title": "Le volitif : 行こう et 〜ようと思う",
+              "summary": "Se lancer et annoncer ses intentions : 日本で働こうと思う。",
+              "introduces": {
+                "vocab": [
+                  "思う|おもう",
+                  "これから|これから",
+                  "将来|しょうらい",
+                  "夢|ゆめ",
+                  "是非|ぜひ",
+                  "必ず|かならず",
+                  "計画|けいかくする"
+                ],
+                "grammar": [
+                  "n4-volitional",
+                  "n4-you-to-omou"
+                ]
+              }
+            },
+            {
+              "id": "n4-21-tsumori-garu",
+              "order": 21,
+              "title": "Intentions et signes : 〜つもり et 〜がる",
+              "summary": "来年帰るつもりだ ; 妹は犬をほしがっている。",
+              "introduces": {
+                "vocab": [
+                  "つもり|つもり",
+                  "予定|よてい",
+                  "決まる|きまる",
+                  "決める|きめる",
+                  "立てる|たてる",
+                  "約束|やくそく",
+                  "機会|きかい"
+                ],
+                "grammar": [
+                  "n4-tsumori",
+                  "n4-garu"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u7-ordres-consignes",
+          "title": "Ordres et consignes",
+          "summary": "Impératif et 〜なさい : donner des ordres, de la classe à la rue.",
+          "lessons": [
+            {
+              "id": "n4-22-imperatif",
+              "order": 22,
+              "title": "L'impératif brut : 〜ろ et 〜な",
+              "summary": "触るな ! Ordres directs et panneaux d'interdiction.",
+              "introduces": {
+                "vocab": [
+                  "騒ぐ|さわぐ",
+                  "触る|さわる",
+                  "捨てる|すてる",
+                  "だめ|だめ",
+                  "危険|きけん",
+                  "注意|ちゅうい"
+                ],
+                "grammar": [
+                  "n4-imperative",
+                  "n4-prohibitive"
+                ]
+              }
+            },
+            {
+              "id": "n4-23-nasai",
+              "order": 23,
+              "title": "〜なさい : l'ordre poli",
+              "summary": "早く寝なさい : ce que disent parents et professeurs.",
+              "introduces": {
+                "vocab": [
+                  "叱る|しかる",
+                  "褒める|ほめる",
+                  "厳しい|きびしい",
+                  "規則|きそく",
+                  "いじめる|いじめる",
+                  "安全|あんぜん"
+                ],
+                "grammar": [
+                  "n4-nasai"
+                ]
+              }
+            },
+            {
+              "id": "n4-24-ecole-japonaise",
+              "order": 24,
+              "title": "L'école japonaise : du 小学校 au 卒業",
+              "summary": "Les étapes de la scolarité, leurs lieux et leurs acteurs.",
+              "introduces": {
+                "vocab": [
+                  "教育|きょういく",
+                  "高校; 高等学校|こうこう; こうとうがっこう",
+                  "高校生|こうこうせい",
+                  "校長|こうちょう",
+                  "講堂|こうどう",
+                  "小学校|しょうがっこう",
+                  "中学校|ちゅうがっこう",
+                  "入学|にゅうがくする",
+                  "卒業|そつぎょう",
+                  "大学生|だいがくせい",
+                  "点|てん",
+                  "消しゴム|けしゴム"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u8-conditionnels",
+          "title": "Les quatre conditionnels",
+          "summary": "と, ば, たら, なら : quatre façons de dire « si ».",
+          "lessons": [
+            {
+              "id": "n4-25-to-conditionnel",
+              "order": 25,
+              "title": "〜と : quand A, alors toujours B",
+              "summary": "ボタンを押すと、ドアが開く : la condition automatique.",
+              "introduces": {
+                "vocab": [
+                  "すると|すると",
+                  "点く|つく",
+                  "開く|ひらく",
+                  "鳴る|なる",
+                  "ベル|ベル",
+                  "音|おと",
+                  "回る、回す|まわる、まわす",
+                  "滑る|すべる"
+                ],
+                "grammar": [
+                  "n4-to-conditional"
+                ]
+              }
+            },
+            {
+              "id": "n4-26-ba-conditionnel",
+              "order": 26,
+              "title": "〜ば : la condition logique",
+              "summary": "直せば動く : si (et seulement si) A, alors B.",
+              "introduces": {
+                "vocab": [
+                  "故障|こしょうする",
+                  "直す|なおす",
+                  "直る|なおる",
+                  "壊す|こわす",
+                  "壊れる|こわれる",
+                  "止める|とめる",
+                  "動く|うごく",
+                  "道具|どうぐ"
+                ],
+                "grammar": [
+                  "n4-ba-conditional"
+                ]
+              }
+            },
+            {
+              "id": "n4-27-tara-conditionnel",
+              "order": 27,
+              "title": "〜たら : si jamais, et quand ça arrive",
+              "summary": "故障したら、電話してください : le conditionnel le plus souple.",
+              "introduces": {
+                "vocab": [
+                  "もし|もし",
+                  "場合|ばあい",
+                  "暖房|だんぼう",
+                  "冷房|れいぼう",
+                  "電灯|でんとう",
+                  "～製|～せい",
+                  "技術|ぎじゅつ",
+                  "スクリーン|スクリーン"
+                ],
+                "grammar": [
+                  "n4-tara-conditional"
+                ]
+              }
+            },
+            {
+              "id": "n4-28-nara",
+              "order": 28,
+              "title": "〜なら : si tu parles de ça",
+              "summary": "パソコンなら、この店が安い : rebondir sur le sujet de l'autre.",
+              "introduces": {
+                "vocab": [
+                  "または|または",
+                  "両方|りょうほう",
+                  "選ぶ|えらぶ",
+                  "コンピュータ; コンピューター|コンピュータ; コンピューター",
+                  "パソコン|パソコン",
+                  "ソフト|ソフト",
+                  "ワープロ|ワープロ",
+                  "ステレオ|ステレオ"
+                ],
+                "grammar": [
+                  "n4-nara"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u9-apparences-rumeurs",
+          "title": "Apparences et rumeurs",
+          "summary": "そうだ, ようだ, らしい : ce qu'on devine et ce qu'on rapporte.",
+          "lessons": [
+            {
+              "id": "n4-29-sou-apparence",
+              "order": 29,
+              "title": "〜そうだ : on dirait que…",
+              "summary": "雨が降りそうだ : juger sur la mine des choses.",
+              "introduces": {
+                "vocab": [
+                  "格好|かっこう",
+                  "ひどい|ひどい",
+                  "凄い|すごい",
+                  "素晴らしい|すばらしい",
+                  "おかしい|おかしい",
+                  "変|へん",
+                  "珍しい|めずらしい"
+                ],
+                "grammar": [
+                  "n4-sou-appearance"
+                ]
+              }
+            },
+            {
+              "id": "n4-30-sou-ouidire",
+              "order": 30,
+              "title": "〜そうだ : il paraît que…",
+              "summary": "天気予報によると、台風が来るそうだ : rapporter ce qu'on a entendu.",
+              "introduces": {
+                "vocab": [
+                  "～(に) よると|～(に) よると",
+                  "天気予報|てんきよほう",
+                  "アナウンサー|アナウンサー",
+                  "新聞社|しんぶんしゃ",
+                  "番組|ばんぐみ",
+                  "放送|ほうそうする",
+                  "台風|たいふう"
+                ],
+                "grammar": [
+                  "n4-sou-hearsay"
+                ]
+              }
+            },
+            {
+              "id": "n4-31-youda-rashii",
+              "order": 31,
+              "title": "〜ようだ et 〜らしい : sembler et apparemment",
+              "summary": "Deux nuances d'inférence : 雨が止んだようだ。",
+              "introduces": {
+                "vocab": [
+                  "様|よう",
+                  "やはり; やっぱり|やはり; やっぱり",
+                  "匂い|におい",
+                  "止む|やむ",
+                  "濡れる|ぬれる",
+                  "冷える|ひえる",
+                  "乾く|かわく"
+                ],
+                "grammar": [
+                  "n4-youda",
+                  "n4-rashii"
+                ]
+              }
+            },
+            {
+              "id": "n4-32-kamoshirenai-hazuda",
+              "order": 32,
+              "title": "Peut-être et sûrement : かもしれない et はずだ",
+              "summary": "Doser sa certitude : 明日は晴れるかもしれない。",
+              "introduces": {
+                "vocab": [
+                  "はず|はず",
+                  "きっと|きっと",
+                  "確か|たしか",
+                  "季節|きせつ",
+                  "雲|くも",
+                  "空気|くうき",
+                  "日|ひ"
+                ],
+                "grammar": [
+                  "n4-kamoshirenai",
+                  "n4-hazuda"
+                ]
+              }
+            },
+            {
+              "id": "n4-33-nature",
+              "order": 33,
+              "title": "La nature : du 森 aux 星",
+              "summary": "Arbres, ciel et petites bêtes : le décor du dehors.",
+              "introduces": {
+                "vocab": [
+                  "枝|えだ",
+                  "葉|は",
+                  "草|くさ",
+                  "林|はやし",
+                  "森|もり",
+                  "虫|むし",
+                  "小鳥|ことり",
+                  "砂|すな",
+                  "月|つき",
+                  "星|ほし",
+                  "光|ひかり",
+                  "光る|ひかる"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u10-subordonner-citer",
+          "title": "Subordonner et citer",
+          "summary": "の/こと, ながら, という : construire des phrases à étages.",
+          "lessons": [
+            {
+              "id": "n4-34-nominalisation",
+              "order": 34,
+              "title": "Nominaliser : の et こと",
+              "summary": "Transformer un verbe en chose : 泳ぐのが好きだ。",
+              "introduces": {
+                "vocab": [
+                  "事|こと",
+                  "為|ため",
+                  "思い出す|おもいだす",
+                  "考える|かんがえる",
+                  "～(に) ついて|～(に) ついて",
+                  "訳|わけ"
+                ],
+                "grammar": [
+                  "n4-nominalization"
+                ]
+              }
+            },
+            {
+              "id": "n4-35-nagara-aida",
+              "order": 35,
+              "title": "En même temps : 〜ながら et 〜あいだ",
+              "summary": "音楽を聞きながら勉強する ; 留守のあいだに電話が来た。",
+              "introduces": {
+                "vocab": [
+                  "間|あいだ",
+                  "会話|かいわ",
+                  "挨拶|あいさつする",
+                  "はっきり|はっきり",
+                  "なるほど|なるほど",
+                  "もちろん|もちろん"
+                ],
+                "grammar": [
+                  "n4-nagara",
+                  "n4-aida"
+                ]
+              }
+            },
+            {
+              "id": "n4-36-noni-shi",
+              "order": 36,
+              "title": "Pourtant et en plus : 〜のに et 〜し",
+              "summary": "Opposer (約束したのに来ない) et empiler les raisons (安いし、近いし).",
+              "introduces": {
+                "vocab": [
+                  "けれど; けれども|けれど; けれども",
+                  "それに|それに",
+                  "それで|それで",
+                  "例えば|たとえば",
+                  "大体|だいたい",
+                  "それほど|それほど"
+                ],
+                "grammar": [
+                  "n4-noni",
+                  "n4-shi"
+                ]
+              }
+            },
+            {
+              "id": "n4-37-temo-concession",
+              "order": 37,
+              "title": "〜ても : même si",
+              "summary": "いくら考えても、わからない : la concession.",
+              "introduces": {
+                "vocab": [
+                  "いくら～ても|いくら～ても",
+                  "嘘|うそ",
+                  "反対|はんたい",
+                  "意見|いけん",
+                  "相談|そうだんする",
+                  "そんなに|そんなに"
+                ],
+                "grammar": [
+                  "n4-temo"
+                ]
+              }
+            },
+            {
+              "id": "n4-38-question-enchassee",
+              "order": 38,
+              "title": "La question dans la phrase : 〜かどうか et 疑問詞+か",
+              "summary": "来るかどうか、まだわからない : glisser une question dans la phrase.",
+              "introduces": {
+                "vocab": [
+                  "尋ねる|たずねる",
+                  "答|こたえ",
+                  "返事|へんじ",
+                  "知らせる|しらせる",
+                  "伝える|つたえる",
+                  "連絡|れんらく"
+                ],
+                "grammar": [
+                  "n4-kadouka",
+                  "n4-question-embed"
+                ]
+              }
+            },
+            {
+              "id": "n4-39-toiu",
+              "order": 39,
+              "title": "〜という : qui s'appelle",
+              "summary": "『雪国』という小説 : nommer, définir, rapporter.",
+              "introduces": {
+                "vocab": [
+                  "こう|こう",
+                  "そう|そう",
+                  "あんな|あんな",
+                  "そんな|そんな",
+                  "電報|でんぽう",
+                  "説明|せつめい"
+                ],
+                "grammar": [
+                  "n4-toiu"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u11-passif-causatif",
+          "title": "Le passif et le causatif",
+          "summary": "られる et させる : subir l'action et la faire faire.",
+          "lessons": [
+            {
+              "id": "n4-40-passif",
+              "order": 40,
+              "title": "Le passif : 〜られる",
+              "summary": "泥棒に財布を盗まれた : subir l'action.",
+              "introduces": {
+                "vocab": [
+                  "泥棒|どろぼう",
+                  "盗む|ぬすむ",
+                  "すり|すり",
+                  "捕まえる|つかまえる",
+                  "逃げる|にげる",
+                  "踏む|ふむ",
+                  "警察|けいさつ",
+                  "事故|じこ"
+                ],
+                "grammar": [
+                  "n4-passive"
+                ]
+              }
+            },
+            {
+              "id": "n4-41-causatif",
+              "order": 41,
+              "title": "Le causatif : 〜させる",
+              "summary": "Faire faire et laisser faire : 子どもに野菜を食べさせる。",
+              "introduces": {
+                "vocab": [
+                  "火事|かじ",
+                  "火|ひ",
+                  "地震|じしん",
+                  "揺れる|ゆれる",
+                  "倒れる|たおれる",
+                  "自由|じゆう",
+                  "法律|ほうりつ",
+                  "戦争|せんそう"
+                ],
+                "grammar": [
+                  "n4-causative"
+                ]
+              }
+            },
+            {
+              "id": "n4-42-economie",
+              "order": 42,
+              "title": "L'économie : production et commerce",
+              "summary": "輸出, 輸入, 割合 : les chiffres et les usines du pays.",
+              "introduces": {
+                "vocab": [
+                  "経済|けいざい",
+                  "貿易|ぼうえき",
+                  "輸出|ゆしゅつする",
+                  "輸入|ゆにゅう",
+                  "生産|せいさんする",
+                  "産業|さんぎょう",
+                  "工業|こうぎょう",
+                  "工場|こうじょう",
+                  "お金持ち|かねもち; おかねもち",
+                  "億|おく",
+                  "割合|わりあい",
+                  "増える|ふえる",
+                  "人口|じんこう"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-43-societe-monde",
+              "order": 43,
+              "title": "La société et le monde",
+              "summary": "Politique, histoire et continents : parler du vaste monde.",
+              "introduces": {
+                "vocab": [
+                  "社会|しゃかい",
+                  "政治|せいじ",
+                  "市民|しみん",
+                  "国際|こくさい",
+                  "世界|せかい",
+                  "西洋|せいよう",
+                  "アジア|アジア",
+                  "アフリカ|アフリカ",
+                  "アメリカ|アメリカ",
+                  "文化|ぶんか",
+                  "歴史|れきし",
+                  "昔|むかし",
+                  "時代|じだい",
+                  "盛ん|さかん"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u12-keigo",
+          "title": "Le keigo : la politesse formelle",
+          "summary": "いらっしゃる, お〜する : le japonais des situations formelles.",
+          "lessons": [
+            {
+              "id": "n4-44-verbes-honorifiques",
+              "order": 44,
+              "title": "Les verbes honorifiques : いらっしゃる et compagnie",
+              "summary": "Élever l'interlocuteur : 先生はいらっしゃいますか。",
+              "introduces": {
+                "vocab": [
+                  "いらっしゃる|いらっしゃる",
+                  "おいでになる|おいでになる",
+                  "おっしゃる|おっしゃる",
+                  "なさる|なさる",
+                  "召し上がる|めしあがる",
+                  "ごらんになる|ごらんになる",
+                  "ご存じ|ごぞんじ",
+                  "～ございます|～ございます"
+                ],
+                "grammar": [
+                  "n4-sonkeigo-verbs"
+                ]
+              }
+            },
+            {
+              "id": "n4-45-honneur-modestie",
+              "order": 45,
+              "title": "Honorer et s'effacer : お〜になる et お〜する",
+              "summary": "Élever l'autre, s'abaisser soi-même : お待ちしております。",
+              "introduces": {
+                "vocab": [
+                  "致す|いたす",
+                  "おる|おる",
+                  "参る|まいる",
+                  "申す|もうす",
+                  "申し上げる|もうしあげる",
+                  "うかがう|うかがう",
+                  "伺う|うかがう",
+                  "拝見|はいけんする",
+                  "家内|かない"
+                ],
+                "grammar": [
+                  "n4-o-ni-naru",
+                  "n4-kenjougo"
+                ]
+              }
+            },
+            {
+              "id": "n4-46-o-go-politesse",
+              "order": 46,
+              "title": "お et ご : la politesse des noms",
+              "summary": "お宅, ご主人 : le vernis poli posé sur les mots.",
+              "introduces": {
+                "vocab": [
+                  "御～|ご～",
+                  "～様|～さま",
+                  "ご主人|ごしゅじん",
+                  "お子さん|おこさん",
+                  "お嬢さん|おじょうさん",
+                  "お宅|おたく",
+                  "失礼|しつれい",
+                  "丁寧|ていねい",
+                  "よろしい|よろしい"
+                ],
+                "grammar": [
+                  "n4-o-go-nouns"
+                ]
+              }
+            },
+            {
+              "id": "n4-47-entreprise",
+              "order": 47,
+              "title": "L'entreprise : du 社長 au アルバイト",
+              "summary": "Titres, réunions et petits boulots : la vie au travail.",
+              "introduces": {
+                "vocab": [
+                  "社長|しゃちょう",
+                  "部長|ぶちょう",
+                  "課長|かちょう",
+                  "～員|～いん",
+                  "公務員|こうむいん",
+                  "先輩|せんぱい",
+                  "アルバイト|アルバイト",
+                  "パート (タイム)|パート (タイム)",
+                  "事務所|じむしょ",
+                  "会議|かいぎ",
+                  "会議室|かいぎしつ",
+                  "～会|～かい",
+                  "会場|かいじょう"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-48-rendez-vous-visites",
+              "order": 48,
+              "title": "Rendez-vous et visites",
+              "summary": "受付, 都合, 留守 : le protocole des visites et des rendez-vous.",
+              "introduces": {
+                "vocab": [
+                  "受付|うけつけ",
+                  "迎える|むかえる",
+                  "訪ねる|たずねる",
+                  "邪魔|じゃま",
+                  "留守|るす",
+                  "都合|つごう",
+                  "出席|しゅっせきする",
+                  "承知|しょうちする",
+                  "行う|おこなう",
+                  "チェックする|チェックする",
+                  "ファックス|ファックス",
+                  "残る|のこる"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u13-corps-sante",
+          "title": "Corps et santé",
+          "summary": "Le corps, le médecin et le sport : le vocabulaire pour se soigner.",
+          "lessons": [
+            {
+              "id": "n4-49-le-corps",
+              "order": 49,
+              "title": "Le corps de la tête aux pieds",
+              "summary": "腕, 首, 指 : nommer le corps et ses gestes.",
+              "introduces": {
+                "vocab": [
+                  "腕|うで",
+                  "首|くび",
+                  "背中|せなか",
+                  "指|ゆび",
+                  "喉|のど",
+                  "髪|かみ",
+                  "毛|け",
+                  "ひげ|ひげ",
+                  "血|ち",
+                  "噛む|かむ",
+                  "投げる|なげる",
+                  "生きる|いきる"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-50-chez-le-medecin",
+              "order": 50,
+              "title": "Chez le médecin : maladies et soins",
+              "summary": "熱がある, 入院する : parler de sa santé et se soigner.",
+              "introduces": {
+                "vocab": [
+                  "熱|ねつ",
+                  "具合|ぐあい",
+                  "気分|きぶん",
+                  "けがする|けがする",
+                  "注射|ちゅうしゃ",
+                  "入院|にゅういんする",
+                  "退院|たいいんする",
+                  "治る|なおる",
+                  "折る|おる",
+                  "折れる|おれる",
+                  "看護婦|かんごふ",
+                  "歯医者|はいしゃ",
+                  "お見舞い|おみまい",
+                  "医学|いがく",
+                  "塗る|ぬる",
+                  "亡くなる|なくなる"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-51-sport-et-forme",
+              "order": 51,
+              "title": "Sport et forme",
+              "summary": "試合に勝つ, 負ける : le corps en mouvement, du judo au tennis.",
+              "introduces": {
+                "vocab": [
+                  "勝つ|かつ",
+                  "負ける|まける",
+                  "試合|しあい",
+                  "競争|きょうそう",
+                  "運動|うんどうする",
+                  "水泳|すいえい",
+                  "柔道|じゅうどう",
+                  "テニス|テニス",
+                  "太る|ふとる",
+                  "痩せる|やせる",
+                  "止める|やめる",
+                  "力|ちから"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u14-ville-transports",
+          "title": "Ville, services et transports",
+          "summary": "Trains, quartiers et services : circuler et s'installer.",
+          "lessons": [
+            {
+              "id": "n4-52-en-route",
+              "order": 52,
+              "title": "En route : trains, motos et bateaux",
+              "summary": "急行 ou 特急 ? Le vocabulaire des déplacements.",
+              "introduces": {
+                "vocab": [
+                  "運転手|うんてんしゅ",
+                  "運転|うんてんする",
+                  "オートバイ|オートバイ",
+                  "乗り物|のりもの",
+                  "乗り換える|のりかえる",
+                  "汽車|きしゃ",
+                  "急行|きゅうこう",
+                  "特急|とっきゅう",
+                  "普通|ふつう",
+                  "線|せん",
+                  "席|せき",
+                  "込む|こむ",
+                  "駐車場|ちゅうしゃじょう",
+                  "ガソリン|ガソリン",
+                  "ガソリンスタンド|ガソリンスタンド",
+                  "エスカレーター|エスカレーター",
+                  "舟|ふね",
+                  "交通|こうつう"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-53-la-ville",
+              "order": 53,
+              "title": "La ville : quartiers et adresses",
+              "summary": "Du 郊外 au 神社 : se repérer dans la ville japonaise.",
+              "introduces": {
+                "vocab": [
+                  "市|し",
+                  "～区|～く",
+                  "～町|～ちょう",
+                  "都|と",
+                  "郊外|こうがい",
+                  "田舎|いなか",
+                  "近所|きんじょ",
+                  "住所|じゅうしょ",
+                  "通り|とおり",
+                  "坂|さか",
+                  "ビル|ビル",
+                  "建て|～だて",
+                  "屋上|おくじょう",
+                  "～軒|～けん",
+                  "神社|じんじゃ",
+                  "寺|てら",
+                  "教会|きょうかい",
+                  "建てる|たてる"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-54-services-demenagement",
+              "order": 54,
+              "title": "Services et déménagement",
+              "summary": "引っ越す, 水道, 床屋 : la ville au service du quotidien.",
+              "introduces": {
+                "vocab": [
+                  "床屋|とこや",
+                  "届ける|とどける",
+                  "運ぶ|はこぶ",
+                  "移る|うつる",
+                  "引っ越す|ひっこす",
+                  "下宿|げしゅく",
+                  "ガス|ガス",
+                  "水道|すいどう",
+                  "利用|りよう",
+                  "向かう|むかう",
+                  "通る|とおる",
+                  "進む|すすむ",
+                  "戻る|もどる",
+                  "寄る|よる",
+                  "下りる|おりる",
+                  "下る|さがる",
+                  "場所|ばしょ",
+                  "途中|とちゅう",
+                  "不便|ふべん"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u15-sentiments-social",
+          "title": "Sentiments et vie sociale",
+          "summary": "Émotions, relations et fêtes : le vocabulaire du lien.",
+          "lessons": [
+            {
+              "id": "n4-55-emotions",
+              "order": 55,
+              "title": "Les émotions : joie, peur et larmes",
+              "summary": "嬉しい, 悲しい, びっくりする : dire ce qu'on ressent.",
+              "introduces": {
+                "vocab": [
+                  "嬉しい|うれしい",
+                  "悲しい|かなしい",
+                  "怖い|こわい",
+                  "寂しい|さびしい",
+                  "恥ずかしい|はずかしい",
+                  "怒る|おこる",
+                  "泣く|なく",
+                  "笑う|わらう",
+                  "喜ぶ|よろこぶ",
+                  "驚く|おどろく",
+                  "びっくりする|びっくりする",
+                  "心配|しんぱいする",
+                  "安心|あんしん",
+                  "気|き",
+                  "気持ち|きもち",
+                  "心|こころ",
+                  "楽しみ|たのしみ",
+                  "楽む|たのしむ"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-56-les-autres-et-moi",
+              "order": 56,
+              "title": "Les autres et moi",
+              "summary": "彼, 彼女, 僕 : pronoms, présentations, brouilles et retrouvailles.",
+              "introduces": {
+                "vocab": [
+                  "彼女|かのじょ",
+                  "彼|かれ",
+                  "彼ら|かれら",
+                  "君|きみ",
+                  "僕|ぼく",
+                  "皆|みな",
+                  "女性|じょせい",
+                  "男性|だんせい",
+                  "～君|～くん",
+                  "～ちゃん|～ちゃん",
+                  "謝る|あやまる",
+                  "遠慮|えんりょする",
+                  "紹介|しょうかい",
+                  "招待|しょうたいする",
+                  "久しぶり|ひさしぶり",
+                  "けんかする|けんかする",
+                  "別れる|わかれる"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-57-fetes-loisirs",
+              "order": 57,
+              "title": "Fêtes et loisirs",
+              "summary": "お祭り, 花見, コンサート : sortir et s'amuser ensemble.",
+              "introduces": {
+                "vocab": [
+                  "お祭り|おまつり",
+                  "正月|しょうがつ",
+                  "花見|はなみ",
+                  "～式|～しき",
+                  "祈る|いのる",
+                  "遊び|あそび",
+                  "集まる|あつまる",
+                  "集める|あつめる",
+                  "踊り|おどり",
+                  "踊る|おどる",
+                  "コンサート|コンサート",
+                  "ピアノ|ピアノ",
+                  "展覧会|てんらんかい",
+                  "動物園|どうぶつえん",
+                  "釣る|つる",
+                  "漫画|まんが",
+                  "小説|しょうせつ"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u16-quotidien-1",
+          "title": "Vocabulaire du quotidien I",
+          "summary": "Maison, cuisine et courses : les mots de tous les jours.",
+          "lessons": [
+            {
+              "id": "n4-58-la-maison",
+              "order": 58,
+              "title": "La maison : du 畳 au カーテン",
+              "summary": "Meubles, murs et objets de l'intérieur japonais.",
+              "introduces": {
+                "vocab": [
+                  "カーテン|カーテン",
+                  "押し入れ|おしいれ",
+                  "引き出し|ひきだし",
+                  "棚|たな",
+                  "畳|たたみ",
+                  "布団|ふとん",
+                  "壁|かべ",
+                  "鏡|かがみ",
+                  "飾る|かざる",
+                  "植える|うえる",
+                  "ガラス|ガラス",
+                  "割れる|われる",
+                  "汚れる|よごれる",
+                  "ごみ|ごみ",
+                  "石|いし",
+                  "糸|いと",
+                  "打つ|うつ",
+                  "空く|あく"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-59-a-table",
+              "order": 59,
+              "title": "À table : cuisine et aliments",
+              "summary": "ごちそう, 味噌, 焼く : cuisiner, servir et manger.",
+              "introduces": {
+                "vocab": [
+                  "ケーキ|ケーキ",
+                  "サラダ|サラダ",
+                  "サンドイッチ|サンドイッチ",
+                  "ステーキ|ステーキ",
+                  "ハンバーグ|ハンバーグ",
+                  "ジャム|ジャム",
+                  "ぶどう|ぶどう",
+                  "味噌|みそ",
+                  "米|こめ",
+                  "ごちそう|ごちそう",
+                  "アルコール|アルコール",
+                  "湯|ゆ",
+                  "沸かす|わかす",
+                  "沸く|わく",
+                  "焼く|やく",
+                  "焼ける|やける",
+                  "漬ける|つける",
+                  "食事|しょくじする",
+                  "食料品|しょくりょうひん"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-60-habits-et-courses",
+              "order": 60,
+              "title": "S'habiller et faire les courses",
+              "summary": "着物, 手袋, レジ : les vêtements et le passage en caisse.",
+              "introduces": {
+                "vocab": [
+                  "オーバー|オーバー",
+                  "スーツ|スーツ",
+                  "下着|したぎ",
+                  "手袋|てぶくろ",
+                  "サンダル|サンダル",
+                  "着物|きもの",
+                  "アクセサリー|アクセサリー",
+                  "指輪|ゆびわ",
+                  "木綿|もめん",
+                  "絹|きぬ",
+                  "売り場|うりば",
+                  "値段|ねだん",
+                  "払う|はらう",
+                  "おつり|おつり",
+                  "レジ|レジ",
+                  "店員|てんいん",
+                  "スーパー (マーケット)|スーパー (マーケット)"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n4-u17-quotidien-2",
+          "title": "Vocabulaire du quotidien II",
+          "summary": "Objets perdus, adverbes de degré et derniers mots du niveau.",
+          "lessons": [
+            {
+              "id": "n4-61-perdu-retrouve",
+              "order": 61,
+              "title": "Perdu et retrouvé",
+              "summary": "忘れ物, 見つかる, 拾う : les objets qui disparaissent et reviennent.",
+              "introduces": {
+                "vocab": [
+                  "忘れ物|わすれもの",
+                  "無くなる|なくなる",
+                  "落る|おちる",
+                  "落す|おとす",
+                  "見つかる|みつかる",
+                  "見つける|みつける",
+                  "拾う|ひろう",
+                  "探す|さがす",
+                  "取り替える|とりかえる",
+                  "品物|しなもの",
+                  "客|きゃく",
+                  "残念|ざんねん",
+                  "急|きゅう",
+                  "用|よう",
+                  "大事|だいじ",
+                  "～まま|～まま"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-62-adverbes-degre",
+              "order": 62,
+              "title": "Les petits mots du degré",
+              "summary": "全然, ほとんど, やっと : les adverbes qui dosent la phrase.",
+              "introduces": {
+                "vocab": [
+                  "全然|ぜんぜん",
+                  "決して|けっして",
+                  "ちっとも|ちっとも",
+                  "ほとんど|ほとんど",
+                  "非常に|ひじょうに",
+                  "随分|ずいぶん",
+                  "大分|だいぶ",
+                  "特に|とくに",
+                  "中々|なかなか",
+                  "やっと|やっと",
+                  "なるべく|なるべく",
+                  "しっかり|しっかり",
+                  "すっと|すっと",
+                  "十分|じゅうぶん",
+                  "一杯|いっぱい",
+                  "あ|あ",
+                  "うん|うん",
+                  "足りる|たりる",
+                  "足す|たす"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n4-63-espace-et-reste",
+              "order": 63,
+              "title": "L'espace et le reste",
+              "summary": "裏, 隅, 真ん中 : se situer — et les derniers mots du niveau.",
+              "introduces": {
+                "vocab": [
+                  "上がる|あがる",
+                  "内|うち",
+                  "裏|うら",
+                  "表|おもて",
+                  "代わり|かわり",
+                  "下げる|さげる",
+                  "空く|すく",
+                  "隅|すみ",
+                  "タイプ|タイプ",
+                  "適当|てきとう",
+                  "遠く|とおく",
+                  "特別|とくべつ",
+                  "美術館|びじゅつかん",
+                  "必要|ひつよう",
+                  "別|べつ",
+                  "周り|まわり",
+                  "真中|まんなか",
+                  "無理|むり",
+                  "役に立つ|やくにたつ"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        }
+      ],
+      "complete": true
     },
     {
       "level": 3,
