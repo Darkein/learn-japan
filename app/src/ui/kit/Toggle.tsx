@@ -4,7 +4,11 @@ interface Props {
   onChange: (v: boolean) => void;
 }
 
-/** Interrupteur `role="switch"` — était dupliqué à l'identique dans Settings et SettingsPanel. */
+/**
+ * Case à cocher façon sceau (hanko) : cerne d'encre à vide, pastille vermillon au coché,
+ * coche-pinceau qui se dessine (ink-reveal, reduced-motion géré dans global.css).
+ * Zone de tap 44px conservée, `role="switch"`.
+ */
 export function Toggle({ label, value, onChange }: Props) {
   return (
     <div className="flex items-center justify-between gap-4">
@@ -12,10 +16,32 @@ export function Toggle({ label, value, onChange }: Props) {
       <button
         role="switch"
         aria-checked={value}
-        className="min-h-11 min-w-11 cursor-pointer rounded-sm border border-hairline-strong px-3 text-xs tracking-wide text-muted transition-colors aria-checked:border-accent aria-checked:font-medium aria-checked:text-accent"
+        aria-label={label}
+        className="group flex min-h-11 min-w-11 cursor-pointer items-center justify-center"
         onClick={() => onChange(!value)}
       >
-        {value ? "Activé" : "Désactivé"}
+        <span
+          className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border transition-colors ${
+            value
+              ? "border-accent bg-accent shadow-elev"
+              : "border-hairline-strong bg-surface group-hover:border-accent"
+          }`}
+        >
+          {value && (
+            <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+              <path
+                className="ink-reveal"
+                pathLength={1}
+                d="M3 7.8 5.8 10.4 11 3.8"
+                fill="none"
+                stroke="var(--color-on-accent)"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </span>
       </button>
     </div>
   );
