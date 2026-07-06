@@ -11,6 +11,13 @@ import {
 import { allGrammarInv } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
 
+// Corpus d'exemples statique neutralisé : les tests qui veulent un exemple le passent
+// explicitement — le corpus réel (examples.json) évolue via le workflow build-examples.
+vi.mock("./inventory", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./inventory")>()),
+  staticExample: () => null,
+}));
+
 // Simule le tokenizer (kuromoji ne tourne pas en node) — même approche que enroll.test.ts.
 vi.mock("./tokenizer", () => ({
   tokenize: vi.fn(async (text: string): Promise<KuromojiToken[]> => {

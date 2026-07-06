@@ -8,6 +8,14 @@ import { SRS } from "./config";
 import { gradeCard, buildSession, pickOralVariant } from "./reviewSession";
 import type { KuromojiToken } from "./tokenizer";
 
+// Corpus d'exemples statique neutralisé : ces tests raisonnent sur les seuls items
+// qu'ils sèment — le corpus réel (examples.json) évolue via le workflow build-examples
+// et fournirait sinon des exemples inattendus (amorçage écoute, cloze).
+vi.mock("./inventory", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./inventory")>()),
+  staticExample: () => null,
+}));
+
 // kuromoji ne tourne pas en node : chaque caractère devient un token 名詞 (suffit pour
 // tester les bornes de la dictée — nombre de tuiles = longueur de la phrase).
 vi.mock("./tokenizer", () => ({
