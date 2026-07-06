@@ -4,7 +4,7 @@ import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from
 import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
-import { markStationCelebrated, tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
+import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
 import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
 import { OmikujiCard } from "./OmikujiCard";
@@ -89,8 +89,8 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const next = lessons.find((l) => !l.startedAt && !l.completedAt);
   const todo = [...inProgress, ...(next ? [next] : [])];
 
-  async function closeArrival(stationIndex: number) {
-    await markStationCelebrated(stationIndex);
+  async function closeArrival(arrival: RouteArrival) {
+    await markStationCelebrated(arrival.route.level, arrival.station.index);
     setTokaido((t) => (t ? { ...t, newlyArrived: undefined } : t));
   }
 
@@ -100,14 +100,17 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
         <h2 className="font-serif text-xl">Aujourd'hui</h2>
       </header>
 
-      {tokaido && (tokaido.pos.position > 0 || (dailyData && dailyData.reviewed > 0)) && (
+      {tokaido &&
+        (tokaido.pos.position > 0 ||
+          tokaido.levels.some((l) => l.lessonsCompleted > 0) ||
+          (dailyData && dailyData.reviewed > 0)) && (
         <TokaidoStrip pos={tokaido.pos} onOpen={onGoVoyage} />
       )}
 
       {tokaido?.newlyArrived && (
         <StationArrival
-          station={tokaido.newlyArrived}
-          onClose={() => void closeArrival(tokaido.newlyArrived!.index)}
+          arrival={tokaido.newlyArrived}
+          onClose={() => void closeArrival(tokaido.newlyArrived!)}
         />
       )}
 

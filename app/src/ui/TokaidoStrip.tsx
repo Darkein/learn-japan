@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import type { TokaidoPosition } from "../lib/tokaido";
-import { TOKAIDO } from "../data/tokaido";
 import { SectionLabel } from "./kit/SectionLabel";
 
 interface Props {
@@ -14,16 +13,20 @@ const LINE_Y = 34; // ordonnée de la voie dans la zone dessinée (px)
 const STRIP_H = 96; // voie + poteaux kanji verticaux
 
 /**
- * Bandeau du voyage (accueil) : fenêtre scrollable/swipable sur la route, auto-centrée
- * sur le train. Chaque station est un poteau avec son nom en kanji vertical (façon
- * panneau de route) ; le train vermillon roule sur la ligne d'encre. Le détail complet
- * (toutes les étapes, notes) reste dans la vue Voyage, ouverte au tap.
+ * Bandeau du voyage (accueil) : fenêtre scrollable/swipable sur la route ACTIVE (une par
+ * niveau JLPT, voir data/routes.ts), auto-centrée sur le train. Chaque station est un
+ * poteau avec son nom en kanji vertical (façon panneau de route) ; le train — sa couleur
+ * change de route en route — roule sur la ligne d'encre. Le détail complet (toutes les
+ * étapes, notes) reste dans la vue Voyage, ouverte au tap.
  */
 export function TokaidoStrip({ pos, onOpen }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  const { route } = pos;
+  const stations = route.stations;
+  const span = stations.length - 1;
   const arrived = !pos.next;
   const trainX = pos.position * STEP + STEP / 2;
-  const innerW = (TOKAIDO.length - 1) * STEP + STEP;
+  const innerW = span * STEP + STEP;
 
   // Centre la fenêtre sur le train (sans animation : c'est l'état, pas un mouvement).
   useEffect(() => {
@@ -36,10 +39,10 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
       <button
         className="flex cursor-pointer items-baseline justify-between gap-4 text-left"
         onClick={onOpen}
-        aria-label="Voir le voyage sur le Tōkaidō"
+        aria-label={`Voir le voyage sur le ${route.name}`}
       >
         <SectionLabel className="shrink-0 whitespace-nowrap">
-          Tōkaidō · étape {pos.station.index}/{TOKAIDO.length - 1}
+          {route.name} · étape {pos.station.index}/{span}
         </SectionLabel>
         <span className="truncate text-xs text-muted">
           <span className="font-jp text-text">{pos.station.kanji}</span> {pos.station.romaji}
@@ -82,7 +85,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             <line x1={0} y1={LINE_Y - 2} x2={trainX} y2={LINE_Y - 2} stroke="var(--ink)" strokeWidth={1.2} />
             <line x1={0} y1={LINE_Y + 2} x2={trainX} y2={LINE_Y + 2} stroke="var(--ink)" strokeWidth={1.2} />
             {/* Poteaux de station (passées = ink, à venir = hairline). */}
-            {TOKAIDO.map((s) => (
+            {stations.map((s) => (
               <line
                 key={s.index}
                 x1={s.index * STEP + STEP / 2}
@@ -90,7 +93,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                 x2={s.index * STEP + STEP / 2}
                 y2={LINE_Y + 9}
                 stroke={s.index <= pos.position ? "var(--ink)" : "var(--hairline)"}
-                strokeWidth={s.index % 11 === 0 ? 1.5 : 1}
+                strokeWidth={s.index === 0 || s.index === span ? 1.5 : 1}
               />
             ))}
             {/* Le train : motrice + deux voitures de passagers du même gabarit, nez
@@ -103,7 +106,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                   <circle cx={18.5} cy={15.5} r={2} fill="var(--ink)" />
                   {/* Caisse descendue d'1px sur les roues. */}
                   <g transform="translate(0, 1)">
-                    <rect x={0} y={1} width={24} height={13.5} rx={2} fill="var(--accent)" />
+                    <rect x={0} y={1} width={24} height={13.5} rx={2} fill={route.trainColor} />
                     <rect x={3.5} y={4} width={4.5} height={4} rx={1} fill="var(--bg)" />
                     <rect x={10} y={4} width={4.5} height={4} rx={1} fill="var(--bg)" />
                     <rect x={16.5} y={4} width={4.5} height={4} rx={1} fill="var(--bg)" />
@@ -121,7 +124,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                 <g transform="translate(0, 1)">
                   <path
                     d="M2 4 q0 -3 3 -3 h8 c6 0 10.5 2.5 14 6 c2 2 3.3 3.6 3.8 5 q0.8 2.5 -2.6 2.5 h-24.2 q-2 0 -2 -1.5 z"
-                    fill="var(--accent)"
+                    fill={route.trainColor}
                   />
                   <rect
                     x={19}
@@ -138,7 +141,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             </g>
           </svg>
           {/* Noms en kanji verticaux sous les poteaux, façon panneaux de route. */}
-          {TOKAIDO.map((s) => (
+          {stations.map((s) => (
             <span
               key={s.index}
               className={`absolute font-jp text-xs leading-none ${
@@ -156,7 +159,9 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
           ))}
         </div>
       </div>
-      {arrived && <span className="text-xs text-muted">Kyōto atteint — la route est faite.</span>}
+      {arrived && (
+        <span className="text-xs text-muted">{route.arriveFr} atteint — la route est faite.</span>
+      )}
     </div>
   );
 }

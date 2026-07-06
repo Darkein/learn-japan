@@ -1,7 +1,8 @@
 // Les 53 stations du Tōkaidō (East Sea Road, Edo → Kyōto), célébrées par Hiroshige.
 // 55 points au total : index 0 = départ (Nihonbashi, Edo), 1–53 = les stations,
-// 54 = arrivée (Sanjō Ōhashi, Kyōto). Sert de métaphore de progression : le voyageur
-// avance sur la route au rythme réel de son apprentissage (voir lib/tokaido.ts).
+// 54 = arrivée (Sanjō Ōhashi, Kyōto). Route du niveau N5 — une route par niveau JLPT
+// (voir data/routes.ts) : le voyageur avance au rythme réel de son apprentissage
+// (lib/tokaido.ts) puis repart de zéro sur la route suivante.
 
 export interface TokaidoStation {
   /** Position sur la route, 0..54. */
