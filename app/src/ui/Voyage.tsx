@@ -72,10 +72,11 @@ export function Voyage() {
         {pos.next && (
           <p className="text-sm text-muted">
             Prochaine étape : <span className="font-jp text-text">{pos.next.kanji}</span>{" "}
-            {pos.next.romaji}
+            {pos.next.romaji} — {pos.betweenPct} % du chemin
             {lessonsToNext != null && (
-              <> — encore ~{lessonsToNext} leçon{lessonsToNext > 1 ? "s" : ""}.</>
+              <>, encore ~{lessonsToNext} leçon{lessonsToNext > 1 ? "s" : ""}</>
             )}
+            .
           </p>
         )}
       </section>
@@ -111,7 +112,15 @@ export function Voyage() {
                   {s.index < TOKAIDO.length - 1 && (
                     <span
                       className="w-px flex-1"
-                      style={{ background: s.index < currentIndex ? "var(--ink)" : "var(--hairline)" }}
+                      style={{
+                        // Segment courant : encré à hauteur de la progression vers la prochaine station.
+                        background:
+                          s.index < currentIndex
+                            ? "var(--ink)"
+                            : current && pos.betweenPct > 0
+                              ? `linear-gradient(to bottom, var(--ink) ${pos.betweenPct}%, var(--hairline) ${pos.betweenPct}%)`
+                              : "var(--hairline)",
+                      }}
                     />
                   )}
                 </div>
