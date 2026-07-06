@@ -5,6 +5,7 @@
     {
       "level": 5,
       "title": "N5 — Débutant",
+      "complete": true,
       "units": [
         {
           "id": "n5-u1-foundations",

@@ -180,8 +180,9 @@ export function buildLessonPrompt(r: GenerateRequest): string {
   const vocab = cleanVocab(r.vocab);
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
   const order = cleanOrder(r.lessonOrder);
-  // Les toutes premières leçons s'adressent à un débutant absolu : courtes et rassurantes.
-  const intro = order >= 1 && order <= 5;
+  // Les toutes premières leçons DU PARCOURS s'adressent à un débutant absolu : courtes et
+  // rassurantes. `order` redémarre à 1 à chaque niveau — seul le début de N5 est concerné.
+  const intro = level === 5 && order >= 1 && order <= 5;
 
   const grammar = grammarList.length
     ? `Point(s) de grammaire à enseigner : ${grammarList.join(", ")}.`

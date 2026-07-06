@@ -8,8 +8,12 @@ name: Build examples corpus
 on:
   workflow_dispatch:
     inputs:
+      level:
+        description: "Niveau JLPT cible (5, 4 ou 3)"
+        required: false
+        default: "5"
       limit:
-        description: "Nombre de mots (vide = tout l'inventaire)"
+        description: "Nombre de mots (vide = tout l'inventaire du niveau)"
         required: false
         default: ""
       refresh:
@@ -39,6 +43,7 @@ jobs:
       - name: Générer le corpus
         run: >-
           npm run data:examples --
+          ${{ inputs.level && format('--level {0}', inputs.level) || '' }}
           ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
           ${{ inputs.refresh && '--refresh' || '' }}
         env:

@@ -1,14 +1,15 @@
 // Corpus statique de phrases d'exemple — une phrase JA + traduction FR par mot de
-// l'inventaire N5. Généré via le Worker (kind "vocab-examples", cache R2 → relances
-// gratuites), puis VALIDÉ localement avec kuromoji : le mot cible doit apparaître dans
-// la phrase et chaque token de contenu doit appartenir au lexique autorisé (mots des
-// leçons précédentes pour un mot du curriculum, inventaire N5 entier sinon). Les
-// phrases non conformes sont re-demandées une fois, puis laissées en trou plutôt que
-// d'embarquer une donnée douteuse. Écrit app/src/data/inventory/examples.json —
-// fichier FRÈRE de vocab.json (build-inventory.ts régénère vocab.json et écraserait
-// des exemples embarqués).
+// l'inventaire d'un niveau JLPT. Généré via le Worker (kind "vocab-examples", cache R2 →
+// relances gratuites), puis VALIDÉ localement avec kuromoji : le mot cible doit apparaître
+// dans la phrase et chaque token de contenu doit appartenir au lexique autorisé (mots des
+// leçons précédentes pour un mot du curriculum, sinon inventaire cumulé des niveaux déjà
+// enseignés — N5..niveau cible). Les phrases non conformes sont re-demandées une fois,
+// puis laissées en trou plutôt que d'embarquer une donnée douteuse. Écrit
+// app/src/data/inventory/examples.json — fichier FRÈRE de vocab.json (build-inventory.ts
+// régénère vocab.json et écraserait des exemples embarqués).
 //
-//   npm run data:examples                        # tout l'inventaire
+//   npm run data:examples                        # inventaire N5 (défaut)
+//   npm run data:examples -- --level 4           # mots N4 (lexique autorisé : N5+N4)
 //   npm run data:examples -- --limit 40          # test rapide sur 40 mots
 //   npm run data:examples -- --refresh           # ignore le cache R2, régénère
 //   WORKER_URL=https://… npm run data:examples   # cibler un autre Worker
@@ -44,9 +45,11 @@ const vocabAll = read<VocabInv[]>(join(INV, "vocab.json"));
 const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
 const curriculum = read<{ levels: RawLevel[] }>(join(ROOT, "app", "src", "data", "curriculum.json"));
 
-const lessonsOrdered: RawLesson[] = curriculum.levels
+// Ordre pédagogique global : niveau décroissant (N5 d'abord) PUIS ordre — `order`
+// redémarre à 1 dans chaque niveau, un tri par ordre seul interclasserait les niveaux.
+const lessonsOrdered: (RawLesson & { level: number })[] = curriculum.levels
   .flatMap((lvl) => lvl.units.flatMap((u) => u.lessons.map((l) => ({ ...l, level: lvl.level }))))
-  .sort((a, b) => a.order - b.order);
+  .sort((a, b) => b.level - a.level || a.order - b.order);
 
 /** Index de la leçon qui introduit chaque mot du curriculum. */
 const lessonIndexByVocabId = new Map<string, number>();
@@ -78,7 +81,8 @@ function cumulativeForms(idx: number): Set<string> {
   return out;
 }
 
-const FULL_LEXICON = new Set(vocabAll.flatMap(formsOf));
+/** Lexique cumulé des niveaux déjà enseignés (N5..niveau cible) — rempli dans main(). */
+let FULL_LEXICON = new Set<string>();
 
 // ---- Lots : par leçon pour les mots du curriculum, par 20 pour le reste ------
 
@@ -89,8 +93,8 @@ interface Batch {
   label: string;
 }
 
-function buildBatches(limit?: number): Batch[] {
-  let pool = vocabAll;
+function buildBatches(level: number, limit?: number): Batch[] {
+  let pool = vocabAll.filter((v) => v.level === level);
   if (limit) pool = pool.slice(0, limit);
   const inCurriculum = pool.filter((v) => lessonIndexByVocabId.has(v.id));
   const rest = pool.filter((v) => !lessonIndexByVocabId.has(v.id));
@@ -105,7 +109,7 @@ function buildBatches(limit?: number): Batch[] {
   for (const [idx, words] of [...byLesson.entries()].sort((a, b) => a[0] - b[0])) {
     batches.push({ words, allowed: cumulativeForms(idx), label: `leçon ${lessonsOrdered[idx].id}` });
   }
-  // Le reste : lots de 20, lexique = inventaire N5 entier.
+  // Le reste : lots de 20, lexique = inventaire cumulé des niveaux enseignés.
   for (let i = 0; i < rest.length; i += BATCH) {
     batches.push({
       words: rest.slice(i, i + BATCH),
@@ -118,10 +122,14 @@ function buildBatches(limit?: number): Batch[] {
 
 // ---- Génération (Worker) ------------------------------------------------------
 
-async function generate(batch: Batch, refresh: boolean): Promise<Map<string, { ja: string; fr: string }>> {
+async function generate(
+  batch: Batch,
+  level: number,
+  refresh: boolean,
+): Promise<Map<string, { ja: string; fr: string }>> {
   const body = {
     kind: "vocab-examples",
-    level: 5,
+    level,
     vocab: batch.words.map((v) => ({
       ja: v.surface,
       yomi: v.reading !== v.surface ? v.reading : undefined,
@@ -194,11 +202,12 @@ function validate(tk: Tokenizer, word: VocabInv, allowed: Set<string>, ja: strin
 
 // ---- Main ---------------------------------------------------------------------
 
-interface Args { limit?: number; refresh: boolean }
+interface Args { level: number; limit?: number; refresh: boolean }
 function parseArgs(argv: string[]): Args {
-  const a: Args = { refresh: false };
+  const a: Args = { level: 5, refresh: false };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--limit") a.limit = Number(argv[++i]);
+    if (argv[i] === "--level") a.level = Number(argv[++i]);
+    else if (argv[i] === "--limit") a.limit = Number(argv[++i]);
     else if (argv[i] === "--refresh") a.refresh = true;
   }
   return a;
@@ -206,10 +215,12 @@ function parseArgs(argv: string[]): Args {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const batches = buildBatches(args.limit);
+  // Connaissance cumulée au moment où le niveau cible est étudié : N5..niveau cible.
+  FULL_LEXICON = new Set(vocabAll.filter((v) => v.level >= args.level).flatMap(formsOf));
+  const batches = buildBatches(args.level, args.limit);
   const total = batches.reduce((s, b) => s + b.words.length, 0);
   console.log(`Worker : ${WORKER_URL}`);
-  console.log(`Mots : ${total} en ${batches.length} lots${args.refresh ? " (refresh)" : ""}`);
+  console.log(`Niveau : N${args.level}. Mots : ${total} en ${batches.length} lots${args.refresh ? " (refresh)" : ""}`);
 
   console.log("Chargement du dictionnaire kuromoji…");
   const tk = await buildTokenizer();
@@ -228,7 +239,7 @@ async function main(): Promise<void> {
       let generated: Map<string, { ja: string; fr: string }>;
       try {
         // 2ᵉ tentative : refresh forcé, sinon le cache R2 resservirait la même phrase.
-        generated = await generate(sub, args.refresh || attempt > 0);
+        generated = await generate(sub, args.level, args.refresh || attempt > 0);
       } catch (e) {
         failed += pending.length;
         console.warn(`✗ ${batch.label} — ${String(e)}`);
