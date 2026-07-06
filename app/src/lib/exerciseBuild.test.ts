@@ -30,7 +30,7 @@ vi.mock("./inventory", async (importOriginal) => ({
 // Simule le tokenizer (kuromoji ne tourne pas en node) — même approche que enroll.test.ts.
 vi.mock("./tokenizer", () => ({
   tokenize: vi.fn(async (text: string): Promise<KuromojiToken[]> => {
-    const mk = (surface_form: string, pos = "名詞"): KuromojiToken => ({
+    const mk = (surface_form: string, pos = "名詞", reading?: string): KuromojiToken => ({
       surface_form,
       pos,
       pos_detail_1: "*",
@@ -39,10 +39,14 @@ vi.mock("./tokenizer", () => ({
       conjugated_type: "*",
       conjugated_form: "*",
       basic_form: surface_form,
+      reading,
     });
     if (text === "今日は本を読む。") {
       return [mk("今日"), mk("は", "助詞"), mk("本"), mk("を", "助詞"), mk("読む", "動詞"), mk("。", "記号")];
     }
+    // Retokenisation d'une forme de base (kanjiReadingExercises) → sa lecture.
+    if (text === "飲む") return [mk("飲む", "動詞", "ノム")];
+    if (text === "読む") return [mk("読む", "動詞", "ヨム")];
     return [];
   }),
 }));
@@ -200,8 +204,8 @@ describe("kanjiReadingExercises", () => {
     tok({ surface_form: "ねこ", pos: "名詞", reading: "ネコ" }), // sans kanji → ignoré
   ];
 
-  it("mot en kanji → saisie de la lecture en hiragana, noté sur la carte écrite", () => {
-    const exs = kanjiReadingExercises(tokens, 10);
+  it("mot en kanji → saisie de la lecture en hiragana, noté sur la carte écrite", async () => {
+    const exs = await kanjiReadingExercises(tokens, 10);
     const surfaces = exs.map((e) => e.front);
     expect(surfaces).toContain("水");
     expect(surfaces).not.toContain("ねこ"); // pas de kanji
@@ -211,6 +215,16 @@ describe("kanjiReadingExercises", () => {
     expect(mizu.skill).toBe("written");
     expect(mizu.answers).toEqual(["みず"]);
     expect(mizu.token).toBeDefined();
+  });
+
+  it("verbe conjugué → affiché et interrogé sous sa FORME DE BASE", async () => {
+    const exs = await kanjiReadingExercises(tokens, 10);
+    // 飲み (surface) doit devenir 飲む (base), avec la lecture de la base のむ (pas のみ).
+    expect(exs.map((e) => e.front)).toContain("飲む");
+    expect(exs.map((e) => e.front)).not.toContain("飲み");
+    const nomu = exs.find((e) => e.front === "飲む")!;
+    expect(nomu.answers).toEqual(["のむ"]);
+    expect(nomu.back).toContain("飲む（のむ）");
   });
 });
 

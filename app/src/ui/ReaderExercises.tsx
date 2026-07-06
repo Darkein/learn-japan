@@ -91,9 +91,12 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
       const { sentences: fr } = await ensureStoryTranslationById(storyId, text, level);
       const ja = splitJaSentences(text);
       const particles = particleExercises(tokens, 8, { ja, fr });
-      const kanjiRead = kanjiReadingExercises(tokens);
       const kanjiChoice = kanjiChoiceExercises(tokens);
-      const [comp, built] = await Promise.all([compPromise, buildSentenceExercises(ja, fr)]);
+      const [comp, built, kanjiRead] = await Promise.all([
+        compPromise,
+        buildSentenceExercises(ja, fr),
+        kanjiReadingExercises(tokens),
+      ]);
       return shuffle([...particles, ...comp, ...built, ...kanjiRead, ...kanjiChoice]);
     })()
       .then((mixed) => {

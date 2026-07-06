@@ -64,37 +64,56 @@ export function particleExercises(
   return shuffle(out).slice(0, max);
 }
 
+/** Forme de base (dictionnaire) d'un token, ou sa surface si kuromoji ne la donne pas. */
+function baseForm(t: KuromojiToken): string {
+  return t.basic_form && t.basic_form !== "*" ? t.basic_form : t.surface_form;
+}
+
 /**
- * Lecture d'un kanji (rappel actif) : le mot est affiché en kanji, l'apprenant tape sa
- * lecture en kana (furigana). Construit depuis les mots de contenu de l'histoire qui
- * portent au moins un kanji ; dédupliqué par item, borné à `max`. La lecture vient de
- * kuromoji (katakana → hiragana). Noté sur la compétence « écrite » (via `applyStatus`).
+ * Lecture en kana de la FORME DE BASE d'un token. Si le mot apparaît déjà sous sa forme
+ * de base, la lecture du token convient ; sinon (verbe/adjectif conjugué) on retokenise
+ * la forme de base pour obtenir sa vraie lecture — fiable même pour les irréguliers
+ * (来る→くる vs 来ます→きます), là où une reconstruction depuis la surface se tromperait.
  */
-export function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): TypeExercise[] {
+async function baseReading(t: KuromojiToken): Promise<string> {
+  const base = baseForm(t);
+  if (t.surface_form === base && t.reading) return normalizeReading(t.reading);
+  const sub = await tokenize(base);
+  return normalizeReading(sub.map((s) => s.reading ?? s.surface_form).join(""));
+}
+
+/**
+ * Lecture d'un kanji (rappel actif) : le mot est affiché sous sa FORME DE BASE en kanji,
+ * l'apprenant tape sa lecture en kana (furigana). Construit depuis les mots de contenu de
+ * l'histoire dont la forme de base porte au moins un kanji ; dédupliqué par item, borné à
+ * `max`. Noté sur la compétence « écrite » (via `applyStatus`).
+ */
+export async function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): Promise<TypeExercise[]> {
   const seen = new Set<string>();
   const out: TypeExercise[] = [];
-  tokens.forEach((t, i) => {
-    if (!isContent(t) || !hasKanji(t.surface_form) || !t.reading) return;
+  for (const t of tokens) {
+    const base = baseForm(t);
+    if (!isContent(t) || !hasKanji(base)) continue;
     const id = itemIdFor(t);
-    if (seen.has(id)) return;
+    if (seen.has(id)) continue;
     seen.add(id);
-    const reading = normalizeReading(t.reading);
-    if (!reading) return;
+    const reading = await baseReading(t);
+    if (!reading) continue;
     const meaning = meaningFor(t);
     const hint = meaning && meaning !== "—" ? ` — ${meaning}` : "";
     out.push({
       mode: "type",
-      key: `kanji-reading:${i}`,
+      key: `kanji-reading:${id}`,
       track: "vocab",
       skill: "written",
       id,
       token: t,
-      front: t.surface_form,
-      back: `${t.surface_form}（${reading}）${hint}`,
+      front: base,
+      back: `${base}（${reading}）${hint}`,
       prompt: "Écris la lecture en kana (furigana)",
       answers: [reading],
     });
-  });
+  }
   return shuffle(out).slice(0, max);
 }
 
@@ -108,13 +127,14 @@ export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceEx
   const pool: { token: KuromojiToken; surface: string; meaning: string; id: string }[] = [];
   const seen = new Set<string>();
   for (const t of tokens) {
-    if (t.pos !== "名詞" || t.pos_detail_1 === "非自立" || !hasKanji(t.surface_form)) continue;
+    const base = baseForm(t);
+    if (t.pos !== "名詞" || t.pos_detail_1 === "非自立" || !hasKanji(base)) continue;
     const meaning = meaningFor(t);
     if (!meaning || meaning === "—") continue;
     const id = itemIdFor(t);
     if (seen.has(id)) continue;
     seen.add(id);
-    pool.push({ token: t, surface: t.surface_form, meaning, id });
+    pool.push({ token: t, surface: base, meaning, id });
   }
   if (pool.length < 4) return []; // pas assez de distracteurs plausibles
   const out: ChoiceExercise[] = [];
