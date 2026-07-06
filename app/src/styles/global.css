@@ -133,6 +133,86 @@
   animation: ink-reveal 320ms cubic-bezier(0.2, 0, 0.2, 1) 120ms forwards;
 }
 
+/* Voyage (TokaidoStrip) : le train roule SUR PLACE — le nez reste pile sur l'avancement.
+   Ce sont les traverses qui défilent (vitesse + sol) et des lignes de vitesse sur deux
+   plans (parallaxe = profondeur) ; la caisse tangue doucement, façon locomotive au ralenti. */
+@keyframes rail-scroll {
+  to {
+    stroke-dashoffset: 9.6; /* = somme du dasharray (1.5 + 8.1) : boucle sans saut */
+  }
+}
+@keyframes train-chug {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.6px);
+  }
+}
+@keyframes speed-streak {
+  0% {
+    transform: translateX(6px);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+}
+.rail-sleepers {
+  animation: rail-scroll 0.7s linear infinite;
+}
+.train-chug {
+  animation: train-chug 0.6s ease-in-out infinite;
+}
+.speed-streak {
+  animation: speed-streak 0.9s linear infinite;
+}
+
+/* Décor défilant en parallaxe DERRIÈRE la voie : montagnes lointaines (lentes, pâles) et
+   arbres proches (plus rapides, plus contrastés). Silhouettes en mask → la couleur suit le
+   thème via background-color. Ne défile PAS avec le swipe (backdrop) : c'est la profondeur. */
+.decor-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  pointer-events: none;
+}
+.decor-mountains {
+  background-color: var(--hairline);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='220'%20height='32'%3E%3Cpath%20d='M0,20%20L44,8%20L88,24%20L132,4%20L176,22%20L220,20%20L220,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 220px 32px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='220'%20height='32'%3E%3Cpath%20d='M0,20%20L44,8%20L88,24%20L132,4%20L176,22%20L220,20%20L220,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 220px 32px repeat-x;
+  animation: decor-far 26s linear infinite;
+}
+.decor-trees {
+  background-color: var(--hairline-strong);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='32'%3E%3Cpath%20d='M22,30%20L14,30%20L22,14%20L30,30%20Z%20M60,30%20L54,30%20L60,20%20L66,30%20Z%20M104,30%20L94,30%20L104,10%20L114,30%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 130px 32px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='32'%3E%3Cpath%20d='M22,30%20L14,30%20L22,14%20L30,30%20Z%20M60,30%20L54,30%20L60,20%20L66,30%20Z%20M104,30%20L94,30%20L104,10%20L114,30%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 130px 32px repeat-x;
+  animation: decor-near 9s linear infinite;
+}
+@keyframes decor-far {
+  to {
+    -webkit-mask-position: -220px bottom;
+    mask-position: -220px bottom;
+  }
+}
+@keyframes decor-near {
+  to {
+    -webkit-mask-position: -130px bottom;
+    mask-position: -130px bottom;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

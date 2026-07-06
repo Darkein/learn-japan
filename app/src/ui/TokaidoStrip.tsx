@@ -11,6 +11,8 @@ interface Props {
 const STEP = 48;
 const LINE_Y = 34; // ordonnée de la voie dans la zone dessinée (px)
 const STRIP_H = 96; // voie + poteaux kanji verticaux
+/** Marge de voie AVANT la 1re station : le train (~84 px) et sa traînée tiennent à l'étape 0. */
+const LEAD = 96;
 
 /**
  * Bandeau du voyage (accueil) : fenêtre scrollable/swipable sur la route ACTIVE (une par
@@ -25,8 +27,9 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
   const stations = route.stations;
   const span = stations.length - 1;
   const arrived = !pos.next;
-  const trainX = pos.position * STEP + STEP / 2;
-  const innerW = span * STEP + STEP;
+  const trainX = LEAD + pos.position * STEP + STEP / 2;
+  const innerW = LEAD + span * STEP + STEP;
+  const startX = LEAD + STEP / 2; // x de la 1re station (Nihonbashi) — origine du parcouru
 
   // Centre la fenêtre sur le train (sans animation : c'est l'état, pas un mouvement).
   useEffect(() => {
@@ -55,14 +58,17 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
           )}
         </span>
       </button>
-      <div
-        ref={scroller}
-        className="cursor-pointer overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        onClick={onOpen}
-        aria-hidden="true"
-      >
-        <div className="relative" style={{ width: innerW, height: STRIP_H }}>
-          <svg
+      <div className="relative overflow-hidden">
+        <div className="decor-layer decor-mountains" aria-hidden="true" />
+        <div className="decor-layer decor-trees" aria-hidden="true" />
+        <div
+          ref={scroller}
+          className="relative cursor-pointer overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onClick={onOpen}
+          aria-hidden="true"
+        >
+          <div className="relative" style={{ width: innerW, height: STRIP_H }}>
+            <svg
             className="absolute inset-0"
             width={innerW}
             height={STRIP_H}
@@ -72,6 +78,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             {/* Voie ferrée : traverses (ligne épaisse en pointillés verticaux) sous deux
                 rails parallèles. Le chemin parcouru repasse les rails à l'encre. */}
             <line
+              className="rail-sleepers"
               x1={0}
               y1={LINE_Y}
               x2={innerW}
@@ -82,24 +89,50 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             />
             <line x1={0} y1={LINE_Y - 2} x2={innerW} y2={LINE_Y - 2} stroke="var(--hairline)" strokeWidth={1} />
             <line x1={0} y1={LINE_Y + 2} x2={innerW} y2={LINE_Y + 2} stroke="var(--hairline)" strokeWidth={1} />
-            <line x1={0} y1={LINE_Y - 2} x2={trainX} y2={LINE_Y - 2} stroke="var(--ink)" strokeWidth={1.2} />
-            <line x1={0} y1={LINE_Y + 2} x2={trainX} y2={LINE_Y + 2} stroke="var(--ink)" strokeWidth={1.2} />
+            <line x1={startX} y1={LINE_Y - 2} x2={trainX} y2={LINE_Y - 2} stroke="var(--ink)" strokeWidth={1.2} />
+            <line x1={startX} y1={LINE_Y + 2} x2={trainX} y2={LINE_Y + 2} stroke="var(--ink)" strokeWidth={1.2} />
             {/* Poteaux de station (passées = ink, à venir = hairline). */}
             {stations.map((s) => (
               <line
                 key={s.index}
-                x1={s.index * STEP + STEP / 2}
+                x1={LEAD + s.index * STEP + STEP / 2}
                 y1={LINE_Y + 5}
-                x2={s.index * STEP + STEP / 2}
+                x2={LEAD + s.index * STEP + STEP / 2}
                 y2={LINE_Y + 9}
                 stroke={s.index <= pos.position ? "var(--ink)" : "var(--hairline)"}
                 strokeWidth={s.index === 0 || s.index === span ? 1.5 : 1}
               />
             ))}
+            {/* Lignes de vitesse (集中線) : traînée à l'encre derrière le train, à hauteur de
+                caisse. Deux plans — proche (net, rapide) et lointain (pâle, lent) — pour
+                l'effet de profondeur. Défilent vers l'arrière quand le train « roule ». */}
+            <g transform={`translate(${trainX - 84}, ${LINE_Y - 7})`} aria-hidden="true">
+              {[
+                { y: -2, len: 11, stroke: "var(--ink)", dur: "0.8s", delay: "0s" },
+                { y: 2, len: 9, stroke: "var(--ink)", dur: "0.9s", delay: "0.25s" },
+                { y: -6, len: 6, stroke: "var(--hairline)", dur: "1.3s", delay: "0.15s" },
+                { y: 6, len: 6, stroke: "var(--hairline)", dur: "1.25s", delay: "0.5s" },
+              ].map((s, i) => (
+                <line
+                  key={i}
+                  className="speed-streak"
+                  x1={0}
+                  y1={s.y}
+                  x2={s.len}
+                  y2={s.y}
+                  stroke={s.stroke}
+                  strokeWidth={1}
+                  strokeLinecap="round"
+                  style={{ animationDuration: s.dur, animationDelay: s.delay }}
+                />
+              ))}
+            </g>
             {/* Le train : motrice + deux voitures de passagers du même gabarit, nez
                 EXACTEMENT sur l'avancement. Roues dessinées d'abord : les caisses passent
-                par-dessus (roues à demi cachées, comme il se doit). */}
+                par-dessus (roues à demi cachées, comme il se doit). La caisse tangue sans
+                déplacer le nez (train-chug). */}
             <g transform={`translate(${trainX - 81}, ${LINE_Y - 15.5})`}>
+              <g className="train-chug">
               {[0, 26].map((x) => (
                 <g key={x} transform={`translate(${x}, 0)`}>
                   <circle cx={5.5} cy={15.5} r={2} fill="var(--ink)" />
@@ -138,6 +171,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                   <rect x={4} y={4.5} width={12} height={2.2} rx={1.1} fill="var(--bg)" />
                 </g>
               </g>
+              </g>
             </g>
           </svg>
           {/* Noms en kanji verticaux sous les poteaux, façon panneaux de route. */}
@@ -148,7 +182,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                 s.index === pos.station.index ? "text-text" : "text-muted"
               }`}
               style={{
-                left: s.index * STEP + STEP / 2,
+                left: LEAD + s.index * STEP + STEP / 2,
                 top: LINE_Y + 10,
                 writingMode: "vertical-rl",
                 translate: "-50%",
@@ -157,6 +191,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
               {s.kanji}
             </span>
           ))}
+          </div>
         </div>
       </div>
       {arrived && (

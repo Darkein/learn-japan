@@ -100,12 +100,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
         <h2 className="font-serif text-xl">Aujourd'hui</h2>
       </header>
 
-      {tokaido &&
-        (tokaido.pos.position > 0 ||
-          tokaido.levels.some((l) => l.lessonsCompleted > 0) ||
-          (dailyData && dailyData.reviewed > 0)) && (
-        <TokaidoStrip pos={tokaido.pos} onOpen={onGoVoyage} />
-      )}
+      {tokaido && <TokaidoStrip pos={tokaido.pos} onOpen={onGoVoyage} />}
 
       {tokaido?.newlyArrived && (
         <StationArrival
