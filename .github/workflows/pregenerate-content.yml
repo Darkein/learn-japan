@@ -1,0 +1,62 @@
+name: Pregenerate lesson content
+
+# Pré-génère le contenu des leçons (cours, histoire v1, traduction, QCM) dans le cache R2
+# du Worker via scripts/pregenerate.ts (npm run content:batch). L'app sert ensuite ce
+# déjà-fait sans rappeler Gemini. Manuel uniquement : la génération consomme du quota.
+#
+# Après un CHANGEMENT DE CURRICULUM, lancer avec `refresh` : les clés R2 des cours et
+# histoires de leçon sont par id (gen/lesson/<id>.json) — sans refresh, l'ancien contenu
+# resterait servi pour les leçons dont l'id n'a pas changé.
+#
+# Rien n'est committé : le contenu atterrit dans R2, pas dans git.
+
+on:
+  workflow_dispatch:
+    inputs:
+      level:
+        description: "Niveau JLPT (5…1 ; vide = tout le curriculum)"
+        required: false
+        default: ""
+      limit:
+        description: "Nombre de leçons (vide = toutes)"
+        required: false
+        default: ""
+      lesson_only:
+        description: "Cours seuls (pas d'histoires/traductions/QCM)"
+        type: boolean
+        default: false
+      refresh:
+        description: "Ignorer le cache R2 et régénérer (après un changement de curriculum)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Un seul run à la fois : le script est séquentiel et le quota Gemini est partagé.
+concurrency:
+  group: pregenerate-content
+  cancel-in-progress: false
+
+jobs:
+  pregenerate:
+    runs-on: ubuntu-latest
+    # 67 leçons × 4 appels séquentiels : large marge, mais borné.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Pré-générer le contenu des leçons
+        run: >-
+          npm run content:batch --
+          ${{ inputs.level && format('--level {0}', inputs.level) || '' }}
+          ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
+          ${{ inputs.lesson_only && '--lesson-only' || '' }}
+          ${{ inputs.refresh && '--refresh' || '' }}
+        env:
+          # Même variable de repo que deploy.yml ; le script retombe sur le Worker déployé si absente.
+          WORKER_URL: ${{ vars.VITE_WORKER_URL }}

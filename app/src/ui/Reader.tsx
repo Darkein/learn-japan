@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
-import type { ItemStatus } from "../lib/db";
+import { recordEncounters, type ReEncounter } from "../lib/encounters";
+import type { ItemStatus, StoryRecord } from "../lib/db";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
-import type { LessonObjectives } from "../lib/curriculum";
+import { getCurriculumEntry, type LessonObjectives } from "../lib/curriculum";
 import type { StoryParams } from "../lib/stories";
 import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
@@ -36,6 +37,31 @@ export interface IncomingStory {
   lessonContext?: LessonContext;
 }
 
+// Construit le contexte de lecture à partir d'une histoire enregistrée. Si l'histoire est
+// rattachée à une leçon, on enrichit le contexte (titre, objectifs) depuis le curriculum.
+// Partagé entre le shell (ouverture d'une histoire) et le flux d'étude.
+export function incomingFromStory(story: StoryRecord): IncomingStory {
+  const entry = story.lessonId ? getCurriculumEntry(story.lessonId) : undefined;
+  return {
+    id: story.id,
+    title: story.titleFr ?? story.title,
+    text: story.text,
+    params: story.params,
+    nonce: Date.now(),
+    lessonContext: entry
+      ? {
+          lessonId: entry.id,
+          title: entry.title,
+          level: entry.level,
+          objectives: entry.objectives,
+          grammarIds: entry.introduces.grammar,
+        }
+      : story.lessonId
+        ? { lessonId: story.lessonId }
+        : undefined,
+  };
+}
+
 function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>): string {
   if (!isContent(tok.token)) return "transparent";
   const st = statuses.get(itemIdFor(tok.token)) ?? "unknown";
@@ -53,6 +79,7 @@ export function Reader({ incoming }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
+  const [reEncounters, setReEncounters] = useState<ReEncounter[]>([]);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [exoOpen, setExoOpen] = useState(false);
   const [transOpen, setTransOpen] = useState(false);
@@ -87,6 +114,7 @@ export function Reader({ incoming }: Props) {
       setResult(analyzed);
       const ids = analyzed.tokens.filter((x) => isContent(x.token)).map((x) => itemIdFor(x.token));
       setStatuses(await statusesFor(ids));
+      setReEncounters(await recordEncounters(incoming.id, ids));
     } catch (e) {
       setError(
         "Tokenizer indisponible — vérifie que le dictionnaire kuromoji est servi sous /dict/. " +
@@ -197,6 +225,14 @@ export function Reader({ incoming }: Props) {
               {transOpen ? "Masquer la traduction" : "Traduction française"}
             </Button>
           </div>
+
+          {reEncounters.length > 0 && (
+            <p className="text-sm text-muted">
+              Tu as recroisé{" "}
+              <strong className="font-medium text-text">{reEncounters.length}</strong> mot
+              {reEncounters.length > 1 ? "s" : ""} que tu connais.
+            </p>
+          )}
 
           {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
 

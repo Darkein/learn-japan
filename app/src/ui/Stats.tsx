@@ -8,12 +8,15 @@ import {
   putComprehensionItem,
   putGrammar,
   putVocab,
+  recentSrsDaily,
   type ComprehensionItem,
   type GrammarItem,
   type ReviewLog,
   type Skill,
+  type SrsDailyRecord,
   type VocabItem,
 } from "../lib/db";
+import { formatMinutes } from "../lib/time";
 import { newCard } from "../lib/srs";
 import {
   accuracyKey,
@@ -35,6 +38,7 @@ const MIN_REVIEWS_FOR_ACCURACY = 4;
 const WORST_ITEMS = 10;
 
 interface Data {
+  daily: SrsDailyRecord[];
   vocab: VocabItem[];
   grammar: GrammarItem[];
   comprehension: ComprehensionItem[];
@@ -100,6 +104,15 @@ function worstItems(data: Data, acc: Map<string, ItemAccuracy>): (ResolvedItem &
   return rows.sort((a, b) => b.errorRate - a.errorRate).slice(0, WORST_ITEMS);
 }
 
+function studyDayLabel(date: string, index: number, total: number): string {
+  if (index === total - 1) return "Aujourd'hui";
+  if (index === total - 2) return "Hier";
+  return new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+  });
+}
+
 function forecastLabel(day: ForecastDay, index: number): string {
   if (index === 0) return "Aujourd'hui";
   if (index === 1) return "Demain";
@@ -114,13 +127,14 @@ export function Stats() {
   const [data, setData] = useState<Data | null>(null);
 
   async function refresh() {
-    const [vocab, grammar, comprehension, reviews] = await Promise.all([
+    const [vocab, grammar, comprehension, reviews, daily] = await Promise.all([
       allVocab(),
       allGrammar(),
       allComprehension(),
       allReviews(),
+      recentSrsDaily(7),
     ]);
-    setData({ vocab, grammar, comprehension, reviews });
+    setData({ vocab, grammar, comprehension, reviews, daily });
   }
 
   useEffect(() => {
@@ -205,6 +219,37 @@ export function Stats() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Temps d'étude (7 derniers jours)</SectionLabel>
+        {data.daily.every((d) => !d.flowMs) ? (
+          <p className="text-sm text-muted">
+            Pas encore de temps mesuré — le flux d'étude (bouton « Commencer » de l'accueil)
+            compte tes minutes.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {data.daily.map((d, i) => {
+              const maxMs = Math.max(1, ...data.daily.map((x) => x.flowMs ?? 0));
+              const ms = d.flowMs ?? 0;
+              return (
+                <div key={d.date} className="flex items-center gap-3 text-sm">
+                  <span className="w-24 shrink-0 text-muted">{studyDayLabel(d.date, i, data.daily.length)}</span>
+                  <div className="h-3 grow rounded-sm bg-bg">
+                    <div
+                      className="h-full rounded-sm bg-accent"
+                      style={{ width: `${(ms / maxMs) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-16 shrink-0 text-right text-text">
+                    {ms > 0 ? formatMinutes(ms) : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-3">

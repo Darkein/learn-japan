@@ -62,6 +62,35 @@ export interface Lesson extends CurriculumEntry {
   unlockedNaturally?: boolean;
   /** La notification de déblocage a-t-elle déjà été envoyée ? */
   notifiedUnlock?: boolean;
+  /**
+   * Le cours local a été généré pour d'AUTRES objectifs (le curriculum a changé sous
+   * ce même id) : à régénérer à l'ouverture. L'ancien cours reste affiché en attendant.
+   */
+  framingStale?: boolean;
+}
+
+/**
+ * Empreinte stable des objectifs d'une leçon (FNV-1a hex) : titre, niveau et items
+ * introduits. Stockée avec le cours généré (GeneratedLessonRecord.objectivesHash) pour
+ * détecter un curriculum qui a changé sous un même id de leçon. Les histoires, elles,
+ * ne sont volontairement PAS invalidées : une histoire déjà générée reste une matière
+ * à lire valable — seule la partie pédagogique (le cours) doit suivre les objectifs.
+ */
+export function objectivesHash(
+  entry: Pick<CurriculumEntry, "title" | "level" | "introduces">,
+): string {
+  const material = JSON.stringify({
+    title: entry.title,
+    level: entry.level,
+    vocab: entry.introduces.vocab,
+    grammar: entry.introduces.grammar,
+  });
+  let h = 2166136261;
+  for (let i = 0; i < material.length; i++) {
+    h ^= material.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16);
 }
 
 // Promesse mémoïsée de l'index R2 : un seul appel par session, même si listLessons est rappelé.
@@ -152,6 +181,8 @@ async function hydrate(
     // arrière-plan sans bloquer l'accès au cours.
     state: generated?.framing || stories.length > 0 || pregenerated ? "ready" : "to-generate",
     framing: generated?.framing,
+    // Cours généré pour d'autres objectifs (ou avant l'empreinte) → périmé.
+    framingStale: !!generated?.framing && generated.objectivesHash !== objectivesHash(entry),
     stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,
@@ -237,8 +268,17 @@ export async function markUnlockNotified(lessonId: string): Promise<void> {
 }
 
 /** Met en cache le cadrage de cours généré (les histoires, elles, passent par `saveStory`). */
-async function saveLesson(id: string, framing: string): Promise<GeneratedLessonRecord> {
-  const rec: GeneratedLessonRecord = { id, framing, createdAt: Date.now() };
+async function saveLesson(
+  id: string,
+  framing: string,
+  entry: Pick<CurriculumEntry, "title" | "level" | "introduces">,
+): Promise<GeneratedLessonRecord> {
+  const rec: GeneratedLessonRecord = {
+    id,
+    framing,
+    createdAt: Date.now(),
+    objectivesHash: objectivesHash(entry),
+  };
   await putGeneratedLesson(rec);
   return rec;
 }
@@ -262,12 +302,17 @@ async function markLessonCompleted(id: string): Promise<void> {
 
 // ---- Génération de contenu d'une leçon (partagée UI / podcast) --------------
 
-/** S'assure que le cadrage du cours existe (le génère et le met en cache sinon). */
+/**
+ * S'assure que le cadrage du cours existe ET correspond aux objectifs courants de la
+ * leçon : le génère s'il manque, le RÉGÉNÈRE s'il est périmé (curriculum changé sous le
+ * même id — `refresh: true` car la clé R2 du Worker est par id et resservirait l'ancien
+ * cours). En cas d'échec de régénération, l'ancien cours est conservé tel quel.
+ */
 export async function ensureLessonFraming(
   lesson: Lesson,
   onState?: (s: GenState) => void,
 ): Promise<string | undefined> {
-  if (lesson.framing) return lesson.framing;
+  if (lesson.framing && !lesson.framingStale) return lesson.framing;
   const framing = await generateLesson(
     {
       lessonId: lesson.id,
@@ -275,12 +320,14 @@ export async function ensureLessonFraming(
       level: lesson.level,
       vocab: lesson.objectives.vocab,
       grammar: lesson.objectives.grammar,
+      ...(lesson.framingStale ? { refresh: true } : {}),
     },
     onState,
   );
   if (framing) {
-    await saveLesson(lesson.id, framing);
+    await saveLesson(lesson.id, framing, lesson);
     lesson.framing = framing;
+    lesson.framingStale = false;
   }
   return framing;
 }

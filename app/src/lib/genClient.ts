@@ -34,6 +34,8 @@ export interface GenParams {
   // Clé R2 structurée (lesson / lesson-story uniquement)
   lessonId?: string;
   variant?: number;
+  /** Ignorer le cache R2 du Worker et régénérer (cours périmé après changement de curriculum). */
+  refresh?: boolean;
 }
 
 export type GeneratedIndex = Record<string, { cours: boolean; stories: number[] }>;
@@ -122,6 +124,12 @@ export interface LessonGenInput {
   level: number;
   vocab: { ja: string; yomi?: string; fr: string }[];
   grammar: string[];
+  /**
+   * Ignorer le cache R2 du Worker et régénérer. Nécessaire quand les objectifs de la
+   * leçon ont changé : les clés R2 des cours sont par id (gen/lesson/<id>.json), le
+   * cache resservirait sinon l'ancien contenu.
+   */
+  refresh?: boolean;
   // kind: "lesson-story" uniquement — révision (leçons précédentes) et anti-répétition.
   reviewVocab?: { ja: string; yomi?: string; fr: string }[];
   reviewGrammar?: string[];
@@ -142,6 +150,7 @@ export async function generateLesson(
         level: input.level,
         vocab: input.vocab,
         grammar: input.grammar,
+        ...(input.refresh ? { refresh: true } : {}),
       },
       onState,
       opts,

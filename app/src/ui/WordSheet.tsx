@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { kataToHira } from "../lib/kana";
 import type { ItemStatus } from "../lib/db";
+import { encounterInfo, type ReEncounter } from "../lib/encounters";
+import { formatDaysAgo } from "../lib/time";
 import { speakWord, stopSentence } from "../lib/tts";
-import { isContent, meaningFor, type StatusAction } from "../lib/vocab";
+import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { Sheet } from "./kit/Sheet";
 
@@ -46,10 +48,23 @@ export function WordSheet({
 }) {
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
+  const [encounter, setEncounter] = useState<ReEncounter | null>(null);
 
   // Fermeture de la fiche : coupe la synthèse vocale en cours (sinon l'utterance
   // orpheline peut laisser le focus audio OS actif et le ducking du volume système).
   useEffect(() => () => stopSentence(), []);
+
+  // Retrouvailles : « croisé pour la 5ᵉ fois · appris il y a 12 jours ».
+  useEffect(() => {
+    if (!content) return;
+    let cancelled = false;
+    void encounterInfo(itemIdFor(token)).then((e) => {
+      if (!cancelled) setEncounter(e);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, content]);
 
   return (
     <Sheet open onClose={onClose} className="gap-3 px-4 pt-6">
@@ -73,6 +88,12 @@ export function WordSheet({
 
       <div className="text-lg">{meaningFor(token)}</div>
       <div className="text-sm text-muted">Statut : {STATUS_FR[status]}</div>
+      {encounter && encounter.count >= 2 && (
+        <div className="text-sm text-muted">
+          Croisé pour la {encounter.count}ᵉ fois
+          {encounter.learnedAt != null && <> · appris {formatDaysAgo(encounter.learnedAt)}</>}
+        </div>
+      )}
 
       {content ? (
         <div className="mt-2 flex flex-wrap gap-3">

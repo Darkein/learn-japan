@@ -25,7 +25,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const INV = join(ROOT, "app", "src", "data", "inventory");
 const read = <T>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
 
-const WORKER_URL = (process.env.WORKER_URL ?? "https://learn-japan-gen.learn-japan-gen.workers.dev").replace(
+// `||` et non `??` : en CI, une variable de repo absente arrive en chaîne vide.
+const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-japan-gen.workers.dev").replace(
   /\/+$/,
   "",
 );

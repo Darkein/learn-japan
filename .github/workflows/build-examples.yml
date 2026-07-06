@@ -44,6 +44,10 @@ jobs:
         env:
           # Même variable de repo que deploy.yml ; le script retombe sur le Worker déployé si absente.
           WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+      # Garde-fou : un push du bot (GITHUB_TOKEN) ne déclenche pas la CI — on vérifie donc
+      # ICI que le nouveau corpus ne casse aucun test avant de le committer sur la branche.
+      - name: Tester avec le corpus regénéré
+        run: npm test
       - name: Committer le corpus regénéré
         run: |
           if git diff --quiet app/src/data/inventory/examples.json; then
