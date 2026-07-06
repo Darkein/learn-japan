@@ -60,6 +60,75 @@ describe("conjugate — 一段", () => {
   });
 });
 
+describe("conjugate — formes N4 (一段)", () => {
+  const v: JaPair = { surface: "食べる", reading: "たべる" };
+  it.each([
+    ["potential", "食べられる|たべられる"],
+    ["passive", "食べられる|たべられる"],
+    ["causative", "食べさせる|たべさせる"],
+    ["volitional", "食べよう|たべよう"],
+    ["imperative", "食べろ|たべろ"],
+    ["ba", "食べれば|たべれば"],
+    ["tara", "食べたら|たべたら"],
+    ["temiru", "食べてみる|たべてみる"],
+    ["teshimau", "食べてしまう|たべてしまう"],
+    ["teoku", "食べておく|たべておく"],
+    ["naide", "食べないで|たべないで"],
+  ] as [ConjForm, string][])("%s", (form, expected) => {
+    expect(conj(v.surface, v.reading, "ichidan", form)).toBe(expected);
+  });
+});
+
+describe("conjugate — formes N4 (五段)", () => {
+  it.each([
+    // [dico, lecture, forme, attendu]
+    ["書く", "かく", "potential", "書ける|かける"],
+    ["書く", "かく", "passive", "書かれる|かかれる"],
+    ["書く", "かく", "causative", "書かせる|かかせる"],
+    ["書く", "かく", "volitional", "書こう|かこう"],
+    ["書く", "かく", "imperative", "書け|かけ"],
+    ["書く", "かく", "ba", "書けば|かけば"],
+    ["買う", "かう", "potential", "買える|かえる"],
+    ["買う", "かう", "passive", "買われる|かわれる"],
+    ["買う", "かう", "volitional", "買おう|かおう"],
+    ["読む", "よむ", "causative", "読ませる|よませる"],
+    ["読む", "よむ", "ba", "読めば|よめば"],
+    ["行く", "いく", "tara", "行ったら|いったら"],
+    ["話す", "はなす", "teshimau", "話してしまう|はなしてしまう"],
+    ["待つ", "まつ", "naide", "待たないで|またないで"],
+  ] as [string, string, ConjForm, string][])("%s → %s", (s, r, form, expected) => {
+    expect(conj(s, r, "godan", form)).toBe(expected);
+  });
+});
+
+describe("conjugate — formes N4 (する / 来る / ある)", () => {
+  it.each([
+    ["勉強する", "べんきょうする", "suru", "potential", "勉強できる|べんきょうできる"],
+    ["勉強する", "べんきょうする", "suru", "passive", "勉強される|べんきょうされる"],
+    ["勉強する", "べんきょうする", "suru", "causative", "勉強させる|べんきょうさせる"],
+    ["勉強する", "べんきょうする", "suru", "volitional", "勉強しよう|べんきょうしよう"],
+    ["勉強する", "べんきょうする", "suru", "imperative", "勉強しろ|べんきょうしろ"],
+    ["勉強する", "べんきょうする", "suru", "ba", "勉強すれば|べんきょうすれば"],
+    ["来る", "くる", "kuru", "potential", "来られる|こられる"],
+    ["来る", "くる", "kuru", "causative", "来させる|こさせる"],
+    ["来る", "くる", "kuru", "volitional", "来よう|こよう"],
+    ["来る", "くる", "kuru", "imperative", "来い|こい"],
+    ["来る", "くる", "kuru", "ba", "来れば|くれば"],
+    ["くる", "くる", "kuru", "imperative", "こい|こい"],
+  ] as [string, string, VerbClass, ConjForm, string][])("%s %s", (s, r, cls, form, expected) => {
+    expect(conj(s, r, cls, form)).toBe(expected);
+  });
+
+  it("ある : formes d'action exclues, ば/たら conservés", () => {
+    expect(conj("ある", "ある", "godan", "potential")).toBe("∅");
+    expect(conj("ある", "ある", "godan", "volitional")).toBe("∅");
+    expect(conj("ある", "ある", "godan", "imperative")).toBe("∅");
+    expect(conj("ある", "ある", "godan", "naide")).toBe("∅");
+    expect(conj("ある", "ある", "godan", "ba")).toBe("あれば|あれば");
+    expect(conj("ある", "ある", "godan", "tara")).toBe("あったら|あったら");
+  });
+});
+
 describe("conjugate — 五段 (euphonies て/た)", () => {
   it.each([
     // [dico, lecture, te attendu, ta attendu]
