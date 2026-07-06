@@ -1,1 +1,1506 @@
-{}
+{
+ "今日|きょう": {
+  "ja": "今日は本を読みます。",
+  "fr": "Aujourd'hui, je lis un livre."
+ },
+ "本|ほん": {
+  "ja": "これは本です。",
+  "fr": "C'est un livre."
+ },
+ "猫|ねこ": {
+  "ja": "猫は水を飲みます。",
+  "fr": "Le chat boit de l'eau."
+ },
+ "水|みず": {
+  "ja": "猫は水を飲みます。",
+  "fr": "Le chat boit de l'eau."
+ },
+ "暑い|あつい": {
+  "ja": "今日は暑いです。",
+  "fr": "Aujourd'hui il fait chaud."
+ },
+ "私|わたし": {
+  "ja": "私は読みます。",
+  "fr": "Je lis."
+ },
+ "学生|がくせい": {
+  "ja": "私は学生です。",
+  "fr": "Je suis étudiant."
+ },
+ "先生|せんせい": {
+  "ja": "先生は本を読みます。",
+  "fr": "Le professeur lit un livre."
+ },
+ "雨|あめ": {
+  "ja": "今日は雨です。",
+  "fr": "Aujourd'hui, c'est la pluie."
+ },
+ "寒い|さむい": {
+  "ja": "今日は寒いです。",
+  "fr": "Aujourd'hui, il fait froid."
+ },
+ "天気|てんき": {
+  "ja": "天気は暑いです。",
+  "fr": "Le temps est chaud."
+ },
+ "山|やま": {
+  "ja": "山は寒いです。",
+  "fr": "La montagne est froide."
+ },
+ "書く|かく": {
+  "ja": "本を書く。",
+  "fr": "J'écris un livre."
+ },
+ "聞く|きく": {
+  "ja": "先生の話を聞く。",
+  "fr": "J'écoute la parole du professeur."
+ },
+ "話す|はなす": {
+  "ja": "私と話す。",
+  "fr": "Parle avec moi."
+ },
+ "男|おとこ": {
+  "ja": "彼は男です。",
+  "fr": "Il est un homme."
+ },
+ "女|おんな": {
+  "ja": "彼女は女です。",
+  "fr": "Elle est une femme."
+ },
+ "子供|こども": {
+  "ja": "子供は水を飲みます。",
+  "fr": "L'enfant boit de l'eau."
+ },
+ "人|ひと": {
+  "ja": "私は人です。",
+  "fr": "Je suis une personne."
+ },
+ "学校|がっこう": {
+  "ja": "私は学校に行きます。",
+  "fr": "Je vais à l'école."
+ },
+ "見る|みる": {
+  "ja": "私、本を 見る。",
+  "fr": "Je regarde un livre."
+ },
+ "犬|いぬ": {
+  "ja": "犬がいます。",
+  "fr": "Il y a un chien."
+ },
+ "一|いち": {
+  "ja": "私は一を読みます。",
+  "fr": "Je lis un."
+ },
+ "五|ご": {
+  "ja": "私は五を見ます。",
+  "fr": "Je regarde cinq."
+ },
+ "三|さん": {
+  "ja": "私は三を書きます。",
+  "fr": "J'écris trois."
+ },
+ "二|に": {
+  "ja": "私は二を聞きます。",
+  "fr": "J'écoute deux."
+ },
+ "九|きゅう": {
+  "ja": "九人います。",
+  "fr": "Il y a neuf personnes."
+ },
+ "十|じゅう": {
+  "ja": "十本を読みます。",
+  "fr": "Je lis dix livres."
+ },
+ "八|はち": {
+  "ja": "八つの水を飲みます。",
+  "fr": "Je bois huit verres d'eau."
+ },
+ "六|ろく": {
+  "ja": "六人います。",
+  "fr": "Il y a six personnes."
+ },
+ "千|せん": {
+  "ja": "千円です。",
+  "fr": "C'est mille yens."
+ },
+ "百|ひゃく": {
+  "ja": "百人です。",
+  "fr": "C'est cent personnes."
+ },
+ "木|き": {
+  "ja": "木があります。",
+  "fr": "Il y a un arbre."
+ },
+ "今|いま": {
+  "ja": "私は今、本を読みます。",
+  "fr": "Je lis un livre maintenant."
+ },
+ "午後|ごご": {
+  "ja": "午後に何をしますか。",
+  "fr": "Que faites-vous l'après-midi ?"
+ },
+ "午前|ごぜん": {
+  "ja": "午前は雨です。",
+  "fr": "Il pleut le matin."
+ },
+ "時間|じかん": {
+  "ja": "時間があります。",
+  "fr": "J'ai du temps."
+ },
+ "後ろ|うしろ": {
+  "ja": "猫は後ろにいます。",
+  "fr": "Le chat est derrière."
+ },
+ "毎日|まいにち": {
+  "ja": "毎日、本を読みます。",
+  "fr": "Je lis un livre tous les jours."
+ },
+ "前|まえ": {
+  "ja": "前の人は先生です。",
+  "fr": "La personne devant est le professeur."
+ },
+ "上|うえ": {
+  "ja": "猫は木の上です。",
+  "fr": "Le chat est sur l'arbre."
+ },
+ "外|そと": {
+  "ja": "外は寒いです。",
+  "fr": "Il fait froid dehors."
+ },
+ "中|なか": {
+  "ja": "猫は箱の中です。",
+  "fr": "Le chat est dans la boîte."
+ },
+ "右|みぎ": {
+  "ja": "右にいます。",
+  "fr": "Je suis à droite."
+ },
+ "北|きた": {
+  "ja": "北は寒いです。",
+  "fr": "Le nord est froid."
+ },
+ "西|にし": {
+  "ja": "西へ行きます。",
+  "fr": "Je vais à l'ouest."
+ },
+ "東|ひがし": {
+  "ja": "東を見ます。",
+  "fr": "Je regarde l'est."
+ },
+ "左|ひだり": {
+  "ja": "左に行きます。",
+  "fr": "Je vais à gauche."
+ },
+ "南|みなみ": {
+  "ja": "南は暑いです。",
+  "fr": "Le sud est chaud."
+ },
+ "大きい|おおきい": {
+  "ja": "山は大きいです。",
+  "fr": "La montagne est grande."
+ },
+ "高い|たかい": {
+  "ja": "あの山は高いです。",
+  "fr": "Cette montagne est haute."
+ },
+ "小さい|ちいさい": {
+  "ja": "小さい犬です。",
+  "fr": "C'est un petit chien."
+ },
+ "長い|ながい": {
+  "ja": "長い木です。",
+  "fr": "C'est un long arbre."
+ },
+ "休む|やすむ": {
+  "ja": "休むをします。",
+  "fr": "Je me repose."
+ },
+ "父|ちち": {
+  "ja": "父は本を読みます。",
+  "fr": "Mon père lit un livre."
+ },
+ "友達|ともだち": {
+  "ja": "友達と話します。",
+  "fr": "Je parle avec un ami."
+ },
+ "母|はは": {
+  "ja": "母は水を飲みます。",
+  "fr": "Ma mère boit de l'eau."
+ },
+ "車|くるま": {
+  "ja": "これは私の車です。",
+  "fr": "C'est ma voiture."
+ },
+ "白い|しろい": {
+  "ja": "あの猫は白いです。",
+  "fr": "Ce chat-là est blanc."
+ },
+ "電車|でんしゃ": {
+  "ja": "私は電車で学校に行きます。",
+  "fr": "Je vais à l'école en train."
+ },
+ "十|(〜を) とお": {
+  "ja": "これは十円です。",
+  "fr": "Ceci coûte dix yens."
+ },
+ "～すぎ|～すぎ": {
+  "ja": "この服は～すぎます。",
+  "fr": "Ce vêtement est trop grand."
+ },
+ "～ずつ|～ずつ": {
+  "ja": "毎日、漢字を二つ～ずつ覚えます。",
+  "fr": "J'apprends deux kanji chaque jour."
+ },
+ "～台|～だい": {
+  "ja": "車が三～台あります。",
+  "fr": "Il y a trois voitures."
+ },
+ "～だけ|～だけ": {
+  "ja": "お金が少し～だけあります。",
+  "fr": "Il n'y a qu'un peu d'argent."
+ },
+ "～たち|～たち": {
+  "ja": "私～たちはお菓子を食べます。",
+  "fr": "Nous mangeons des sucreries."
+ },
+ "～度|～ど": {
+  "ja": "一～度この本を読みました。",
+  "fr": "J'ai lu ce livre une fois."
+ },
+ "～時|～とき": {
+  "ja": "食べる～時、手を洗います。",
+  "fr": "Je me lave les mains quand je mange."
+ },
+ "～など|～など": {
+  "ja": "猫や犬～など、動物が好きです。",
+  "fr": "J'aime les animaux comme les chats et les chiens."
+ },
+ "～日|～にち": {
+  "ja": "今日は五～日です。",
+  "fr": "Aujourd'hui est le cinq du mois."
+ },
+ "～人|～にん": {
+  "ja": "私の家族は四～人です。",
+  "fr": "Ma famille est de quatre personnes."
+ },
+ "～杯|～はい": {
+  "ja": "コーヒーを二～杯ください。",
+  "fr": "Deux tasses de café s'il vous plaît."
+ },
+ "～匹|～ひき": {
+  "ja": "犬が二～匹います。",
+  "fr": "Il y a deux chiens."
+ },
+ "～分|～ふん": {
+  "ja": "今、五～分です。",
+  "fr": "Il est cinq minutes."
+ },
+ "～本|～ほん": {
+  "ja": "ペンが三～本あります。",
+  "fr": "Il y a trois stylos."
+ },
+ "～枚|～まい": {
+  "ja": "紙が五～枚あります。",
+  "fr": "Il y a cinq feuilles de papier."
+ },
+ "～前|～まえ": {
+  "ja": "駅の～前で会います。",
+  "fr": "On se rencontre devant la gare."
+ },
+ "～屋|～や": {
+  "ja": "あの花～屋はきれいです。",
+  "fr": "Ce fleuriste est joli."
+ },
+ "青|あお": {
+  "ja": "青い空です。",
+  "fr": "C'est un ciel bleu."
+ },
+ "青い|あおい": {
+  "ja": "青い空です。",
+  "fr": "C'est un ciel bleu."
+ },
+ "赤|あか": {
+  "ja": "赤い花です。",
+  "fr": "C'est une fleur rouge."
+ },
+ "赤い|あかい": {
+  "ja": "赤い花です。",
+  "fr": "C'est une fleur rouge."
+ },
+ "明るい|あかるい": {
+  "ja": "明るい部屋です。",
+  "fr": "C'est une pièce lumineuse."
+ },
+ "秋|あき": {
+  "ja": "秋が好きです。",
+  "fr": "J'aime l'automne."
+ },
+ "明後日|あさって": {
+  "ja": "明後日、学校に行きます。",
+  "fr": "Après-demain, j'irai à l'école."
+ },
+ "明日|あした": {
+  "ja": "明日、休みます。",
+  "fr": "Demain, je me reposerai."
+ },
+ "あそこ|あそこ": {
+  "ja": "あそこは公園です。",
+  "fr": "Là-bas, c'est un parc."
+ },
+ "暖かい|あたたかい": {
+  "ja": "暖かい日です。",
+  "fr": "C'est une journée chaude."
+ },
+ "頭|あたま": {
+  "ja": "頭が痛いです。",
+  "fr": "J'ai mal à la tête."
+ },
+ "新しい|あたらしい": {
+  "ja": "それは新しい車です。",
+  "fr": "C'est une nouvelle voiture."
+ },
+ "あちら|あちら": {
+  "ja": "あちらへ行ってください。",
+  "fr": "Veuillez aller par là."
+ },
+ "熱い|あつい": {
+  "ja": "このお茶は熱いです。",
+  "fr": "Ce thé est chaud."
+ },
+ "厚い|あつい": {
+  "ja": "この本は厚いです。",
+  "fr": "Ce livre est épais."
+ },
+ "あっち|あっち": {
+  "ja": "あっちを見てください。",
+  "fr": "Regardez là-bas."
+ },
+ "あなた|あなた": {
+  "ja": "あなたは学生ですか。",
+  "fr": "Êtes-vous étudiant ?"
+ },
+ "兄|あに": {
+  "ja": "私の兄は大きいです。",
+  "fr": "Mon frère aîné est grand."
+ },
+ "あの|あの": {
+  "ja": "あの人は誰ですか。",
+  "fr": "Qui est cette personne là-bas ?"
+ },
+ "アパート|アパート": {
+  "ja": "アパートは古いです。",
+  "fr": "L'appartement est vieux."
+ },
+ "危ない|あぶない": {
+  "ja": "ここは危ないです。",
+  "fr": "C'est dangereux ici."
+ },
+ "余り|あまり": {
+  "ja": "あまり食べません。",
+  "fr": "Je ne mange pas beaucoup."
+ },
+ "飴|あめ": {
+  "ja": "飴を食べます。",
+  "fr": "Je mange un bonbon."
+ },
+ "あれ|あれ": {
+  "ja": "あれは犬です。",
+  "fr": "Cela (là-bas) est un chien."
+ },
+ "いいえ|いいえ": {
+  "ja": "いいえ、違います。",
+  "fr": "Non, ce n'est pas ça."
+ },
+ "家|いえ": {
+  "ja": "家に帰ります。",
+  "fr": "Je rentre à la maison."
+ },
+ "いかが|いかが": {
+  "ja": "お元気ですか。いかがですか。",
+  "fr": "Comment allez-vous ?"
+ },
+ "いくつ|いくつ": {
+  "ja": "おいくつですか。",
+  "fr": "Quel âge avez-vous ?"
+ },
+ "いくら|いくら": {
+  "ja": "これはいくらですか。",
+  "fr": "Combien coûte ceci ?"
+ },
+ "池|いけ": {
+  "ja": "池に魚がいます。",
+  "fr": "Il y a des poissons dans l'étang."
+ },
+ "医者|いしゃ": {
+  "ja": "医者になりたいです。",
+  "fr": "Je veux devenir médecin."
+ },
+ "椅子|いす": {
+  "ja": "椅子に座ります。",
+  "fr": "Je m'assois sur la chaise."
+ },
+ "忙しい|いそがしい": {
+  "ja": "今日は忙しいです。",
+  "fr": "Je suis occupé aujourd'hui."
+ },
+ "痛い|いたい": {
+  "ja": "お腹が痛いです。",
+  "fr": "J'ai mal au ventre."
+ },
+ "一日|いちにち": {
+  "ja": "一日中勉強します。",
+  "fr": "J'étudie toute la journée."
+ },
+ "いつ|いつ": {
+  "ja": "いつ来ますか。",
+  "fr": "Quand venez-vous ?"
+ },
+ "五日|いつか": {
+  "ja": "五日後に行きます。",
+  "fr": "J'y vais dans cinq jours."
+ },
+ "一緒|いっしょ": {
+  "ja": "一緒に行きましょう。",
+  "fr": "Allons-y ensemble."
+ },
+ "いつも|いつも": {
+  "ja": "私はいつも犬と遊びます。",
+  "fr": "Je joue toujours avec le chien."
+ },
+ "意味|いみ": {
+  "ja": "この言葉の意味は何ですか。",
+  "fr": "Quel est le sens de ce mot ?"
+ },
+ "妹|いもうと": {
+  "ja": "妹は今、家にいます。",
+  "fr": "Ma petite sœur est à la maison maintenant."
+ },
+ "嫌|いや": {
+  "ja": "嫌いです。",
+  "fr": "Je n'aime pas ça."
+ },
+ "入口|いりぐち": {
+  "ja": "入口はあちらです。",
+  "fr": "L'entrée est par là."
+ },
+ "色|いろ": {
+  "ja": "何色が好きですか。",
+  "fr": "Quelle couleur aimes-tu ?"
+ },
+ "色々|いろいろ": {
+  "ja": "色々な本があります。",
+  "fr": "Il y a divers livres."
+ },
+ "薄い|うすい": {
+  "ja": "この紙は薄いです。",
+  "fr": "Ce papier est fin."
+ },
+ "歌う|うたう": {
+  "ja": "歌うのが好きです。",
+  "fr": "J'aime chanter."
+ },
+ "うち|うち": {
+  "ja": "うちに帰ります。",
+  "fr": "Je rentre à la maison."
+ },
+ "海|うみ": {
+  "ja": "海は大きいです。",
+  "fr": "La mer est grande."
+ },
+ "うるさい|うるさい": {
+  "ja": "うるさいです。",
+  "fr": "C'est bruyant."
+ },
+ "上着|うわぎ": {
+  "ja": "上着を着ます。",
+  "fr": "Je mets ma veste."
+ },
+ "絵|え": {
+  "ja": "これは私の絵です。",
+  "fr": "C'est mon dessin."
+ },
+ "映画|えいが": {
+  "ja": "私は映画を見ます。",
+  "fr": "Je regarde un film."
+ },
+ "映画館|えいがかん": {
+  "ja": "映画館に行きます。",
+  "fr": "Je vais au cinéma."
+ },
+ "英語|えいご": {
+  "ja": "私は英語を話します。",
+  "fr": "Je parle anglais."
+ },
+ "駅|えき": {
+  "ja": "駅はあそこです。",
+  "fr": "La gare est là-bas."
+ },
+ "エレベーター|エレベーター": {
+  "ja": "エレベーターに乗ります。",
+  "fr": "Je prends l'ascenseur."
+ },
+ "鉛筆|えんぴつ": {
+  "ja": "鉛筆があります。",
+  "fr": "Il y a un crayon."
+ },
+ "美味しい|おいしい": {
+  "ja": "これは美味しいです。",
+  "fr": "C'est délicieux."
+ },
+ "多い|おおい": {
+  "ja": "人が多いです。",
+  "fr": "Il y a beaucoup de monde."
+ },
+ "大きな|おおきな": {
+  "ja": "大きな家です。",
+  "fr": "C'est une grande maison."
+ },
+ "大勢|おおぜい": {
+  "ja": "大勢います。",
+  "fr": "Il y a beaucoup de monde."
+ },
+ "お菓子|おかし": {
+  "ja": "お菓子を食べます。",
+  "fr": "Je mange des friandises."
+ },
+ "お金|おかね": {
+  "ja": "お金があります。",
+  "fr": "J'ai de l'argent."
+ },
+ "奥さん|おくさん": {
+  "ja": "奥さんは元気です。",
+  "fr": "Son épouse va bien."
+ },
+ "お酒|おさけ": {
+  "ja": "お酒を飲みます。",
+  "fr": "Je bois de l'alcool."
+ },
+ "お皿|おさら": {
+  "ja": "お皿が二つあります。",
+  "fr": "Il y a deux assiettes."
+ },
+ "おじいさん|おじいさん": {
+  "ja": "おじいさんは大きい家で寝ます。",
+  "fr": "Le grand-père dort dans une grande maison."
+ },
+ "伯父; 叔父さん|おじさん": {
+  "ja": "おじさんは明日来ます。",
+  "fr": "L'oncle viendra demain."
+ },
+ "遅い|おそい": {
+  "ja": "電車はとても遅いです。",
+  "fr": "Le train est très lent."
+ },
+ "お茶|おちゃ": {
+  "ja": "熱いお茶を飲みます。",
+  "fr": "Je bois du thé chaud."
+ },
+ "お手洗い|おてあらい": {
+  "ja": "お手洗いはあそこです。",
+  "fr": "Les toilettes sont là-bas."
+ },
+ "お父さん|おとうさん": {
+  "ja": "お父さんは毎日働きます。",
+  "fr": "Mon père travaille tous les jours."
+ },
+ "弟|おとうと": {
+  "ja": "弟は子供です。",
+  "fr": "Mon petit frère est un enfant."
+ },
+ "男の子|おとこのこ": {
+  "ja": "男の子は遊びます。",
+  "fr": "Le garçon joue."
+ },
+ "一昨日|おととい": {
+  "ja": "一昨日、妹は来ました。",
+  "fr": "Avant-hier, ma petite sœur est venue."
+ },
+ "おととし|おととし": {
+  "ja": "おととし、私は学生でした。",
+  "fr": "Il y a deux ans, j'étais étudiant."
+ },
+ "大人|おとな": {
+  "ja": "大人になって働きます。",
+  "fr": "Je deviendrai un adulte et travaillerai."
+ },
+ "同じ|おなじ": {
+  "ja": "私とあなたは同じです。",
+  "fr": "Toi et moi sommes identiques."
+ },
+ "おばあさん|おばあさん": {
+  "ja": "おばあさんは古い家で寝ます。",
+  "fr": "La grand-mère dort dans une vieille maison."
+ },
+ "伯母さん; 叔母さん|おばさん": {
+  "ja": "おばさんは来週来ます。",
+  "fr": "Ma tante viendra la semaine prochaine."
+ },
+ "お風呂|おふろ": {
+  "ja": "お風呂に入ります。",
+  "fr": "Je prends un bain."
+ },
+ "お弁当|おべんとう": {
+  "ja": "お弁当を食べる。",
+  "fr": "Manger un bento."
+ },
+ "覚える|おぼえる": {
+  "ja": "漢字を覚える。",
+  "fr": "Apprendre les kanji."
+ },
+ "おまわりさん|おまわりさん": {
+  "ja": "おまわりさんに聞く。",
+  "fr": "Demander à monsieur l'agent."
+ },
+ "重い|おもい": {
+  "ja": "この荷物は重い。",
+  "fr": "Ce bagage est lourd."
+ },
+ "面白い|おもしろい": {
+  "ja": "面白い映画を見る。",
+  "fr": "Regarder un film intéressant."
+ },
+ "降りる|おりる": {
+  "ja": "電車を降りる。",
+  "fr": "Descendre du train."
+ },
+ "終る|おわる": {
+  "ja": "仕事が終る。",
+  "fr": "Le travail est terminé."
+ },
+ "音楽|おんがく": {
+  "ja": "音楽が好きです。",
+  "fr": "J'aime la musique."
+ },
+ "女の子|おんなのこ": {
+  "ja": "女の子と遊ぶ。",
+  "fr": "Jouer avec une fille."
+ },
+ "外国|がいこく": {
+  "ja": "外国へ行く。",
+  "fr": "Aller à l'étranger."
+ },
+ "外国人|がいこくじん": {
+  "ja": "外国人を見る。",
+  "fr": "Voir un étranger."
+ },
+ "会社|かいしゃ": {
+  "ja": "会社へ行く。",
+  "fr": "Aller à l'entreprise."
+ },
+ "買い物|かいもの": {
+  "ja": "買い物をする。",
+  "fr": "Faire les courses."
+ },
+ "買う|かう": {
+  "ja": "パンをかう。",
+  "fr": "Acheter du pain."
+ },
+ "返す|かえす": {
+  "ja": "本を返す。",
+  "fr": "Rendre le livre."
+ },
+ "帰る|かえる": {
+  "ja": "家に帰る。",
+  "fr": "Rentrer à la maison."
+ },
+ "顔|かお": {
+  "ja": "顔を洗う。",
+  "fr": "Se laver le visage."
+ },
+ "かかる|かかる": {
+  "ja": "時間がかかる。",
+  "fr": "Cela prend du temps."
+ },
+ "鍵|かぎ": {
+  "ja": "鍵はここにあります。",
+  "fr": "La clé est ici."
+ },
+ "掛ける|かける": {
+  "ja": "眼鏡を掛ける。",
+  "fr": "Mettre des lunettes."
+ },
+ "かける|かける": {
+  "ja": "友達に電話をかける。",
+  "fr": "Appeler un ami."
+ },
+ "傘|かさ": {
+  "ja": "傘を貸す。",
+  "fr": "Prêter un parapluie."
+ },
+ "貸す|かす": {
+  "ja": "私に本を貸す。",
+  "fr": "Me prêter un livre."
+ },
+ "風|かぜ": {
+  "ja": "今日は風が強い。",
+  "fr": "Il y a beaucoup de vent aujourd'hui."
+ },
+ "風邪|かぜ": {
+  "ja": "風邪を引く。",
+  "fr": "Attraper un rhume."
+ },
+ "片仮名|かたかな": {
+  "ja": "片仮名を書く。",
+  "fr": "Écrire en katakana."
+ },
+ "カップ|カップ": {
+  "ja": "カップは小さい。",
+  "fr": "La tasse est petite."
+ },
+ "家庭|かてい": {
+  "ja": "家庭は大切だ。",
+  "fr": "La famille est importante."
+ },
+ "かばん|かばん": {
+  "ja": "かばんを買う。",
+  "fr": "Acheter un sac."
+ },
+ "花瓶|かびん": {
+  "ja": "花瓶に花がある。",
+  "fr": "Il y a des fleurs dans le vase."
+ },
+ "かぶる|かぶる": {
+  "ja": "帽子をかぶる。",
+  "fr": "Mettre un chapeau."
+ },
+ "紙|かみ": {
+  "ja": "紙は白い。",
+  "fr": "Le papier est blanc."
+ },
+ "カメラ|カメラ": {
+  "ja": "カメラを買う。",
+  "fr": "Acheter un appareil photo."
+ },
+ "火曜日|かようび": {
+  "ja": "火曜日は忙しい。",
+  "fr": "Mardi est chargé."
+ },
+ "辛い|からい": {
+  "ja": "この料理は辛い。",
+  "fr": "Ce plat est épicé."
+ },
+ "体|からだ": {
+  "ja": "体が痛いです。",
+  "fr": "J'ai mal au corps."
+ },
+ "借りる|かりる": {
+  "ja": "本を借りる。",
+  "fr": "Emprunter un livre."
+ },
+ "軽い|かるい": {
+  "ja": "このかばんは軽い。",
+  "fr": "Ce sac est léger."
+ },
+ "カレー|カレー": {
+  "ja": "カレーを食べる。",
+  "fr": "Manger du curry."
+ },
+ "カレンダー|カレンダー": {
+  "ja": "カレンダーを見る。",
+  "fr": "Regarder le calendrier."
+ },
+ "可愛い|かわいい": {
+  "ja": "猫は可愛い。",
+  "fr": "Le chat est mignon."
+ },
+ "漢字|かんじ": {
+  "ja": "漢字を書く。",
+  "fr": "Écrire des kanji."
+ },
+ "黄色|きいろ": {
+  "ja": "黄色の花。",
+  "fr": "Une fleur jaune."
+ },
+ "消える|きえる": {
+  "ja": "電気が消える。",
+  "fr": "La lumière s'éteint."
+ },
+ "ギター|ギター": {
+  "ja": "ギターを弾く。",
+  "fr": "Jouer de la guitare."
+ },
+ "汚い|きたない": {
+  "ja": "部屋は汚い。",
+  "fr": "La pièce est sale."
+ },
+ "喫茶店|きっさてん": {
+  "ja": "喫茶店に行く。",
+  "fr": "Aller au café."
+ },
+ "切手|きって": {
+  "ja": "切手を貼る。",
+  "fr": "Coller un timbre."
+ },
+ "切符|きっぷ": {
+  "ja": "切符を買う。",
+  "fr": "Acheter un billet."
+ },
+ "昨日|きのう": {
+  "ja": "昨日、雨が降った。",
+  "fr": "Hier, il a plu."
+ },
+ "牛肉|ぎゅうにく": {
+  "ja": "牛肉を食べない。",
+  "fr": "Je ne mange pas de bœuf."
+ },
+ "牛乳|ぎゅうにゅう": {
+  "ja": "牛乳を飲む。",
+  "fr": "Boire du lait."
+ },
+ "教室|きょうしつ": {
+  "ja": "教室は広い。",
+  "fr": "La salle de classe est grande."
+ },
+ "兄弟|きょうだい": {
+  "ja": "兄弟がいます。",
+  "fr": "J'ai des frères et sœurs."
+ },
+ "去年|きょねん": {
+  "ja": "去年、旅行しました。",
+  "fr": "L'année dernière, j'ai voyagé."
+ },
+ "嫌い|きらい": {
+  "ja": "私はそれが嫌いです。",
+  "fr": "Je n'aime pas ça."
+ },
+ "綺麗|きれい": {
+  "ja": "部屋が綺麗です。",
+  "fr": "La chambre est propre."
+ },
+ "銀行|ぎんこう": {
+  "ja": "銀行へ行きます。",
+  "fr": "Je vais à la banque."
+ },
+ "金曜日|きんようび": {
+  "ja": "金曜日に会いましょう。",
+  "fr": "Rencontrons-nous vendredi."
+ },
+ "九|く": {
+  "ja": "九人います。",
+  "fr": "Il y a neuf personnes."
+ },
+ "薬|くすり": {
+  "ja": "薬を飲みます。",
+  "fr": "Je prends des médicaments."
+ },
+ "下さい|ください": {
+  "ja": "これを下さい。",
+  "fr": "Donnez-moi ceci, s'il vous plaît."
+ },
+ "果物|くだもの": {
+  "ja": "果物を食べます。",
+  "fr": "Je mange des fruits."
+ },
+ "口|くち": {
+  "ja": "口が開いています。",
+  "fr": "La bouche est ouverte."
+ },
+ "靴|くつ": {
+  "ja": "靴を買います。",
+  "fr": "J'achète des chaussures."
+ },
+ "靴下|くつした": {
+  "ja": "靴下は赤いです。",
+  "fr": "Les chaussettes sont rouges."
+ },
+ "曇り|くもり": {
+  "ja": "今日は曇りです。",
+  "fr": "Aujourd'hui, c'est nuageux."
+ },
+ "暗い|くらい": {
+  "ja": "部屋が暗いです。",
+  "fr": "La pièce est sombre."
+ },
+ "クラス|クラス": {
+  "ja": "私のクラスは大きいです。",
+  "fr": "Ma classe est grande."
+ },
+ "グラム|グラム": {
+  "ja": "砂糖を100グラムください。",
+  "fr": "Donnez-moi 100 grammes de sucre."
+ },
+ "黒|くろ": {
+  "ja": "猫は黒です。",
+  "fr": "Le chat est noir."
+ },
+ "黒い|くろい": {
+  "ja": "黒い傘があります。",
+  "fr": "J'ai un parapluie noir."
+ },
+ "警官|けいかん": {
+  "ja": "警官がお茶を飲みます。",
+  "fr": "Le policier boit du thé."
+ },
+ "今朝|けさ": {
+  "ja": "今朝、コーヒーを飲みました。",
+  "fr": "Ce matin, j'ai bu du café."
+ },
+ "消す|けす": {
+  "ja": "電気も消す。",
+  "fr": "J'éteins aussi la lumière."
+ },
+ "結構|けっこう": {
+  "ja": "それで結構です。",
+  "fr": "C'est suffisant."
+ },
+ "結婚|けっこん (する)": {
+  "ja": "結婚します。",
+  "fr": "Je vais me marier."
+ },
+ "月曜日|げつようび": {
+  "ja": "今日は月曜日です。",
+  "fr": "Aujourd'hui, c'est lundi."
+ },
+ "玄関|げんかん": {
+  "ja": "玄関に靴がある。",
+  "fr": "Il y a des chaussures à l'entrée."
+ },
+ "元気|げんき": {
+  "ja": "元気ですか。",
+  "fr": "Ça va ? (Êtes-vous en forme ?)"
+ },
+ "公園|こうえん": {
+  "ja": "公園で遊びます。",
+  "fr": "Je joue dans le parc."
+ },
+ "交差点|こうさてん": {
+  "ja": "交差点で車が止まる。",
+  "fr": "La voiture s'arrête au carrefour."
+ },
+ "紅茶|こうちゃ": {
+  "ja": "紅茶を飲む。",
+  "fr": "Je bois du thé noir."
+ },
+ "交番|こうばん": {
+  "ja": "交番はどこですか。",
+  "fr": "Où est le poste de police ?"
+ },
+ "声|こえ": {
+  "ja": "彼の声は大きい。",
+  "fr": "Sa voix est forte."
+ },
+ "コート|コート": {
+  "ja": "コートを着る。",
+  "fr": "Je mets un manteau."
+ },
+ "コーヒー|コーヒー": {
+  "ja": "コーヒーを飲む。",
+  "fr": "Je bois du café."
+ },
+ "ここ|ここ": {
+  "ja": "ここは駅です。",
+  "fr": "C'est la gare ici."
+ },
+ "九日|ここのか": {
+  "ja": "九日です。",
+  "fr": "C'est le neuf du mois."
+ },
+ "九つ|ここのつ": {
+  "ja": "九つあります。",
+  "fr": "Il y en a neuf."
+ },
+ "こちら|こちら": {
+  "ja": "こちらです。",
+  "fr": "C'est par ici."
+ },
+ "こっち|こっち": {
+  "ja": "こっちへ行きます。",
+  "fr": "J'irai par ici."
+ },
+ "コップ|コップ": {
+  "ja": "コップはきれい。",
+  "fr": "Le verre est propre."
+ },
+ "この|この": {
+  "ja": "この本を読みます。",
+  "fr": "Je lis ce livre."
+ },
+ "御飯|ごはん": {
+  "ja": "御飯を食べます。",
+  "fr": "Je mange du riz."
+ },
+ "これ|これ": {
+  "ja": "これは何ですか。",
+  "fr": "Qu'est-ce que c'est ?"
+ },
+ "今月|こんげつ": {
+  "ja": "今月は忙しい。",
+  "fr": "Ce mois-ci est occupé."
+ },
+ "こんな|こんな": {
+  "ja": "こんな本が好き。",
+  "fr": "J'aime de tels livres."
+ },
+ "今晩|こんばん": {
+  "ja": "今晩、食べます。",
+  "fr": "Je mange ce soir."
+ },
+ "さあ|さあ": {
+  "ja": "さあ、行こう。",
+  "fr": "Allons-y."
+ },
+ "財布|さいふ": {
+  "ja": "財布は小さい。",
+  "fr": "Le portefeuille est petit."
+ },
+ "魚|さかな": {
+  "ja": "魚を食べます。",
+  "fr": "Je mange du poisson."
+ },
+ "先|さき": {
+  "ja": "先に行く。",
+  "fr": "J'y vais en premier."
+ },
+ "咲く|さく": {
+  "ja": "花が咲く。",
+  "fr": "La fleur fleurit."
+ },
+ "作文|さくぶん": {
+  "ja": "作文を書く。",
+  "fr": "J'écris une rédaction."
+ },
+ "差す|さす": {
+  "ja": "傘を差す。",
+  "fr": "J'ouvre un parapluie."
+ },
+ "雑誌|ざっし": {
+  "ja": "雑誌を読む。",
+  "fr": "Je lis un magazine."
+ },
+ "砂糖|さとう": {
+  "ja": "砂糖がある。",
+  "fr": "Il y a du sucre."
+ },
+ "さ来年|さらいねん": {
+  "ja": "さ来年、行く。",
+  "fr": "J'irai après l'année prochaine."
+ },
+ "散歩|さんぽ (する)": {
+  "ja": "散歩をする。",
+  "fr": "Je me promène."
+ },
+ "四|し": {
+  "ja": "四つある。",
+  "fr": "Il y en a quatre."
+ },
+ "塩|しお": {
+  "ja": "塩がある。",
+  "fr": "Il y a du sel."
+ },
+ "しかし|しかし": {
+  "ja": "しかし、行く。",
+  "fr": "Cependant, j'y vais."
+ },
+ "仕事|しごと": {
+  "ja": "仕事がある。",
+  "fr": "J'ai du travail."
+ },
+ "辞書|じしょ": {
+  "ja": "辞書を使う。",
+  "fr": "J'utilise un dictionnaire."
+ },
+ "静か|しずか": {
+  "ja": "静かだ。",
+  "fr": "C'est calme."
+ },
+ "七|しち": {
+  "ja": "七つある。",
+  "fr": "Il y en a sept."
+ },
+ "質問|しつもん": {
+  "ja": "質問がある。",
+  "fr": "J'ai une question."
+ },
+ "自転車|じてんしゃ": {
+  "ja": "自転車がある。",
+  "fr": "J'ai un vélo."
+ },
+ "自動車|じどうしゃ": {
+  "ja": "自動車がある。",
+  "fr": "Il y a une voiture."
+ },
+ "死ぬ|しぬ": {
+  "ja": "死ぬ。",
+  "fr": "Je meurs."
+ },
+ "字引|じびき": {
+  "ja": "字引がある。",
+  "fr": "J'ai un dictionnaire."
+ },
+ "自分|じぶん": {
+  "ja": "自分の部屋です。",
+  "fr": "C'est ma chambre."
+ },
+ "写真|しゃしん": {
+  "ja": "写真を撮ります。",
+  "fr": "Je prends une photo."
+ },
+ "シャツ|シャツ": {
+  "ja": "白いシャツです。",
+  "fr": "C'est une chemise blanche."
+ },
+ "シャワー|シャワー": {
+  "ja": "シャワーを浴びます。",
+  "fr": "Je prends une douche."
+ },
+ "授業|じゅぎょう": {
+  "ja": "授業があります。",
+  "fr": "Il y a un cours."
+ },
+ "宿題|しゅくだい": {
+  "ja": "宿題をします。",
+  "fr": "Je fais mes devoirs."
+ },
+ "丈夫|じょうぶ": {
+  "ja": "この机は丈夫です。",
+  "fr": "Ce bureau est solide."
+ },
+ "醤油|しょうゆ": {
+  "ja": "醤油をください。",
+  "fr": "De la sauce soja, s'il vous plaît."
+ },
+ "食堂|しょくどう": {
+  "ja": "食堂で食べます。",
+  "fr": "Je mange à la cantine."
+ },
+ "白|しろ": {
+  "ja": "白い犬がいます。",
+  "fr": "Il y a un chien blanc."
+ },
+ "新聞|しんぶん": {
+  "ja": "新聞を読みます。",
+  "fr": "Je lis le journal."
+ },
+ "水曜日|すいようび": {
+  "ja": "今日は水曜日です。",
+  "fr": "Aujourd'hui, c'est mercredi."
+ },
+ "スカート|スカート": {
+  "ja": "スカートをはきます。",
+  "fr": "Je mets une jupe."
+ },
+ "少ない|すくない": {
+  "ja": "学生は少ないです。",
+  "fr": "Il y a peu d'élèves."
+ },
+ "すぐに|すぐに": {
+  "ja": "すぐに行きます。",
+  "fr": "J'y vais tout de suite."
+ },
+ "少し|すこし": {
+  "ja": "水を少し飲みます。",
+  "fr": "Je bois un peu d'eau."
+ },
+ "涼しい|すずしい": {
+  "ja": "今日は涼しいです。",
+  "fr": "Il fait frais aujourd'hui."
+ },
+ "ストーブ|ストーブ": {
+  "ja": "ストーブをつけます。",
+  "fr": "J'allume le poêle."
+ },
+ "スプーン|スプーン": {
+  "ja": "スプーンをください。",
+  "fr": "Donnez-moi une cuillère."
+ },
+ "スポーツ|スポーツ": {
+  "ja": "スポーツが好きです。",
+  "fr": "J'aime le sport."
+ },
+ "ズボン|ズボン": {
+  "ja": "新しいズボンを買いました。",
+  "fr": "J'ai acheté un nouveau pantalon."
+ },
+ "背|せい": {
+  "ja": "彼の背は高いです。",
+  "fr": "Sa taille est grande."
+ },
+ "生徒|せいと": {
+  "ja": "私は学生です。彼は生徒です。",
+  "fr": "Je suis étudiant. Il est élève."
+ },
+ "セーター|セーター": {
+  "ja": "セーターを着ます。",
+  "fr": "Je mets un pull."
+ },
+ "石鹸|せっけん": {
+  "ja": "石鹸で手を洗います。",
+  "fr": "Je me lave les mains avec du savon."
+ },
+ "背広|せびろ": {
+  "ja": "父は背広を着ます。",
+  "fr": "Mon père porte un costume."
+ },
+ "狭い|せまい": {
+  "ja": "この部屋は狭いです。",
+  "fr": "Cette pièce est étroite."
+ },
+ "先月|せんげつ": {
+  "ja": "先月旅行しました。",
+  "fr": "Le mois dernier, j'ai voyagé."
+ },
+ "先週|せんしゅう": {
+  "ja": "先週、映画を見ました。",
+  "fr": "La semaine dernière, j'ai vu un film."
+ },
+ "洗濯|せんたく": {
+  "ja": "洗濯をします。",
+  "fr": "Je fais la lessive."
+ },
+ "全部|ぜんぶ": {
+  "ja": "全部あります。",
+  "fr": "Il y a tout."
+ },
+ "掃除|そうじ (する)": {
+  "ja": "掃除をします。",
+  "fr": "Je fais le ménage."
+ },
+ "そこ|そこ": {
+  "ja": "そこにあります。",
+  "fr": "C'est là-bas."
+ },
+ "そちら|そちら": {
+  "ja": "そちらへ行きます。",
+  "fr": "J'y vais par là."
+ },
+ "そっち|そっち": {
+  "ja": "そっちに行きます。",
+  "fr": "Je vais par là."
+ },
+ "そば|そば": {
+  "ja": "そばにあります。",
+  "fr": "C'est à côté."
+ },
+ "空|そら": {
+  "ja": "空は青いです。",
+  "fr": "Le ciel est bleu."
+ },
+ "それ|それ": {
+  "ja": "それは何ですか。",
+  "fr": "Qu'est-ce que c'est ?"
+ },
+ "それから|それから": {
+  "ja": "それから、食べます。",
+  "fr": "Ensuite, je mange."
+ },
+ "それでは|それでは": {
+  "ja": "それでは、帰ります。",
+  "fr": "Dans ce cas, je rentre."
+ },
+ "大学|だいがく": {
+  "ja": "大学に行きます。",
+  "fr": "Je vais à l'université."
+ },
+ "大使館|たいしかん": {
+  "ja": "大使館はどこですか。",
+  "fr": "Où est l'ambassade ?"
+ },
+ "大丈夫|だいじょうぶ": {
+  "ja": "大丈夫ですか。",
+  "fr": "Ça va ?"
+ },
+ "大好き|だいすき": {
+  "ja": "コーヒーが大好きです。",
+  "fr": "J'adore le café."
+ },
+ "大切|たいせつ": {
+  "ja": "大切な本です。",
+  "fr": "C'est un livre important."
+ },
+ "台所|だいどころ": {
+  "ja": "台所は広いです。",
+  "fr": "La cuisine est grande."
+ },
+ "大変|たいへん": {
+  "ja": "今日は大変です。",
+  "fr": "Aujourd'hui, c'est difficile."
+ },
+ "沢山|たくさん": {
+  "ja": "沢山食べます。",
+  "fr": "Je mange beaucoup."
+ },
+ "タクシー|タクシー": {
+  "ja": "タクシーに乗ります。",
+  "fr": "Je prends un taxi."
+ },
+ "出す|だす": {
+  "ja": "手紙を出す。",
+  "fr": "Envoyer une lettre."
+ },
+ "たて|たて": {
+  "ja": "このたては小さい。",
+  "fr": "Cette hauteur est petite."
+ },
+ "建物|たてもの": {
+  "ja": "建物は大きいです。",
+  "fr": "Le bâtiment est grand."
+ },
+ "楽しい|たのしい": {
+  "ja": "楽しいです。",
+  "fr": "C'est amusant."
+ },
+ "頼む|たのむ": {
+  "ja": "お金を頼む。",
+  "fr": "Demander de l'argent."
+ },
+ "たばこ|たばこ": {
+  "ja": "たばこを吸います。",
+  "fr": "Je fume une cigarette."
+ },
+ "多分|たぶん": {
+  "ja": "多分行きます。",
+  "fr": "J'irai probablement."
+ },
+ "食べ物|たべもの": {
+  "ja": "食べ物がおいしい。",
+  "fr": "La nourriture est délicieuse."
+ },
+ "卵|たまご": {
+  "ja": "卵を食べます。",
+  "fr": "Je mange un œuf."
+ },
+ "誰|だれ": {
+  "ja": "誰が来ますか。",
+  "fr": "Qui vient ?"
+ },
+ "誰か|だれか": {
+  "ja": "誰かがいます。",
+  "fr": "Il y a quelqu'un."
+ },
+ "誕生日|たんじょうび": {
+  "ja": "誕生日おめでとう。",
+  "fr": "Joyeux anniversaire."
+ },
+ "段々|だんだん": {
+  "ja": "段々分かります。",
+  "fr": "Je comprends petit à petit."
+ },
+ "小さな|ちいさな": {
+  "ja": "小さな犬です。",
+  "fr": "C'est un petit chien."
+ },
+ "近い|ちかい": {
+  "ja": "駅に近いです。",
+  "fr": "C'est près de la gare."
+ },
+ "違う|ちがう": {
+  "ja": "それは違う。",
+  "fr": "C'est différent."
+ },
+ "地下鉄|ちかてつ": {
+  "ja": "地下鉄に乗ります。",
+  "fr": "Je prends le métro."
+ },
+ "地図|ちず": {
+  "ja": "地図を見ます。",
+  "fr": "Je regarde la carte."
+ },
+ "ちょっと|ちょっと": {
+  "ja": "ちょっと待ってください。",
+  "fr": "Veuillez patienter un instant."
+ },
+ "一日|ついたち": {
+  "ja": "一日は休みです。",
+  "fr": "Le premier du mois est un jour de repos."
+ },
+ "次|つぎ": {
+  "ja": "次の電車はこれです。",
+  "fr": "Le prochain train est celui-ci."
+ },
+ "机|つくえ": {
+  "ja": "机の上に本があります。",
+  "fr": "Il y a un livre sur le bureau."
+ },
+ "つける|つける": {
+  "ja": "電気をつける。",
+  "fr": "Allumer la lumière."
+ },
+ "つまらない|つまらない": {
+  "ja": "この本はつまらない。",
+  "fr": "Ce livre est ennuyeux."
+ },
+ "冷たい|つめたい": {
+  "ja": "冷たい水が好きです。",
+  "fr": "J'aime l'eau froide."
+ },
+ "強い|つよい": {
+  "ja": "強い人です。",
+  "fr": "C'est une personne forte."
+ },
+ "手|て": {
+  "ja": "手を洗います。",
+  "fr": "Je me lave les mains."
+ },
+ "テープ|テープ": {
+  "ja": "テープを買います。",
+  "fr": "J'achète du ruban."
+ },
+ "テーブル|テーブル": {
+  "ja": "テーブルに本があります。",
+  "fr": "Il y a un livre sur la table."
+ },
+ "テープレコーダー|テープレコーダー": {
+  "ja": "テープレコーダーは高いです。",
+  "fr": "Le magnétophone est cher."
+ },
+ "手紙|てがみ": {
+  "ja": "手紙を書きます。",
+  "fr": "J'écris une lettre."
+ },
+ "出口|でぐち": {
+  "ja": "出口はあそこです。",
+  "fr": "La sortie est là-bas."
+ },
+ "テスト|テスト": {
+  "ja": "テストは難しいです。",
+  "fr": "Le test est difficile."
+ },
+ "では|では": {
+  "ja": "では、また明日。",
+  "fr": "Alors, à demain."
+ },
+ "デパート|デパート": {
+  "ja": "デパートに行きます。",
+  "fr": "Je vais au grand magasin."
+ },
+ "でも|でも": {
+  "ja": "でも、これは違います。",
+  "fr": "Mais, ce n'est pas ça."
+ },
+ "テレビ|テレビ": {
+  "ja": "テレビを見ます。",
+  "fr": "Je regarde la télévision."
+ },
+ "電気|でんき": {
+  "ja": "電気をつけてください。",
+  "fr": "Allumez la lumière s'il vous plaît."
+ },
+ "電話|でんわ": {
+  "ja": "電話をかけます。",
+  "fr": "Je téléphone."
+ },
+ "戸|と": {
+  "ja": "戸を開けます。",
+  "fr": "J'ouvre la porte."
+ },
+ "ドア|ドア": {
+  "ja": "ドアを閉めます。",
+  "fr": "Je ferme la porte."
+ },
+ "トイレ|トイレ": {
+  "ja": "トイレはどこですか。",
+  "fr": "Où sont les toilettes ?"
+ },
+ "どう|どう": {
+  "ja": "どうですか。",
+  "fr": "Comment ça va ?"
+ },
+ "どうして|どうして": {
+  "ja": "どうしてですか。",
+  "fr": "Pourquoi ?"
+ },
+ "どうぞ|どうぞ": {
+  "ja": "どうぞ、座ってください。",
+  "fr": "Je vous en prie, asseyez-vous."
+ }
+}
