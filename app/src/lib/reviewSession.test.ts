@@ -324,6 +324,48 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     expect(session.find((c) => c.key === "vocab:水|みず")).toBeUndefined();
   });
 
+  it("mode sans le son : la carte écoute due devient un exercice écrit noté oral, pas d'amorçage", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    localStorage.setItem("settings", JSON.stringify({ silentReviews: true }));
+    try {
+      await putVocab({
+        id: "水|みず",
+        surface: "水",
+        reading: "みず",
+        meaning: "eau",
+        tags: [],
+        status: "review",
+        cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
+        example: { ja: "水を飲む" },
+      });
+      await putVocab({
+        id: "猫|ねこ",
+        surface: "猫",
+        reading: "ねこ",
+        meaning: "chat",
+        tags: [],
+        status: "review",
+        cards: { written: stableCard(10) },
+        example: { ja: "猫がいる" },
+      });
+      const session = await buildSession(NOW, { scope: "due" });
+      const silent = session.find((c) => c.key === "vocab-listen-silent:水|みず");
+      expect(silent).toBeDefined();
+      expect(silent!.skill).toBe("oral");
+      expect(silent!.audio).toBeUndefined();
+      // Pas de nouvelle carte écoute amorcée tant que le son est coupé.
+      expect(session.find((c) => c.key === "vocab-listen:猫|ねこ")).toBeUndefined();
+      expect((await getVocab("猫|ねこ"))?.cards.oral).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("amorçage : un mot stable à l'écrit (Review) avec exemple gagne une carte écoute", async () => {
     await putVocab({
       id: "猫|ねこ",

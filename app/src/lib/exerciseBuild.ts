@@ -62,7 +62,11 @@ export function particleExercises(
 /**
  * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
  * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
- * entendu (exige un exemple).
+ * entendu (exige un exemple). Le mot cible est souligné dans la phrase affichée quand il
+ * s'y trouve tel quel.
+ * `listen` + `silent` : remplacement écrit de l'écoute (réglage « sans le son ») — cloze
+ * de production sur la phrase d'exemple, mais noté sur la carte ORALE pour que sa
+ * planification continue d'avancer.
  * `produce` : variante production en contexte (carte `production`) — cloze ◯◯ sur la
  * phrase d'exemple avec la traduction FR en indice ; sans exemple exploitable, retombe
  * sur le rappel isolé FR → mot, toujours noté sur la compétence production.
@@ -70,7 +74,7 @@ export function particleExercises(
 export function vocabTypeExercise(
   v: VocabItem,
   due: number,
-  opts: { listen?: boolean; produce?: boolean } = {},
+  opts: { listen?: boolean; produce?: boolean; silent?: boolean } = {},
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
   const example = effectiveExample(v);
@@ -109,6 +113,15 @@ export function vocabTypeExercise(
     };
   }
   if (opts.listen) {
+    if (opts.silent) {
+      const ex = vocabTypeExercise(v, due, { produce: true });
+      return { ...ex, key: `vocab-listen-silent:${v.id}`, skill: "oral" };
+    }
+    const hit = example?.ja.includes(v.surface)
+      ? v.surface
+      : example?.ja.includes(v.reading)
+        ? v.reading
+        : null;
     return {
       mode: "type",
       key: `vocab-listen:${v.id}`,
@@ -121,7 +134,8 @@ export function vocabTypeExercise(
       audio: { word: v.surface },
       context: example?.ja,
       ...(example?.fr ? { contextFr: example.fr } : {}),
-      prompt: "Écoute et tape le mot souligné",
+      ...(example?.ja && hit ? { underline: hit } : {}),
+      prompt: example?.ja && hit ? "Écoute et tape le mot souligné" : "Écoute et tape le mot entendu",
       answers,
     };
   }

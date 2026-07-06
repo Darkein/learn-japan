@@ -6,6 +6,7 @@ import type { SrsGrade } from "../../lib/srs";
 import { isNearMiss } from "../../lib/typo";
 import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
+import { JpFront } from "./JpFront";
 import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
@@ -39,7 +40,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
 
   return (
     <>
-      <div className="font-jp text-3xl">{ex.front}</div>
+      <JpFront text={ex.front} underline={ex.underline} className="font-jp text-3xl" />
       {result === null ? (
         <>
           {ex.prompt && <span className="text-sm text-muted">{ex.prompt}</span>}

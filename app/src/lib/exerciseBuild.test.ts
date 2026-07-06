@@ -269,6 +269,32 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.contextFr).toBe("Le chat court.");
   });
 
+  it("variante écoute : souligne le mot cible présent dans la phrase", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+      listen: true,
+    });
+    expect(ex.underline).toBe("猫");
+    expect(ex.prompt).toBe("Écoute et tape le mot souligné");
+  });
+
+  it("variante écoute : mot absent de la phrase → pas de soulignement, consigne adaptée", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "動物が走る。" }), 0, { listen: true });
+    expect(ex.underline).toBeUndefined();
+    expect(ex.prompt).toBe("Écoute et tape le mot entendu");
+  });
+
+  it("variante écoute sans le son : cloze écrit noté sur la carte orale, sans audio", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+      listen: true,
+      silent: true,
+    });
+    expect(ex.skill).toBe("oral");
+    expect(ex.key).toBe("vocab-listen-silent:猫|ねこ");
+    expect(ex.audio).toBeUndefined();
+    expect(ex.front).toBe("◯◯が走る。");
+    expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
+  });
+
   it("absent quand l'exemple n'a pas de traduction", () => {
     const ex = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0);
     expect(ex.contextFr).toBeUndefined();

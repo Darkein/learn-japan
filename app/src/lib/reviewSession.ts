@@ -229,7 +229,12 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   for (const v of vocabAll) {
     if (listenCount >= SRS.listenMax) break;
     if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
-      due.push(await oralExercise(v, v.cards.oral, vocabAll));
+      // Mode sans le son : remplacement écrit, toujours noté sur la carte orale.
+      due.push(
+        s.silentReviews
+          ? vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true, silent: true })
+          : await oralExercise(v, v.cards.oral, vocabAll),
+      );
       listenCount++;
     }
   }
@@ -253,8 +258,11 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const out: Exercise[] = due.slice(0, SRS.sessionCap);
   let room = SRS.sessionCap - out.length;
 
+  // Sans le son, on n'amorce pas de NOUVELLES cartes d'écoute (les dues, elles, passent
+  // en remplacement écrit ci-dessus).
   let listenSeeds = 0;
   for (const v of vocabAll) {
+    if (s.silentReviews) break;
     if (room <= 0 || listenCount >= SRS.listenMax || listenSeeds >= SRS.listenSeeds) break;
     const example = effectiveExample(v);
     if (!v.cards.oral && example?.ja && v.cards.written?.state === State.Review) {
