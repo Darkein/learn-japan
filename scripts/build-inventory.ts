@@ -23,8 +23,13 @@ const OUT_DIR = join(ROOT, "app", "src", "data", "inventory");
 
 const KANJI_SRC =
   "https://raw.githubusercontent.com/davidluzgouveia/kanji-data/master/kanji.json";
-const VOCAB_N5_SRC =
-  "https://raw.githubusercontent.com/jamsinclair/open-anki-jlpt-decks/main/src/n5.csv";
+// Sources vocab par niveau JLPT, parcourues dans l'ordre pédagogique (N5 d'abord) : en cas
+// de doublon d'id entre niveaux, le premier niveau rencontré gagne.
+const VOCAB_SRC: Record<number, string> = {
+  5: "https://raw.githubusercontent.com/jamsinclair/open-anki-jlpt-decks/main/src/n5.csv",
+  4: "https://raw.githubusercontent.com/jamsinclair/open-anki-jlpt-decks/main/src/n4.csv",
+  3: "https://raw.githubusercontent.com/jamsinclair/open-anki-jlpt-decks/main/src/n3.csv",
+};
 
 export interface KanjiInventoryEntry {
   id: string; // le caractère lui-même
@@ -136,33 +141,48 @@ async function buildKanji(): Promise<void> {
 }
 
 async function buildVocab(): Promise<void> {
-  console.log(`[inventory] vocab N5 ← ${VOCAB_N5_SRC}`);
-  const csv = parseCsv(await fetchText(VOCAB_N5_SRC));
-  const header = csv[0];
-  const iExpr = header.indexOf("expression");
-  const iRead = header.indexOf("reading");
-  const iMean = header.indexOf("meaning");
   const frOverlay = loadOverlay("vocab-fr.json");
-
-  const seen = new Set<string>();
+  const seen = new Map<string, number>(); // id → niveau qui l'a introduit
   const entries: VocabInventoryEntry[] = [];
-  for (const r of csv.slice(1)) {
-    const surface = r[iExpr]?.trim();
-    const reading = (r[iRead]?.trim() || surface) ?? "";
-    if (!surface) continue;
-    const id = `${surface}|${reading}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const meanings = (r[iMean] ?? "")
-      .split(/[,;]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    entries.push({ id, level: 5, surface, reading, fr: frOverlay[id], meanings });
+
+  // Ordre pédagogique : N5 d'abord — un doublon inter-niveaux reste au niveau le plus tôt.
+  const sortedLevels = Object.keys(VOCAB_SRC)
+    .map(Number)
+    .sort((a, b) => b - a);
+  for (const level of sortedLevels) {
+    const src = VOCAB_SRC[level];
+    console.log(`[inventory] vocab N${level} ← ${src}`);
+    const csv = parseCsv(await fetchText(src));
+    const header = csv[0];
+    const iExpr = header.indexOf("expression");
+    const iRead = header.indexOf("reading");
+    const iMean = header.indexOf("meaning");
+
+    let kept = 0;
+    for (const r of csv.slice(1)) {
+      const surface = r[iExpr]?.trim();
+      const reading = (r[iRead]?.trim() || surface) ?? "";
+      if (!surface) continue;
+      const id = `${surface}|${reading}`;
+      const prev = seen.get(id);
+      if (prev != null) {
+        if (prev !== level) console.log(`[inventory]   doublon inter-niveaux ignoré : ${id} (déjà N${prev})`);
+        continue;
+      }
+      seen.set(id, level);
+      const meanings = (r[iMean] ?? "")
+        .split(/[,;]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      entries.push({ id, level, surface, reading, fr: frOverlay[id], meanings });
+      kept++;
+    }
+    console.log(`[inventory]   ${kept} mots N${level}`);
   }
-  entries.sort((a, b) => a.reading.localeCompare(b.reading, "ja"));
+  entries.sort((a, b) => b.level - a.level || a.reading.localeCompare(b.reading, "ja"));
 
   writeFileSync(join(OUT_DIR, "vocab.json"), JSON.stringify(entries, null, 0) + "\n");
-  console.log(`[inventory] ${entries.length} mots N5 écrits`);
+  console.log(`[inventory] ${entries.length} mots écrits (tous niveaux)`);
 }
 
 async function main() {

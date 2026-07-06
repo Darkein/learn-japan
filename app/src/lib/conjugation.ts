@@ -1,6 +1,7 @@
-// Conjugueur déterministe (N5) : dérive les formes ます/て/た/ない (et leurs composées du
-// référentiel grammaire) depuis la forme du dictionnaire. Zéro LLM : classes verbales
-// résolues par kuromoji (一段 vs 五段 pour les verbes en -る), tables d'okurigana sinon.
+// Conjugueur déterministe (N5 + N4) : dérive les formes ます/て/た/ない et les formes N4
+// (potentiel, passif, causatif, volitif, impératif, ば, たら…) depuis la forme du
+// dictionnaire. Zéro LLM : classes verbales résolues par kuromoji (一段 vs 五段 pour les
+// verbes en -る), tables d'okurigana sinon.
 //
 // Sert les drills de production de l'échauffement : un point de grammaire de conjugaison
 // dû est révisé en conjuguant un verbe déjà en rotation SRS, au lieu d'un QCM passif.
@@ -26,9 +27,20 @@ export type ConjForm =
   | "tekudasai"
   | "teiru"
   | "ta"
-  | "nai";
+  | "nai"
+  | "potential"
+  | "passive"
+  | "causative"
+  | "volitional"
+  | "imperative"
+  | "ba"
+  | "tara"
+  | "temiru"
+  | "teshimau"
+  | "teoku"
+  | "naide";
 
-/** Formes couvertes, liées aux points de grammaire de l'inventaire N5. */
+/** Formes couvertes, liées aux points de grammaire de l'inventaire (N5 + N4). */
 export interface ConjFormDef {
   form: ConjForm;
   grammarId: string;
@@ -46,6 +58,17 @@ export const CONJ_FORMS: ConjFormDef[] = [
   { form: "teiru", grammarId: "n5-teiru-progressive", label: "à la forme continue（〜ている）" },
   { form: "ta", grammarId: "n5-ta-past", label: "au passé neutre（〜た）" },
   { form: "nai", grammarId: "n5-nai-negative", label: "à la négation neutre（〜ない）" },
+  { form: "potential", grammarId: "n4-potential", label: "à la forme potentielle（〜られる／〜える）" },
+  { form: "passive", grammarId: "n4-passive", label: "à la forme passive（〜られる／〜れる）" },
+  { form: "causative", grammarId: "n4-causative", label: "à la forme causative（〜させる／〜せる）" },
+  { form: "volitional", grammarId: "n4-volitional", label: "à la forme volitive（〜よう）" },
+  { form: "imperative", grammarId: "n4-imperative", label: "à l'impératif（〜ろ／〜え）" },
+  { form: "ba", grammarId: "n4-ba-conditional", label: "au conditionnel en ば" },
+  { form: "tara", grammarId: "n4-tara-conditional", label: "au conditionnel en たら" },
+  { form: "temiru", grammarId: "n4-temiru", label: "à la forme « essayer »（〜てみる）" },
+  { form: "teshimau", grammarId: "n4-teshimau", label: "à la forme accomplie（〜てしまう）" },
+  { form: "teoku", grammarId: "n4-teoku", label: "à la forme de préparation（〜ておく）" },
+  { form: "naide", grammarId: "n4-naide", label: "à la forme « sans faire »（〜ないで）" },
 ];
 
 const CONJ_FORM_BY_GRAMMAR = new Map(CONJ_FORMS.map((f) => [f.grammarId, f]));
@@ -65,6 +88,12 @@ const GODAN_A: Record<string, string> = {
 };
 const GODAN_TE: Record<string, string> = {
   く: "いて", ぐ: "いで", す: "して", う: "って", つ: "って", る: "って", ぬ: "んで", ぶ: "んで", む: "んで",
+};
+const GODAN_E: Record<string, string> = {
+  う: "え", く: "け", ぐ: "げ", す: "せ", つ: "て", ぬ: "ね", ぶ: "べ", む: "め", る: "れ",
+};
+const GODAN_O: Record<string, string> = {
+  う: "お", く: "こ", ぐ: "ご", す: "そ", つ: "と", ぬ: "の", ぶ: "ぼ", む: "も", る: "ろ",
 };
 
 /** ある (有る/在る) : négation supplétive ない, pas あらない. */
@@ -136,10 +165,16 @@ function stems(v: JaPair, cls: VerbClass): Stems | null {
   };
 }
 
+/** Formes N4 qui décrivent une action volontaire — sans objet pour ある (supplétif). */
+const ARU_EXCLUDED = new Set<ConjForm>([
+  "potential", "passive", "causative", "volitional", "imperative", "naide",
+]);
+
 /** Conjugue un verbe (surface + lecture) à la forme demandée, ou null si hors modèle. */
 export function conjugate(v: JaPair, cls: VerbClass, form: ConjForm): JaPair | null {
   const st = stems(v, cls);
   if (!st) return null;
+  if (isAru(v) && ARU_EXCLUDED.has(form)) return null;
   switch (form) {
     case "masu": return append(st.masu, "ます");
     case "masen": return append(st.masu, "ません");
@@ -152,6 +187,86 @@ export function conjugate(v: JaPair, cls: VerbClass, form: ConjForm): JaPair | n
     case "nai":
       if (isAru(v)) return { surface: "ない", reading: "ない" };
       return append(st.nai, "ない");
+    case "tara": return append(st.ta, "ら");
+    case "temiru": return append(st.te, "みる");
+    case "teshimau": return append(st.te, "しまう");
+    case "teoku": return append(st.te, "おく");
+    case "naide": return append(st.nai, "ないで");
+    case "potential":
+    case "passive":
+    case "causative":
+    case "volitional":
+    case "imperative":
+    case "ba":
+      return conjugateN4(v, cls, form);
+  }
+}
+
+/** Formes N4 dérivées des bases え/あ/お-row (五段) ou de la base nue (一段, する, 来る). */
+function conjugateN4(
+  v: JaPair,
+  cls: VerbClass,
+  form: "potential" | "passive" | "causative" | "volitional" | "imperative" | "ba",
+): JaPair | null {
+  if (cls === "ichidan") {
+    if (!v.surface.endsWith("る") || !v.reading.endsWith("る")) return null;
+    const base = cutLast(v);
+    switch (form) {
+      case "potential":
+      case "passive": return append(base, "られる");
+      case "causative": return append(base, "させる");
+      case "volitional": return append(base, "よう");
+      case "imperative": return append(base, "ろ");
+      case "ba": return append(base, "れば");
+    }
+  }
+
+  if (cls === "godan") {
+    const last = v.surface.slice(-1);
+    if (last !== v.reading.slice(-1)) return null;
+    const a = GODAN_A[last];
+    const e = GODAN_E[last];
+    const o = GODAN_O[last];
+    if (!a || !e || !o) return null;
+    const base = cutLast(v);
+    switch (form) {
+      case "potential": return append(base, e + "る");
+      case "passive": return append(base, a + "れる");
+      case "causative": return append(base, a + "せる");
+      case "volitional": return append(base, o + "う");
+      case "imperative": return append(base, e);
+      case "ba": return append(base, e + "ば");
+    }
+  }
+
+  if (cls === "suru") {
+    if (!v.surface.endsWith("する") || !v.reading.endsWith("する")) return null;
+    const base = { surface: v.surface.slice(0, -2), reading: v.reading.slice(0, -2) };
+    switch (form) {
+      case "potential": return append(base, "できる");
+      case "passive": return append(base, "される");
+      case "causative": return append(base, "させる");
+      case "volitional": return append(base, "しよう");
+      case "imperative": return append(base, "しろ");
+      case "ba": return append(base, "すれば");
+    }
+  }
+
+  // kuru : lectures irrégulières (こ/く), surface 来 + okurigana si écrite en kanji.
+  if (v.reading !== "くる") return null;
+  const kanji = v.surface === "来る";
+  if (!kanji && v.surface !== "くる") return null;
+  const p = (suffix: string, reading: string): JaPair => ({
+    surface: kanji ? "来" + suffix : reading,
+    reading,
+  });
+  switch (form) {
+    case "potential":
+    case "passive": return p("られる", "こられる");
+    case "causative": return p("させる", "こさせる");
+    case "volitional": return p("よう", "こよう");
+    case "imperative": return p("い", "こい");
+    case "ba": return p("れば", "くれば");
   }
 }
 
