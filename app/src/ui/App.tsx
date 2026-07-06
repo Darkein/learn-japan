@@ -236,7 +236,7 @@ function AppShell() {
   if (route.kind === "voyage") {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <ReaderPage title="Voyage sur le Tōkaidō" onBack={back}>
+        <ReaderPage title="Les routes du Japon" onBack={back}>
           <Voyage />
         </ReaderPage>
       </div>

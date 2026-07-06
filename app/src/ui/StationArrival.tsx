@@ -1,26 +1,26 @@
-import type { TokaidoStation } from "../data/tokaido";
-import { TOKAIDO } from "../data/tokaido";
+import type { RouteArrival } from "../lib/tokaido";
 import { Button } from "./kit/Button";
 import { SectionLabel } from "./kit/SectionLabel";
 import { Sheet } from "./kit/Sheet";
 
 interface Props {
-  station: TokaidoStation;
+  arrival: RouteArrival;
   onClose: () => void;
 }
 
 /**
- * Célébration d'arrivée à une station du Tōkaidō — sobre : le nom en calligraphie, un
- * trait d'encre qui se révèle (stroke-dashoffset, coupé sous prefers-reduced-motion via
- * la règle globale), un fait bref. Aucun confetti (DESIGN.md §2).
+ * Célébration d'arrivée à une station de la route en cours — sobre : le nom en
+ * calligraphie, un trait d'encre qui se révèle (stroke-dashoffset, coupé sous
+ * prefers-reduced-motion via la règle globale), un fait bref. Aucun confetti (DESIGN.md §2).
  */
-export function StationArrival({ station, onClose }: Props) {
-  const last = station.index === TOKAIDO.length - 1;
+export function StationArrival({ arrival, onClose }: Props) {
+  const { route, station } = arrival;
+  const last = station.index === route.stations.length - 1;
   return (
     <Sheet open onClose={onClose}>
       <div className="flex flex-col items-center gap-4 px-2 py-6 text-center">
         <SectionLabel>
-          {last ? "Terme du voyage" : `${station.index}ᵉ étape du Tōkaidō`}
+          {last ? `Terme du ${route.name}` : `${station.index}ᵉ étape · ${route.name}`}
         </SectionLabel>
         <p className="font-jp text-3xl text-text">{station.kanji}</p>
         {/* Trait d'encre révélé sous le nom. */}

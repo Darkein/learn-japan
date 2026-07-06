@@ -91,7 +91,7 @@ describe("pickNext — barème", () => {
   it("done — sortie élégante quand tout est épuisé", () => {
     const a = pickNext(state({ reviewedToday: 25, lastActivity: "review" }));
     expect(a.kind).toBe("done");
-    expect(a.reason).toContain("Tōkaidō");
+    expect(a.reason).toContain("La route t'attend demain");
   });
 
   it("déterminisme : même état → même sortie", () => {

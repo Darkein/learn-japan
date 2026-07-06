@@ -121,7 +121,7 @@ export function pickNext(state: FlowState): FlowActivity {
   return {
     kind: "done",
     title: "Terminer pour aujourd'hui",
-    reason: "Tout est fait pour aujourd'hui. Le Tōkaidō t'attend demain.",
+    reason: "Tout est fait pour aujourd'hui. La route t'attend demain.",
   };
 }
 

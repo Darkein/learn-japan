@@ -75,7 +75,7 @@ export function OmikujiSheet({ onClose }: Props) {
               <p className="m-0 max-w-sm font-serif text-lg text-text">{challenge.label(labelEnv())}</p>
             )}
             <p className="m-0 text-xs text-muted">
-              Défi accompli : tu gagnes {fortune.bonusFr} sur le Tōkaidō — la fortune fixe
+              Défi accompli : tu gagnes {fortune.bonusFr} sur la route — la fortune fixe
               la mise, jamais une punition.
             </p>
           </div>

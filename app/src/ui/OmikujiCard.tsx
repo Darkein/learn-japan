@@ -26,7 +26,7 @@ export function OmikujiCard() {
     const result = await checkOmikuji();
     setCheck(result);
     if (result?.completedNow) {
-      notify({ message: "Omikuji accompli — un peu de chemin gagné sur le Tōkaidō." });
+      notify({ message: "Omikuji accompli — un peu de chemin gagné sur la route." });
     }
   }
 

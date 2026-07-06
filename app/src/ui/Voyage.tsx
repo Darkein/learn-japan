@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TOKAIDO } from "../data/tokaido";
+import { ROUTES } from "../data/routes";
 import { allLessonProgress } from "../lib/db";
 import { listLessons } from "../lib/lessons";
 import {
@@ -11,7 +11,7 @@ import { formatDaysAgo } from "../lib/time";
 import { ProgressBar } from "./kit/ProgressBar";
 import { SectionLabel } from "./kit/SectionLabel";
 
-/** Torii minimal (3 traits, --ink) marquant l'arrivée à Kyōto. */
+/** Torii minimal (3 traits, --ink) marquant le terme de la route. */
 function Torii({ className = "" }: { className?: string }) {
   return (
     <svg className={className} width="20" height="16" viewBox="0 0 20 16" aria-hidden="true">
@@ -26,8 +26,9 @@ function Torii({ className = "" }: { className?: string }) {
 }
 
 /**
- * Vue dédiée du voyage : la route verticale d'Edo (en haut) à Kyōto (en bas), toutes les
- * stations, la position courante en accent. Mobile-first : on scrolle le long de la route.
+ * Vue dédiée du voyage : une route par niveau JLPT (data/routes.ts). Le panorama des cinq
+ * routes situe le voyage entier ; en dessous, la route active en entier, verticale, du
+ * départ (en haut) au terme (en bas), la position courante en accent. Mobile-first.
  */
 export function Voyage() {
   const [status, setStatus] = useState<TokaidoStatus | null>(null);
@@ -46,6 +47,9 @@ export function Voyage() {
   if (!status) return <p className="text-muted">Chargement…</p>;
 
   const { pos, levels } = status;
+  const route = pos.route;
+  const stations = route.stations;
+  const span = stations.length - 1;
   const lessonsToNext = estimateLessonsToNext(pos, levels);
   const currentIndex = pos.station.index;
 
@@ -55,20 +59,23 @@ export function Voyage() {
         <SectionLabel>Ton chemin</SectionLabel>
         <p className="font-serif text-lg">
           {currentIndex === 0 ? (
-            <>Tu es à Nihonbashi, prêt à partir.</>
+            <>
+              Tu es à <span className="font-jp">{stations[0].kanji}</span> {stations[0].romaji},
+              prêt à partir sur le {route.name}.
+            </>
           ) : pos.next ? (
             <>
-              {currentIndex} station{currentIndex > 1 ? "s" : ""} sur {TOKAIDO.length - 1} — tu es à{" "}
+              {currentIndex} étape{currentIndex > 1 ? "s" : ""} sur {span} — tu es à{" "}
               <span className="font-jp">{pos.station.kanji}</span> {pos.station.romaji}.
             </>
           ) : (
-            <>Tu as atteint Kyōto — les {TOKAIDO.length - 1} étapes de la route sont derrière toi.</>
+            <>Tu as atteint {route.arriveFr} — les {span} étapes du {route.name} sont derrière toi.</>
           )}
         </p>
         {departedAt && (
-          <p className="text-sm text-muted">Parti de Nihonbashi {formatDaysAgo(departedAt)}.</p>
+          <p className="text-sm text-muted">Premier départ {formatDaysAgo(departedAt)}.</p>
         )}
-        <ProgressBar value={(pos.position / (TOKAIDO.length - 1)) * 100} />
+        <ProgressBar value={(pos.position / span) * 100} />
         {pos.next && (
           <p className="text-sm text-muted">
             Prochaine étape : <span className="font-jp text-text">{pos.next.kanji}</span>{" "}
@@ -83,10 +90,46 @@ export function Voyage() {
 
       <section>
         <SectionLabel as="h3" className="mb-4 block">
-          La route — Edo → Kyōto
+          Les cinq routes — une par niveau
+        </SectionLabel>
+        <ul className="flex flex-col">
+          {ROUTES.map((r) => {
+            const done = r.level > route.level;
+            const current = r.level === route.level;
+            return (
+              <li
+                key={r.level}
+                className={`flex items-baseline gap-3 border-b py-2.5 last:border-b-0 ${
+                  done || current ? "" : "opacity-60"
+                }`}
+                style={{ borderColor: "var(--hairline)" }}
+              >
+                <span
+                  className="h-2 w-2 flex-none self-center rounded-full"
+                  style={{
+                    background: done ? "var(--ink)" : current ? r.trainColor : "transparent",
+                    border: done || current ? "none" : "1px solid var(--hairline-strong)",
+                  }}
+                  aria-hidden="true"
+                />
+                <span className="w-8 flex-none text-xs text-muted">N{r.level}</span>
+                <span className="font-jp text-text">{r.kanji}</span>
+                <span className={`text-sm ${current ? "text-text" : "text-muted"}`}>{r.name}</span>
+                <span className="ml-auto truncate pl-2 text-xs text-muted">
+                  {done ? "parcourue" : current ? r.tagline : `${r.stations.length - 1} étapes`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section>
+        <SectionLabel as="h3" className="mb-4 block">
+          {route.name} — {route.tagline}
         </SectionLabel>
         <ol className="flex flex-col">
-          {TOKAIDO.map((s) => {
+          {stations.map((s) => {
             const passed = s.index < currentIndex || (!pos.next && s.index === currentIndex);
             const current = s.index === currentIndex && !!pos.next;
             return (
@@ -100,16 +143,16 @@ export function Voyage() {
                     />
                   )}
                   <span
-                    className={`h-2 w-2 flex-none rounded-full ${current ? "bg-accent" : ""}`}
+                    className="h-2 w-2 flex-none rounded-full"
                     style={
                       current
-                        ? undefined
+                        ? { background: route.trainColor }
                         : passed
                           ? { background: "var(--ink)" }
                           : { border: "1px solid var(--hairline-strong)" }
                     }
                   />
-                  {s.index < TOKAIDO.length - 1 && (
+                  {s.index < span && (
                     <span
                       className="w-px flex-1"
                       style={{
@@ -135,8 +178,8 @@ export function Voyage() {
                   <span className={`text-xs ${current ? "text-text" : "text-muted"}`}>
                     {s.romaji}
                   </span>
-                  {s.index === TOKAIDO.length - 1 && <Torii className="self-center" />}
-                  {current && <span className="text-xs text-accent">Tu es ici</span>}
+                  {s.index === span && <Torii className="self-center" />}
+                  {current && <span className="text-xs" style={{ color: route.trainColor }}>Tu es ici</span>}
                 </div>
               </li>
             );

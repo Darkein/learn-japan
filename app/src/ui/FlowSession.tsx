@@ -4,9 +4,8 @@ import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
 import { getLesson, markLessonStarted, type Lesson } from "../lib/lessons";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
-import { markStationCelebrated, tokaidoStatus } from "../lib/tokaido";
+import { markStationCelebrated, tokaidoStatus, type RouteArrival } from "../lib/tokaido";
 import { MirrorDeltaView } from "./MirrorDelta";
-import type { TokaidoStation } from "../data/tokaido";
 import { formatMinutes } from "../lib/time";
 import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
 import { OmikujiSheet } from "./OmikujiSheet";
@@ -40,7 +39,7 @@ export function FlowSession({ onExit, forced }: Props) {
   const { settings } = useSettings();
   const flowMs = useFlowClock();
   const [phase, setPhase] = useState<Phase>({ name: "loading" });
-  const [arrival, setArrival] = useState<TokaidoStation | null>(null);
+  const [arrival, setArrival] = useState<RouteArrival | null>(null);
   // Révisions du jour au début du bloc courant → « 12 révisions faites » au checkpoint.
   const reviewedAtBlockStart = useRef(0);
 
@@ -134,9 +133,9 @@ export function FlowSession({ onExit, forced }: Props) {
 
       {arrival && (
         <StationArrival
-          station={arrival}
+          arrival={arrival}
           onClose={() => {
-            void markStationCelebrated(arrival.index);
+            void markStationCelebrated(arrival.route.level, arrival.station.index);
             setArrival(null);
           }}
         />
@@ -150,7 +149,7 @@ async function recapFor(
   reviewedBefore: number,
   omikujiDone: boolean,
 ): Promise<FlowBlockResult> {
-  const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur le Tōkaidō." : "";
+  const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur la route." : "";
   if (activity.kind === "review" || activity.kind === "reinforce") {
     const daily = await getSrsDaily(localDateString());
     const delta = Math.max(0, (daily?.reviewed ?? 0) - reviewedBefore);
