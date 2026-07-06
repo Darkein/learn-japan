@@ -6,8 +6,10 @@
 //  2. Intégrité des refs — tout id `introduces.grammar` existe dans l'inventaire ;
 //                          les vocab inconnus sont signalés (avertissement).
 //  3. Prérequis grammaire — un prérequis est introduit dans une leçon d'ordre <= celle qui en dépend.
+//  4. Couverture vocabulaire — chaque mot N5 de vocab.json est introduit par au moins une leçon.
+//  5. Densité — au plus MAX_NEW_VOCAB mots NOUVEAUX par leçon (avertissement au-delà).
 //
-// Les manquements 1–3 sont des ERREURS (exit 1). Les vocab inconnus sont des AVERTISSEMENTS.
+// Les manquements 1–4 sont des ERREURS (exit 1). Vocab inconnus et densité sont des AVERTISSEMENTS.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -98,7 +100,26 @@ for (const g of grammarById.keys()) {
   else if (hits.length > 1) errors.push(`[couverture] grammaire « ${g} » introduite par ${hits.length} leçons : ${hits.join(", ")}`);
 }
 
-// --- 3 : prérequis grammaire ---
+// --- 4 & 5 : couverture vocabulaire + densité ---
+// Une leçon « introduit » un mot la première fois qu'il apparaît (ordre croissant) ;
+// les occurrences suivantes sont des rappels volontaires.
+const MAX_NEW_VOCAB = 19;
+const firstIntro = new Map<string, string>();
+for (const l of lessons) {
+  let fresh = 0;
+  for (const v of l.introduces.vocab) {
+    if (!firstIntro.has(v)) {
+      firstIntro.set(v, l.id);
+      fresh += 1;
+    }
+  }
+  if (fresh > MAX_NEW_VOCAB)
+    warnings.push(`[densité] leçon ${l.id} : ${fresh} mots nouveaux (> ${MAX_NEW_VOCAB})`);
+}
+for (const v of vocabInv) {
+  if (!firstIntro.has(v.id))
+    errors.push(`[couverture-vocab] « ${v.id} » (${vocabFr[v.id] ?? "?"}) n'est introduit par aucune leçon`);
+}
 for (const g of grammarInv.items) {
   const ord = orderOfGrammar.get(g.id);
   if (ord == null) continue;
@@ -111,7 +132,10 @@ for (const g of grammarInv.items) {
 }
 
 // --- Rapport ---
-console.log(`Curriculum N5 : ${lessons.length} leçons. Grammaire : ${grammarIntro.size}/${grammarById.size}.`);
+const coveredVocab = vocabInv.filter((v) => firstIntro.has(v.id)).length;
+console.log(
+  `Curriculum N5 : ${lessons.length} leçons. Grammaire : ${grammarIntro.size}/${grammarById.size}. Vocabulaire : ${coveredVocab}/${vocabInv.length}.`,
+);
 
 for (const w of warnings) console.warn("⚠️  " + w);
 if (errors.length) {

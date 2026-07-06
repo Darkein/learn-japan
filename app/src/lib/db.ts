@@ -101,6 +101,9 @@ export interface GeneratedLessonRecord {
   id: string; // = curriculum entry id
   framing: string; // leçon FR rédigée (corps du cours)
   createdAt: number;
+  /** Révision du curriculum pour laquelle ce cadrage a été généré (défaut 1). Un cadrage
+   * d'une révision antérieure est ignoré à l'hydratation → régénération automatique. */
+  rev?: number;
   /**
    * Empreinte des objectifs de la leçon au moment de la génération (voir
    * objectivesHash, lib/lessons.ts). Si le curriculum change pour ce même id, le
@@ -143,8 +146,16 @@ export interface EncounterRecord {
   lastStoryId?: string;
 }
 
-/** Niveaux de fortune omikuji (décoratifs — n'influent sur rien). */
-export type OmikujiFortune = "daikichi" | "kichi" | "chukichi" | "shokichi" | "suekichi";
+/** Niveaux de fortune omikuji — le niveau module le bonus Tōkaidō du défi (voir FORTUNES). */
+export type OmikujiFortune =
+  | "daikichi"
+  | "kichi"
+  | "chukichi"
+  | "shokichi"
+  | "hankichi"
+  | "suekichi"
+  | "kyo"
+  | "daikyo";
 
 /** Tirage omikuji du jour (un par date locale). */
 export interface OmikujiRecord {

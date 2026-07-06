@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { isCorrectOrder, shuffleTiles, type Tile } from "../../lib/builder";
 import { isAcceptableOrder } from "../../lib/buildOrders";
-import type { BuildExercise } from "../../lib/exercise";
+import { translateExampleFr, type BuildExercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
@@ -44,6 +44,9 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
   return (
     <>
       {ex.front && <p className="text-text">{ex.front}</p>}
+      {!ex.audioOnly && ex.contextFr && ex.front !== ex.contextFr && (
+        <p className="m-0 text-sm text-muted">« {ex.contextFr} »</p>
+      )}
       <div className="flex min-h-12 w-full flex-wrap items-center justify-center gap-2 rounded-sm border border-dashed border-hairline p-2">
         {placed.length === 0 && <span className="text-sm text-muted">Compose la phrase…</span>}
         {placed.map((t) => (
@@ -81,13 +84,21 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
               Autre ordre valide — ordre du texte : <span className="font-jp">{ex.target.join(" ")}</span>
             </div>
           )}
-          <SentenceFeedback tokens={ex.tokens} />
+          <SentenceFeedback
+            tokens={ex.tokens}
+            fr={ex.contextFr}
+            onTranslate={() => translateExampleFr(ex.target.join(""), ex)}
+          />
           <GradeButtons onGraded={onGraded} onNext={onNext} />
         </>
       ) : (
         <>
           <div className="text-sm text-accent">✗ Ordre attendu : {ex.target.join(" ")}</div>
-          <SentenceFeedback tokens={ex.tokens} />
+          <SentenceFeedback
+            tokens={ex.tokens}
+            fr={ex.contextFr}
+            onTranslate={() => translateExampleFr(ex.target.join(""), ex)}
+          />
           <Button
             variant="primary"
             onClick={() => {

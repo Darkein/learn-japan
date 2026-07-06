@@ -102,6 +102,11 @@ export function SettingsSections({ quick }: Props) {
               value={settings.warmupRomaji}
               onChange={(v) => update({ warmupRomaji: v })}
             />
+            <Toggle
+              label="Sans le son : remplacer l'écoute par de l'écrit"
+              value={settings.silentReviews}
+              onChange={(v) => update({ silentReviews: v })}
+            />
           </div>
         </section>
       )}

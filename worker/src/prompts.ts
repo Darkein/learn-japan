@@ -31,6 +31,12 @@ export interface GenerateRequest {
   // kind: "lesson" | "lesson-story" — matière d'une leçon.
   title?: string;
   vocab?: VocabItem[];
+  // kind: "lesson" — position dans le parcours (1 = première leçon) : module la longueur
+  // du cours généré (les premières leçons restent courtes et rassurantes).
+  lessonOrder?: number;
+  // Révision du contenu de la leçon (curriculum.json) : change la clé de cache R2 quand
+  // les objectifs d'une leçon évoluent, pour ne jamais servir un cours périmé.
+  rev?: number;
   // kind: "lesson-story" — révision (leçons précédentes, pondérée plus bas) et anti-répétition.
   reviewVocab?: VocabItem[];
   reviewGrammar?: string[];
@@ -110,6 +116,18 @@ export function cleanVariant(value: unknown): number {
   return Number.isFinite(n) && n >= 1 && n <= 50 ? n : 1;
 }
 
+/** Position de la leçon dans le parcours, bornée à 1..999 (0 = inconnue). */
+function cleanOrder(value: unknown): number {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n >= 1 && n <= 999 ? n : 0;
+}
+
+/** Révision du contenu d'une leçon, bornée à 1..99 (défaut 1). */
+export function cleanRev(value: unknown): number {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n >= 1 && n <= 99 ? n : 1;
+}
+
 function cleanVocab(value: unknown): VocabItem[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -161,24 +179,42 @@ export function buildLessonPrompt(r: GenerateRequest): string {
   const title = clean(r.title, LIMITS.title) || "Leçon";
   const vocab = cleanVocab(r.vocab);
   const grammarList = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
+  const order = cleanOrder(r.lessonOrder);
+  // Les toutes premières leçons s'adressent à un débutant absolu : courtes et rassurantes.
+  const intro = order >= 1 && order <= 5;
 
   const grammar = grammarList.length
     ? `Point(s) de grammaire à enseigner : ${grammarList.join(", ")}.`
-    : "Cette leçon n'introduit pas de nouveau point de grammaire ; développe une explication claire et illustrée de son thème.";
+    : "Cette leçon n'introduit pas de nouveau point de grammaire : c'est une leçon de vocabulaire thématique. Développe une explication courte et vivante de son thème (comment ces mots s'emploient, ce qui surprend un francophone), sans lister les mots un à un.";
   const exampleMaterial = [
     vocab.length ? `Vocabulaire disponible pour bâtir des exemples : ${vocab.map(fmtVocab).join(", ")}.` : "",
   ].filter(Boolean);
 
+  // Longueur cible : très courte en tout début de parcours, puis proportionnelle au
+  // nombre de points enseignés — jamais « riche » sans borne (mur de texte).
+  const sizing = intro
+    ? "LONGUEUR : c'est l'une des toutes premières leçons du parcours, lue par un débutant absolu. Fais VOLONTAIREMENT court et rassurant : environ 250 à 400 mots, une idée à la fois, phrases courtes, 2 ou 3 blocs :::example maximum, pas de sous-sections superflues."
+    : grammarList.length <= 1
+      ? "LONGUEUR : vise environ 300 à 450 mots — une leçon focalisée et digeste, sans remplissage."
+      : grammarList.length === 2
+        ? "LONGUEUR : vise environ 450 à 650 mots — développée mais aérée."
+        : "LONGUEUR : vise environ 650 à 850 mots — structurée en sections courtes, sans remplissage.";
+
+  const teaching = intro
+    ? "Enseigne UNIQUEMENT la grammaire ci-dessus, simplement : l'intuition de départ, comment l'employer dans le cas le plus courant, et UNE erreur fréquente du francophone débutant. Garde les nuances de registre, les exceptions et les cas particuliers pour des leçons ultérieures."
+    : "Enseigne UNIQUEMENT la grammaire ci-dessus, mais en profondeur : l'intuition de départ, comment et quand l'employer, les nuances de registre (poli / neutre, oral / écrit) et l'erreur fréquente du francophone débutant. Construis l'explication progressivement, du cas le plus simple vers les subtilités.";
+
   return [
-    `Rédige une véritable leçon de grammaire japonaise (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown. Une vraie leçon qui enseigne et démontre — pas une simple introduction ni un résumé. Cette leçon fait parti d'un ensemble de leçons, pas besoin de phrase de bienvenue.`,
+    `Rédige une véritable leçon de japonais (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown. Une vraie leçon qui enseigne et démontre — pas une simple introduction ni un résumé. Cette leçon fait parti d'un ensemble de leçons, pas besoin de phrase de bienvenue.`,
     grammar,
     ...exampleMaterial,
     "",
-    "Enseigne UNIQUEMENT la grammaire ci-dessus, mais en profondeur : l'intuition de départ, comment et quand l'employer, les nuances de registre (poli / neutre, oral / écrit) et l'erreur fréquente du francophone débutant. Construis l'explication progressivement, du cas le plus simple vers les subtilités.",
-    "Démontre chaque point avec PLUSIEURS exemples concrets en japonais. Encadre chaque exemple dans un bloc :::example … ::: : une ligne par phrase japonaise, puis sa traduction française sur la ligne suivante préfixée par « > ». Plusieurs paires JP/traduction sont autorisées dans un même bloc. Pas de romaji (l'application ajoute les furigana automatiquement).",
+    teaching,
+    "Démontre chaque point avec des exemples concrets en japonais. Encadre chaque exemple dans un bloc :::example … ::: : une ligne par phrase japonaise, puis sa traduction française sur la ligne suivante préfixée par « > ». Plusieurs paires JP/traduction sont autorisées dans un même bloc. Pas de romaji (l'application ajoute les furigana automatiquement).",
     "Pour une tournure fautive, utilise un bloc :::pitfall avec l'explication de l'erreur. Pour une note importante, utilise :::info ; pour une mise en garde, :::warning. Termine la leçon par un bloc :::summary listant les 2 à 4 points clés à retenir.",
     "Tu peux puiser dans le vocabulaire fourni pour tes exemples, mais NE dresse PAS la liste du vocabulaire et NE l'explique PAS mot à mot (il est déjà affiché à côté) : sers-t'en seulement comme matière à phrases.",
-    "Structure avec des titres Markdown « # » dès qu'il y a plusieurs idées (un seul niveau, et pas de titre pour la leçon), des paragraphes courts, des listes à puces ou numérotées si pertinent. Tu peux utiliser un tableau Markdown pour présenter des formes de conjugaison. Utilise **gras** et *italique* pour mettre en valeur les termes importants en français. Vise une leçon riche mais lisible. Réponds uniquement avec cette leçon en français.",
+    "N'emploie dans tes exemples QUE la grammaire enseignée ici ou plus élémentaire qu'elle : rien qui ne soit pas encore vu à ce stade du parcours.",
+    `Structure avec des titres Markdown « # » dès qu'il y a plusieurs idées (un seul niveau, et pas de titre pour la leçon), des paragraphes courts, des listes à puces ou numérotées si pertinent. Tu peux utiliser un tableau Markdown pour présenter des formes de conjugaison. Utilise **gras** et *italique* pour mettre en valeur les termes importants en français. ${sizing} Réponds uniquement avec cette leçon en français.`,
   ]
     .filter(Boolean)
     .join("\n");

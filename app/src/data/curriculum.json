@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces` : pas de contenu rédigé ici. Le COURS est assemblé depuis l'inventaire (grammaire : règle + exemple ; kanji : lectures ; vocab) + un cadrage FR généré à la demande ; les HISTOIRES sont des StoryRecord liés par lessonId, générées depuis l'app. Listes JLPT non officielles (cf. README/SPEC).",
+  "note": "Curriculum hiérarchique niveau → unité → leçon. Les leçons référencent l'inventaire (app/src/data/inventory/*) par identifiant via `introduces` : pas de contenu rédigé ici. Le COURS est assemblé depuis l'inventaire (grammaire : règle + exemple ; kanji : lectures ; vocab) + un cadrage FR généré à la demande ; les HISTOIRES sont des StoryRecord liés par lessonId, générées depuis l'app. `rev` invalide le cadrage caché quand le contenu d'une leçon change. Couverture N5 complète : chaque mot de vocab.json et chaque point de grammar.json est introduit par exactement une leçon (vérifié par scripts/check-curriculum.ts). Listes JLPT non officielles (cf. README/SPEC).",
   "levels": [
     {
       "level": 5,
@@ -9,13 +9,14 @@
         {
           "id": "n5-u1-foundations",
           "title": "Premières phrases",
-          "summary": "Thème, objet, action : la charpente de la phrase japonaise.",
+          "summary": "Thème, objet, sujet : la charpente de la phrase japonaise, un morceau à la fois.",
           "lessons": [
             {
               "id": "n5-01-today-book",
               "order": 1,
-              "title": "Le japonais aujourd'hui",
-              "summary": "Première phrase : un thème, un objet, un verbe.",
+              "rev": 2,
+              "title": "La première phrase : は et を",
+              "summary": "Un thème avec は, un objet avec を : 今日は本を読む。",
               "introduces": {
                 "vocab": [
                   "今日|きょう",
@@ -25,21 +26,23 @@
                 ],
                 "grammar": [
                   "n5-wa-topic",
-                  "n5-wo-object",
-                  "n5-no-possessive"
+                  "n5-wo-object"
                 ]
               }
             },
             {
               "id": "n5-02-cat-water",
               "order": 2,
-              "title": "Le chat boit de l'eau",
-              "summary": "Sujet animé, objet, verbe d'action.",
+              "rev": 2,
+              "title": "Le chat boit : le sujet が",
+              "summary": "Marquer qui fait l'action avec が.",
               "introduces": {
                 "vocab": [
                   "猫|ねこ",
                   "水|みず",
-                  "飲む|のむ"
+                  "飲む|のむ",
+                  "お茶|おちゃ",
+                  "牛乳|ぎゅうにゅう"
                 ],
                 "grammar": [
                   "n5-ga-subject"
@@ -49,12 +52,15 @@
             {
               "id": "n5-03-hot-day",
               "order": 3,
-              "title": "Il fait chaud",
-              "summary": "Adjectifs en -い et particule d'addition も.",
+              "rev": 2,
+              "title": "Il fait chaud : les adjectifs en -い (et も)",
+              "summary": "L'adjectif en -い termine la phrase tout seul ; も pour dire « aussi ».",
               "introduces": {
                 "vocab": [
-                  "今日|きょう",
                   "暑い|あつい",
+                  "熱い|あつい",
+                  "いい; よい|いい; よい",
+                  "今日|きょう",
                   "猫|ねこ",
                   "水|みず",
                   "飲む|のむ"
@@ -68,14 +74,17 @@
             {
               "id": "n5-04-study-japanese",
               "order": 4,
-              "title": "J'étudie le japonais",
-              "summary": "Verbes en する et expression de soi.",
+              "rev": 2,
+              "title": "J'étudie : les verbes en する",
+              "summary": "Fabriquer un verbe à partir d'un nom : 勉強する.",
               "introduces": {
                 "vocab": [
                   "私|わたし",
-                  "日本語|にほんご",
-                  "勉強|べんきょう",
-                  "する|する"
+                  "勉強|べんきょう (する)",
+                  "する|する",
+                  "英語|えいご",
+                  "言葉|ことば",
+                  "日本語|にほんご"
                 ],
                 "grammar": [
                   "n5-suru-verb"
@@ -85,14 +94,39 @@
             {
               "id": "n5-05-teacher-student",
               "order": 5,
-              "title": "Le professeur et l'étudiant",
-              "summary": "Deux sujets, une action partagée.",
+              "rev": 2,
+              "title": "です et の : être et appartenir",
+              "summary": "La copule polie です et le lien の : 私は学生です。先生の本。",
               "introduces": {
                 "vocab": [
                   "先生|せんせい",
                   "学生|がくせい",
+                  "生徒|せいと",
+                  "大学|だいがく",
                   "本|ほん",
                   "読む|よむ"
+                ],
+                "grammar": [
+                  "n5-desu-copula",
+                  "n5-no-possessive"
+                ]
+              }
+            },
+            {
+              "id": "n5-28-yes-polite",
+              "order": 6,
+              "title": "Oui, s'il vous plaît : はい, どうぞ et ～さん",
+              "summary": "Les premiers mots de politesse pour répondre et s'adresser à quelqu'un.",
+              "introduces": {
+                "vocab": [
+                  "はい|はい",
+                  "ええ|ええ",
+                  "そう; そうです|そう; そうです",
+                  "どうぞ|どうぞ",
+                  "どうも|どうも",
+                  "～さん|～さん",
+                  "あなた|あなた",
+                  "お～|お～"
                 ],
                 "grammar": []
               }
@@ -102,20 +136,25 @@
         {
           "id": "n5-u2-describe",
           "title": "Décrire le monde",
-          "summary": "Météo, nature et premières actions polies.",
+          "summary": "Météo, nature, premières phrases polies en ます.",
           "lessons": [
             {
               "id": "n5-06-weather",
-              "order": 6,
-              "title": "Météo et saisons",
-              "summary": "Décrire le temps qu'il fait.",
+              "order": 7,
+              "rev": 2,
+              "title": "La météo : l'adjectif devant le nom (et ね)",
+              "summary": "L'adjectif en -い s'accroche au nom (暑い日) ; ね cherche l'accord.",
               "introduces": {
                 "vocab": [
-                  "今日|きょう",
                   "天気|てんき",
-                  "暑い|あつい",
                   "寒い|さむい",
-                  "雨|あめ"
+                  "雨|あめ",
+                  "雪|ゆき",
+                  "風|かぜ",
+                  "晴れ|はれ",
+                  "曇り|くもり",
+                  "今日|きょう",
+                  "暑い|あつい"
                 ],
                 "grammar": [
                   "n5-ne-particle",
@@ -125,55 +164,94 @@
             },
             {
               "id": "n5-07-mountain-river",
-              "order": 7,
-              "title": "Montagne et rivière",
-              "summary": "Situer des éléments dans un paysage.",
+              "order": 8,
+              "rev": 2,
+              "title": "Montagne et rivière : と et ある",
+              "summary": "Relier avec と ; dire qu'une chose existe avec ある.",
               "introduces": {
                 "vocab": [
                   "山|やま",
-                  "川|かわ",
-                  "水|みず",
-                  "猫|ねこ"
+                  "川; 河|かわ",
+                  "海|うみ",
+                  "空|そら",
+                  "池|いけ",
+                  "花|はな",
+                  "水|みず"
                 ],
                 "grammar": [
-                  "n5-ni-location",
-                  "n5-to-and"
+                  "n5-to-and",
+                  "n5-aru"
                 ]
               }
             },
             {
+              "id": "n5-29-seasons",
+              "order": 9,
+              "title": "Les quatre saisons",
+              "summary": "Printemps, été, automne, hiver — et les verbes de la météo.",
+              "introduces": {
+                "vocab": [
+                  "春|はる",
+                  "夏|なつ",
+                  "秋|あき",
+                  "冬|ふゆ",
+                  "夏休み|なつやすみ",
+                  "暖かい|あたたかい",
+                  "涼しい|すずしい",
+                  "冷たい|つめたい",
+                  "温い|ぬるい",
+                  "降る|ふる",
+                  "晴れる|はれる",
+                  "曇る|くもる",
+                  "吹く|ふく",
+                  "咲く|さく"
+                ],
+                "grammar": []
+              }
+            },
+            {
               "id": "n5-08-eating",
-              "order": 8,
-              "title": "Manger et boire",
-              "summary": "Verbes d'action quotidienne au registre poli.",
+              "order": 10,
+              "rev": 2,
+              "title": "Manger poliment : la forme ます",
+              "summary": "Le registre poli des verbes : 食べます、飲みます.",
               "introduces": {
                 "vocab": [
                   "食べる|たべる",
+                  "御飯|ごはん",
+                  "パン|パン",
+                  "肉|にく",
+                  "魚|さかな",
+                  "卵|たまご",
+                  "美味しい|おいしい",
                   "飲む|のむ",
-                  "水|みず",
-                  "本|ほん"
+                  "水|みず"
                 ],
                 "grammar": [
-                  "n5-te-form",
                   "n5-masu-polite"
                 ]
               }
             },
             {
               "id": "n5-09-talking",
-              "order": 9,
-              "title": "Parler, lire, écrire",
-              "summary": "Verbes liés au langage et moyen avec で.",
+              "order": 11,
+              "rev": 2,
+              "title": "Parler en japonais : で et le passé ました",
+              "summary": "Le moyen avec で (日本語で) et le passé poli ました.",
               "introduces": {
                 "vocab": [
                   "話す|はなす",
-                  "読む|よむ",
                   "書く|かく",
                   "聞く|きく",
+                  "言う|いう",
+                  "話|はなし",
+                  "声|こえ",
+                  "読む|よむ",
                   "日本語|にほんご"
                 ],
                 "grammar": [
-                  "n5-de-means"
+                  "n5-de-means",
+                  "n5-mashita-past"
                 ]
               }
             }
@@ -181,73 +259,144 @@
         },
         {
           "id": "n5-u3-people-places",
-          "title": "Gens et lieux",
-          "summary": "Désigner les personnes, les pays, ce qui existe.",
+          "title": "Gens, lieux et déplacements",
+          "summary": "Qui existe où, et comment on s'y rend.",
           "lessons": [
             {
               "id": "n5-10-people",
-              "order": 10,
-              "title": "Les gens autour de moi",
-              "summary": "Désigner des personnes ; ce qui existe (ある/いる).",
+              "order": 12,
+              "rev": 2,
+              "title": "Les gens autour de moi : いる et le lieu に",
+              "summary": "L'existence des êtres animés (いる) et le lieu avec に.",
               "introduces": {
                 "vocab": [
                   "人|ひと",
                   "男|おとこ",
                   "女|おんな",
-                  "子供|こども"
+                  "子供|こども",
+                  "男の子|おとこのこ",
+                  "女の子|おんなのこ",
+                  "大人|おとな",
+                  "居る|いる"
                 ],
                 "grammar": [
-                  "n5-aru",
-                  "n5-iru"
+                  "n5-iru",
+                  "n5-ni-location"
+                ]
+              }
+            },
+            {
+              "id": "n5-25-motion",
+              "order": 13,
+              "rev": 2,
+              "title": "Aller et venir : la direction へ",
+              "summary": "Les verbes de mouvement et la direction avec へ ; enchaîner avec そして.",
+              "introduces": {
+                "vocab": [
+                  "行く|いく; ゆく",
+                  "来る|くる",
+                  "出る|でる",
+                  "入る|はいる",
+                  "休む|やすむ",
+                  "歩く|あるく",
+                  "走る|はしる",
+                  "帰る|かえる",
+                  "そうして; そして|そうして; そして",
+                  "それから|それから"
+                ],
+                "grammar": [
+                  "n5-e-direction",
+                  "n5-soshite"
                 ]
               }
             },
             {
               "id": "n5-11-japan-country",
-              "order": 11,
-              "title": "Le Japon, le pays",
-              "summary": "Parler d'un lieu, d'une provenance, d'une direction.",
+              "order": 14,
+              "rev": 2,
+              "title": "Du Japon à l'école : から et に",
+              "summary": "La provenance avec から, la destination avec に.",
               "introduces": {
                 "vocab": [
                   "日本|にほん",
                   "国|くに",
                   "学校|がっこう",
-                  "名前|なまえ"
+                  "名前|なまえ",
+                  "外国|がいこく",
+                  "外国人|がいこくじん",
+                  "留学生|りゅうがくせい",
+                  "～人|～じん",
+                  "～語|～ご"
                 ],
                 "grammar": [
-                  "n5-e-direction",
+                  "n5-ni-direction",
                   "n5-kara-from"
                 ]
               }
             },
             {
-              "id": "n5-12-memorizing",
-              "order": 12,
-              "title": "Apprendre et mémoriser",
-              "summary": "Vocabulaire de l'étude ; action en cours.",
+              "id": "n5-30-transport",
+              "order": 15,
+              "title": "Prendre le train : les transports",
+              "summary": "Monter, descendre, arriver — se déplacer en ville et plus loin.",
               "introduces": {
                 "vocab": [
-                  "勉強|べんきょう",
+                  "駅|えき",
+                  "バス|バス",
+                  "タクシー|タクシー",
+                  "地下鉄|ちかてつ",
+                  "自転車|じてんしゃ",
+                  "自動車|じどうしゃ",
+                  "飛行機|ひこうき",
+                  "乗る|のる",
+                  "降りる|おりる",
+                  "着く|つく",
+                  "止まる|とまる",
+                  "切符|きっぷ"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-12-memorizing",
+              "order": 16,
+              "rev": 2,
+              "title": "La forme て et l'action en cours (ている)",
+              "summary": "La forme て des verbes, puis ている : 日本語を勉強している。",
+              "introduces": {
+                "vocab": [
                   "暗記|あんき",
-                  "本|ほん",
-                  "見る|みる"
+                  "見る|みる",
+                  "習う|ならう",
+                  "教える|おしえる",
+                  "覚える|おぼえる",
+                  "忘れる|わすれる",
+                  "分かる|わかる",
+                  "知る|しる",
+                  "勉強|べんきょう (する)",
+                  "本|ほん"
                 ],
                 "grammar": [
+                  "n5-te-form",
                   "n5-teiru-progressive"
                 ]
               }
             },
             {
               "id": "n5-13-animals",
-              "order": 13,
-              "title": "Animaux domestiques",
-              "summary": "Mini-histoire avec chat et chien ; accompagnement avec と.",
+              "order": 17,
+              "rev": 2,
+              "title": "Chat et chien : « avec » と",
+              "summary": "L'accompagnement avec と : 犬と遊ぶ.",
               "introduces": {
                 "vocab": [
-                  "猫|ねこ",
                   "犬|いぬ",
-                  "水|みず",
-                  "飲む|のむ",
+                  "鳥|とり",
+                  "動物|どうぶつ",
+                  "ペット|ペット",
+                  "鳴く|なく",
+                  "飛ぶ|とぶ",
+                  "猫|ねこ",
                   "食べる|たべる"
                 ],
                 "grammar": [
@@ -260,19 +409,24 @@
         {
           "id": "n5-u4-question-negation",
           "title": "Questions et négation",
-          "summary": "Demander, et dire que non.",
+          "summary": "Demander, répondre, refuser.",
           "lessons": [
             {
               "id": "n5-14-question-particle",
-              "order": 14,
-              "title": "Poser une question",
-              "summary": "La particule か et le mot interrogatif « quoi ».",
+              "order": 18,
+              "rev": 2,
+              "title": "Poser une question : か et 何",
+              "summary": "La particule finale か et les mots pour demander « quoi, comment, pourquoi ».",
               "introduces": {
                 "vocab": [
-                  "何|なに",
+                  "何|なん; なに",
+                  "何～|なん～",
+                  "どう|どう",
+                  "どうして|どうして",
+                  "なぜ|なぜ",
+                  "いかが|いかが",
                   "日本語|にほんご",
-                  "勉強|べんきょう",
-                  "する|する"
+                  "勉強|べんきょう (する)"
                 ],
                 "grammar": [
                   "n5-ka-question",
@@ -282,11 +436,14 @@
             },
             {
               "id": "n5-15-negation",
-              "order": 15,
-              "title": "Dire non : la négation",
-              "summary": "Forme négative neutre et polie des verbes courants.",
+              "order": 19,
+              "rev": 2,
+              "title": "Dire non : ない et ません",
+              "summary": "La négation neutre (ない) et polie (ません) ; répondre いいえ.",
               "introduces": {
                 "vocab": [
+                  "いいえ|いいえ",
+                  "ない|ない",
                   "食べる|たべる",
                   "飲む|のむ",
                   "読む|よむ",
@@ -297,64 +454,101 @@
                   "n5-masen-negative"
                 ]
               }
+            },
+            {
+              "id": "n5-31-conversation",
+              "order": 20,
+              "title": "Petits mots de conversation",
+              "summary": "Alors, allô, tout le monde… les mots qui font tourner une conversation.",
+              "introduces": {
+                "vocab": [
+                  "ああ|ああ",
+                  "さあ|さあ",
+                  "じゃ; じゃあ|じゃ; じゃあ",
+                  "では|では",
+                  "それでは|それでは",
+                  "もしもし|もしもし",
+                  "しかし|しかし",
+                  "皆さん|みなさん",
+                  "みんな|みんな",
+                  "私|わたくし",
+                  "方|かた",
+                  "～たち|～たち",
+                  "自分|じぶん"
+                ],
+                "grammar": []
+              }
             }
           ]
         },
         {
           "id": "n5-u5-counting",
           "title": "Compter",
-          "summary": "Les nombres, l'argent, les compteurs.",
+          "summary": "Nombres, argent, compteurs et mesures.",
           "lessons": [
             {
               "id": "n5-16-numbers-1-5",
-              "order": 16,
-              "title": "Les nombres (1 à 5)",
-              "summary": "Premiers chiffres ; démonstratifs これ/それ/あれ ; です.",
+              "order": 21,
+              "rev": 2,
+              "title": "Compter (1 à 5) et montrer : これ/それ/あれ",
+              "summary": "Les premiers chiffres, zéro, et les démonstratifs : これは本です。",
               "introduces": {
                 "vocab": [
                   "一|いち",
                   "二|に",
                   "三|さん",
-                  "四|よん",
-                  "五|ご"
+                  "四|し",
+                  "五|ご",
+                  "これ|これ",
+                  "それ|それ",
+                  "あれ|あれ",
+                  "ゼロ|ゼロ",
+                  "零|れい"
                 ],
                 "grammar": [
-                  "n5-numbers",
-                  "n5-kosoado-kore",
-                  "n5-desu-copula"
+                  "n5-kosoado-kore"
                 ]
               }
             },
             {
               "id": "n5-17-numbers-6-10",
-              "order": 17,
-              "title": "Les nombres (6 à 10)",
-              "summary": "Suite des chiffres ; passé poli ; copule neutre だ.",
+              "order": 22,
+              "rev": 2,
+              "title": "Compter (6 à 10) : le système des nombres, et だ",
+              "summary": "La suite des chiffres, la logique de numération, et le だ du registre neutre.",
               "introduces": {
                 "vocab": [
                   "六|ろく",
-                  "七|なな",
+                  "七|しち",
                   "八|はち",
                   "九|きゅう",
-                  "十|じゅう"
+                  "十|じゅう",
+                  "九|く",
+                  "十|(〜を) とお"
                 ],
                 "grammar": [
-                  "n5-ni-time",
-                  "n5-mashita-past",
+                  "n5-numbers",
                   "n5-da-copula"
                 ]
               }
             },
             {
               "id": "n5-18-big-numbers",
-              "order": 18,
-              "title": "Grands nombres et argent",
-              "summary": "Centaines, milliers, le yen ; passés (neutre et négatif poli).",
+              "order": 23,
+              "rev": 2,
+              "title": "L'argent et le passé : た et ませんでした",
+              "summary": "Cent, mille, dix mille yens — acheter au passé (neutre et poli négatif).",
               "introduces": {
                 "vocab": [
                   "百|ひゃく",
                   "千|せん",
-                  "円|えん"
+                  "～円|～えん",
+                  "万|まん",
+                  "お金|おかね",
+                  "買う|かう",
+                  "売る|うる",
+                  "買い物|かいもの",
+                  "安い|やすい"
                 ],
                 "grammar": [
                   "n5-ta-past",
@@ -364,15 +558,30 @@
             },
             {
               "id": "n5-19-days-elements",
-              "order": 19,
-              "title": "Jours et éléments",
-              "summary": "Les jours de la semaine ; compteurs (人 et つ).",
+              "order": 24,
+              "rev": 2,
+              "title": "Compter gens et choses : 人 et つ",
+              "summary": "Le compteur natif 〜つ, les personnes (一人・二人) et l'âge.",
               "introduces": {
                 "vocab": [
                   "月|つき",
                   "火|ひ",
                   "木|き",
                   "金|かね",
+                  "一つ|ひとつ",
+                  "二つ|ふたつ",
+                  "三つ|みっつ",
+                  "四つ|よっつ",
+                  "五つ|いつつ",
+                  "六つ|むっつ",
+                  "七つ|ななつ",
+                  "八つ|やっつ",
+                  "九つ|ここのつ",
+                  "一人|ひとり",
+                  "二人|ふたり",
+                  "～人|～にん",
+                  "～歳|～さい",
+                  "二十歳|はたち",
                   "水|みず"
                 ],
                 "grammar": [
@@ -380,47 +589,238 @@
                   "n5-counter-tsu"
                 ]
               }
+            },
+            {
+              "id": "n5-32-counters",
+              "order": 25,
+              "title": "Les compteurs du quotidien",
+              "summary": "Un compteur par forme d'objet : livres, machines, animaux, verres…",
+              "introduces": {
+                "vocab": [
+                  "～個|～こ",
+                  "～冊|～さつ",
+                  "～本|～ほん",
+                  "～枚|～まい",
+                  "～台|～だい",
+                  "～匹|～ひき",
+                  "～杯|～はい",
+                  "～回|～かい",
+                  "～度|～ど",
+                  "～番|～ばん",
+                  "番号|ばんごう",
+                  "一番|いちばん",
+                  "～ずつ|～ずつ",
+                  "いくつ|いくつ",
+                  "いくら|いくら"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-33-measures",
+              "order": 26,
+              "title": "Mesures : mètres, grammes et étages",
+              "summary": "Mesurer, peser, compter les étages et les pages.",
+              "introduces": {
+                "vocab": [
+                  "メートル|メートル",
+                  "キロ; キロメートル|キロ; キロメートル",
+                  "グラム|グラム",
+                  "キロ; キログラム|キロ; キログラム",
+                  "ページ|ページ",
+                  "～階|～かい",
+                  "半分|はんぶん",
+                  "たて|たて",
+                  "箱|はこ"
+                ],
+                "grammar": []
+              }
             }
           ]
         },
         {
-          "id": "n5-u6-time-space",
-          "title": "Le temps et l'espace",
-          "summary": "Heures, moments, et orientation dans l'espace.",
+          "id": "n5-u6-time",
+          "title": "Le temps",
+          "summary": "L'heure, la journée, la semaine, les mois et les années.",
           "lessons": [
             {
               "id": "n5-20-time",
-              "order": 20,
-              "title": "L'heure et le moment",
-              "summary": "Année, heure, matin et après-midi ; destination に, limite まで.",
+              "order": 27,
+              "rev": 2,
+              "title": "L'heure : に, まで et いつ",
+              "summary": "Le moment précis avec に, la limite avec まで, demander avec いつ.",
               "introduces": {
                 "vocab": [
                   "年|とし",
                   "時間|じかん",
                   "今|いま",
                   "午前|ごぜん",
-                  "午後|ごご"
+                  "午後|ごご",
+                  "～時|～じ",
+                  "～分|～ふん",
+                  "～時間|～じかん",
+                  "半|はん",
+                  "時計|とけい",
+                  "いつ|いつ"
                 ],
                 "grammar": [
-                  "n5-ni-direction",
-                  "n5-made-until"
+                  "n5-ni-time",
+                  "n5-made-until",
+                  "n5-itsu-when"
                 ]
               }
             },
             {
+              "id": "n5-34-day-moments",
+              "order": 28,
+              "title": "Matin, midi et soir",
+              "summary": "Les moments de la journée et leurs repas.",
+              "introduces": {
+                "vocab": [
+                  "朝|あさ",
+                  "昼|ひる",
+                  "晩|ばん",
+                  "夜|よる",
+                  "夕方|ゆうがた",
+                  "今朝|けさ",
+                  "今晩|こんばん",
+                  "昨夜|ゆうべ",
+                  "毎朝|まいあさ",
+                  "毎晩|まいばん",
+                  "朝御飯|あさごはん",
+                  "昼御飯|ひるごはん",
+                  "晩御飯|ばんごはん",
+                  "夕飯|ゆうはん"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-35-week",
+              "order": 29,
+              "title": "La semaine et le calendrier",
+              "summary": "Les sept jours de la semaine, de cette semaine à la prochaine.",
+              "introduces": {
+                "vocab": [
+                  "月曜日|げつようび",
+                  "火曜日|かようび",
+                  "水曜日|すいようび",
+                  "木曜日|もくようび",
+                  "金曜日|きんようび",
+                  "土曜日|どようび",
+                  "日曜日|にちようび",
+                  "カレンダー|カレンダー",
+                  "今週|こんしゅう",
+                  "先週|せんしゅう",
+                  "来週|らいしゅう",
+                  "毎週|まいしゅう",
+                  "～週間|～しゅうかん"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-36-days-of-month",
+              "order": 30,
+              "title": "Les jours du mois",
+              "summary": "Du premier (ついたち) au dix (とおか) — les lectures irrégulières.",
+              "introduces": {
+                "vocab": [
+                  "一日|ついたち",
+                  "二日|ふつか",
+                  "三日|みっか",
+                  "四日|よっか",
+                  "五日|いつか",
+                  "六日|むいか",
+                  "七日|なのか",
+                  "八日|ようか",
+                  "九日|ここのか",
+                  "十日|とおか",
+                  "二十日|はつか",
+                  "～日|～にち",
+                  "一日|いちにち"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-37-months-years",
+              "order": 31,
+              "title": "Mois et années",
+              "summary": "Ce mois-ci, l'an dernier, l'année prochaine…",
+              "introduces": {
+                "vocab": [
+                  "～月|～がつ",
+                  "～か月|～かげつ",
+                  "一月|ひとつき",
+                  "今月|こんげつ",
+                  "先月|せんげつ",
+                  "来月|らいげつ",
+                  "毎月|まいげつ; まいつき",
+                  "～年|～ねん",
+                  "今年|ことし",
+                  "去年|きょねん",
+                  "来年|らいねん",
+                  "さ来年|さらいねん",
+                  "おととし|おととし",
+                  "毎年|まいねん; まいとし"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-38-relative-time",
+              "order": 32,
+              "title": "Hier, demain, à l'instant",
+              "summary": "Se situer autour d'aujourd'hui, et les petits mots du moment.",
+              "introduces": {
+                "vocab": [
+                  "昨日|きのう",
+                  "明日|あした",
+                  "明後日|あさって",
+                  "一昨日|おととい",
+                  "～ころ; ～ごろ|～ころ; ～ごろ",
+                  "～すぎ|～すぎ",
+                  "丁度|ちょうど",
+                  "～時|～とき",
+                  "～中|～じゅう",
+                  "～中|～ちゅう",
+                  "次|つぎ",
+                  "先|さき",
+                  "後|あと",
+                  "初め; 始め|はじめ",
+                  "初めて|はじめて"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u7-space",
+          "title": "L'espace",
+          "summary": "Ici, là-bas, à droite, tout droit : s'orienter et se situer.",
+          "lessons": [
+            {
               "id": "n5-21-routine",
-              "order": 21,
-              "title": "Avant, après, chaque jour",
-              "summary": "Repères temporels ; lieu d'action で, démonstratifs この/ここ, « où ».",
+              "order": 33,
+              "rev": 2,
+              "title": "Où ça se passe : で, ここ et どこ",
+              "summary": "Le lieu d'action avec で, ici/là avec ここ・そこ, demander avec どこ.",
               "introduces": {
                 "vocab": [
                   "前|まえ",
                   "後ろ|うしろ",
-                  "毎日|まいにち"
+                  "毎日|まいにち",
+                  "ここ|ここ",
+                  "そこ|そこ",
+                  "あそこ|あそこ",
+                  "どこ|どこ",
+                  "所|ところ",
+                  "～前|～まえ"
                 ],
                 "grammar": [
                   "n5-de-place",
-                  "n5-kosoado-kono",
                   "n5-kosoado-koko",
                   "n5-doko-where"
                 ]
@@ -428,121 +828,876 @@
             },
             {
               "id": "n5-22-directions-1",
-              "order": 22,
-              "title": "Se repérer (1)",
-              "summary": "Haut, bas, dedans, dehors, droite ; adjectifs (négatif, passé, -な).",
+              "order": 34,
+              "rev": 2,
+              "title": "Se repérer : l'adjectif au négatif et au passé",
+              "summary": "くない et かった : conjuguer les adjectifs en -い dans l'espace.",
               "introduces": {
                 "vocab": [
                   "上|うえ",
                   "下|した",
                   "中|なか",
                   "外|そと",
-                  "右|みぎ"
+                  "右|みぎ",
+                  "低い|ひくい",
+                  "近い|ちかい",
+                  "遠い|とおい",
+                  "広い|ひろい",
+                  "狭い|せまい"
                 ],
                 "grammar": [
                   "n5-iadj-negative",
-                  "n5-iadj-past",
-                  "n5-naadj"
+                  "n5-iadj-past"
                 ]
               }
             },
             {
               "id": "n5-23-directions-2",
-              "order": 23,
-              "title": "Les points cardinaux",
-              "summary": "Gauche et les quatre directions ; demandes et désirs.",
+              "order": 35,
+              "rev": 2,
+              "title": "Demander et proposer : てください, ましょう",
+              "summary": "右に曲がってください。行きましょう。— guider et inviter.",
               "introduces": {
                 "vocab": [
                   "左|ひだり",
                   "東|ひがし",
                   "西|にし",
                   "南|みなみ",
-                  "北|きた"
+                  "北|きた",
+                  "下さい|ください",
+                  "まっすぐ|まっすぐ",
+                  "曲る|まがる",
+                  "渡る|わたる",
+                  "橋|はし",
+                  "交差点|こうさてん",
+                  "角|かど",
+                  "～側|～がわ"
                 ],
                 "grammar": [
                   "n5-te-kudasai",
-                  "n5-tai-want",
                   "n5-mashou"
                 ]
+              }
+            },
+            {
+              "id": "n5-39-nearby",
+              "order": 36,
+              "title": "À côté, en face : situer précisément",
+              "summary": "Voisin, juste à côté, de l'autre côté — et les entrées/sorties.",
+              "introduces": {
+                "vocab": [
+                  "隣|となり",
+                  "横|よこ",
+                  "そば|そば",
+                  "近く|ちかく",
+                  "向こう|むこう",
+                  "辺|へん",
+                  "外|ほか",
+                  "入口|いりぐち",
+                  "出口|でぐち"
+                ],
+                "grammar": []
               }
             }
           ]
         },
         {
-          "id": "n5-u7-qualify",
+          "id": "n5-u8-qualify",
           "title": "Qualifier et nuancer",
-          "summary": "Tailles, qualités, questions fines et particules de fin.",
+          "summary": "Tailles, contraires, adjectifs en な, adverbes de dosage.",
           "lessons": [
             {
               "id": "n5-24-size",
-              "order": 24,
-              "title": "Grand, petit, haut, long",
-              "summary": "Adjectifs de dimension ; « qui », « quand », ほしい, よ.",
+              "order": 37,
+              "rev": 2,
+              "title": "Vouloir : たい et ほしい (et よ)",
+              "summary": "Exprimer l'envie de faire (たい) et d'avoir (ほしい) ; affirmer avec よ.",
               "introduces": {
                 "vocab": [
                   "大きい|おおきい",
                   "小さい|ちいさい",
                   "高い|たかい",
-                  "長い|ながい"
+                  "長い|ながい",
+                  "欲しい|ほしい",
+                  "短い|みじかい",
+                  "太い|ふとい",
+                  "細い|ほそい",
+                  "厚い|あつい",
+                  "薄い|うすい",
+                  "重い|おもい",
+                  "軽い|かるい",
+                  "大きな|おおきな",
+                  "小さな|ちいさな"
                 ],
                 "grammar": [
-                  "n5-dare-who",
-                  "n5-itsu-when",
+                  "n5-tai-want",
                   "n5-tai-hoshii",
                   "n5-yo-particle"
                 ]
               }
             },
             {
-              "id": "n5-25-motion",
-              "order": 25,
-              "title": "Aller, venir, entrer, sortir",
-              "summary": "Verbes de mouvement et de pause ; connecteurs そして / でも.",
+              "id": "n5-40-na-adjectives",
+              "order": 38,
+              "title": "Les adjectifs en な : 静か, 好き…",
+              "summary": "La deuxième famille d'adjectifs : 静かな町、日本語が好きです。",
               "introduces": {
                 "vocab": [
-                  "行く|いく",
-                  "来る|くる",
-                  "出る|でる",
-                  "入る|はいる",
-                  "休む|やすむ"
+                  "静か|しずか",
+                  "好き|すき",
+                  "嫌い|きらい",
+                  "大好き|だいすき",
+                  "嫌|いや",
+                  "上手|じょうず",
+                  "下手|へた",
+                  "綺麗|きれい",
+                  "便利|べんり",
+                  "有名|ゆうめい",
+                  "にぎやか|にぎやか",
+                  "りっぱ|りっぱ",
+                  "丈夫|じょうぶ",
+                  "大切|たいせつ",
+                  "同じ|おなじ"
                 ],
                 "grammar": [
-                  "n5-soshite",
-                  "n5-demo"
+                  "n5-naadj"
                 ]
+              }
+            },
+            {
+              "id": "n5-41-opposites",
+              "order": 39,
+              "title": "Adjectifs contraires : nouveau/vieux, fort/faible",
+              "summary": "Des paires d'adjectifs pour tout comparer.",
+              "introduces": {
+                "vocab": [
+                  "新しい|あたらしい",
+                  "古い|ふるい",
+                  "若い|わかい",
+                  "早い|はやい",
+                  "速い|はやい",
+                  "遅い|おそい",
+                  "強い|つよい",
+                  "弱い|よわい",
+                  "多い|おおい",
+                  "少ない|すくない",
+                  "明るい|あかるい",
+                  "暗い|くらい"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-42-impressions",
+              "order": 40,
+              "title": "Donner son avis : intéressant, difficile…",
+              "summary": "Dire ce qu'on pense : amusant, ennuyeux, mignon, dangereux.",
+              "introduces": {
+                "vocab": [
+                  "面白い|おもしろい",
+                  "つまらない|つまらない",
+                  "楽しい|たのしい",
+                  "難しい|むずかしい",
+                  "易しい|やさしい",
+                  "汚い|きたない",
+                  "可愛い|かわいい",
+                  "危ない|あぶない",
+                  "うるさい|うるさい",
+                  "悪い|わるい",
+                  "本当|ほんとう",
+                  "大変|たいへん"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-43-quantity-adverbs",
+              "order": 41,
+              "title": "Un peu, beaucoup, très",
+              "summary": "Doser ce qu'on dit : とても, 少し, 沢山…",
+              "introduces": {
+                "vocab": [
+                  "とても|とても",
+                  "少し|すこし",
+                  "ちょっと|ちょっと",
+                  "沢山|たくさん",
+                  "全部|ぜんぶ",
+                  "余り|あまり",
+                  "多分|たぶん",
+                  "大勢|おおぜい",
+                  "～だけ|～だけ",
+                  "～など|～など",
+                  "～くらい; ぐらい|～くらい; ぐらい",
+                  "結構|けっこう"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-44-time-adverbs",
+              "order": 42,
+              "title": "Déjà, encore, souvent",
+              "summary": "Les adverbes de fréquence et de progression.",
+              "introduces": {
+                "vocab": [
+                  "もう|もう",
+                  "まだ|まだ",
+                  "また|また",
+                  "もっと|もっと",
+                  "よく|よく",
+                  "時々|ときどき",
+                  "いつも|いつも",
+                  "すぐに|すぐに",
+                  "ゆっくりと|ゆっくりと",
+                  "段々|だんだん",
+                  "一緒|いっしょ",
+                  "色々|いろいろ"
+                ],
+                "grammar": []
               }
             }
           ]
         },
         {
-          "id": "n5-u8-daily",
-          "title": "Famille et quotidien",
-          "summary": "Les proches et les objets du quotidien — derniers kanji N5.",
+          "id": "n5-u9-home",
+          "title": "La maison",
+          "summary": "Les pièces, les meubles et les gestes du quotidien.",
+          "lessons": [
+            {
+              "id": "n5-45-house",
+              "order": 43,
+              "title": "La maison",
+              "summary": "De l'entrée au jardin : les pièces de la maison.",
+              "introduces": {
+                "vocab": [
+                  "家|いえ",
+                  "うち|うち",
+                  "アパート|アパート",
+                  "部屋|へや",
+                  "台所|だいどころ",
+                  "玄関|げんかん",
+                  "庭|にわ",
+                  "門|もん",
+                  "廊下|ろうか",
+                  "階段|かいだん",
+                  "エレベーター|エレベーター",
+                  "お風呂|おふろ",
+                  "お手洗い|おてあらい",
+                  "トイレ|トイレ"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-46-furniture",
+              "order": 44,
+              "title": "Meubles et objets de la chambre",
+              "summary": "Bureau, lit, fenêtre — et la clé pour fermer tout ça.",
+              "introduces": {
+                "vocab": [
+                  "机|つくえ",
+                  "椅子|いす",
+                  "テーブル|テーブル",
+                  "ベッド|ベッド",
+                  "本棚|ほんだな",
+                  "窓|まど",
+                  "戸|と",
+                  "ドア|ドア",
+                  "鍵|かぎ",
+                  "電気|でんき",
+                  "冷蔵庫|れいぞうこ",
+                  "ストーブ|ストーブ",
+                  "花瓶|かびん"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-47-morning-routine",
+              "order": 45,
+              "title": "La routine du matin",
+              "summary": "Se lever, se laver, sortir — les verbes du quotidien chez soi.",
+              "introduces": {
+                "vocab": [
+                  "起きる|おきる",
+                  "寝る|ねる",
+                  "浴びる|あびる",
+                  "シャワー|シャワー",
+                  "洗う|あらう",
+                  "磨く|みがく",
+                  "石鹸|せっけん",
+                  "出かける|でかける",
+                  "洗濯|せんたく",
+                  "掃除|そうじ (する)"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-48-open-close",
+              "order": 46,
+              "title": "Ouvrir, fermer, allumer : les paires de verbes",
+              "summary": "開く/開ける, 閉まる/閉める… les couples transitif/intransitif.",
+              "introduces": {
+                "vocab": [
+                  "開く|あく",
+                  "開ける|あける",
+                  "閉まる|しまる",
+                  "閉める|しめる",
+                  "つける|つける",
+                  "消える|きえる",
+                  "消す|けす",
+                  "始まる|はじまる",
+                  "終る|おわる",
+                  "並ぶ|ならぶ",
+                  "並べる|ならべる",
+                  "入れる|いれる",
+                  "出す|だす",
+                  "切る|きる"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u10-food",
+          "title": "Manger et boire",
+          "summary": "Les aliments, la table et le restaurant.",
+          "lessons": [
+            {
+              "id": "n5-49-food",
+              "order": 47,
+              "title": "Les aliments",
+              "summary": "Viandes, légumes, condiments : ce qu'on met dans l'assiette.",
+              "introduces": {
+                "vocab": [
+                  "食べ物|たべもの",
+                  "飲み物|のみもの",
+                  "野菜|やさい",
+                  "果物|くだもの",
+                  "牛肉|ぎゅうにく",
+                  "豚肉|ぶたにく",
+                  "鶏肉|とりにく",
+                  "バター|バター",
+                  "砂糖|さとう",
+                  "塩|しお",
+                  "醤油|しょうゆ",
+                  "飴|あめ",
+                  "お菓子|おかし",
+                  "カレー|カレー"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-50-restaurant",
+              "order": 48,
+              "title": "Au restaurant et à table",
+              "summary": "Commander, goûter, et tout ce qu'il y a sur la table.",
+              "introduces": {
+                "vocab": [
+                  "レストラン|レストラン",
+                  "食堂|しょくどう",
+                  "喫茶店|きっさてん",
+                  "紅茶|こうちゃ",
+                  "コーヒー|コーヒー",
+                  "お酒|おさけ",
+                  "お弁当|おべんとう",
+                  "料理|りょうり",
+                  "まずい|まずい",
+                  "甘い|あまい",
+                  "辛い|からい",
+                  "茶碗|ちゃわん",
+                  "箸|はし",
+                  "お皿|おさら",
+                  "コップ|コップ",
+                  "カップ|カップ",
+                  "スプーン|スプーン",
+                  "フォーク|フォーク",
+                  "ナイフ|ナイフ"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u11-clothes-body",
+          "title": "S'habiller, le corps",
+          "summary": "Vêtements, accessoires, corps et santé.",
+          "lessons": [
+            {
+              "id": "n5-51-clothes",
+              "order": 49,
+              "title": "S'habiller",
+              "summary": "Un verbe par vêtement : 着る, はく, かぶる…",
+              "introduces": {
+                "vocab": [
+                  "服|ふく",
+                  "洋服|ようふく",
+                  "シャツ|シャツ",
+                  "セーター|セーター",
+                  "コート|コート",
+                  "スカート|スカート",
+                  "ズボン|ズボン",
+                  "靴|くつ",
+                  "靴下|くつした",
+                  "帽子|ぼうし",
+                  "着る|きる",
+                  "はく|はく",
+                  "かぶる|かぶる",
+                  "脱ぐ|ぬぐ",
+                  "締める|しめる"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-52-accessories",
+              "order": 50,
+              "title": "Accessoires et affaires personnelles",
+              "summary": "Ce qu'on porte sur soi et dans son sac.",
+              "introduces": {
+                "vocab": [
+                  "上着|うわぎ",
+                  "ワイシャツ|ワイシャツ",
+                  "背広|せびろ",
+                  "ネクタイ|ネクタイ",
+                  "眼鏡|めがね",
+                  "ボタン|ボタン",
+                  "ポケット|ポケット",
+                  "ハンカチ|ハンカチ",
+                  "傘|かさ",
+                  "かばん|かばん",
+                  "財布|さいふ",
+                  "荷物|にもつ",
+                  "物|もの"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-53-body",
+              "order": 51,
+              "title": "Le corps",
+              "summary": "De la tête aux pieds.",
+              "introduces": {
+                "vocab": [
+                  "頭|あたま",
+                  "顔|かお",
+                  "目|め",
+                  "耳|みみ",
+                  "口|くち",
+                  "鼻|はな",
+                  "手|て",
+                  "足; 脚|あし",
+                  "お腹|おなか",
+                  "体|からだ",
+                  "歯|は",
+                  "背|せい"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-54-health",
+              "order": 52,
+              "title": "Santé et maladie",
+              "summary": "Médecin, médicaments, et dire où on a mal.",
+              "introduces": {
+                "vocab": [
+                  "病気|びょうき",
+                  "病院|びょういん",
+                  "医者|いしゃ",
+                  "薬|くすり",
+                  "風邪|かぜ",
+                  "元気|げんき",
+                  "痛い|いたい",
+                  "疲れる|つかれる",
+                  "死ぬ|しぬ",
+                  "大丈夫|だいじょうぶ",
+                  "生まれる|うまれる"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u12-school-work",
+          "title": "École et travail",
+          "summary": "La classe, l'écriture japonaise, le bureau.",
+          "lessons": [
+            {
+              "id": "n5-55-school",
+              "order": 53,
+              "title": "À l'école",
+              "summary": "Cours, devoirs, questions et réponses.",
+              "introduces": {
+                "vocab": [
+                  "教室|きょうしつ",
+                  "クラス|クラス",
+                  "授業|じゅぎょう",
+                  "宿題|しゅくだい",
+                  "テスト|テスト",
+                  "問題|もんだい",
+                  "質問|しつもん",
+                  "答える|こたえる",
+                  "図書館|としょかん",
+                  "練習|れんしゅう (する)",
+                  "意味|いみ",
+                  "辞書|じしょ",
+                  "字引|じびき"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-56-writing",
+              "order": 54,
+              "title": "Écrire le japonais : kanji et kana",
+              "summary": "Les trois écritures, et de quoi écrire.",
+              "introduces": {
+                "vocab": [
+                  "漢字|かんじ",
+                  "平仮名|ひらがな",
+                  "片仮名|かたかな",
+                  "作文|さくぶん",
+                  "文章|ぶんしょう",
+                  "紙|かみ",
+                  "鉛筆|えんぴつ",
+                  "ペン|ペン",
+                  "ボールペン|ボールペン",
+                  "万年筆|まんねんひつ",
+                  "ノート|ノート",
+                  "絵|え",
+                  "地図|ちず"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-57-work",
+              "order": 55,
+              "title": "Le travail",
+              "summary": "Entreprise, métier, journées chargées et jours de repos.",
+              "introduces": {
+                "vocab": [
+                  "会社|かいしゃ",
+                  "仕事|しごと",
+                  "働く|はたらく",
+                  "勤める|つとめる",
+                  "休み|やすみ",
+                  "忙しい|いそがしい",
+                  "暇|ひま",
+                  "使う|つかう",
+                  "作る|つくる",
+                  "できる|できる",
+                  "コピーする|コピーする",
+                  "頼む|たのむ",
+                  "困る|こまる"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u13-family-town",
+          "title": "Famille et ville",
+          "summary": "Les proches, le quartier et ses adresses.",
           "lessons": [
             {
               "id": "n5-26-family",
-              "order": 26,
-              "title": "La famille",
-              "summary": "Père, mère, amis.",
+              "order": 56,
+              "rev": 2,
+              "title": "La famille : だれ et でも",
+              "summary": "Présenter les siens ; demander « qui » ; opposer avec でも.",
               "introduces": {
                 "vocab": [
                   "父|ちち",
                   "母|はは",
-                  "友達|ともだち"
+                  "友達|ともだち",
+                  "家族|かぞく",
+                  "両親|りょうしん",
+                  "兄弟|きょうだい",
+                  "兄|あに",
+                  "姉|あね",
+                  "弟|おとうと",
+                  "妹|いもうと",
+                  "誰|だれ",
+                  "誰か|だれか",
+                  "でも|でも"
+                ],
+                "grammar": [
+                  "n5-dare-who",
+                  "n5-demo"
+                ]
+              }
+            },
+            {
+              "id": "n5-58-family-polite",
+              "order": 57,
+              "title": "La famille des autres (formes polies)",
+              "summary": "お父さん, お母さん… parler de la famille de quelqu'un d'autre.",
+              "introduces": {
+                "vocab": [
+                  "お父さん|おとうさん",
+                  "お母さん|おかあさん",
+                  "お兄さん|おにいさん",
+                  "お姉さん|おねえさん",
+                  "おじいさん|おじいさん",
+                  "おばあさん|おばあさん",
+                  "伯父; 叔父さん|おじさん",
+                  "伯母さん; 叔母さん|おばさん",
+                  "奥さん|おくさん",
+                  "家庭|かてい"
                 ],
                 "grammar": []
               }
             },
             {
               "id": "n5-27-around-town",
-              "order": 27,
-              "title": "Dans la ville",
-              "summary": "Voiture, train, couleurs — clôture du N5.",
+              "order": 58,
+              "rev": 2,
+              "title": "En ville : ce/cette avec この",
+              "summary": "Désigner ce qu'on voit : この車, その店, あの道.",
               "introduces": {
                 "vocab": [
                   "車|くるま",
                   "電車|でんしゃ",
-                  "白い|しろい"
+                  "白い|しろい",
+                  "この|この",
+                  "その|その",
+                  "あの|あの",
+                  "町|まち",
+                  "村|むら",
+                  "店|みせ",
+                  "道|みち",
+                  "建物|たてもの"
+                ],
+                "grammar": [
+                  "n5-kosoado-kono"
+                ]
+              }
+            },
+            {
+              "id": "n5-59-city-places",
+              "order": 59,
+              "title": "Les lieux de la ville",
+              "summary": "Parc, banque, hôtel, poste de police : les adresses utiles.",
+              "introduces": {
+                "vocab": [
+                  "公園|こうえん",
+                  "銀行|ぎんこう",
+                  "デパート|デパート",
+                  "ホテル|ホテル",
+                  "大使館|たいしかん",
+                  "交番|こうばん",
+                  "警官|けいかん",
+                  "おまわりさん|おまわりさん",
+                  "八百屋|やおや",
+                  "～屋|～や"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-60-post-phone",
+              "order": 60,
+              "title": "Écrire une lettre, passer un appel",
+              "summary": "La poste et le téléphone.",
+              "introduces": {
+                "vocab": [
+                  "手紙|てがみ",
+                  "封筒|ふうとう",
+                  "葉書|はがき",
+                  "切手|きって",
+                  "ポスト|ポスト",
+                  "郵便局|ゆうびんきょく",
+                  "電話|でんわ",
+                  "かける|かける",
+                  "掛ける|かける",
+                  "呼ぶ|よぶ"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u14-leisure",
+          "title": "Loisirs",
+          "summary": "Musique, images, sorties et couleurs.",
+          "lessons": [
+            {
+              "id": "n5-61-music-photo",
+              "order": 61,
+              "title": "Musique et photos",
+              "summary": "Chanter, jouer d'un instrument, prendre des photos.",
+              "introduces": {
+                "vocab": [
+                  "音楽|おんがく",
+                  "歌|うた",
+                  "歌う|うたう",
+                  "ギター|ギター",
+                  "弾く|ひく",
+                  "写真|しゃしん",
+                  "撮る|とる",
+                  "カメラ|カメラ",
+                  "フィルム|フィルム"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-62-media",
+              "order": 62,
+              "title": "Télé, radio, journaux",
+              "summary": "Les médias — et quelques appareils d'époque.",
+              "introduces": {
+                "vocab": [
+                  "映画|えいが",
+                  "映画館|えいがかん",
+                  "テレビ|テレビ",
+                  "ラジオ|ラジオ",
+                  "ラジオカセ|ラジオカセ",
+                  "レコード|レコード",
+                  "テープ|テープ",
+                  "テープレコーダー|テープレコーダー",
+                  "ニュース|ニュース",
+                  "新聞|しんぶん",
+                  "雑誌|ざっし"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-63-play",
+              "order": 63,
+              "title": "Sortir et s'amuser",
+              "summary": "Nager, voyager, fêter un anniversaire.",
+              "introduces": {
+                "vocab": [
+                  "遊ぶ|あそぶ",
+                  "泳ぐ|およぐ",
+                  "プール|プール",
+                  "スポーツ|スポーツ",
+                  "パーティー|パーティー",
+                  "旅行|りょこう",
+                  "散歩|さんぽ (する)",
+                  "登る|のぼる",
+                  "誕生日|たんじょうび",
+                  "結婚|けっこん (する)"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-64-colors",
+              "order": 64,
+              "title": "Les couleurs",
+              "summary": "Bleu, rouge, jaune… en nom et en adjectif.",
+              "introduces": {
+                "vocab": [
+                  "色|いろ",
+                  "白|しろ",
+                  "黒|くろ",
+                  "黒い|くろい",
+                  "赤|あか",
+                  "赤い|あかい",
+                  "青|あお",
+                  "青い|あおい",
+                  "黄色|きいろ",
+                  "黄色い|きいろい",
+                  "茶色|ちゃいろ",
+                  "緑|みどり",
+                  "丸い; 円い|まるい"
+                ],
+                "grammar": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "n5-u15-last-words",
+          "title": "Les derniers mots",
+          "summary": "Démonstratifs polis, derniers verbes — clôture du N5.",
+          "lessons": [
+            {
+              "id": "n5-65-kosoado-polite",
+              "order": 65,
+              "title": "Montrer et choisir : こちら, どれ, どんな",
+              "summary": "La famille こそあど au complet : directions polies et « lequel ».",
+              "introduces": {
+                "vocab": [
+                  "こちら|こちら",
+                  "そちら|そちら",
+                  "あちら|あちら",
+                  "こっち|こっち",
+                  "そっち|そっち",
+                  "あっち|あっち",
+                  "どちら|どちら",
+                  "どっち|どっち",
+                  "どれ|どれ",
+                  "どの|どの",
+                  "どなた|どなた",
+                  "どんな|どんな",
+                  "こんな|こんな"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-66-verbs-give-take",
+              "order": 66,
+              "title": "Donner, prendre, porter",
+              "summary": "Les verbes de l'échange : prêter, rendre, tendre, pousser.",
+              "introduces": {
+                "vocab": [
+                  "会う|あう",
+                  "待つ|まつ",
+                  "見せる|みせる",
+                  "取る|とる",
+                  "持つ|もつ",
+                  "置く|おく",
+                  "渡す|わたす",
+                  "貸す|かす",
+                  "借りる|かりる",
+                  "返す|かえす",
+                  "上げる|あげる",
+                  "押す|おす",
+                  "引く|ひく"
+                ],
+                "grammar": []
+              }
+            },
+            {
+              "id": "n5-67-verbs-final",
+              "order": 67,
+              "title": "Les derniers verbes du N5",
+              "summary": "Habiter, devenir, avoir besoin — et la cigarette d'époque.",
+              "introduces": {
+                "vocab": [
+                  "立つ|たつ",
+                  "座る|すわる",
+                  "住む|すむ",
+                  "なる|なる",
+                  "要る|いる",
+                  "やる|やる",
+                  "無くす|なくす",
+                  "かかる|かかる",
+                  "差す|さす",
+                  "貼る|はる",
+                  "吸う|すう",
+                  "違う|ちがう",
+                  "たばこ|たばこ",
+                  "灰皿|はいざら",
+                  "マッチ|マッチ",
+                  "在る|ある",
+                  "有る|ある",
+                  "～がる|～がる"
                 ],
                 "grammar": []
               }

@@ -49,6 +49,9 @@ export function OmikujiSheet({ onClose }: Props) {
       {!rec && (
         <div className="flex flex-col items-center gap-4 py-4 text-center">
           <PaperSlip text="御神籤" className="font-jp text-lg text-muted" />
+          <p className="m-0 text-xs text-muted">
+            御神籤（おみくじ, omikuji） — « le tirage sacré », la bandelette de fortune du temple.
+          </p>
           <p className="m-0 max-w-sm text-sm text-muted">
             Tire ta fortune au temple : une bandelette, un défi surprise pour aujourd'hui.
           </p>
@@ -63,12 +66,17 @@ export function OmikujiSheet({ onClose }: Props) {
           <PaperSlip text={fortune.kanji} className="font-jp text-2xl text-text" />
           <div className="flex flex-col gap-1">
             <SectionLabel>{fortune.fr}</SectionLabel>
+            <p className="m-0 text-xs text-muted">
+              {fortune.kanji}（{fortune.yomi}） se lit « {fortune.romaji} »
+            </p>
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
             {challenge && (
               <p className="m-0 max-w-sm font-serif text-lg text-text">{challenge.label(labelEnv())}</p>
             )}
             <p className="m-0 text-xs text-muted">
-              Défi accompli = un peu de chemin gagné sur le Tōkaidō. La fortune, elle, ne
-              change rien — c'est un omikuji.
+              Défi accompli : tu gagnes {fortune.bonusFr} sur le Tōkaidō — la fortune fixe
+              la mise, jamais une punition.
             </p>
           </div>
           <Button variant="primary" onClick={onClose}>

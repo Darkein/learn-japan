@@ -34,11 +34,15 @@ export interface GenParams {
   // Clé R2 structurée (lesson / lesson-story uniquement)
   lessonId?: string;
   variant?: number;
+  // kind: "lesson" — position dans le parcours (module la longueur du cours généré)
+  // et révision du contenu (clé de cache : jamais de cours périmé après un changement).
+  lessonOrder?: number;
+  rev?: number;
   /** Ignorer le cache R2 du Worker et régénérer (cours périmé après changement de curriculum). */
   refresh?: boolean;
 }
 
-export type GeneratedIndex = Record<string, { cours: boolean; stories: number[] }>;
+export type GeneratedIndex = Record<string, { cours: boolean; coursRev?: number; stories: number[] }>;
 
 /**
  * Récupère la liste de tout le contenu pré-généré depuis le Worker.
@@ -124,10 +128,13 @@ export interface LessonGenInput {
   level: number;
   vocab: { ja: string; yomi?: string; fr: string }[];
   grammar: string[];
+  // kind: "lesson" uniquement — position dans le parcours et révision du contenu.
+  lessonOrder?: number;
+  rev?: number;
   /**
    * Ignorer le cache R2 du Worker et régénérer. Nécessaire quand les objectifs de la
-   * leçon ont changé : les clés R2 des cours sont par id (gen/lesson/<id>.json), le
-   * cache resservirait sinon l'ancien contenu.
+   * leçon ont changé sans bump de `rev` : la clé R2 (voir worker/src/cache.ts) est par
+   * id et révision, le cache resservirait sinon l'ancien contenu.
    */
   refresh?: boolean;
   // kind: "lesson-story" uniquement — révision (leçons précédentes) et anti-répétition.
@@ -150,6 +157,8 @@ export async function generateLesson(
         level: input.level,
         vocab: input.vocab,
         grammar: input.grammar,
+        lessonOrder: input.lessonOrder,
+        rev: input.rev,
         ...(input.refresh ? { refresh: true } : {}),
       },
       onState,

@@ -77,6 +77,12 @@ d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décr
   vocab. La structure vient toujours de l'inventaire : une leçon non générée n'est donc jamais
   vide, seule la leçon rédigée manque. Celle-ci enseigne et démontre — elle ne redresse pas la
   liste brute du vocabulaire (déjà affichée à côté).
+  **Longueur adaptative** : la consigne de génération borne la longueur selon la position dans le
+  parcours (les leçons 1–5 restent volontairement courtes et rassurantes pour un débutant absolu)
+  et selon le nombre de points de grammaire enseignés — jamais de « mur de texte » en ouverture.
+  Chaque leçon porte un **`rev`** (révision de contenu) : quand ses objectifs changent, le rev
+  est incrémenté et les cadrages générés pour l'ancienne version (cache local + R2) sont ignorés
+  et régénérés.
 - **Les histoires** (matière à lire) sont des **`StoryRecord` rattachés par `lessonId`** : une leçon
   en a **0..N**, **générées depuis l'app** (à la demande / re-roll). Elles passent par le **même
   pipeline que toute histoire** (lecteur, furigana, SRS) et sont visibles dans l'onglet
@@ -103,8 +109,16 @@ apprend le japonais) ait à valider quoi que ce soit, le curriculum repose sur d
    d'ids) au lieu de redéclarer le contenu → source unique de vérité, zéro doublon.
 
 **Cohérence vérifiée mécaniquement** par `npm run curriculum:check` (et en CI) : couverture
-(chaque point de grammaire N5 introduit par exactement une leçon), intégrité des références,
-respect des **prérequis** de grammaire (un prérequis précède ce qui en dépend).
+(chaque point de grammaire N5 introduit par exactement une leçon, **chaque mot de `vocab.json`
+introduit par au moins une leçon** — les réapparitions suivantes sont des rappels volontaires),
+intégrité des références, respect des **prérequis** de grammaire (un prérequis précède ce qui en
+dépend), et garde-fou de **densité** (nombre de mots nouveaux par leçon plafonné).
+
+**Progression N5** : les **titres des leçons annoncent ce qu'elles enseignent** (grammaire ou thème
+de vocabulaire), la charge grammaticale monte en douceur (≤ 2 points par leçon en début de parcours,
+です dès la 5e leçon, la forme て après la famille ます), les verbes de mouvement précèdent les
+particules de direction, et des **leçons de vocabulaire thématiques** (transports, maison, corps,
+couleurs…) s'intercalent entre les leçons de grammaire pour couvrir tout l'inventaire N5.
 
 **Vocabulaire hors-niveau.** Une histoire peut contenir des mots d'un niveau supérieur : ils
 restent **lisibles** (furigana + gloss déterministes) sans être imposés comme cibles SRS.

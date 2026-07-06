@@ -17,6 +17,9 @@ export interface AppSettings {
   newPerDay: number;
   theme: Theme;
   warmupRomaji: boolean;
+  /** Révisions sans le son : les exercices d'écoute sont remplacés par de l'écrit
+   * (cloze de production noté sur la carte orale) tant que le réglage est actif. */
+  silentReviews: boolean;
   /** Vitesse de lecture audio des histoires en japonais (1 = vitesse normale). */
   storyRate: number;
   /** Rappels de révisions (notification locale + badge d'icône). Opt-in. */
@@ -31,6 +34,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   newPerDay: SRS.newPerDay,
   theme: "system",
   warmupRomaji: true,
+  silentReviews: false,
   storyRate: 1,
   reminders: { enabled: false, hour: 9 },
 };

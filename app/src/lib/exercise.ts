@@ -64,6 +64,8 @@ export interface TypeExercise extends ExerciseBase {
   answers: string[];
   /** Consigne courte affichée au-dessus du champ. */
   prompt?: string;
+  /** Fragment de `front` à souligner (mot cible d'une écoute en contexte). */
+  underline?: string;
 }
 
 export interface ChoiceExercise extends ExerciseBase {

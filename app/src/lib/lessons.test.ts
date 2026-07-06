@@ -290,7 +290,7 @@ describe("objectivesHash / invalidation du cours (framingStale)", () => {
 
   it("un cours sans empreinte (ancien enregistrement) est périmé ; avec la bonne empreinte, il est frais", async () => {
     const entry = getCurriculum()[0];
-    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1 });
+    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1, rev: entry.rev });
     let lesson = await getLesson(entry.id);
     expect(lesson?.framingStale).toBe(true);
 
@@ -298,6 +298,7 @@ describe("objectivesHash / invalidation du cours (framingStale)", () => {
       id: entry.id,
       framing: "cours à jour",
       createdAt: 2,
+      rev: entry.rev,
       objectivesHash: objectivesHash(entry),
     });
     lesson = await getLesson(entry.id);
@@ -306,7 +307,7 @@ describe("objectivesHash / invalidation du cours (framingStale)", () => {
 
   it("ensureLessonFraming régénère un cours périmé avec refresh:true et persiste la nouvelle empreinte", async () => {
     const entry = getCurriculum()[0];
-    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1 });
+    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1, rev: entry.rev });
     const lesson = (await getLesson(entry.id))!;
     expect(lesson.framingStale).toBe(true);
 
@@ -330,6 +331,7 @@ describe("objectivesHash / invalidation du cours (framingStale)", () => {
       id: entry.id,
       framing: "cours à jour",
       createdAt: 2,
+      rev: entry.rev,
       objectivesHash: objectivesHash(entry),
     });
     const lesson = (await getLesson(entry.id))!;
@@ -341,7 +343,7 @@ describe("objectivesHash / invalidation du cours (framingStale)", () => {
 
   it("échec de régénération : l'ancien cours est conservé", async () => {
     const entry = getCurriculum()[0];
-    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1 });
+    await putGeneratedLesson({ id: entry.id, framing: "ancien cours", createdAt: 1, rev: entry.rev });
     const lesson = (await getLesson(entry.id))!;
     vi.mocked(genClient.generateLesson).mockRejectedValueOnce(new Error("hors-ligne"));
     await expect(ensureLessonFraming(lesson)).rejects.toThrow("hors-ligne");

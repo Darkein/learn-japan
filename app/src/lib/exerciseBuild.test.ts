@@ -8,7 +8,7 @@ import {
   vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
-import { allGrammarInv } from "./inventory";
+import { allGrammarInv, grammarDetail } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
 
 // Corpus d'exemples statique neutralisé : les tests qui veulent un exemple le passent
@@ -31,8 +31,8 @@ vi.mock("./tokenizer", () => ({
       conjugated_form: "*",
       basic_form: surface_form,
     });
-    if (text === "私は学生です。") {
-      return [mk("私"), mk("は", "助詞"), mk("学生"), mk("です", "助動詞"), mk("。", "記号")];
+    if (text === "今日は本を読む。") {
+      return [mk("今日"), mk("は", "助詞"), mk("本"), mk("を", "助詞"), mk("読む", "動詞"), mk("。", "記号")];
     }
     return [];
   }),
@@ -51,7 +51,15 @@ describe("grammarReviewExercise (remplace le mode reveal)", () => {
     const ex = await grammarReviewExercise(g, 0);
     expect(ex.mode).toBe("build");
     if (ex.mode === "build") {
-      expect(ex.target).toEqual(["私", "は", "学生", "です"]); // ponctuation exclue
+      expect(ex.target).toEqual(["今日", "は", "本", "を", "読む"]); // ponctuation exclue
+      expect(ex.context).toBe("今日は本を読む。");
+      expect(ex.contextFr).toBe("Aujourd'hui, je lis un livre.");
+    }
+  });
+
+  it("tout l'inventaire N5 a une traduction FR de son exemple", () => {
+    for (const g of allGrammarInv()) {
+      expect(grammarDetail(g.id)?.exampleFr, g.id).toBeTruthy();
     }
   });
 
@@ -267,6 +275,32 @@ describe("vocabTypeExercise — contextFr", () => {
       listen: true,
     });
     expect(ex.contextFr).toBe("Le chat court.");
+  });
+
+  it("variante écoute : souligne le mot cible présent dans la phrase", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+      listen: true,
+    });
+    expect(ex.underline).toBe("猫");
+    expect(ex.prompt).toBe("Écoute et tape le mot souligné");
+  });
+
+  it("variante écoute : mot absent de la phrase → pas de soulignement, consigne adaptée", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "動物が走る。" }), 0, { listen: true });
+    expect(ex.underline).toBeUndefined();
+    expect(ex.prompt).toBe("Écoute et tape le mot entendu");
+  });
+
+  it("variante écoute sans le son : cloze écrit noté sur la carte orale, sans audio", () => {
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+      listen: true,
+      silent: true,
+    });
+    expect(ex.skill).toBe("oral");
+    expect(ex.key).toBe("vocab-listen-silent:猫|ねこ");
+    expect(ex.audio).toBeUndefined();
+    expect(ex.front).toBe("◯◯が走る。");
+    expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 
   it("absent quand l'exemple n'a pas de traduction", () => {

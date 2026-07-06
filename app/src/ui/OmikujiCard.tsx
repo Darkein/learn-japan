@@ -80,7 +80,8 @@ export function OmikujiCard() {
     <div className="flex flex-col gap-2 border-y border-hairline py-3">
       <div className="flex items-baseline justify-between gap-4">
         <SectionLabel>
-          Omikuji · <span className="font-jp normal-case tracking-normal">{fortune?.kanji}</span>
+          Omikuji · <span className="font-jp normal-case tracking-normal">{fortune?.kanji}</span>{" "}
+          {fortune?.fr}
         </SectionLabel>
         <span className="text-xs text-muted">
           {done} / {target}

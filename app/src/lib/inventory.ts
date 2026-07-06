@@ -32,6 +32,7 @@ interface GrammarInvEntry {
   name: string;
   ruleFr: string;
   exampleJa: string;
+  exampleFr?: string;
   requires?: string[];
 }
 
@@ -84,13 +85,14 @@ export interface GrammarDetail {
   name: string;
   ruleFr: string;
   exampleJa: string;
+  exampleFr?: string;
 }
 
 /** Détail d'un point de grammaire (règle + exemple) pour le cours, ou null. */
 export function grammarDetail(id: string): GrammarDetail | null {
   const g = grammarById.get(id);
   if (!g) return null;
-  return { id, name: g.name, ruleFr: g.ruleFr, exampleJa: g.exampleJa };
+  return { id, name: g.name, ruleFr: g.ruleFr, exampleJa: g.exampleJa, exampleFr: g.exampleFr };
 }
 
 // ---- Inventaire complet (catalogue navigable) ------------------------------

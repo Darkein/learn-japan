@@ -7,6 +7,7 @@ import { Button } from "../kit/Button";
 import { IconPlay } from "../kit/Icon";
 import { BuildInput } from "./BuildInput";
 import { ChoiceInput } from "./ChoiceInput";
+import { JpFront } from "./JpFront";
 import { TypeInput } from "./TypeInput";
 
 interface Props {
@@ -59,7 +60,11 @@ export function ExerciseCard({
           {ex.audioOnly ? (
             <div className="text-lg text-muted">🔊 Écoute la phrase…</div>
           ) : (
-            <div className="font-jp text-3xl">{ex.front}</div>
+            <JpFront
+              text={ex.front}
+              underline={ex.mode === "type" ? ex.underline : undefined}
+              className="font-jp text-3xl"
+            />
           )}
           <Button variant="primary" onClick={handleListen}>
             <IconPlay size={16} />
@@ -68,13 +73,13 @@ export function ExerciseCard({
         </>
       ) : (
         <>
-          {ex.audioOnly && (
+          {ex.audio && (
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button variant="ghost" onClick={handleListen}>
                 <IconPlay size={14} />
                 Réécouter
               </Button>
-              {!textRevealed && ex.context && (
+              {ex.audioOnly && !textRevealed && ex.context && (
                 <Button variant="ghost" onClick={() => setTextRevealed(true)}>
                   Afficher le texte
                 </Button>
