@@ -76,6 +76,19 @@ describe("buildLessonStoryPrompt", () => {
     expect(prompt).toContain("240");
   });
 
+  it("impose l'orthographe standard (kanji usuels, pas de kana pour un mot en kanji)", () => {
+    const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story" });
+    expect(prompt).toContain("ORTHOGRAPHE");
+    expect(prompt).toContain("kanji usuels");
+    expect(prompt).toContain("JAMAIS en kana");
+  });
+
+  it("exige une vraie histoire variée (pas une suite de phrases interchangeables)", () => {
+    const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story" });
+    expect(prompt).toContain("VRAIE petite histoire");
+    expect(prompt).toContain("VARIÉTÉ");
+  });
+
   it("variante 1 : pas de consigne de variation dans le prompt", () => {
     const prompt = buildLessonStoryPrompt({ ...lesson, kind: "lesson-story", variant: 1 });
     expect(prompt).not.toContain("Variante");
