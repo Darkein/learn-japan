@@ -8,7 +8,7 @@ import {
   vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
-import { allGrammarInv } from "./inventory";
+import { allGrammarInv, grammarDetail } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
 
 // Corpus d'exemples statique neutralisé : les tests qui veulent un exemple le passent
@@ -52,6 +52,14 @@ describe("grammarReviewExercise (remplace le mode reveal)", () => {
     expect(ex.mode).toBe("build");
     if (ex.mode === "build") {
       expect(ex.target).toEqual(["今日", "は", "本", "を", "読む"]); // ponctuation exclue
+      expect(ex.context).toBe("今日は本を読む。");
+      expect(ex.contextFr).toBe("Aujourd'hui, je lis un livre.");
+    }
+  });
+
+  it("tout l'inventaire N5 a une traduction FR de son exemple", () => {
+    for (const g of allGrammarInv()) {
+      expect(grammarDetail(g.id)?.exampleFr, g.id).toBeTruthy();
     }
   });
 

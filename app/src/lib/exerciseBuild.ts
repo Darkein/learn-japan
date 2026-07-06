@@ -316,6 +316,8 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
         id: g.id,
         front: g.name,
         back: rule,
+        context: detail.exampleJa,
+        ...(detail.exampleFr ? { contextFr: detail.exampleFr } : {}),
         target,
         tokens,
         due,
