@@ -12,8 +12,17 @@ describe("particleDistractors", () => {
   });
 
   it("tire dans l'ensemble de confusion (même slot grammatical)", () => {
-    expect(particleDistractors("は")).toEqual(["も", "が", "で"]);
+    expect(particleDistractors("は")).toEqual(["も", "を", "で"]);
     expect(particleDistractors("に")).toEqual(["で", "へ", "まで"]);
+  });
+
+  it("ne propose jamais は et が ensemble (interchangeables → QCM piégeux)", () => {
+    // は et が marquent tous deux le sujet dans un énoncé simple : présenter l'une comme
+    // distracteur de l'autre créerait deux réponses « correctes ».
+    for (let i = 0; i < 30; i++) {
+      expect(particleDistractors("は")).not.toContain("が");
+      expect(particleDistractors("が")).not.toContain("は");
+    }
   });
 
   it("complète depuis le pool pour une particule hors ensembles", () => {

@@ -27,7 +27,7 @@ export interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  furiganaDefault: false,
+  furiganaDefault: true,
   glossDefault: true,
   glossHideKnown: true,
   dailyGoal: SRS.dailyGoal,

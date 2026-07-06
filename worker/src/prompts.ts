@@ -161,6 +161,7 @@ function buildStoryPrompt(r: GenerateRequest): string {
     theme ? `Thème : ${theme}.` : "",
     grammar.length ? `Illustre ces points de grammaire : ${grammar.join(", ")}.` : "",
     "Vise environ 150 à 300 caractères japonais, en 2 à 4 courts paragraphes.",
+    "Écris chaque mot dans sa graphie japonaise standard, avec les kanji usuels — n'écris pas en kana un mot qui s'écrit normalement en kanji (l'application ajoute les furigana automatiquement).",
     "Réponds uniquement avec le texte japonais (pas de furigana, pas de traduction).",
   ];
   return parts.filter(Boolean).join("\n");
@@ -267,11 +268,13 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
 
   return [
     `Écris un texte en japonais pour une leçon de niveau JLPT N${level} intitulée « ${title} ».`,
-    "Format libre — court récit, brève (news), dialogue ou scène du quotidien — du moment que c'est cohérent, naturel et formateur.",
+    "Format libre — court récit, brève (news), dialogue ou scène du quotidien — mais raconte une VRAIE petite histoire, pas une suite de phrases interchangeables : une situation, un personnage qui veut ou ressent quelque chose, une progression et une petite chute ou conclusion.",
     "Il doit mettre en scène ces éléments cibles :",
     ...objectives,
     ...review,
     "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
+    "VARIÉTÉ : ne répète pas le même sujet ni le même schéma d'une phrase à l'autre (évite l'enchaînement « Xがいます。かわいいXです。Xが〜ます。 »). Fais avancer l'action, change de sujet, varie les tournures ; que chaque phrase apporte un élément nouveau.",
+    "ORTHOGRAPHE : écris chaque mot dans sa graphie japonaise standard, avec les kanji usuels — n'écris JAMAIS en kana (hiragana) un mot qui s'écrit normalement en kanji. Reprends exactement la graphie donnée pour le vocabulaire ci-dessus, partie avant la parenthèse (ex. « 牛乳 » et non « ぎゅうにゅう », « 今日 » et non « きょう »). L'application ajoute les furigana automatiquement : l'apprenant lira la lecture au-dessus du kanji.",
     "",
     `Longueur : un article d'environ ${len.min} à ${len.max} caractères japonais (au minimum ${len.min}), structuré en au moins 2 à 3 paragraphes (sépare les paragraphes par une ligne vide ; ajoute-en si l'histoire le demande).`,
     variant > 1
@@ -281,7 +284,7 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
       ? `Évite de reprendre le thème ou la situation des histoires déjà écrites pour cette leçon : ${avoidTitles.join(" ; ")}. Choisis un cadre, des personnages et une situation nettement différents.`
       : "",
     "Commence ta réponse par une ligne de titre au format exactement : TITRE: [titre japonais court] | [titre français court]",
-    "Puis donne le texte japonais uniquement : pas de furigana, pas de romaji, pas de traduction.",
+    "Puis donne le texte japonais uniquement : pas de furigana ni de lecture entre parenthèses, pas de romaji, pas de traduction.",
   ]
     .filter(Boolean)
     .join("\n");

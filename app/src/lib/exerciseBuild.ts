@@ -4,16 +4,16 @@
 
 import { toTiles, shuffleTiles } from "./builder";
 import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
-import { clozeSentence, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
+import { clozeSentence, clozeSentenceParts, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
 import type { ComprehensionQuestion } from "./genClient";
 import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
-import { normalizeReading } from "./kana";
+import { hasKanji, normalizeReading } from "./kana";
 import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
-import { effectiveExample } from "./vocab";
+import { effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
 
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
 
@@ -37,7 +37,12 @@ export function particleExercises(
   tokens.forEach((t, i) => {
     if (t.pos === "助詞" && CORE_PARTICLES.has(t.surface_form)) {
       const choices = particleChoices(t.surface_form);
-      const cloze = { before: surfaces.slice(0, i).join(""), after: surfaces.slice(i + 1).join("") };
+      // On ne montre que la PHRASE contenant le trou, pas tout l'article : on borne
+      // `before`/`after` à ses limites de phrase.
+      const cloze = clozeSentenceParts({
+        before: surfaces.slice(0, i).join(""),
+        after: surfaces.slice(i + 1).join(""),
+      });
       const idx = translation ? translation.ja.indexOf(clozeSentence(cloze, t.surface_form)) : -1;
       out.push({
         mode: "choice",
@@ -56,6 +61,102 @@ export function particleExercises(
     }
   });
 
+  return shuffle(out).slice(0, max);
+}
+
+/** Forme de base (dictionnaire) d'un token, ou sa surface si kuromoji ne la donne pas. */
+function baseForm(t: KuromojiToken): string {
+  return t.basic_form && t.basic_form !== "*" ? t.basic_form : t.surface_form;
+}
+
+/**
+ * Lecture en kana de la FORME DE BASE d'un token. Si le mot apparaît déjà sous sa forme
+ * de base, la lecture du token convient ; sinon (verbe/adjectif conjugué) on retokenise
+ * la forme de base pour obtenir sa vraie lecture — fiable même pour les irréguliers
+ * (来る→くる vs 来ます→きます), là où une reconstruction depuis la surface se tromperait.
+ */
+async function baseReading(t: KuromojiToken): Promise<string> {
+  const base = baseForm(t);
+  if (t.surface_form === base && t.reading) return normalizeReading(t.reading);
+  const sub = await tokenize(base);
+  return normalizeReading(sub.map((s) => s.reading ?? s.surface_form).join(""));
+}
+
+/**
+ * Lecture d'un kanji (rappel actif) : le mot est affiché sous sa FORME DE BASE en kanji,
+ * l'apprenant tape sa lecture en kana (furigana). Construit depuis les mots de contenu de
+ * l'histoire dont la forme de base porte au moins un kanji ; dédupliqué par item, borné à
+ * `max`. Noté sur la compétence « écrite » (via `applyStatus`).
+ */
+export async function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): Promise<TypeExercise[]> {
+  const seen = new Set<string>();
+  const out: TypeExercise[] = [];
+  for (const t of tokens) {
+    const base = baseForm(t);
+    if (!isContent(t) || !hasKanji(base)) continue;
+    const id = itemIdFor(t);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const reading = await baseReading(t);
+    if (!reading) continue;
+    const meaning = meaningFor(t);
+    const hint = meaning && meaning !== "—" ? ` — ${meaning}` : "";
+    out.push({
+      mode: "type",
+      key: `kanji-reading:${id}`,
+      track: "vocab",
+      skill: "written",
+      id,
+      token: t,
+      front: base,
+      back: `${base}（${reading}）${hint}`,
+      prompt: "Écris la lecture en kana (furigana)",
+      answers: [reading],
+    });
+  }
+  return shuffle(out).slice(0, max);
+}
+
+/**
+ * Choix du bon kanji pour un mot donné en français : la face avant montre le sens FR,
+ * l'apprenant choisit la graphie correcte parmi des mots-kanji de l'histoire. Ne se
+ * construit que s'il y a assez de noms-kanji distincts (≥ 4) pour fournir 3 distracteurs
+ * plausibles et de même niveau. Noté sur la compétence « écrite ».
+ */
+export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceExercise[] {
+  const pool: { token: KuromojiToken; surface: string; meaning: string; id: string }[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    const base = baseForm(t);
+    if (t.pos !== "名詞" || t.pos_detail_1 === "非自立" || !hasKanji(base)) continue;
+    const meaning = meaningFor(t);
+    if (!meaning || meaning === "—") continue;
+    const id = itemIdFor(t);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pool.push({ token: t, surface: base, meaning, id });
+  }
+  if (pool.length < 4) return []; // pas assez de distracteurs plausibles
+  const out: ChoiceExercise[] = [];
+  pool.forEach((item, i) => {
+    const distractors = shuffle(
+      pool.filter((p) => p.surface !== item.surface).map((p) => p.surface),
+    ).slice(0, 3);
+    if (distractors.length < 3) return;
+    const { choices, answerIndex } = shuffleWithAnswer(item.surface, distractors);
+    out.push({
+      mode: "choice",
+      key: `kanji-choice:${i}`,
+      track: "vocab",
+      skill: "written",
+      id: item.id,
+      token: item.token,
+      front: `Quel mot s'écrit « ${item.meaning} » ?`,
+      back: `${item.surface}（${normalizeReading(item.token.reading ?? "")}）— ${item.meaning}`,
+      choices,
+      answerIndex,
+    });
+  });
   return shuffle(out).slice(0, max);
 }
 

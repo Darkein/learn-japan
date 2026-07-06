@@ -4,12 +4,21 @@ import type { ComprehensionItem, GrammarItem } from "./db";
 import {
   comprehensionReviewExercise,
   grammarReviewExercise,
+  kanjiChoiceExercises,
+  kanjiReadingExercises,
   particleExercises,
   vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
+
+// meaningFor lit l'instantané du dico de contenu (vide en test) : on l'alimente pour les
+// exercices de choix de kanji, qui exigent un sens FR.
+vi.mock("./data", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./data")>()),
+  contentDictSnapshot: () => ({ 猫: "chat", 水: "eau", 本: "livre", 牛乳: "lait", 今日: "aujourd'hui" }),
+}));
 
 // Corpus d'exemples statique neutralisé : les tests qui veulent un exemple le passent
 // explicitement — le corpus réel (examples.json) évolue via le workflow build-examples.
@@ -21,7 +30,7 @@ vi.mock("./inventory", async (importOriginal) => ({
 // Simule le tokenizer (kuromoji ne tourne pas en node) — même approche que enroll.test.ts.
 vi.mock("./tokenizer", () => ({
   tokenize: vi.fn(async (text: string): Promise<KuromojiToken[]> => {
-    const mk = (surface_form: string, pos = "名詞"): KuromojiToken => ({
+    const mk = (surface_form: string, pos = "名詞", reading?: string): KuromojiToken => ({
       surface_form,
       pos,
       pos_detail_1: "*",
@@ -30,10 +39,14 @@ vi.mock("./tokenizer", () => ({
       conjugated_type: "*",
       conjugated_form: "*",
       basic_form: surface_form,
+      reading,
     });
     if (text === "今日は本を読む。") {
       return [mk("今日"), mk("は", "助詞"), mk("本"), mk("を", "助詞"), mk("読む", "動詞"), mk("。", "記号")];
     }
+    // Retokenisation d'une forme de base (kanjiReadingExercises) → sa lecture.
+    if (text === "飲む") return [mk("飲む", "動詞", "ノム")];
+    if (text === "読む") return [mk("読む", "動詞", "ヨム")];
     return [];
   }),
 }));
@@ -153,6 +166,92 @@ describe("particleExercises", () => {
       expect(e.answerIndex).toBeGreaterThanOrEqual(0);
       expect(e.choices[e.answerIndex]).toBeDefined();
     }
+  });
+});
+
+describe("particleExercises — n'affiche que la phrase du trou", () => {
+  const tokens = [
+    tok({ surface_form: "鳥", pos: "名詞", reading: "トリ" }),
+    tok({ surface_form: "は", pos: "助詞" }),
+    tok({ surface_form: "いる", pos: "動詞", reading: "イル" }),
+    tok({ surface_form: "。", pos: "記号" }),
+    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+    tok({ surface_form: "が", pos: "助詞" }),
+    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+    tok({ surface_form: "を", pos: "助詞" }),
+    tok({ surface_form: "飲む", pos: "動詞", reading: "ノム" }),
+    tok({ surface_form: "。", pos: "記号" }),
+  ];
+
+  it("borne le cloze à la phrase courante (pas tout l'article)", () => {
+    const exs = particleExercises(tokens, 8);
+    const ga = exs.find((e) => e.choices[e.answerIndex] === "が" && e.cloze)!;
+    // Le trou de « 猫が水を飲む。 » ne doit PAS embarquer la phrase précédente (鳥はいる。).
+    expect(ga.cloze!.before).toBe("猫");
+    expect(ga.cloze!.after).toBe("水を飲む。");
+    expect(ga.cloze!.before).not.toContain("鳥");
+  });
+});
+
+describe("kanjiReadingExercises", () => {
+  const tokens = [
+    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+    tok({ surface_form: "が", pos: "助詞" }),
+    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+    tok({ surface_form: "を", pos: "助詞" }),
+    tok({ surface_form: "飲み", pos: "動詞", basic_form: "飲む", reading: "ノミ" }),
+    tok({ surface_form: "ます", pos: "助動詞" }),
+    tok({ surface_form: "ねこ", pos: "名詞", reading: "ネコ" }), // sans kanji → ignoré
+  ];
+
+  it("mot en kanji → saisie de la lecture en hiragana, noté sur la carte écrite", async () => {
+    const exs = await kanjiReadingExercises(tokens, 10);
+    const surfaces = exs.map((e) => e.front);
+    expect(surfaces).toContain("水");
+    expect(surfaces).not.toContain("ねこ"); // pas de kanji
+    expect(surfaces).not.toContain("が"); // particule, pas un mot de contenu
+    const mizu = exs.find((e) => e.front === "水")!;
+    expect(mizu.mode).toBe("type");
+    expect(mizu.skill).toBe("written");
+    expect(mizu.answers).toEqual(["みず"]);
+    expect(mizu.token).toBeDefined();
+  });
+
+  it("verbe conjugué → affiché et interrogé sous sa FORME DE BASE", async () => {
+    const exs = await kanjiReadingExercises(tokens, 10);
+    // 飲み (surface) doit devenir 飲む (base), avec la lecture de la base のむ (pas のみ).
+    expect(exs.map((e) => e.front)).toContain("飲む");
+    expect(exs.map((e) => e.front)).not.toContain("飲み");
+    const nomu = exs.find((e) => e.front === "飲む")!;
+    expect(nomu.answers).toEqual(["のむ"]);
+    expect(nomu.back).toContain("飲む（のむ）");
+  });
+});
+
+describe("kanjiChoiceExercises", () => {
+  it("sens FR → choix du bon kanji, avec 3 distracteurs (pool ≥ 4 mots-kanji)", () => {
+    const tokens = [
+      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+      tok({ surface_form: "本", pos: "名詞", reading: "ホン" }),
+      tok({ surface_form: "牛乳", pos: "名詞", reading: "ギュウニュウ" }),
+    ];
+    const exs = kanjiChoiceExercises(tokens, 10);
+    expect(exs.length).toBeGreaterThan(0);
+    const neko = exs.find((e) => e.id.startsWith("猫"))!;
+    expect(neko.front).toContain("chat");
+    expect(neko.choices).toHaveLength(4);
+    expect(neko.choices).toContain("猫");
+    expect(neko.choices[neko.answerIndex]).toBe("猫");
+    expect(new Set(neko.choices).size).toBe(4);
+  });
+
+  it("pool trop petit (< 4 mots-kanji distincts) → aucun exercice", () => {
+    const tokens = [
+      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+    ];
+    expect(kanjiChoiceExercises(tokens)).toEqual([]);
   });
 });
 
