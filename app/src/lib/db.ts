@@ -146,8 +146,16 @@ export interface EncounterRecord {
   lastStoryId?: string;
 }
 
-/** Niveaux de fortune omikuji (décoratifs — n'influent sur rien). */
-export type OmikujiFortune = "daikichi" | "kichi" | "chukichi" | "shokichi" | "suekichi";
+/** Niveaux de fortune omikuji — le niveau module le bonus Tōkaidō du défi (voir FORTUNES). */
+export type OmikujiFortune =
+  | "daikichi"
+  | "kichi"
+  | "chukichi"
+  | "shokichi"
+  | "hankichi"
+  | "suekichi"
+  | "kyo"
+  | "daikyo";
 
 /** Tirage omikuji du jour (un par date locale). */
 export interface OmikujiRecord {

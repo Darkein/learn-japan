@@ -16,7 +16,8 @@ import {
   checkOmikuji,
   drawFor,
   drawOmikuji,
-  OMIKUJI_BONUS,
+  FORTUNES,
+  fortuneById,
   type OmikujiEnv,
 } from "./omikuji";
 import { newCard } from "./srs";
@@ -60,19 +61,21 @@ describe("drawFor (pur)", () => {
     const env = fullEnv({ hasProductionCards: false, hasOralCards: false, hasStories: false });
     for (let i = 1; i <= 28; i++) {
       const { challenge } = drawFor(`2026-02-${String(i).padStart(2, "0")}`, env);
-      expect(["reviews-goal", "accuracy-90"]).toContain(challenge.id);
+      expect(["reviews-goal", "reviews-stretch", "accuracy-80", "accuracy-90"]).toContain(
+        challenge.id,
+      );
     }
   });
 
-  it("repli sur accuracy-90 si rien n'est disponible", () => {
+  it("repli sur les défis de précision si rien d'autre n'est disponible", () => {
     const env = fullEnv({
-      reviewedToday: 25, // objectif déjà atteint → reviews-goal indisponible
+      reviewedToday: 35, // objectif et objectif +10 déjà atteints → défis reviews indisponibles
       hasProductionCards: false,
       hasOralCards: false,
       hasStories: false,
     });
     const { challenge } = drawFor("2026-07-05", env);
-    expect(challenge.id).toBe("accuracy-90");
+    expect(["accuracy-80", "accuracy-90"]).toContain(challenge.id);
   });
 });
 
@@ -136,16 +139,17 @@ describe("checkOmikuji", () => {
     expect(check?.completedNow).toBe(false);
     expect(check?.rec.completedAt).toBeUndefined();
 
-    // La 5ᵉ déclenche l'accomplissement + bonus Tōkaidō.
+    // La 5ᵉ déclenche l'accomplissement + bonus Tōkaidō (fixé par la fortune tirée).
+    const expectedBonus = fortuneById(rec.fortune).bonus;
     await logReview({ itemId: "w5", track: "vocab", skill: "production", grade: "good", at: date.getTime() + 5 });
     check = await checkOmikuji(date);
     expect(check?.completedNow).toBe(true);
-    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(OMIKUJI_BONUS);
+    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(expectedBonus);
 
     // Idempotence : re-vérifier ne re-crédite pas.
     check = await checkOmikuji(date);
     expect(check?.completedNow).toBe(false);
-    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(OMIKUJI_BONUS);
+    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(expectedBonus);
   });
 
   it("les échecs (again) ne comptent pas dans prodOk", async () => {
@@ -171,5 +175,36 @@ describe("catalogue", () => {
       expect(c.label(env).length).toBeGreaterThan(0);
       expect(c.target(env)).toBeGreaterThan(0);
     }
+  });
+
+  it("chaque fortune a un bonus > 0 (jamais de punition) et un libellé de bonus", () => {
+    for (const f of FORTUNES) {
+      expect(f.bonus).toBeGreaterThan(0);
+      expect(f.weight).toBeGreaterThan(0);
+      expect(f.bonusFr.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("les bonnes fortunes rapportent plus que les mauvaises", () => {
+    expect(fortuneById("daikichi").bonus).toBeGreaterThan(fortuneById("kichi").bonus);
+    expect(fortuneById("kichi").bonus).toBeGreaterThan(fortuneById("kyo").bonus);
+    expect(fortuneById("daikyo").bonus).toBeLessThanOrEqual(fortuneById("kyo").bonus);
+  });
+});
+
+describe("tirage pondéré des fortunes", () => {
+  it("sur un an, la variété est là et les extrêmes restent rares", () => {
+    const counts = new Map<string, number>();
+    const start = new Date("2026-01-01T12:00:00").getTime();
+    for (let i = 0; i < 365; i++) {
+      const date = new Date(start + i * 24 * 3600e3).toISOString().slice(0, 10);
+      const { fortune } = drawFor(date, fullEnv());
+      counts.set(fortune, (counts.get(fortune) ?? 0) + 1);
+    }
+    expect(counts.size).toBeGreaterThanOrEqual(6);
+    const middles =
+      (counts.get("kichi") ?? 0) + (counts.get("chukichi") ?? 0) + (counts.get("shokichi") ?? 0);
+    expect(counts.get("daikyo") ?? 0).toBeLessThan(middles);
+    expect(counts.get("daikichi") ?? 0).toBeLessThan(middles);
   });
 });

@@ -1,6 +1,7 @@
-// Omikuji du jour : un tirage quotidien façon oracle de temple — une fortune (décorative)
-// et un petit défi SURPRISE, détectable automatiquement avec la télémétrie existante
-// (log reviews + srsDaily). Réussir le défi fait gagner un quart de station sur le Tōkaidō.
+// Omikuji du jour : un tirage quotidien façon oracle de temple — une fortune et un petit
+// défi SURPRISE, détectable automatiquement avec la télémétrie existante (log reviews +
+// srsDaily). Réussir le défi fait gagner du chemin sur le Tōkaidō ; la fortune fixe la
+// mise (grande fortune = demi-station, infortune = huitième — jamais zéro).
 //
 // RÈGLE DURE : tirage DÉTERMINISTE PAR DATE (hash de la date locale, mulberry32 inline) —
 // pas de Math.random ni de random.ts (non seedé) : re-tirer le même jour redonne le même
@@ -20,16 +21,37 @@ import {
 import { loadSettings } from "./settings";
 import { addTokaidoBonus } from "./tokaido";
 
-export const FORTUNES: { id: OmikujiFortune; kanji: string; fr: string }[] = [
-  { id: "daikichi", kanji: "大吉", fr: "Grande fortune" },
-  { id: "kichi", kanji: "吉", fr: "Fortune" },
-  { id: "chukichi", kanji: "中吉", fr: "Fortune moyenne" },
-  { id: "shokichi", kanji: "小吉", fr: "Petite fortune" },
-  { id: "suekichi", kanji: "末吉", fr: "Fortune à venir" },
+export interface Fortune {
+  id: OmikujiFortune;
+  kanji: string;
+  yomi: string;
+  romaji: string;
+  fr: string;
+  /** Poids de tirage (les extrêmes sont rares, comme au temple). */
+  weight: number;
+  /** Fraction de station Tōkaidō gagnée si le défi du jour est accompli. */
+  bonus: number;
+  /** Le bonus en toutes lettres (affiché sur la bandelette). */
+  bonusFr: string;
+}
+
+// Échelle traditionnelle, du meilleur au pire. La fortune n'est plus purement décorative :
+// elle fixe la mise — le CHEMIN gagné sur le Tōkaidō quand le défi est accompli. Une
+// mauvaise fortune rapporte moins, mais rapporte toujours (on ne punit jamais).
+export const FORTUNES: Fortune[] = [
+  { id: "daikichi", kanji: "大吉", yomi: "だいきち", romaji: "daikichi", fr: "Grande fortune", weight: 2, bonus: 0.5, bonusFr: "une demi-station" },
+  { id: "kichi", kanji: "吉", yomi: "きち", romaji: "kichi", fr: "Fortune", weight: 4, bonus: 0.25, bonusFr: "un quart de station" },
+  { id: "chukichi", kanji: "中吉", yomi: "ちゅうきち", romaji: "chūkichi", fr: "Fortune moyenne", weight: 4, bonus: 0.25, bonusFr: "un quart de station" },
+  { id: "shokichi", kanji: "小吉", yomi: "しょうきち", romaji: "shōkichi", fr: "Petite fortune", weight: 4, bonus: 0.25, bonusFr: "un quart de station" },
+  { id: "hankichi", kanji: "半吉", yomi: "はんきち", romaji: "hankichi", fr: "Demi-fortune", weight: 2, bonus: 0.25, bonusFr: "un quart de station" },
+  { id: "suekichi", kanji: "末吉", yomi: "すえきち", romaji: "suekichi", fr: "Fortune à venir", weight: 3, bonus: 0.25, bonusFr: "un quart de station" },
+  { id: "kyo", kanji: "凶", yomi: "きょう", romaji: "kyō", fr: "Infortune", weight: 2, bonus: 0.125, bonusFr: "un huitième de station" },
+  { id: "daikyo", kanji: "大凶", yomi: "だいきょう", romaji: "daikyō", fr: "Grande infortune", weight: 1, bonus: 0.125, bonusFr: "un huitième de station" },
 ];
 
-/** Récompense d'un défi accompli : un quart de station sur le Tōkaidō. */
-export const OMIKUJI_BONUS = 0.25;
+export function fortuneById(id: OmikujiFortune): Fortune {
+  return FORTUNES.find((f) => f.id === id) ?? FORTUNES[1];
+}
 
 export interface OmikujiEnv {
   dailyGoal: number;
@@ -69,10 +91,24 @@ export const CHALLENGES: OmikujiChallenge[] = [
     available: (env) => env.reviewedToday < env.dailyGoal,
   },
   {
+    id: "reviews-stretch",
+    label: (env) => `Dépasse ton objectif du jour de 10 révisions (${env.dailyGoal + 10})`,
+    metric: "reviewed",
+    target: (env) => env.dailyGoal + 10,
+    available: (env) => env.reviewedToday < env.dailyGoal + 10,
+  },
+  {
     id: "prod-5",
     label: () => "Réussis 5 mots en production",
     metric: "prodOk",
     target: () => 5,
+    available: (env) => env.hasProductionCards,
+  },
+  {
+    id: "prod-10",
+    label: () => "Réussis 10 mots en production",
+    metric: "prodOk",
+    target: () => 10,
     available: (env) => env.hasProductionCards,
   },
   {
@@ -83,11 +119,32 @@ export const CHALLENGES: OmikujiChallenge[] = [
     available: (env) => env.hasOralCards,
   },
   {
+    id: "oral-10",
+    label: () => "Réussis 10 exercices d'écoute",
+    metric: "oralOk",
+    target: () => 10,
+    available: (env) => env.hasOralCards,
+  },
+  {
     id: "story-1",
     label: () => "Lis une histoire aujourd'hui",
     metric: "storiesRead",
     target: () => 1,
     available: (env) => env.hasStories,
+  },
+  {
+    id: "story-2",
+    label: () => "Lis deux histoires aujourd'hui",
+    metric: "storiesRead",
+    target: () => 2,
+    available: (env) => env.hasStories,
+  },
+  {
+    id: "accuracy-80",
+    label: () => "Termine la journée à 80 % de réussite (au moins 10 révisions)",
+    metric: "accuracy",
+    target: () => 80,
+    available: () => true,
   },
   {
     id: "accuracy-90",
@@ -125,6 +182,17 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
+/** Tirage pondéré : les extrêmes (大吉, 大凶) sortent rarement. */
+function pickFortune(roll: number): OmikujiFortune {
+  const total = FORTUNES.reduce((s, f) => s + f.weight, 0);
+  let r = roll * total;
+  for (const f of FORTUNES) {
+    r -= f.weight;
+    if (r < 0) return f.id;
+  }
+  return FORTUNES[FORTUNES.length - 1].id;
+}
+
 /** Choix pur du défi et de la fortune pour une date (testable sans IO). */
 export function drawFor(
   date: string,
@@ -134,8 +202,8 @@ export function drawFor(
   const eligible = CHALLENGES.filter((c) => c.available(env));
   const pool = eligible.length > 0 ? eligible : CHALLENGES.filter((c) => c.id === "accuracy-90");
   const challenge = pool[Math.floor(rng() * pool.length)];
-  // La fortune est purement décorative — elle n'influe sur rien (c'est écrit, c'est juré).
-  const fortune = FORTUNES[Math.floor(rng() * FORTUNES.length)].id;
+  // La fortune module la récompense (bonus Tōkaidō), jamais une punition.
+  const fortune = pickFortune(rng());
   return { challenge, fortune };
 }
 
@@ -249,6 +317,6 @@ export async function checkOmikuji(now: Date = new Date()): Promise<OmikujiCheck
   if (!isMet(rec, counts, env)) return { rec, counts, env, completedNow: false };
   const updated = { ...rec, completedAt: now.getTime() };
   await putOmikuji(updated);
-  await addTokaidoBonus(OMIKUJI_BONUS);
+  await addTokaidoBonus(fortuneById(rec.fortune).bonus);
   return { rec: updated, counts, env, completedNow: true };
 }
