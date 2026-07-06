@@ -101,6 +101,13 @@ export interface GeneratedLessonRecord {
   id: string; // = curriculum entry id
   framing: string; // leçon FR rédigée (corps du cours)
   createdAt: number;
+  /**
+   * Empreinte des objectifs de la leçon au moment de la génération (voir
+   * objectivesHash, lib/lessons.ts). Si le curriculum change pour ce même id, le
+   * cours est considéré périmé et régénéré à l'ouverture. Absent = enregistrement
+   * antérieur à cette mécanique → traité comme périmé.
+   */
+  objectivesHash?: string;
 }
 
 /** Progression locale d'une leçon (commencée, terminée). */

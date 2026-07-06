@@ -33,7 +33,9 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 
   const lessonId = lesson.id;
   useEffect(() => {
-    if (!lesson.framing && !error) void start();
+    // Cours absent OU périmé (curriculum changé sous cet id) : (re)génération auto.
+    // L'ancien cours reste affiché pendant la régénération ; conservé si elle échoue.
+    if ((!lesson.framing || lesson.framingStale) && !error) void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
 
