@@ -16,6 +16,11 @@ workers_dev = true
 # de repli sur 429 : wrangler secret put GEMINI_API_KEY_2  (puis _3, … jusqu'à _10).
 # Le Worker, pour chaque modèle, essaie toutes les clés avant de dégrader de modèle.
 GEMINI_MODEL = "gemini-2.5-flash"
+# Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
+# image dédié). Réutilise les mêmes clés GEMINI_API_KEY(_n). Sans cette var, un défaut codé
+# en dur (imageModel()) prend le relais. L'image est best-effort : sans modèle valable,
+# l'histoire est servie sans illustration.
+GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
 # TTS (écoute d'article / mode voiture). Voix et débit par défaut, surchargeables par

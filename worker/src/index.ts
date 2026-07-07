@@ -17,7 +17,7 @@
 // des gabarits fixes (voir prompts.ts). Aucune instruction libre ne transite → l'endpoint
 // ne peut pas être détourné en proxy LLM générique « hors japonais ».
 
-import { cleanRev, cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
+import { buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 
 export interface Env {
@@ -26,6 +26,10 @@ export interface Env {
   // un autre projet quand le premier est à 429. Voir geminiKeyEnvs().
   GEMINI_API_KEY?: string;
   GEMINI_MODEL: string;
+  // Modèle Gemini de génération d'IMAGE (illustration d'histoire). Optionnel : sans lui,
+  // un défaut codé en dur (imageModel()) prend le relais. Les mêmes clés GEMINI_API_KEY(_n)
+  // servent (rotation quota).
+  GEMINI_IMAGE_MODEL?: string;
   // Chaîne de repli (JSON) : [{ provider, model, keyEnv }], du plus puissant au
   // plus léger. Optionnel — un défaut codé en dur prend le relais (resolveChain).
   MODEL_CHAIN?: string;
@@ -219,6 +223,55 @@ async function generate(env: Env, prompt: string): Promise<string> {
   throw new Error(`Tous les modèles ont échoué : ${errors.join(" | ")}`);
 }
 
+// ---------- Génération d'IMAGE (illustration d'histoire) --------------------
+// Repliée dans /generate (aucun endpoint image public). Best-effort : l'image est
+// décorative, tout échec renvoie null et l'histoire est servie sans illustration.
+
+/** Modèle image : `GEMINI_IMAGE_MODEL` s'il est défini, sinon un défaut raisonnable. */
+function imageModel(env: Env): string {
+  return (env.GEMINI_IMAGE_MODEL ?? "").trim() || "gemini-2.5-flash-image";
+}
+
+interface GeneratedImage {
+  data: string; // image encodée en base64
+  mime: string; // ex. "image/png"
+}
+
+/**
+ * Génère une illustration via un modèle Gemini « image » (responseModalities IMAGE).
+ * Essaie chaque clé configurée (rotation quota, comme le texte). Renvoie l'image en
+ * base64 + son type MIME, ou null si aucune clé / erreur amont / réponse sans image.
+ */
+async function generateImage(env: Env, prompt: string): Promise<GeneratedImage | null> {
+  const model = imageModel(env);
+  const keyEnvs = geminiKeyEnvs(env);
+  if (!keyEnvs.length) return null;
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { responseModalities: ["IMAGE"] },
+  });
+  for (const keyEnv of keyEnvs) {
+    const key = (env as unknown as Record<string, string | undefined>)[keyEnv];
+    if (!key) continue;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    try {
+      const res = await postWithRetry(url, body);
+      if (!res.ok) continue; // quota/erreur sur cette clé → clé suivante
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
+      };
+      for (const part of data?.candidates?.[0]?.content?.parts ?? []) {
+        if (part.inlineData?.data) {
+          return { data: part.inlineData.data, mime: part.inlineData.mimeType || "image/png" };
+        }
+      }
+    } catch {
+      // clé suivante
+    }
+  }
+  return null;
+}
+
 // ---------- TTS (Google Cloud Text-to-Speech) -------------------------------
 
 const DEFAULT_TTS_VOICE = "ja-JP-Neural2-B";
@@ -343,17 +396,42 @@ export default {
         key = await genCacheKey(body.kind ?? "story", prompt);
       }
 
+      // Une histoire (libre ou de leçon) est illustrée : l'image voyage DANS le même objet
+      // de cache et la même réponse que le texte (aucun endpoint image dédié).
+      const isStory = body.kind === "story" || body.kind === "lesson-story" || body.kind === undefined;
+
       if (!refresh) {
-        const hit = await cacheGet<{ text: string }>(env.GEN_CACHE, key);
-        if (hit?.text) return json({ text: hit.text, cached: true });
+        const hit = await cacheGet<{ text: string; image?: string; mime?: string }>(env.GEN_CACHE, key);
+        if (hit?.text) {
+          return json({ text: hit.text, cached: true, ...(hit.image ? { image: hit.image, mime: hit.mime } : {}) });
+        }
       }
 
       try {
         const keyed = hasAnyKey(env); // calculé une fois (resolveChain est reconstruit à chaque appel)
         const text = await generate(env, prompt);
+
+        // Illustration (best-effort) : générée APRÈS le texte, à partir de lui → contexte
+        // complet. Un échec (modèle absent, quota, réponse sans image) n'empêche jamais de
+        // servir l'histoire. Jamais pour le stub « clé absente ».
+        let image: GeneratedImage | null = null;
+        if (keyed && isStory) {
+          try {
+            image = await generateImage(env, buildStoryIllustrationPrompt(text, undefined, body.level));
+          } catch {
+            image = null;
+          }
+        }
+
         // On ne met en cache que de vraies générations (pas le stub « clé absente »).
-        if (keyed) await cachePut(env.GEN_CACHE, key, { text, createdAt: Date.now() });
-        return json({ text, cached: false });
+        if (keyed) {
+          await cachePut(env.GEN_CACHE, key, {
+            text,
+            createdAt: Date.now(),
+            ...(image ? { image: image.data, mime: image.mime } : {}),
+          });
+        }
+        return json({ text, cached: false, ...(image ? { image: image.data, mime: image.mime } : {}) });
       } catch (e) {
         return json({ error: String(e) }, 502);
       }
