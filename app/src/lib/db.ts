@@ -200,6 +200,10 @@ export interface GenJobRecord {
   /** Début de la phase courante (epoch ms) — sert à estimer l'avancement. */
   phaseStartedAt: number;
   updatedAt: number;
+  /** Régénération demandée : ignore le cache R2 (cours et/ou histoire) pour produire du neuf. */
+  refresh?: boolean;
+  /** Régénère UNIQUEMENT le cours (framing) sans toucher aux histoires. */
+  framingOnly?: boolean;
 }
 
 interface LearnDB extends DBSchema {

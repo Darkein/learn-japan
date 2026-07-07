@@ -23,7 +23,7 @@ interface Props {
 
 export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
   const stories = lesson.stories;
-  const { job, busy, error, start, addStory, progress, label, retry, dismiss } =
+  const { job, busy, error, start, addStory, regenerateStory, regenerateCourse, progress, label, retry, dismiss } =
     useLessonGen(lesson);
   const podcast = usePodcastPlayer();
   const podcastBusy = podcast.active && podcast.preparing !== null;
@@ -78,6 +78,20 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 
       <div className="mb-2 flex items-center justify-between">
         <SectionLabel as="h3">Le cours</SectionLabel>
+        {lesson.framing && (
+          <button
+            className="cursor-pointer text-sm text-muted underline disabled:opacity-50"
+            onClick={() => {
+              if (window.confirm("Régénérer le cours de cette leçon ? L'actuel sera remplacé.")) {
+                regenerateCourse();
+              }
+            }}
+            disabled={busy}
+            title="Génère un nouveau cours (l'actuel est conservé si la régénération échoue)"
+          >
+            Régénérer
+          </button>
+        )}
       </div>
         <Cours lesson={lesson} />
 
@@ -114,9 +128,27 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
                         </span>
                         <ReadabilityBadge text={s.text} />
                       </span>
-                      <Button variant="ghost" onClick={() => void read(s)}>
-                        Lire →
-                      </Button>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <button
+                          className="cursor-pointer text-sm text-muted underline disabled:opacity-50"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Régénérer cette histoire ? La version actuelle sera remplacée par une nouvelle.",
+                              )
+                            ) {
+                              regenerateStory(s);
+                            }
+                          }}
+                          disabled={busy}
+                          title="Remplace cette histoire par une nouvelle génération (en cas de mauvaise génération)"
+                        >
+                          Régénérer
+                        </button>
+                        <Button variant="ghost" onClick={() => void read(s)}>
+                          Lire →
+                        </Button>
+                      </span>
                     </div>
                   </li>
                 ))}

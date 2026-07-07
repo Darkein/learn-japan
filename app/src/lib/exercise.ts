@@ -193,7 +193,9 @@ export async function gradeExercise(
       card: undefined,
     };
     c.card = review(c.card ?? newCard(now), grade, now);
-    c.status = "review";
+    // « Facile » = l'utilisateur déclare maîtriser (compté dans la maîtrise de la leçon),
+    // comme pour le vocab écrit ci-dessus.
+    c.status = grade === "easy" ? "known" : "review";
     await putComprehensionItem(c);
   } else {
     const g = (await getGrammar(ex.id)) ?? {
@@ -206,7 +208,9 @@ export async function gradeExercise(
       card: undefined,
     };
     g.card = review(g.card ?? newCard(now), grade, now);
-    g.status = "review";
+    // « Facile » = l'utilisateur déclare maîtriser (compté dans la maîtrise de la leçon),
+    // comme pour le vocab écrit ci-dessus.
+    g.status = grade === "easy" ? "known" : "review";
     await putGrammar(g);
   }
   await logReview({

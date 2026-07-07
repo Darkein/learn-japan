@@ -134,13 +134,38 @@ function computeProgress(
   return total === 0 ? 0 : ok / total;
 }
 
+/**
+ * Un item compte comme maîtrisé s'il est :
+ * - auto-évalué « Facile » (status "known") : l'utilisateur déclare le connaître — crédité
+ *   d'emblée, sans attendre l'intervalle long terme. « Facile » n'accélère PAS le déblocage
+ *   au-delà de ce que l'intervalle FSRS fait déjà (voir computeUnlockProgress) : on borne
+ *   ainsi l'incitation à cliquer « Facile » juste pour avancer.
+ * - OU maîtrisé « naturellement » : sa carte a atteint l'intervalle cible (isMastered, ≥ 21 j).
+ */
+function itemMastered(status: string | undefined, card: Card | undefined): boolean {
+  if (status === "known") return true;
+  return !!card && isMastered(card);
+}
+
 /** Calcule la part des items d'une leçon qui sont maîtrisés (0..1) — affichage long terme. */
 export function computeMastery(
   entry: Pick<CurriculumEntry, "introduces">,
   vocabMap: Map<string, VocabItem>,
   grammarMap: Map<string, GrammarItem>,
 ): number {
-  return computeProgress(entry, vocabMap, grammarMap, isMastered);
+  let total = 0;
+  let ok = 0;
+  for (const id of entry.introduces.vocab) {
+    total++;
+    const v = vocabMap.get(id);
+    if (v && itemMastered(v.status, v.cards.written)) ok++;
+  }
+  for (const id of entry.introduces.grammar) {
+    total++;
+    const g = grammarMap.get(id);
+    if (g && itemMastered(g.status, g.card)) ok++;
+  }
+  return total === 0 ? 0 : ok / total;
 }
 
 /** Part des items assez stables pour débloquer la leçon suivante (0..1) — seuil léger. */
@@ -318,8 +343,9 @@ async function markLessonCompleted(id: string): Promise<void> {
 export async function ensureLessonFraming(
   lesson: Lesson,
   onState?: (s: GenState) => void,
+  opts: { force?: boolean } = {},
 ): Promise<string | undefined> {
-  if (lesson.framing && !lesson.framingStale) return lesson.framing;
+  if (lesson.framing && !lesson.framingStale && !opts.force) return lesson.framing;
   const framing = await generateLesson(
     {
       lessonId: lesson.id,
@@ -329,7 +355,8 @@ export async function ensureLessonFraming(
       grammar: lesson.objectives.grammar,
       lessonOrder: lesson.order,
       rev: lesson.rev,
-      ...(lesson.framingStale ? { refresh: true } : {}),
+      // Régénération forcée (« Régénérer le cours ») OU cours périmé : on ignore le cache R2.
+      ...(lesson.framingStale || opts.force ? { refresh: true } : {}),
     },
     onState,
   );
@@ -364,6 +391,7 @@ export async function addLessonStory(
   lesson: Lesson,
   variant?: number,
   onState?: (s: GenState) => void,
+  opts: { refresh?: boolean } = {},
 ): Promise<StoryRecord> {
   const resolvedVariant = variant ?? nextStoryVariant(lesson);
 
@@ -391,6 +419,7 @@ export async function addLessonStory(
       reviewVocab,
       reviewGrammar,
       avoidTitles,
+      ...(opts.refresh ? { refresh: true } : {}),
     },
     resolvedVariant,
     onState,

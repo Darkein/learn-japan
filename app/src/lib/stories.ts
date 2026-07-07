@@ -39,6 +39,33 @@ function stripLeadingHeading(text: string): string {
 }
 
 /**
+ * Certaines générations recopient le titre EN TÊTE du corps — parfois en japonais ET en
+ * français, ou en titre Markdown — en plus de la ligne « TITRE: … | … ». On retire ces
+ * échos du début du corps : lignes vides, titres Markdown, lignes « TITRE: … »
+ * résiduelles, lignes contenant du texte latin (le corps doit être en japonais pur :
+ * une échappée française/romaji en tête est forcément un titre traduit), et une ligne
+ * reprenant exactement le titre japonais. On s'arrête à la première VRAIE phrase (japonais
+ * sans latin) ; on ne touche donc jamais au latin qui apparaîtrait plus loin. Garde-fou :
+ * si tout est supprimé, on conserve le corps d'origine.
+ */
+function stripLeadingTitleEcho(body: string, titleJp?: string): string {
+  const jp = titleJp?.replace(/[。．.!！?？\s]+$/, "").trim();
+  const isEcho = (raw: string): boolean => {
+    const line = raw.trim();
+    if (!line) return true;
+    if (/^#{1,6}(\s|$)/.test(line)) return true; // titre Markdown
+    if (/^TITRE\s*[:：]/i.test(line)) return true; // ligne TITRE dupliquée
+    if (/[A-Za-z]{2,}/.test(line)) return true; // français / romaji : le corps est en japonais
+    if (jp && line.replace(/^#+\s*/, "").replace(/[。．.!！?？]+$/, "").trim() === jp) return true;
+    return false;
+  };
+  const lines = body.split("\n");
+  let i = 0;
+  while (i < lines.length && isEcho(lines[i])) i++;
+  return lines.slice(i).join("\n").trim() || body.trim();
+}
+
+/**
  * Enregistre une histoire (texte + contraintes de génération + leçon parente optionnelle).
  * `image` est l'illustration ukiyo-e produite avec l'histoire côté Worker : rangée dans un
  * store séparé, keyée sur l'id de l'histoire. Point de passage UNIQUE (lecteur libre et
@@ -53,7 +80,8 @@ export async function saveStory(
 ): Promise<StoryRecord> {
   const stripped = stripLeadingHeading(text);
   const parsed = parseTitleLine(stripped);
-  const clean = parsed ? parsed.body : stripped;
+  const body = parsed ? parsed.body : stripped;
+  const clean = stripLeadingTitleEcho(body, parsed?.titleJp);
   const story: StoryRecord = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),

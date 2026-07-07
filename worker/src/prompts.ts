@@ -287,7 +287,8 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
       ? `Évite de reprendre le thème ou la situation des histoires déjà écrites pour cette leçon : ${avoidTitles.join(" ; ")}. Choisis un cadre, des personnages et une situation nettement différents.`
       : "",
     "Commence ta réponse par une ligne de titre au format exactement : TITRE: [titre japonais court] | [titre français court]",
-    "Puis donne le texte japonais uniquement : pas de furigana ni de lecture entre parenthèses, pas de romaji, pas de traduction.",
+    "Le titre n'apparaît QUE sur cette ligne TITRE : ne le recopie PAS dans l'histoire. Le texte commence directement par la première phrase du récit — pas de titre répété, pas de ligne d'en-tête (« # »), pas de titre en japonais ni en français en haut du corps.",
+    "Puis donne le texte japonais uniquement : pas de furigana ni de lecture entre parenthèses, pas de romaji, pas de traduction, aucun mot français dans le corps.",
   ]
     .filter(Boolean)
     .join("\n");

@@ -1,4 +1,5 @@
 import type { Lesson } from "../lib/lessons";
+import type { StoryRecord } from "../lib/db";
 import { useGenJobs, type JobView } from "./useGenJobs";
 
 /**
@@ -8,7 +9,7 @@ import { useGenJobs, type JobView } from "./useGenJobs";
  * la carte résumé (`LessonCard`) et le détail du cours (`CourseDetail`) reflètent le même job.
  */
 export function useLessonGen(lesson: Lesson) {
-  const { jobs, startLesson, addStory, retry, dismiss } = useGenJobs();
+  const { jobs, startLesson, addStory, regenerateStory, regenerateCourse, retry, dismiss } = useGenJobs();
   const job: JobView | undefined = jobs[lesson.id];
   const busy = job?.status === "running";
   const error = job?.status === "error" ? (job.error ?? "Erreur de génération") : null;
@@ -24,6 +25,8 @@ export function useLessonGen(lesson: Lesson) {
     label: job?.label ?? "",
     start: () => startLesson(lesson),
     addStory: (variant?: number) => addStory(lesson, variant),
+    regenerateStory: (story: StoryRecord) => regenerateStory(lesson, story),
+    regenerateCourse: () => regenerateCourse(lesson),
     retry: () => retry(lesson.id),
     dismiss: () => dismiss(lesson.id),
   };
