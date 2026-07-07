@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { AnnotatedToken } from "./furigana";
-import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
+import { synthesizeSentence, TtsUnconfiguredError } from "./ttsClient";
 
 // ---------- Web Speech : lecture d'un mot ------------------------------------
 
@@ -53,8 +53,6 @@ export function speakWord(text: string): Promise<void> {
 
 // ---------- Lecture d'une phrase à la demande (correction d'exercice) --------
 
-let sentenceAudio: HTMLAudioElement | null = null;
-
 /**
  * Décharge complètement un <audio> Blob (pause + source retirée + reset). Un élément
  * simplement mis en pause et déréférencé peut, sur Chrome/Android, garder ses ressources
@@ -69,67 +67,31 @@ function unloadAudio(audio: HTMLAudioElement): void {
   audio.load();
 }
 
-/** Coupe la lecture de phrase en cours (audio Cloud ET Web Speech). */
+/** Coupe la lecture de phrase/mot en cours (voix du navigateur). */
 export function stopSentence(): void {
+  if (!speechSupported()) return;
   // Nudge seulement si une synthèse tournait vraiment : stopSentence est aussi appelée
   // au démontage de chaque carte d'exercice et au début de chaque lecture.
-  const speechActive =
-    speechSupported() && (window.speechSynthesis.speaking || window.speechSynthesis.pending);
-  if (sentenceAudio) {
-    unloadAudio(sentenceAudio);
-    sentenceAudio = null;
-  }
-  if (speechSupported()) window.speechSynthesis.cancel();
+  const speechActive = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+  window.speechSynthesis.cancel();
   if (speechActive) nudgeAudioFocusRelease();
-  releaseMediaSession();
 }
 
 /**
- * Lit une phrase entière : Cloud TTS (cache IndexedDB partagé avec le lecteur) si le
- * Worker est configuré, sinon repli Web Speech. La promesse se résout à la FIN de la
- * lecture (ou dès qu'elle est coupée / échoue), pour que l'appelant puisse afficher un
- * indicateur « lecture en cours » pendant toute la durée réelle du son.
+ * Lit une phrase à la demande. On utilise DIRECTEMENT la voix du navigateur (Web Speech),
+ * exactement comme pour un mot : la lecture démarre SYNCHRONEMENT dans le geste
+ * utilisateur, donc audible partout — y compris sur mobile.
+ *
+ * Historiquement, une phrase passait par le Cloud TTS (aller-retour réseau AVANT de
+ * jouer). Sur mobile, cette attente « consomme » l'activation utilisateur : l'<audio>
+ * comme le repli Web Speech, lancés hors geste, restaient muets — alors que le mot,
+ * prononcé en plein geste, s'entendait. On aligne donc les exemples sur les mots.
+ *
+ * La promesse se résout à la FIN de l'énoncé (via speakWord), pour que l'appelant affiche
+ * un indicateur « lecture en cours » sur toute la durée réelle.
  */
-export async function speakSentence(text: string): Promise<void> {
-  const clean = text.trim();
-  if (!clean) return;
-  stopSentence();
-  primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
-  let blob: Blob;
-  try {
-    blob = await synthesizeText(clean, "ja");
-  } catch {
-    // Worker sans clé TTS ou injoignable → voix du navigateur (résout en fin d'énoncé).
-    releaseMediaSession(); // annule l'éventuel playbackState "playing" posé avant l'échec
-    await speakWord(clean);
-    return;
-  }
-  const url = URL.createObjectURL(blob);
-  const audio = new Audio(url);
-  sentenceAudio = audio;
-  setSpokenMediaSessionMeta();
-  setMediaSessionPlaybackState("playing");
-  await new Promise<void>((resolve) => {
-    let settled = false;
-    const release = () => {
-      if (settled) return;
-      settled = true;
-      URL.revokeObjectURL(url);
-      unloadAudio(audio);
-      if (sentenceAudio === audio) sentenceAudio = null;
-      releaseMediaSession();
-      resolve();
-    };
-    audio.onended = release;
-    // Lecture interrompue (stopSentence, carte suivante) ou source vidée : `error` couvre
-    // aussi le `load()` d'unloadAudio, ce qui garantit la résolution de la promesse.
-    audio.onerror = release;
-    audio.play().catch(() => {
-      // Lecture refusée (autoplay) → repli voix du navigateur, puis résolution.
-      release();
-      void speakWord(clean);
-    });
-  });
+export function speakSentence(text: string): Promise<void> {
+  return speakWord(text);
 }
 
 // ---------- Segmentation en phrases ------------------------------------------
