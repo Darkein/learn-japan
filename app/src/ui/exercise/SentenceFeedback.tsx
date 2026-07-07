@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { annotateTokens, type RubySegment } from "../../lib/furigana";
 import { tokenize, type KuromojiToken } from "../../lib/tokenizer";
 import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
@@ -23,17 +23,32 @@ interface Props {
  * (Cloud TTS) fournis via `Exercise.audioBack`.
  */
 export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: string } }) {
+  const [speaking, setSpeaking] = useState(false);
+  const token = useRef(0);
+
+  // Démontage : coupe la lecture en cours (sinon focus audio OS orphelin).
+  useEffect(() => () => stopSentence(), []);
+
+  async function listen() {
+    const my = ++token.current;
+    setSpeaking(true);
+    try {
+      if (audio.sentence) await speakSentence(audio.sentence);
+      else if (audio.word) await speakWord(audio.word);
+    } finally {
+      if (token.current === my) setSpeaking(false);
+    }
+  }
+
   return (
     <Button
       variant="ghost"
-      onClick={() => {
-        if (audio.sentence) void speakSentence(audio.sentence);
-        else if (audio.word) speakWord(audio.word);
-      }}
+      onClick={() => void listen()}
+      active={speaking}
       aria-label="Écouter"
     >
       <IconSpeaker size={16} />
-      Écouter
+      {speaking ? "Lecture…" : "Écouter"}
     </Button>
   );
 }
@@ -51,6 +66,7 @@ export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
   );
   const [segments, setSegments] = useState<RubySegment[] | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const speakToken = useRef(0);
   const [translated, setTranslated] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
 
@@ -73,11 +89,14 @@ export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
   const frLine = fr ?? translated;
 
   async function listen() {
+    // Jeton par appel : un rejeu pendant la lecture ne doit pas voir l'ancien appel (coupé
+    // par le nouveau) éteindre l'indicateur — seul le dernier appel pilote `speaking`.
+    const my = ++speakToken.current;
     setSpeaking(true);
     try {
       await speakSentence(text);
     } finally {
-      setSpeaking(false);
+      if (speakToken.current === my) setSpeaking(false);
     }
   }
 

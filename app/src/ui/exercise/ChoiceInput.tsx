@@ -89,6 +89,12 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
           ) : (
             <>
               <span className="text-sm text-muted">Réponse : {ex.back}</span>
+              {ex.meaning && ex.meaning !== ex.front && (
+                <span className="text-sm text-text">
+                  <span className="text-muted">Sens : </span>
+                  {ex.meaning}
+                </span>
+              )}
               <Button
                 variant="primary"
                 onClick={() => {

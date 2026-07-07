@@ -96,6 +96,12 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
             </div>
           )}
           <div className="font-jp text-xl text-muted">{ex.back}</div>
+          {ex.meaning && ex.meaning !== ex.front && (
+            <div className="text-sm text-text">
+              <span className="text-muted">Sens : </span>
+              {ex.meaning}
+            </div>
+          )}
           {ex.context && (
             <SentenceFeedback
               ja={ex.context}

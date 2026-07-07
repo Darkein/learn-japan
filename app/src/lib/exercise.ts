@@ -41,6 +41,9 @@ interface ExerciseBase {
   front: string;
   /** Correction affichée après réponse. */
   back: string;
+  /** Sens FR du mot (piste vocab) : affiché en clair dans la correction d'un échec, pour
+   *  revoir la traduction du mot raté quand la face avant ne la montre pas déjà. */
+  meaning?: string;
   context?: string;
   /** Traduction FR de la phrase de contexte (affichée dans la correction). */
   contextFr?: string;
