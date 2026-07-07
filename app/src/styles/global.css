@@ -173,9 +173,10 @@
   animation: speed-streak 0.9s linear infinite;
 }
 
-/* Décor défilant en parallaxe DERRIÈRE la voie : montagnes lointaines (lentes, pâles) et
-   arbres proches (plus rapides, plus contrastés). Silhouettes en mask → la couleur suit le
-   thème via background-color. Ne défile PAS avec le swipe (backdrop) : c'est la profondeur. */
+/* Décor défilant en parallaxe DERRIÈRE la voie, trois plans pour le relief : montagnes
+   lointaines (lentes, pâles), forêt médiane (contraste moyen) et arbres proches (rapides,
+   contrastés). Silhouettes en mask → la couleur suit le thème via background-color. Ne
+   défile PAS avec le swipe (backdrop) : c'est la profondeur. */
 .decor-layer {
   position: absolute;
   top: 0;
@@ -184,32 +185,122 @@
   height: 32px;
   pointer-events: none;
 }
+.decor-sky {
+  overflow: hidden;
+  /* Clippé à la crête (mask ciel), défile en phase avec les montagnes → l'astre passe DERRIÈRE. */
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 960px 32px;
+  mask-size: 960px 32px;
+  -webkit-mask-position: left bottom;
+  mask-position: left bottom;
+  animation: decor-far 96s linear infinite;
+}
+.sky-sun,
+.sky-moon {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.sky-sun {
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+  box-shadow: 0 0 4px 1px var(--hairline-strong);
+}
+.sky-moon {
+  width: 11px;
+  height: 11px;
+  /* Teinte encre composée sur un fond couleur ciel → disque OPAQUE (pas de transparence :
+     les étoiles ne transparaissent plus au travers). */
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--ink), var(--ink));
+  overflow: hidden;
+}
+/* Terminateur courbe : disque couleur ciel décalé de --moon-off → vraie lune (croissant/gibbeuse). */
+.sky-moon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  transform: translateX(var(--moon-off, 4px));
+}
+.sky-star {
+  position: absolute;
+  width: 1.5px;
+  height: 1.5px;
+  border-radius: 50%;
+  background: var(--ink);
+  transform: translate(-50%, -50%);
+  animation: twinkle 4s linear infinite;
+}
+/* Scintillement irrégulier (pas sinusoïdal) : la plupart du temps allumée, brefs éclats/creux. */
+@keyframes twinkle {
+  0% {
+    opacity: 0.8;
+  }
+  18% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  52% {
+    opacity: 0.5;
+  }
+  68% {
+    opacity: 0.85;
+  }
+  84% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0.8;
+  }
+}
 .decor-mountains {
   background-color: var(--hairline);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='220'%20height='32'%3E%3Cpath%20d='M0,20%20L44,8%20L88,24%20L132,4%20L176,22%20L220,20%20L220,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 220px 32px repeat-x;
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='220'%20height='32'%3E%3Cpath%20d='M0,20%20L44,8%20L88,24%20L132,4%20L176,22%20L220,20%20L220,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 220px 32px repeat-x;
-  animation: decor-far 26s linear infinite;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 960px 32px;
+  mask-size: 960px 32px;
+  -webkit-mask-position: left bottom;
+  mask-position: left bottom;
+  animation: decor-far 96s linear infinite;
+}
+.decor-trees-far {
+  background-color: var(--hairline-strong);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='190'%20height='32'%3E%3Cpath%20d='M0,27%20Q8,23%2017,26%20Q25,22%2034,26%20Q42,24%2051,27%20Q60,23%2069,26%20Q77,25%2086,27%20Q95,22%20104,26%20Q112,24%20121,27%20Q130,23%20139,26%20Q147,25%20156,27%20Q165,23%20174,26%20Q182,24%20190,27%20L190,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 190px 32px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='190'%20height='32'%3E%3Cpath%20d='M0,27%20Q8,23%2017,26%20Q25,22%2034,26%20Q42,24%2051,27%20Q60,23%2069,26%20Q77,25%2086,27%20Q95,22%20104,26%20Q112,24%20121,27%20Q130,23%20139,26%20Q147,25%20156,27%20Q165,23%20174,26%20Q182,24%20190,27%20L190,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 190px 32px repeat-x;
+  animation: decor-mid 19s linear infinite;
 }
 .decor-trees {
-  background-color: var(--hairline-strong);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='32'%3E%3Cpath%20d='M22,30%20L14,30%20L22,14%20L30,30%20Z%20M60,30%20L54,30%20L60,20%20L66,30%20Z%20M104,30%20L94,30%20L104,10%20L114,30%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 130px 32px repeat-x;
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='32'%3E%3Cpath%20d='M22,30%20L14,30%20L22,14%20L30,30%20Z%20M60,30%20L54,30%20L60,20%20L66,30%20Z%20M104,30%20L94,30%20L104,10%20L114,30%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 130px 32px repeat-x;
-  animation: decor-near 9s linear infinite;
+  background-color: var(--ink);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='168'%20height='32'%3E%3Cpath%20d='M0,29%20Q6,26%2012,28%20Q18,25%2025,28%20Q31,27%2037,29%20Q44,25%2051,28%20Q57,27%2063,29%20Q70,25%2077,28%20Q83,27%2089,29%20Q96,25%20103,28%20Q109,27%20115,29%20Q122,25%20129,28%20Q135,27%20141,29%20Q148,26%20155,28%20Q161,27%20168,29%20L168,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 168px 32px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='168'%20height='32'%3E%3Cpath%20d='M0,29%20Q6,26%2012,28%20Q18,25%2025,28%20Q31,27%2037,29%20Q44,25%2051,28%20Q57,27%2063,29%20Q70,25%2077,28%20Q83,27%2089,29%20Q96,25%20103,28%20Q109,27%20115,29%20Q122,25%20129,28%20Q135,27%20141,29%20Q148,26%20155,28%20Q161,27%20168,29%20L168,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
+    left bottom / 168px 32px repeat-x;
+  animation: decor-near 13s linear infinite;
 }
 @keyframes decor-far {
   to {
-    -webkit-mask-position: -220px bottom;
-    mask-position: -220px bottom;
+    -webkit-mask-position: -960px bottom;
+    mask-position: -960px bottom;
+  }
+}
+@keyframes decor-mid {
+  to {
+    -webkit-mask-position: -190px bottom;
+    mask-position: -190px bottom;
   }
 }
 @keyframes decor-near {
   to {
-    -webkit-mask-position: -130px bottom;
-    mask-position: -130px bottom;
+    -webkit-mask-position: -168px bottom;
+    mask-position: -168px bottom;
   }
 }
 

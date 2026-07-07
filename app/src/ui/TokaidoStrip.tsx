@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { TokaidoPosition } from "../lib/tokaido";
 import { SectionLabel } from "./kit/SectionLabel";
 
@@ -11,8 +11,55 @@ interface Props {
 const STEP = 48;
 const LINE_Y = 34; // ordonnée de la voie dans la zone dessinée (px)
 const STRIP_H = 96; // voie + poteaux kanji verticaux
-/** Marge de voie AVANT la 1re station : le train (~84 px) et sa traînée tiennent à l'étape 0. */
-const LEAD = 96;
+/** Marge de voie AVANT la 1re station : le train (~134 px) et sa traînée tiennent à l'étape 0. */
+const LEAD = 140;
+/** Longueur de la tuile de montagnes (px). Grande période → la répétition ne se lit plus ;
+    le ridge est généré une fois puis bouclé (deux copies) par translation de cette valeur. */
+const MTN_TILE = 960;
+
+/** PRNG déterministe (mulberry32) : même seed → même ridge à chaque rendu, pas de scintillement. */
+function mulberry32(a: number): () => number {
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Polyligne de crête procédurale, PÉRIODIQUE sur MTN_TILE (bouclable sans couture) : somme
+    d'octaves sinusoïdales (fréquences entières = wrap parfait) + quelques pics gaussiens dont
+    un large « Fuji ». L'influence des pics est repliée aux bords (±MTN_TILE) pour rester
+    périodique. Pas d'aléa non déterministe : le seed est fixe. */
+function genRidge(seed: number): string {
+  const rand = mulberry32(seed);
+  const base = 24;
+  const amps = [3.5, 2.2, 1.4, 0.9, 0.5];
+  const octs = [1, 2, 3, 5, 8].map((k, i) => ({ k, amp: amps[i], ph: rand() * Math.PI * 2 }));
+  const peaks = [{ c: MTN_TILE * (0.3 + 0.4 * rand()), w: 38, h: 18 }];
+  const n = 4 + Math.floor(rand() * 3);
+  for (let i = 0; i < n; i++) peaks.push({ c: rand() * MTN_TILE, w: 18 + rand() * 26, h: 6 + rand() * 9 });
+  const yAt = (x: number): number => {
+    let y = base;
+    for (const o of octs) y -= o.amp * (0.5 + 0.5 * Math.sin((o.k * 2 * Math.PI * x) / MTN_TILE + o.ph));
+    for (const p of peaks)
+      for (const off of [-MTN_TILE, 0, MTN_TILE]) {
+        const d = x - (p.c + off);
+        y -= p.h * Math.exp(-(d * d) / (2 * p.w * p.w));
+      }
+    return Math.max(2, y);
+  };
+  const seg: string[] = [];
+  for (let x = 0; x <= MTN_TILE; x += 6) seg.push(`${x},${yAt(x).toFixed(1)}`);
+  return `M${seg.join(" L")}`;
+}
+
+/** Emballe un `d` SVG en data-URI de mask (fill noir = zone visible). */
+function maskUri(d: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${MTN_TILE}' height='32'><path d='${d}' fill='black'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 /**
  * Bandeau du voyage (accueil) : fenêtre scrollable/swipable sur la route ACTIVE (une par
@@ -30,6 +77,48 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
   const trainX = LEAD + pos.position * STEP + STEP / 2;
   const innerW = LEAD + span * STEP + STEP;
   const startX = LEAD + STEP / 2; // x de la 1re station (Nihonbashi) — origine du parcouru
+  // Ridge procédural monté en MASK (même mécanisme que les arbres : mask-position animé,
+  // fiable dans la durée), tuilé sur MTN_TILE — période assez grande pour masquer la répétition.
+  // Deux masks issus de la MÊME crête : montagnes (rempli sous la crête) et ciel (rempli
+  // AU-DESSUS de la crête). Le ciel étant clippé à la crête et défilant en phase avec les
+  // montagnes, l'astre disparaît réellement DERRIÈRE les pics à l'horizon.
+  const { mountainMask, skyMask } = useMemo(() => {
+    const ridge = genRidge(20240707);
+    return {
+      mountainMask: maskUri(`${ridge} L${MTN_TILE},32 L0,32 Z`),
+      skyMask: maskUri(`${ridge} L${MTN_TILE},0 L0,0 Z`),
+    };
+  }, []);
+  // Astre positionné selon l'heure locale : le soleil arque de l'aube (6 h) au couchant (18 h),
+  // la lune la nuit. x en %, top en px dans la bande (astre haut à midi/minuit, bas à l'horizon
+  // où les montagnes le masquent). Étoiles fixes (seed) qui scintillent, visibles la nuit.
+  const sky = useMemo(() => {
+    const now = new Date();
+    const h = now.getHours() + now.getMinutes() / 60;
+    const day = h >= 6 && h < 18;
+    const f = day ? (h - 6) / 12 : ((h - 18 + 24) % 24) / 12;
+    // Phase lunaire réelle (mois synodique depuis une nouvelle lune connue). L'overlay couleur
+    // ciel est décalé de `moonOff` px : concentrique = nouvelle lune (cachée), décalé à fond =
+    // pleine lune ; le signe donne le sens (croissant à droite en phase croissante).
+    const synodic = 29.530588853;
+    const days = (now.getTime() - Date.UTC(2000, 0, 6, 18, 14)) / 86400000;
+    const phase = (((days % synodic) / synodic) + 1) % 1;
+    const lit = (1 - Math.cos(2 * Math.PI * phase)) / 2;
+    const moonOff = `${((phase < 0.5 ? -1 : 1) * lit * 11).toFixed(1)}px`;
+    return { day, x: 8 + f * 84, top: 23 - Math.sin(f * Math.PI) * 12, moonOff };
+  }, []);
+  const stars = useMemo(() => {
+    const rand = mulberry32(8531);
+    return Array.from({ length: 16 }, () => ({
+      x: 4 + rand() * 92,
+      y: 2 + rand() * 15,
+      size: `${(0.8 + rand() * 0.9).toFixed(2)}px`,
+      // Durée ET décalage (négatif → démarrage en plein cycle) aléatoires : périodes distinctes
+      // → jamais toutes synchrones.
+      dur: `${(2.4 + rand() * 4.2).toFixed(2)}s`,
+      delay: `-${(rand() * 6).toFixed(2)}s`,
+    }));
+  }, []);
 
   // Centre la fenêtre sur le train (sans animation : c'est l'état, pas un mouvement).
   useEffect(() => {
@@ -59,7 +148,37 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
         </span>
       </button>
       <div className="relative overflow-hidden">
-        <div className="decor-layer decor-mountains" aria-hidden="true" />
+        <div
+          className="decor-layer decor-sky"
+          aria-hidden="true"
+          style={{ WebkitMaskImage: skyMask, maskImage: skyMask }}
+        >
+          {!sky.day &&
+            stars.map((s, i) => (
+              <span
+                key={i}
+                className="sky-star"
+                style={{
+                  left: `${s.x}%`,
+                  top: `${s.y}px`,
+                  width: s.size,
+                  height: s.size,
+                  animationDuration: s.dur,
+                  animationDelay: s.delay,
+                }}
+              />
+            ))}
+          <span
+            className={sky.day ? "sky-sun" : "sky-moon"}
+            style={{ left: `${sky.x}%`, top: `${sky.top}px`, "--moon-off": sky.moonOff } as CSSProperties}
+          />
+        </div>
+        <div
+          className="decor-layer decor-mountains"
+          aria-hidden="true"
+          style={{ WebkitMaskImage: mountainMask, maskImage: mountainMask }}
+        />
+        <div className="decor-layer decor-trees-far" aria-hidden="true" />
         <div className="decor-layer decor-trees" aria-hidden="true" />
         <div
           ref={scroller}
@@ -106,7 +225,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             {/* Lignes de vitesse (集中線) : traînée à l'encre derrière le train, à hauteur de
                 caisse. Deux plans — proche (net, rapide) et lointain (pâle, lent) — pour
                 l'effet de profondeur. Défilent vers l'arrière quand le train « roule ». */}
-            <g transform={`translate(${trainX - 84}, ${LINE_Y - 7})`} aria-hidden="true">
+            <g transform={`translate(${trainX - 145}, ${LINE_Y - 7})`} aria-hidden="true">
               {[
                 { y: -2, len: 11, stroke: "var(--ink)", dur: "0.8s", delay: "0s" },
                 { y: 2, len: 9, stroke: "var(--ink)", dur: "0.9s", delay: "0.25s" },
@@ -127,48 +246,70 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                 />
               ))}
             </g>
-            {/* Le train : motrice + deux voitures de passagers du même gabarit, nez
-                EXACTEMENT sur l'avancement. Roues dessinées d'abord : les caisses passent
-                par-dessus (roues à demi cachées, comme il se doit). La caisse tangue sans
-                déplacer le nez (train-chug). */}
-            <g transform={`translate(${trainX - 81}, ${LINE_Y - 15.5})`}>
+            {/* Le train, rame shinkansen : motrice de queue (nez à gauche) + deux voitures +
+                motrice de tête (nez à droite, EXACTEMENT sur l'avancement). Toutes attelées.
+                Roues dessinées d'abord : les caisses passent par-dessus (roues à demi cachées,
+                comme il se doit). La caisse tangue sans déplacer le nez (train-chug). */}
+            <g transform={`translate(${trainX - 134}, ${LINE_Y - 15.5})`}>
               <g className="train-chug">
-              {[0, 26].map((x) => (
-                <g key={x} transform={`translate(${x}, 0)`}>
-                  <circle cx={5.5} cy={15.5} r={2} fill="var(--ink)" />
-                  <circle cx={18.5} cy={15.5} r={2} fill="var(--ink)" />
-                  {/* Caisse descendue d'1px sur les roues. */}
-                  <g transform="translate(0, 1)">
-                    <rect x={0} y={1} width={24} height={13.5} rx={2} fill={route.trainColor} />
-                    <rect x={3.5} y={4} width={4.5} height={4} rx={1} fill="var(--bg)" />
-                    <rect x={10} y={4} width={4.5} height={4} rx={1} fill="var(--bg)" />
-                    <rect x={16.5} y={4} width={4.5} height={4} rx={1} fill="var(--bg)" />
-                    {/* Attelage vers le véhicule suivant. */}
-                    <line x1={24} y1={10} x2={26} y2={10} stroke="var(--ink)" strokeWidth={1.5} />
-                  </g>
-                </g>
-              ))}
-              {/* Motrice façon shinkansen : nez profilé bien rond (deux cubiques), vitre de
-                  cabine effilée dans la pente, bandeau de fenêtres continu sur le flanc. */}
-              <g transform="translate(50, 0)">
+              {/* Motrice de queue : même caisse que la tête, retournée (nez vers l'arrière). */}
+              <g transform="translate(37, 0) scale(-1, 1)">
                 <circle cx={8} cy={15.5} r={2} fill="var(--ink)" />
-                <circle cx={22} cy={15.5} r={2} fill="var(--ink)" />
-                {/* Caisse descendue d'1px sur les roues, pointe à grand rayon. */}
+                <circle cx={28} cy={15.5} r={2} fill="var(--ink)" />
                 <g transform="translate(0, 1)">
                   <path
-                    d="M2 4 q0 -3 3 -3 h8 c6 0 10.5 2.5 14 6 c2 2 3.3 3.6 3.8 5 q0.8 2.5 -2.6 2.5 h-24.2 q-2 0 -2 -1.5 z"
+                    d="M2 4 q0 -3 3 -3 h14 c6 0 10.5 2.5 14 6 c2 2 3.3 3.6 3.8 5 q0.8 2.5 -2.6 2.5 h-30.2 q-2 0 -2 -1.5 z"
                     fill={route.trainColor}
                   />
                   <rect
-                    x={19}
+                    x={25}
                     y={3.6}
                     width={6}
                     height={2}
                     rx={1}
                     fill="var(--bg)"
-                    transform="rotate(33 22 4.6)"
+                    transform="rotate(33 28 4.6)"
                   />
-                  <rect x={4} y={4.5} width={12} height={2.2} rx={1.1} fill="var(--bg)" />
+                  <rect x={4} y={4.5} width={18} height={2.2} rx={1.1} fill="var(--bg)" />
+                </g>
+              </g>
+              {/* Attelage motrice de queue → 1re voiture (rame resserrée, façon shinkansen). */}
+              <line x1={35} y1={11} x2={36.5} y2={11} stroke="var(--ink)" strokeWidth={1.5} />
+              {[36.5, 68].map((x) => (
+                <g key={x} transform={`translate(${x}, 0)`}>
+                  <circle cx={7} cy={15.5} r={2} fill="var(--ink)" />
+                  <circle cx={23} cy={15.5} r={2} fill="var(--ink)" />
+                  {/* Caisse descendue d'1px sur les roues. Bandeau de fenêtres continu :
+                      même langage visuel que les motrices shinkansen. */}
+                  <g transform="translate(0, 1)">
+                    <rect x={0} y={1} width={30} height={13.5} rx={2.5} fill={route.trainColor} />
+                    <rect x={3} y={4.5} width={24} height={2.2} rx={1.1} fill="var(--bg)" />
+                    {/* Attelage vers le véhicule suivant (voiture ou motrice de tête). */}
+                    <line x1={30} y1={10} x2={31.5} y2={10} stroke="var(--ink)" strokeWidth={1.5} />
+                  </g>
+                </g>
+              ))}
+              {/* Motrice de tête : caisse longue, nez profilé (deux cubiques), vitre de cabine
+                  effilée dans la pente, bandeau de fenêtres continu sur le flanc. */}
+              <g transform="translate(97.5, 0)">
+                <circle cx={8} cy={15.5} r={2} fill="var(--ink)" />
+                <circle cx={28} cy={15.5} r={2} fill="var(--ink)" />
+                {/* Caisse descendue d'1px sur les roues, pointe à grand rayon. */}
+                <g transform="translate(0, 1)">
+                  <path
+                    d="M2 4 q0 -3 3 -3 h14 c6 0 10.5 2.5 14 6 c2 2 3.3 3.6 3.8 5 q0.8 2.5 -2.6 2.5 h-30.2 q-2 0 -2 -1.5 z"
+                    fill={route.trainColor}
+                  />
+                  <rect
+                    x={25}
+                    y={3.6}
+                    width={6}
+                    height={2}
+                    rx={1}
+                    fill="var(--bg)"
+                    transform="rotate(33 28 4.6)"
+                  />
+                  <rect x={4} y={4.5} width={18} height={2.2} rx={1.1} fill="var(--bg)" />
                 </g>
               </g>
               </g>
