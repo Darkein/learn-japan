@@ -349,6 +349,35 @@ describe("vocabTypeExercise — production en contexte (produce)", () => {
   });
 });
 
+describe("vocabTypeExercise — entrées du dico annotées", () => {
+  function vocab(over: { surface: string; reading: string; meaning: string }) {
+    return {
+      id: `${over.surface}|${over.reading}`,
+      surface: over.surface,
+      reading: over.reading,
+      meaning: over.meaning,
+      tags: [],
+      status: "review" as const,
+      cards: {},
+    };
+  }
+
+  it("suffixe (する) optionnel : accepte la lecture avec et sans する", () => {
+    const ex = vocabTypeExercise(vocab({ surface: "勉強", reading: "べんきょう (する)", meaning: "étudier" }), 0);
+    expect(ex.answers).toEqual(["勉強", "べんきょう", "べんきょうする"]);
+  });
+
+  it("alternatives « a; b » : chaque variante est acceptée", () => {
+    const ex = vocabTypeExercise(vocab({ surface: "いい; よい", reading: "いい; よい", meaning: "bon, bien" }), 0);
+    expect(ex.answers).toEqual(["いい", "よい"]);
+  });
+
+  it("marqueur d'affixe ～ retiré des réponses", () => {
+    const ex = vocabTypeExercise(vocab({ surface: "～円", reading: "～えん", meaning: "yen" }), 0);
+    expect(ex.answers).toEqual(["円", "えん"]);
+  });
+});
+
 describe("vocabTypeExercise — contextFr", () => {
   function vocab(example?: { ja: string; fr?: string }) {
     return {

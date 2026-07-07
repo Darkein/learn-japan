@@ -56,6 +56,33 @@ export function normalizeReading(s: string): string {
   return kataToHira(s).replace(/\s+/g, "").trim();
 }
 
+/** Marqueurs de dico jamais tapés par l'apprenant (tilde d'affixe, pleine ou demi-chasse). */
+const AFFIX_MARK = /[～〜~]/g;
+
+/**
+ * Développe une entrée du dico (surface ou lecture) en toutes les réponses acceptables
+ * pour un exercice de saisie. Les entrées portent des conventions d'affichage — utiles à
+ * la lecture, mais qu'on ne peut pas taper telles quelles :
+ *   - alternatives séparées par `;` (« いい; よい », « 足; 脚 ») → chaque variante compte ;
+ *   - partie optionnelle entre parenthèses (« べんきょう (する) ») → avec ET sans le suffixe ;
+ *   - marqueur d'affixe `～` (« ～円 », « ～えん ») → retiré.
+ * Chaque variante est passée à `normalizeReading` ; le résultat est dédoublonné, sans vide.
+ */
+export function answerVariants(...entries: string[]): string[] {
+  const out = new Set<string>();
+  for (const entry of entries) {
+    for (const alt of entry.split(/[;；]/)) {
+      const dropped = alt.replace(/[（(][^）)]*[）)]/g, ""); // suffixe optionnel omis
+      const kept = alt.replace(/[（()）]/g, ""); // suffixe optionnel conservé
+      for (const v of [dropped, kept]) {
+        const norm = normalizeReading(v.replace(AFFIX_MARK, ""));
+        if (norm) out.add(norm);
+      }
+    }
+  }
+  return [...out];
+}
+
 const JA_SENTENCE_END = /[。！？．!?]/;
 
 /** Vrai si le caractère est une ponctuation finale de phrase japonaise. */
