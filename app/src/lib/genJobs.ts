@@ -18,6 +18,7 @@
 import {
   allGenJobs,
   deleteGenJob,
+  deleteStory,
   putGenJob,
   type GenJobPhase,
   type GenJobRecord,
@@ -122,22 +123,33 @@ async function run(job: GenJobRecord): Promise<void> {
 
     // Phase 1 — le cours (framing), puis on rend la leçon accessible immédiatement.
     if (job.withFraming) {
-      // Absent OU périmé (curriculum changé sous cet id) : ensureLessonFraming décide.
-      if (!lesson.framing || lesson.framingStale) {
+      // Absent, périmé (curriculum changé sous cet id), OU régénération forcée demandée.
+      if (!lesson.framing || lesson.framingStale || job.refresh) {
         setPhase(job, "framing");
         await persist(job);
-        await ensureLessonFraming(lesson);
+        await ensureLessonFraming(lesson, undefined, { force: job.refresh });
       }
       await markLessonStarted(lesson.id);
       onDataChange?.(); // le cours est disponible → la leçon devient lisible
       lesson = (await getLesson(job.lessonId)) ?? lesson;
     }
 
-    // Phase 2 — l'histoire, contrainte au lexique déjà vu.
+    // Régénération du cours seul (« Régénérer le cours ») : on n'ajoute/ne remplace aucune histoire.
+    if (job.framingOnly) {
+      await remove(job.lessonId);
+      invalidateGeneratedIndex();
+      onDataChange?.();
+      onDone?.({ lessonId: job.lessonId, title: lesson.title, withFraming: true, fromCache });
+      return;
+    }
+
+    // Phase 2 — l'histoire, contrainte au lexique déjà vu. En régénération (`refresh`), on
+    // ignore une éventuelle histoire déjà présente pour cette variante et on force du neuf
+    // (le cache R2 du Worker est aussi contourné, voir addLessonStory).
     setPhase(job, "story");
     await persist(job);
-    let story = lesson.stories.find((s) => s.variant === job.variant);
-    if (!story) story = await addLessonStory(lesson, job.variant);
+    let story = job.refresh ? undefined : lesson.stories.find((s) => s.variant === job.variant);
+    if (!story) story = await addLessonStory(lesson, job.variant, undefined, { refresh: job.refresh });
 
     await remove(job.lessonId);
     invalidateGeneratedIndex();
@@ -182,6 +194,65 @@ export async function addStoryJob(lesson: Lesson, variant?: number): Promise<voi
     withFraming: false,
     variant: resolved,
     phase: "story",
+    status: "running",
+    startedAt: now,
+    phaseStartedAt: now,
+    updatedAt: now,
+  };
+  jobs.set(lesson.id, job);
+  await putGenJob(job);
+  emit();
+  void run(job);
+}
+
+/**
+ * Régénère une histoire jugée mauvaise : supprime l'histoire fautive (et son image), puis
+ * régénère la MÊME variante en contournant le cache R2 (`refresh`) — du contenu neuf, pas
+ * l'ancien resservi. No-op si un job tourne déjà pour cette leçon.
+ */
+export async function regenerateStoryJob(lesson: Lesson, story: StoryRecord): Promise<void> {
+  if (jobs.get(lesson.id)?.status === "running") return;
+  const variant = story.variant ?? nextStoryVariant(lesson);
+  // Enregistre d'abord le job (barre de progression visible), PUIS retire l'histoire fautive :
+  // la liste se rafraîchit avec la régénération déjà « en cours », sans clignotement.
+  const now = Date.now();
+  const job: GenJobRecord = {
+    lessonId: lesson.id,
+    title: lesson.title,
+    withFraming: false,
+    variant,
+    refresh: true,
+    phase: "story",
+    status: "running",
+    startedAt: now,
+    phaseStartedAt: now,
+    updatedAt: now,
+  };
+  jobs.set(lesson.id, job);
+  await putGenJob(job);
+  emit();
+  await deleteStory(story.id);
+  invalidateGeneratedIndex();
+  onDataChange?.();
+  void run(job);
+}
+
+/**
+ * Régénère le cours (framing) jugé mauvais, en contournant le cache R2. Ne touche à aucune
+ * histoire. L'ancien cours reste affiché pendant la régénération et est conservé si elle
+ * échoue (voir ensureLessonFraming). No-op si un job tourne déjà pour cette leçon.
+ */
+export async function regenerateFramingJob(lesson: Lesson): Promise<void> {
+  if (jobs.get(lesson.id)?.status === "running") return;
+  const now = Date.now();
+  const job: GenJobRecord = {
+    lessonId: lesson.id,
+    title: lesson.title,
+    withFraming: true,
+    framingOnly: true,
+    refresh: true,
+    variant: 1,
+    phase: "framing",
     status: "running",
     startedAt: now,
     phaseStartedAt: now,

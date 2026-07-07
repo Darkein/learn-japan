@@ -238,6 +238,21 @@ describe("addLessonStory — révision pondérée", () => {
       expect(target.objectives.grammar.includes(g)).toBe(false);
     }
   });
+
+  it("refresh propagé à generateLessonStory (régénération = contourne le cache R2)", async () => {
+    (genClient.generateLessonStory as any).mockResolvedValue({ text: "TITRE: あ | A\nテキスト。" });
+    const lessons = await listLessons();
+    if (lessons.length < 2) return;
+
+    await addLessonStory(lessons[1], 3, undefined, { refresh: true });
+    let call = (genClient.generateLessonStory as any).mock.calls.at(-1)[0];
+    expect(call.refresh).toBe(true);
+
+    // Sans refresh : le drapeau n'est pas positionné (cache autorisé).
+    await addLessonStory(lessons[1], 4);
+    call = (genClient.generateLessonStory as any).mock.calls.at(-1)[0];
+    expect(call.refresh).toBeUndefined();
+  });
 });
 
 describe("markUnlockNotified", () => {

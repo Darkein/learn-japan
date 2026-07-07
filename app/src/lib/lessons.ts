@@ -343,8 +343,9 @@ async function markLessonCompleted(id: string): Promise<void> {
 export async function ensureLessonFraming(
   lesson: Lesson,
   onState?: (s: GenState) => void,
+  opts: { force?: boolean } = {},
 ): Promise<string | undefined> {
-  if (lesson.framing && !lesson.framingStale) return lesson.framing;
+  if (lesson.framing && !lesson.framingStale && !opts.force) return lesson.framing;
   const framing = await generateLesson(
     {
       lessonId: lesson.id,
@@ -354,7 +355,8 @@ export async function ensureLessonFraming(
       grammar: lesson.objectives.grammar,
       lessonOrder: lesson.order,
       rev: lesson.rev,
-      ...(lesson.framingStale ? { refresh: true } : {}),
+      // Régénération forcée (« Régénérer le cours ») OU cours périmé : on ignore le cache R2.
+      ...(lesson.framingStale || opts.force ? { refresh: true } : {}),
     },
     onState,
   );
@@ -389,6 +391,7 @@ export async function addLessonStory(
   lesson: Lesson,
   variant?: number,
   onState?: (s: GenState) => void,
+  opts: { refresh?: boolean } = {},
 ): Promise<StoryRecord> {
   const resolvedVariant = variant ?? nextStoryVariant(lesson);
 
@@ -416,6 +419,7 @@ export async function addLessonStory(
       reviewVocab,
       reviewGrammar,
       avoidTitles,
+      ...(opts.refresh ? { refresh: true } : {}),
     },
     resolvedVariant,
     onState,

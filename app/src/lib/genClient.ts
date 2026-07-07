@@ -235,6 +235,7 @@ export async function generateLessonStory(
       reviewVocab: input.reviewVocab,
       reviewGrammar: input.reviewGrammar,
       avoidTitles: input.avoidTitles,
+      ...(input.refresh ? { refresh: true } : {}),
     },
     onState,
     // Génération plus longue (texte plus volumineux + image + repli éventuel de modèle).

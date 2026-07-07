@@ -21,12 +21,15 @@ import {
   jobLabel,
   jobProgress,
   jobsSnapshot,
+  regenerateFramingJob,
+  regenerateStoryJob,
   resumeJobs,
   retryJob,
   startLessonJob,
   subscribeJobs,
   type GenJobPhase,
 } from "../lib/genJobs";
+import type { StoryRecord } from "../lib/db";
 import { currentLocation, navigate } from "./useHashRoute";
 import { useNotify } from "./useNotify";
 
@@ -47,6 +50,10 @@ interface GenJobsApi {
   dataVersion: number;
   startLesson: (lesson: Lesson) => void;
   addStory: (lesson: Lesson, variant?: number) => void;
+  /** Régénère une histoire jugée mauvaise (remplace la même variante par du neuf). */
+  regenerateStory: (lesson: Lesson, story: StoryRecord) => void;
+  /** Régénère le cours (framing) sans toucher aux histoires. */
+  regenerateCourse: (lesson: Lesson) => void;
   retry: (lessonId: string) => void;
   dismiss: (lessonId: string) => void;
 }
@@ -112,6 +119,8 @@ export function GenJobsProvider({ children }: { children: ReactNode }) {
     dataVersion,
     startLesson: (lesson) => void startLessonJob(lesson),
     addStory: (lesson, variant) => void addStoryJob(lesson, variant),
+    regenerateStory: (lesson, story) => void regenerateStoryJob(lesson, story),
+    regenerateCourse: (lesson) => void regenerateFramingJob(lesson),
     retry: (lessonId) => void retryJob(lessonId),
     dismiss: (lessonId) => void dismissJob(lessonId),
   };
