@@ -18,7 +18,7 @@
 //    retombe dans la même session de focus et ne produit pas de nouvelle demande OS.
 
 /** WAV PCM mono 4 kHz de 8 s de silence (≥ 5 s → focus « persistant » côté Chromium). */
-export function buildSilentWavBlob(): Blob {
+function buildSilentWavBlob(): Blob {
   const sampleRate = 4000;
   const numSamples = sampleRate * 8;
   const headerSize = 44;
