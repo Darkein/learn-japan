@@ -107,6 +107,30 @@ describe("computeMastery", () => {
   it("items absents des maps comptent comme non-maîtrisés", () => {
     expect(computeMastery(entry, new Map(), new Map())).toBe(0);
   });
+
+  it("item auto-évalué « Facile » (status known) compte comme maîtrisé sans intervalle 21 j", () => {
+    // Carte fraîche (0 j) mais status "known" : l'utilisateur a répondu « Facile ».
+    const vm = new Map<string, any>([
+      ["v1", { id: "v1", status: "known", cards: { written: newCardObj() } }],
+      ["v2", { id: "v2", status: "known", cards: { written: newCardObj() } }],
+    ]);
+    const gm = new Map<string, any>([
+      ["g1", { id: "g1", status: "known", card: newCardObj() }],
+    ]);
+    expect(computeMastery(entry, vm, gm)).toBe(1);
+  });
+
+  it("status « review » (pas Facile) ne compte pas si l'intervalle n'atteint pas 21 j", () => {
+    const vm = new Map<string, any>([
+      ["v1", { id: "v1", status: "review", cards: { written: newCardObj() } }],
+      ["v2", { id: "v2", status: "review", cards: { written: masteredCard() } }],
+    ]);
+    const gm = new Map<string, any>([
+      ["g1", { id: "g1", status: "review", card: newCardObj() }],
+    ]);
+    // Seul v2 (intervalle ≥ 21 j) est maîtrisé → 1/3.
+    expect(computeMastery(entry, vm, gm)).toBeCloseTo(1 / 3);
+  });
 });
 
 describe("locked / prevUnlockProgress dans listLessons", () => {
