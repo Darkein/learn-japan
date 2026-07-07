@@ -27,18 +27,28 @@ function pickJaVoice(): SpeechSynthesisVoice | null {
   return voices.find((v) => v.lang?.toLowerCase().startsWith("ja")) ?? null;
 }
 
-/** Lit un mot (ou une courte chaîne) en japonais via la Web Speech API. */
-export function speakWord(text: string): void {
-  if (!speechSupported() || !text.trim()) return;
-  primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
-  window.speechSynthesis.cancel(); // coupe toute lecture en cours
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = JA_LANG;
-  const v = pickJaVoice();
-  if (v) u.voice = v;
-  u.onend = nudgeAudioFocusRelease;
-  u.onerror = nudgeAudioFocusRelease; // utterance interrompue/échouée : même libération
-  window.speechSynthesis.speak(u);
+/**
+ * Lit un mot (ou une courte chaîne) en japonais via la Web Speech API. La promesse se
+ * résout à la FIN de l'énoncé (ou tout de suite si la synthèse n'est pas supportée), afin
+ * que l'appelant puisse afficher un état « lecture en cours » sur toute la durée réelle.
+ */
+export function speakWord(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (!speechSupported() || !text.trim()) return resolve();
+    primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
+    window.speechSynthesis.cancel(); // coupe toute lecture en cours
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = JA_LANG;
+    const v = pickJaVoice();
+    if (v) u.voice = v;
+    const done = () => {
+      nudgeAudioFocusRelease();
+      resolve();
+    };
+    u.onend = done;
+    u.onerror = done; // utterance interrompue/échouée : même libération
+    window.speechSynthesis.speak(u);
+  });
 }
 
 // ---------- Lecture d'une phrase à la demande (correction d'exercice) --------
@@ -76,34 +86,50 @@ export function stopSentence(): void {
 
 /**
  * Lit une phrase entière : Cloud TTS (cache IndexedDB partagé avec le lecteur) si le
- * Worker est configuré, sinon repli Web Speech. Résout au démarrage de la lecture.
+ * Worker est configuré, sinon repli Web Speech. La promesse se résout à la FIN de la
+ * lecture (ou dès qu'elle est coupée / échoue), pour que l'appelant puisse afficher un
+ * indicateur « lecture en cours » pendant toute la durée réelle du son.
  */
 export async function speakSentence(text: string): Promise<void> {
   const clean = text.trim();
   if (!clean) return;
   stopSentence();
   primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
+  let blob: Blob;
   try {
-    const blob = await synthesizeText(clean, "ja");
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    sentenceAudio = audio;
+    blob = await synthesizeText(clean, "ja");
+  } catch {
+    // Worker sans clé TTS ou injoignable → voix du navigateur (résout en fin d'énoncé).
+    releaseMediaSession(); // annule l'éventuel playbackState "playing" posé avant l'échec
+    await speakWord(clean);
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  sentenceAudio = audio;
+  setSpokenMediaSessionMeta();
+  setMediaSessionPlaybackState("playing");
+  await new Promise<void>((resolve) => {
+    let settled = false;
     const release = () => {
+      if (settled) return;
+      settled = true;
       URL.revokeObjectURL(url);
       unloadAudio(audio);
       if (sentenceAudio === audio) sentenceAudio = null;
       releaseMediaSession();
+      resolve();
     };
     audio.onended = release;
+    // Lecture interrompue (stopSentence, carte suivante) ou source vidée : `error` couvre
+    // aussi le `load()` d'unloadAudio, ce qui garantit la résolution de la promesse.
     audio.onerror = release;
-    setSpokenMediaSessionMeta();
-    setMediaSessionPlaybackState("playing");
-    await audio.play();
-  } catch {
-    // Worker sans clé TTS, injoignable, ou lecture refusée → voix du navigateur.
-    releaseMediaSession(); // annule l'éventuel playbackState "playing" posé avant l'échec
-    speakWord(clean);
-  }
+    audio.play().catch(() => {
+      // Lecture refusée (autoplay) → repli voix du navigateur, puis résolution.
+      release();
+      void speakWord(clean);
+    });
+  });
 }
 
 // ---------- Segmentation en phrases ------------------------------------------

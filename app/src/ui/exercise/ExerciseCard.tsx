@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
 import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
@@ -36,6 +36,8 @@ export function ExerciseCard({
   onRomajiChange,
 }: Props) {
   const [listened, setListened] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const speakToken = useRef(0);
   // Échappatoire des exercices d'écoute : révèle la phrase (audio cassé, hors-ligne
   // sans cache…) — l'exercice reste faisable, jamais de cul-de-sac. Couvre l'aveugle
   // (audioOnly) et les fronts masqués (◯◯) dont la phrase complète est dans `context`.
@@ -47,10 +49,18 @@ export function ExerciseCard({
   // jusqu'à la fermeture du navigateur — cf. stopSentence dans SentenceFeedback).
   useEffect(() => () => stopSentence(), []);
 
-  function handleListen() {
-    if (ex.audio?.sentence) void speakSentence(ex.audio.sentence);
-    else if (ex.audio?.word) speakWord(ex.audio.word);
+  async function handleListen() {
     setListened(true);
+    // Jeton par appel : un rejeu pendant la lecture n'éteint pas l'indicateur de l'ancien
+    // appel (coupé par le nouveau) — seul le dernier appel pilote `speaking`.
+    const my = ++speakToken.current;
+    setSpeaking(true);
+    try {
+      if (ex.audio?.sentence) await speakSentence(ex.audio.sentence);
+      else if (ex.audio?.word) await speakWord(ex.audio.word);
+    } finally {
+      if (speakToken.current === my) setSpeaking(false);
+    }
   }
 
   return (
@@ -64,9 +74,9 @@ export function ExerciseCard({
           ) : (
             <JpFront text={ex.front} className="font-jp text-3xl" />
           )}
-          <Button variant="primary" onClick={handleListen}>
+          <Button variant="primary" onClick={() => void handleListen()}>
             <IconPlay size={16} />
-            Écouter
+            {speaking ? "Lecture…" : "Écouter"}
           </Button>
           {canReveal && (
             <button
@@ -84,9 +94,9 @@ export function ExerciseCard({
         <>
           {ex.audio && (
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button variant="ghost" onClick={handleListen}>
+              <Button variant="ghost" onClick={() => void handleListen()} active={speaking}>
                 <IconPlay size={14} />
-                Réécouter
+                {speaking ? "Lecture…" : "Réécouter"}
               </Button>
               {canReveal && !textRevealed && (
                 <Button variant="ghost" onClick={() => setTextRevealed(true)}>
