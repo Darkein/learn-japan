@@ -100,7 +100,6 @@ export async function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): P
     const reading = await baseReading(t);
     if (!reading) continue;
     const meaning = meaningFor(t);
-    const hint = meaning && meaning !== "—" ? ` — ${meaning}` : "";
     out.push({
       mode: "type",
       key: `kanji-reading:${id}`,
@@ -109,7 +108,8 @@ export async function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): P
       id,
       token: t,
       front: base,
-      back: `${base}（${reading}）${hint}`,
+      back: `${base}（${reading}）`,
+      meaning: meaning && meaning !== "—" ? meaning : undefined,
       prompt: "Écris la lecture en kana (furigana)",
       answers: [reading],
       audioBack: { word: base },
@@ -153,7 +153,8 @@ export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceEx
       id: item.id,
       token: item.token,
       front: `Quel mot s'écrit « ${item.meaning} » ?`,
-      back: `${item.surface}（${normalizeReading(item.token.reading ?? "")}）— ${item.meaning}`,
+      back: `${item.surface}（${normalizeReading(item.token.reading ?? "")}）`,
+      meaning: item.meaning,
       choices,
       answerIndex,
       audioBack: { word: item.surface },
@@ -196,7 +197,8 @@ export function vocabTypeExercise(
       track: "vocab" as const,
       skill: "production" as const,
       id: v.id,
-      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+      back: `${v.surface}（${v.reading}）`,
+      meaning: hasMeaning ? v.meaning : undefined,
       due,
       answers,
     };
@@ -235,7 +237,8 @@ export function vocabTypeExercise(
       // Le mot cible est masqué dans la phrase affichée : c'est la réponse — le laisser
       // visible transformait l'exercice en recopie.
       front: example?.ja && hit ? example.ja.replace(hit, "◯◯") : (example?.ja ?? v.surface),
-      back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+      back: `${v.surface}（${v.reading}）`,
+      meaning: hasMeaning ? v.meaning : undefined,
       due,
       audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
       context: example?.ja,
@@ -251,6 +254,7 @@ export function vocabTypeExercise(
     id: v.id,
     front: hasMeaning ? v.meaning : v.surface,
     back: `${v.surface}（${v.reading}）`,
+    meaning: hasMeaning ? v.meaning : undefined,
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
     answers,
@@ -292,7 +296,8 @@ export function vocabListenMeaningExercise(
     skill: "oral",
     id: v.id,
     front: "Quel mot as-tu entendu ?",
-    back: `${v.surface}（${v.reading}）— ${v.meaning}`,
+    back: `${v.surface}（${v.reading}）`,
+    meaning: v.meaning,
     due,
     audioOnly: true,
     audio: example?.ja ? { sentence: example.ja } : { word: v.surface },

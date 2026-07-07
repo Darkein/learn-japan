@@ -369,6 +369,15 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.contextFr).toBe("Le chat court.");
   });
 
+  it("porte le sens FR du mot (affiché dans la correction d'un échec)", () => {
+    // Écoute : face avant japonaise → le sens est nécessaire dans la correction.
+    const listen = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { listen: true });
+    expect(listen.meaning).toBe("chat");
+    // Rappel FR → JA : le sens est déjà la face avant, mais reste porté pour la correction.
+    const recall = vocabTypeExercise(vocab(), 0);
+    expect(recall.meaning).toBe("chat");
+  });
+
   it("variante écoute : transmet aussi contextFr", () => {
     const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
       listen: true,
