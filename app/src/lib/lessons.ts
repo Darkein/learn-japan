@@ -381,7 +381,7 @@ export async function addLessonStory(
     .filter(Boolean)
     .slice(-AVOID_TITLES_MAX);
 
-  const text = await generateLessonStory(
+  const { text, image } = await generateLessonStory(
     {
       lessonId: lesson.id,
       title: lesson.title,
@@ -404,5 +404,6 @@ export async function addLessonStory(
     },
     lesson.id,
     resolvedVariant,
+    image,
   );
 }

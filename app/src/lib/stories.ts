@@ -1,5 +1,5 @@
 // Sauvegarde / liste des histoires générées (relecture, « pourquoi cette histoire »).
-import { getStory, putStory, type StoryRecord } from "./db";
+import { getStory, putStory, putStoryImage, type StoryRecord } from "./db";
 import { splitJaSentences } from "./kana";
 import {
   generateComprehensionQcm,
@@ -38,12 +38,18 @@ function stripLeadingHeading(text: string): string {
   return t.trim() || text.trim();
 }
 
-/** Enregistre une histoire (texte + contraintes de génération + leçon parente optionnelle). */
+/**
+ * Enregistre une histoire (texte + contraintes de génération + leçon parente optionnelle).
+ * `image` est l'illustration ukiyo-e produite avec l'histoire côté Worker : rangée dans un
+ * store séparé, keyée sur l'id de l'histoire. Point de passage UNIQUE (lecteur libre et
+ * histoires de leçon), donc le seul endroit à câbler pour l'illustration.
+ */
 export async function saveStory(
   text: string,
   params: StoryParams = {},
   lessonId?: string,
   variant?: number,
+  image?: Blob,
 ): Promise<StoryRecord> {
   const stripped = stripLeadingHeading(text);
   const parsed = parseTitleLine(stripped);
@@ -59,6 +65,7 @@ export async function saveStory(
     ...(variant != null ? { variant } : {}),
   };
   await putStory(story);
+  if (image) await putStoryImage(story.id, image);
   return story;
 }
 

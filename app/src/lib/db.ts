@@ -226,6 +226,13 @@ interface LearnDB extends DBSchema {
     key: string;
     value: { id: string; audio: Blob; marks: { i: number; t: number }[]; createdAt: number };
   };
+  /**
+   * Illustration d'une histoire (estampe ukiyo-e), générée avec l'histoire côté Worker et
+   * mise en cache localement pour l'affichage hors-ligne (v13). `id` = id de l'histoire.
+   * Store séparé du `StoryRecord` : le blob est volumineux, on ne veut pas l'embarquer dans
+   * les scans de liste (allStories, storiesForLesson).
+   */
+  storyImages: { key: string; value: { id: string; image: Blob; createdAt: number } };
   /** Compteurs journaliers SRS (nouveaux mots + révisions). */
   srsDaily: { key: string; value: SrsDailyRecord };
   /** Retrouvailles : compteur de rencontres par mot appris (v12). */
@@ -237,7 +244,7 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 12;
+const DB_VERSION = 13;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -307,6 +314,10 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         if (!db.objectStoreNames.contains("meta")) {
           db.createObjectStore("meta", { keyPath: "key" });
         }
+        // v13: illustrations d'histoires (ukiyo-e), cache blob local par id d'histoire.
+        if (!db.objectStoreNames.contains("storyImages")) {
+          db.createObjectStore("storyImages", { keyPath: "id" });
+        }
       },
     });
   }
@@ -363,7 +374,9 @@ export async function getStory(id: string): Promise<StoryRecord | undefined> {
   return (await getDB()).get("stories", id);
 }
 export async function deleteStory(id: string): Promise<void> {
-  await (await getDB()).delete("stories", id);
+  const db = await getDB();
+  await db.delete("stories", id);
+  await db.delete("storyImages", id); // l'illustration suit l'histoire
 }
 /** Histoires, les plus récentes d'abord. */
 export async function allStories(): Promise<StoryRecord[]> {
@@ -374,6 +387,16 @@ export async function allStories(): Promise<StoryRecord[]> {
 export async function storiesForLesson(lessonId: string): Promise<StoryRecord[]> {
   const all = await (await getDB()).getAllFromIndex("stories", "lessonId", lessonId);
   return all.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+// Illustrations d'histoires (ukiyo-e) ----------------------------------------
+export async function putStoryImage(storyId: string, image: Blob): Promise<void> {
+  await (await getDB()).put("storyImages", { id: storyId, image, createdAt: Date.now() });
+}
+/** Blob de l'illustration d'une histoire, ou null si aucune n'a été générée/cachée. */
+export async function getStoryImage(storyId: string): Promise<Blob | null> {
+  const rec = await (await getDB()).get("storyImages", storyId);
+  return rec?.image ?? null;
 }
 
 // Leçons générées ------------------------------------------------------------

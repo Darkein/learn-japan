@@ -69,6 +69,9 @@ const LIMITS = {
   exampleVocabList: 20,
   allowedVocabList: 400,
   allowedVocabItem: 40,
+  // Illustration : le texte d'histoire déjà généré sert de contexte de scène. Borne large
+  // (une histoire N1 monte à ~750 caractères JP) mais fermée.
+  illustrationText: 1200,
 } as const;
 
 /** Retire les caractères de contrôle (dont sauts de ligne) et plafonne la longueur. */
@@ -368,6 +371,53 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
       : "",
     "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne : « N. phrase japonaise || traduction française ». Pas de furigana, pas de romaji.",
     "Exemple : 1. 猫は水を飲みます。 || Le chat boit de l'eau.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// ---------- Illustration d'histoire (ukiyo-e) --------------------------------
+// L'image est produite CÔTÉ WORKER, juste après le texte d'une histoire (voir index.ts),
+// à partir de ce texte. Aucun endpoint image public : la génération est repliée dans
+// /generate. Le style est une CONSTANTE figée ici → toutes les images se ressemblent,
+// comme signées par un seul et même illustrateur (« même dessinateur »).
+
+/**
+ * Style de dessin UNIQUE et immuable de l'illustrateur attitré : estampe japonaise
+ * (ukiyo-e). C'est la seule source de vérité du style — ne jamais le paramétrer depuis
+ * le client. Toute image d'histoire hérite exactement de cette description.
+ */
+export const IMAGE_STYLE = [
+  "Style : estampe japonaise traditionnelle (ukiyo-e), comme une gravure sur bois du",
+  "période Edo. Aplats de couleurs mates, palette limitée et harmonieuse (indigo, ocre,",
+  "rouge vermillon, vert doux), contours nets à l'encre, absence d'ombres réalistes,",
+  "perspective plate et composition équilibrée, léger grain de papier washi texturé.",
+  "Toujours le même illustrateur : garde ce style rigoureusement identique d'une image à",
+  "l'autre.",
+].join(" ");
+
+/**
+ * Prompt d'illustration d'une histoire : STYLE figé (ukiyo-e) + une scène dérivée du texte
+ * japonais déjà généré et du titre français. Le texte est assaini/borné comme toute entrée.
+ * Contraintes fixes : une seule illustration, une scène unique fidèle au récit, et AUCUN
+ * texte/lettre/caractère dans l'image (une estampe illustrative, pas une page écrite).
+ */
+export function buildStoryIllustrationPrompt(text: string, titleFr?: string, level?: number): string {
+  const scene = clean(text, LIMITS.illustrationText);
+  const title = clean(titleFr, LIMITS.title);
+  const lvl = cleanLevel(level);
+  return [
+    IMAGE_STYLE,
+    "",
+    "Illustre en une seule image la scène de cette courte histoire japonaise",
+    `(niveau d'apprentissage JLPT N${lvl}) :`,
+    title ? `Titre : « ${title} ».` : "",
+    `Histoire : ${scene}`,
+    "",
+    "Représente le moment ou l'ambiance la plus marquante du récit (personnages, lieu,",
+    "action), fidèlement à ce qui est raconté. Une seule scène, cadrage clair.",
+    "N'inscris AUCUN texte, lettre, mot, chiffre, kanji, kana ni logo dans l'image :",
+    "uniquement le dessin.",
   ]
     .filter(Boolean)
     .join("\n");

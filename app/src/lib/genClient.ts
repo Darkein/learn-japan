@@ -63,18 +63,44 @@ export type GenState = "queued" | "generating" | "ready" | "error" | "unknown";
 
 interface GenerateResponse {
   text?: string;
+  // Illustration d'histoire (ukiyo-e) générée dans le même appel /generate que le texte.
+  // Présente seulement pour les kinds « story » / « lesson-story », et best-effort.
+  image?: string; // encodée en base64
+  mime?: string; // ex. "image/png"
   error?: string;
 }
 
+/** Histoire générée : texte + illustration décodée (absente si le Worker n'en a pas produit). */
+export interface GeneratedStory {
+  text: string;
+  image?: Blob;
+}
+
+/** base64 → Blob (illustration d'histoire). */
+function base64ToBlob(b64: string, type: string): Blob {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
+
+/** Décode la réponse /generate d'une histoire en { text, image? }. */
+function toStory(data: GenerateResponse): GeneratedStory {
+  return {
+    text: (data.text ?? "").trim(),
+    image: data.image ? base64ToBlob(data.image, data.mime || "image/png") : undefined,
+  };
+}
+
 /**
- * Génère un texte : un seul aller-retour synchrone vers le Worker.
- * `onState` permet d'afficher la progression côté UI.
+ * Aller-retour synchrone vers le Worker /generate : renvoie la réponse brute décodée
+ * ({ text, image? }). `onState` permet d'afficher la progression côté UI.
  */
-export async function generateText(
+async function postGenerate(
   params: GenParams,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
-): Promise<string> {
+): Promise<GenerateResponse> {
   const timeoutMs = opts.timeoutMs ?? 90_000;
   onState?.("generating");
 
@@ -111,7 +137,31 @@ export async function generateText(
   }
 
   onState?.("ready");
-  return data.text;
+  return data;
+}
+
+/**
+ * Génère un texte : un seul aller-retour synchrone vers le Worker.
+ * `onState` permet d'afficher la progression côté UI.
+ */
+export async function generateText(
+  params: GenParams,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<string> {
+  return (await postGenerate(params, onState, opts)).text ?? "";
+}
+
+/**
+ * Génère une histoire libre (lecteur) : texte + illustration éventuelle. Kind « story »
+ * par défaut ; l'image est produite côté Worker après le texte (best-effort).
+ */
+export async function generateStory(
+  params: GenParams,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<GeneratedStory> {
+  return toStory(await postGenerate(params, onState, opts));
 }
 
 // ---------- Génération de leçon : cours et histoire, SÉPARÉS ----------------
@@ -172,26 +222,24 @@ export async function generateLessonStory(
   variant: number,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
-): Promise<string> {
-  return (
-    await generateText(
-      {
-        kind: "lesson-story",
-        lessonId: input.lessonId,
-        variant,
-        title: input.title,
-        level: input.level,
-        vocab: input.vocab,
-        grammar: input.grammar,
-        reviewVocab: input.reviewVocab,
-        reviewGrammar: input.reviewGrammar,
-        avoidTitles: input.avoidTitles,
-      },
-      onState,
-      // Génération plus longue (texte plus volumineux + repli éventuel de modèle).
-      { timeoutMs: opts.timeoutMs ?? 120_000 },
-    )
-  ).trim();
+): Promise<GeneratedStory> {
+  return generateStory(
+    {
+      kind: "lesson-story",
+      lessonId: input.lessonId,
+      variant,
+      title: input.title,
+      level: input.level,
+      vocab: input.vocab,
+      grammar: input.grammar,
+      reviewVocab: input.reviewVocab,
+      reviewGrammar: input.reviewGrammar,
+      avoidTitles: input.avoidTitles,
+    },
+    onState,
+    // Génération plus longue (texte plus volumineux + image + repli éventuel de modèle).
+    { timeoutMs: opts.timeoutMs ?? 120_000 },
+  );
 }
 
 // ---------- Traduction d'histoire (mode podcast : alternance JP / FR) --------

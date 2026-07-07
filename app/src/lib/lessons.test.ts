@@ -195,7 +195,7 @@ describe("locked / prevUnlockProgress dans listLessons", () => {
 
 describe("addLessonStory — révision pondérée", () => {
   it("échantillonne du vocabulaire/grammaire des leçons précédentes, hors cibles courantes", async () => {
-    (genClient.generateLessonStory as any).mockResolvedValue("TITRE: あ | A\nテキスト。");
+    (genClient.generateLessonStory as any).mockResolvedValue({ text: "TITRE: あ | A\nテキスト。" });
     const lessons = await listLessons();
     if (lessons.length < 2) return; // curriculum trop court pour avoir des prédécesseurs
     const target = lessons[1];

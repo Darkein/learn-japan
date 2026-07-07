@@ -14,6 +14,7 @@ import { IconPause, IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReaderExercises } from "./ReaderExercises";
 import { Ruby } from "./Ruby";
+import { StoryIllustration } from "./StoryIllustration";
 import { useSettings } from "./useSettings";
 import { StoryTranslation } from "./StoryTranslation";
 import { WordSheet } from "./WordSheet";
@@ -160,6 +161,7 @@ export function Reader({ incoming }: Props) {
 
       {result && !loading && (
         <>
+          <StoryIllustration storyId={incoming.id} />
           <p className="text-sm text-muted">Tape un mot pour ouvrir lecture, sens et suivi de révision.</p>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-2">
             {result.tokens.map((tok, i) => {

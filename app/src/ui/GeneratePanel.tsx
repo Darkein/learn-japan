@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { generateText, type GenState } from "../lib/genClient";
+import { generateStory, type GenState } from "../lib/genClient";
 import { resolveGrammar } from "../lib/inventory";
 import { getUnlockedGrammarIds } from "../lib/lessons";
 import { saveStory, type StoryParams } from "../lib/stories";
@@ -55,8 +55,8 @@ export function GeneratePanel({ onGenerated }: Props) {
       level,
     };
     try {
-      const text = await generateText(params, setGenState);
-      const story = await saveStory(text, params);
+      const { text, image } = await generateStory(params, setGenState);
+      const story = await saveStory(text, params, undefined, undefined, image);
       notify({
         message: "Histoire générée.",
         action: { label: "Ouvrir →", onClick: () => onGenerated(story) },
