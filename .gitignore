@@ -21,3 +21,4 @@ data/full/
 worker/.dev.vars
 .wrangler/
 .superpowers/
+.playwright-mcp

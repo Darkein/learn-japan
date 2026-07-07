@@ -54,7 +54,7 @@ export function Voyage() {
   const currentIndex = pos.station.index;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 pb-10">
       <section className="flex flex-col gap-3">
         <SectionLabel>Ton chemin</SectionLabel>
         <p className="font-serif text-lg">
@@ -143,14 +143,18 @@ export function Voyage() {
                     />
                   )}
                   <span
-                    className="h-2 w-2 flex-none rounded-full"
-                    style={
-                      current
+                    className={`flex-none rounded-full ${s.city ? "h-2.5 w-2.5" : "h-2 w-2"}`}
+                    style={{
+                      ...(current
                         ? { background: route.trainColor }
                         : passed
                           ? { background: "var(--ink)" }
-                          : { border: "1px solid var(--hairline-strong)" }
-                    }
+                          : { border: "1px solid var(--hairline-strong)" }),
+                      // Jalon (ville majeure) : halo pour le repérer d'un coup d'œil sur la route.
+                      ...(s.city
+                        ? { boxShadow: "0 0 0 2px var(--bg), 0 0 0 3px var(--hairline-strong)" }
+                        : {}),
+                    }}
                   />
                   {s.index < span && (
                     <span
@@ -178,6 +182,11 @@ export function Voyage() {
                   <span className={`text-xs ${current ? "text-text" : "text-muted"}`}>
                     {s.romaji}
                   </span>
+                  {s.city && (
+                    <span className="font-sans text-[0.6rem] uppercase tracking-[0.18em] text-muted">
+                      {s.city}
+                    </span>
+                  )}
                   {s.index === span && <Torii className="self-center" />}
                   {current && <span className="text-xs" style={{ color: route.trainColor }}>Tu es ici</span>}
                 </div>

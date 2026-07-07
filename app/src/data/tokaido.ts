@@ -11,10 +11,13 @@ export interface TokaidoStation {
   romaji: string;
   /** Fait bref (FR) affiché à l'arrivée à cette étape — pas obligatoire partout. */
   note?: string;
+  /** Ville/jalon majeur que marque cette station (Edo, Kyōto…) : mise en avant comme repère
+      sur la route. Optionnel — seules quelques stations clés en portent un. */
+  city?: string;
 }
 
 export const TOKAIDO: TokaidoStation[] = [
-  { index: 0, kanji: "日本橋", romaji: "Nihonbashi", note: "Le « pont du Japon », à Edo : point zéro de toutes les routes du pays. Ton voyage commence ici." },
+  { index: 0, kanji: "日本橋", romaji: "Nihonbashi", city: "Edo", note: "Le « pont du Japon », à Edo : point zéro de toutes les routes du pays. Ton voyage commence ici." },
   { index: 1, kanji: "品川", romaji: "Shinagawa", note: "Première étape à la sortie d'Edo, au bord de la baie." },
   { index: 2, kanji: "川崎", romaji: "Kawasaki", note: "On y traversait la rivière Tama en bac." },
   { index: 3, kanji: "神奈川", romaji: "Kanagawa", note: "Village de pêcheurs qui donnera son nom à la préfecture." },
@@ -33,7 +36,7 @@ export const TOKAIDO: TokaidoStation[] = [
   { index: 16, kanji: "由比", romaji: "Yui" },
   { index: 17, kanji: "興津", romaji: "Okitsu" },
   { index: 18, kanji: "江尻", romaji: "Ejiri" },
-  { index: 19, kanji: "府中", romaji: "Fuchū", note: "Aujourd'hui Shizuoka, ville natale du shōgun retiré Ieyasu." },
+  { index: 19, kanji: "府中", romaji: "Fuchū", city: "Shizuoka", note: "Aujourd'hui Shizuoka, ville natale du shōgun retiré Ieyasu." },
   { index: 20, kanji: "鞠子", romaji: "Mariko", note: "Réputée pour sa soupe d'igname (tororo-jiru) servie aux voyageurs." },
   { index: 21, kanji: "岡部", romaji: "Okabe" },
   { index: 22, kanji: "藤枝", romaji: "Fujieda" },
@@ -55,7 +58,7 @@ export const TOKAIDO: TokaidoStation[] = [
   { index: 38, kanji: "岡崎", romaji: "Okazaki", note: "Ville natale de Tokugawa Ieyasu, et son grand pont de bois." },
   { index: 39, kanji: "池鯉鮒", romaji: "Chiryū", note: "Son nom s'écrivait « étang aux carpes » — marché aux chevaux réputé." },
   { index: 40, kanji: "鳴海", romaji: "Narumi", note: "Réputée pour ses tissus shibori (teinture à réserves nouées)." },
-  { index: 41, kanji: "宮", romaji: "Miya", note: "Devant le grand sanctuaire d'Atsuta ; de là, sept lieues de mer jusqu'à Kuwana." },
+  { index: 41, kanji: "宮", romaji: "Miya", city: "Nagoya", note: "Devant le grand sanctuaire d'Atsuta ; de là, sept lieues de mer jusqu'à Kuwana." },
   { index: 42, kanji: "桑名", romaji: "Kuwana", note: "On y arrivait par bateau — la seule traversée maritime de la route." },
   { index: 43, kanji: "四日市", romaji: "Yokkaichi" },
   { index: 44, kanji: "石薬師", romaji: "Ishiyakushi" },
@@ -68,5 +71,5 @@ export const TOKAIDO: TokaidoStation[] = [
   { index: 51, kanji: "石部", romaji: "Ishibe" },
   { index: 52, kanji: "草津", romaji: "Kusatsu", note: "Jonction avec la route du Nakasendō — la foule des deux routes s'y mêle." },
   { index: 53, kanji: "大津", romaji: "Ōtsu", note: "Dernière étape, au bord du lac Biwa. Kyōto est en vue." },
-  { index: 54, kanji: "三条大橋", romaji: "Sanjō Ōhashi", note: "Le grand pont de Sanjō, à Kyōto : terme du Tōkaidō. Tu as fait la route entière." },
+  { index: 54, kanji: "三条大橋", romaji: "Sanjō Ōhashi", city: "Kyōto", note: "Le grand pont de Sanjō, à Kyōto : terme du Tōkaidō. Tu as fait la route entière." },
 ];

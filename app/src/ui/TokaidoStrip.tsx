@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { TokaidoPosition } from "../lib/tokaido";
 import { SectionLabel } from "./kit/SectionLabel";
 
@@ -9,10 +16,15 @@ interface Props {
 
 /** Espacement horizontal entre deux stations (px) — fixe, la bande défile. */
 const STEP = 48;
-const LINE_Y = 34; // ordonnée de la voie dans la zone dessinée (px)
-const STRIP_H = 96; // voie + poteaux kanji verticaux
-/** Marge de voie AVANT la 1re station : le train (~134 px) et sa traînée tiennent à l'étape 0. */
-const LEAD = 140;
+/** Hauteur de la bande décor. Seul le CIEL profite de cette hauteur (agrandi vers le haut) ;
+    montagnes et arbres gardent leurs 32 px, ancrés en bas (voir masks + global.css). */
+const BAND = 48;
+/** Décor « historique » de base : montagnes/arbres tuilés sur 32 px. */
+const BASE_BAND = 32;
+const LINE_Y = BAND + 2; // ordonnée de la voie, juste sous la bande décor (px)
+const STRIP_H = 96 + (BAND - BASE_BAND); // voie + poteaux kanji verticaux, décalés vers le bas
+/** Marge de voie AVANT la 1re station : le train (~168 px) et sa traînée tiennent à l'étape 0. */
+const LEAD = 180;
 /** Longueur de la tuile de montagnes (px). Grande période → la répétition ne se lit plus ;
     le ridge est généré une fois puis bouclé (deux copies) par translation de cette valeur. */
 const MTN_TILE = 960;
@@ -32,7 +44,7 @@ function mulberry32(a: number): () => number {
     d'octaves sinusoïdales (fréquences entières = wrap parfait) + quelques pics gaussiens dont
     un large « Fuji ». L'influence des pics est repliée aux bords (±MTN_TILE) pour rester
     périodique. Pas d'aléa non déterministe : le seed est fixe. */
-function genRidge(seed: number): string {
+function genRidge(seed: number, yOff = 0): string {
   const rand = mulberry32(seed);
   const base = 24;
   const amps = [3.5, 2.2, 1.4, 0.9, 0.5];
@@ -51,14 +63,23 @@ function genRidge(seed: number): string {
     return Math.max(2, y);
   };
   const seg: string[] = [];
-  for (let x = 0; x <= MTN_TILE; x += 6) seg.push(`${x},${yAt(x).toFixed(1)}`);
+  for (let x = 0; x <= MTN_TILE; x += 6) seg.push(`${x},${(yAt(x) + yOff).toFixed(1)}`);
   return `M${seg.join(" L")}`;
 }
 
 /** Emballe un `d` SVG en data-URI de mask (fill noir = zone visible). */
-function maskUri(d: string): string {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${MTN_TILE}' height='32'><path d='${d}' fill='black'/></svg>`;
+function maskUri(d: string, h = BASE_BAND): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${MTN_TILE}' height='${h}'><path d='${d}' fill='black'/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/** Silhouette de pagode à trois toits (jalon « ville ») — remplie via currentColor. */
+function CityGlyph() {
+  return (
+    <svg width="28" height="24" viewBox="0 0 28 24" fill="currentColor" aria-hidden="true">
+      <path d="M13.4 0 h1.2 v3 h-1.2 Z M9 6 Q14 3 19 6 Z M12 6 h4 v3 h-4 Z M7 12 Q14 8 21 12 Z M11 12 h6 v3 h-6 Z M5 18 Q14 13 23 18 Z M9 18 h10 v6 h-10 Z" />
+    </svg>
+  );
 }
 
 /**
@@ -70,23 +91,35 @@ function maskUri(d: string): string {
  */
 export function TokaidoStrip({ pos, onOpen }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  const decor = useRef<HTMLDivElement>(null);
   const { route } = pos;
   const stations = route.stations;
   const span = stations.length - 1;
   const arrived = !pos.next;
   const trainX = LEAD + pos.position * STEP + STEP / 2;
   const innerW = LEAD + span * STEP + STEP;
-  const startX = LEAD + STEP / 2; // x de la 1re station (Nihonbashi) — origine du parcouru
+  // Villes majeures (jalons) : calées sur la position de leur station le long de la bande.
+  const cities = useMemo(
+    () =>
+      stations
+        .filter((s) => s.city)
+        .map((s) => ({ index: s.index, x: LEAD + s.index * STEP + STEP / 2 })),
+    [stations],
+  );
   // Ridge procédural monté en MASK (même mécanisme que les arbres : mask-position animé,
   // fiable dans la durée), tuilé sur MTN_TILE — période assez grande pour masquer la répétition.
   // Deux masks issus de la MÊME crête : montagnes (rempli sous la crête) et ciel (rempli
   // AU-DESSUS de la crête). Le ciel étant clippé à la crête et défilant en phase avec les
   // montagnes, l'astre disparaît réellement DERRIÈRE les pics à l'horizon.
   const { mountainMask, skyMask } = useMemo(() => {
-    const ridge = genRidge(20240707);
+    // Même crête ; pour le ciel (boîte BAND), on la descend de (BAND-32) → elle rejoint
+    // exactement le sommet des montagnes (boîte 32, ancrée en bas). L'astre disparaît pile
+    // derrière les pics.
+    const ridgeM = genRidge(20240707);
+    const ridgeS = genRidge(20240707, BAND - BASE_BAND);
     return {
-      mountainMask: maskUri(`${ridge} L${MTN_TILE},32 L0,32 Z`),
-      skyMask: maskUri(`${ridge} L${MTN_TILE},0 L0,0 Z`),
+      mountainMask: maskUri(`${ridgeM} L${MTN_TILE},${BASE_BAND} L0,${BASE_BAND} Z`),
+      skyMask: maskUri(`${ridgeS} L${MTN_TILE},0 L0,0 Z`, BAND),
     };
   }, []);
   // Astre positionné selon l'heure locale : le soleil arque de l'aube (6 h) au couchant (18 h),
@@ -105,13 +138,15 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
     const phase = (((days % synodic) / synodic) + 1) % 1;
     const lit = (1 - Math.cos(2 * Math.PI * phase)) / 2;
     const moonOff = `${((phase < 0.5 ? -1 : 1) * lit * 11).toFixed(1)}px`;
-    return { day, x: 8 + f * 84, top: 23 - Math.sin(f * Math.PI) * 12, moonOff };
+    // Arc de l'astre dans le ciel agrandi : haut à midi/minuit, bas vers l'horizon (crête).
+    return { day, x: 8 + f * 84, top: BAND - 14 - Math.sin(f * Math.PI) * (BAND - 24), moonOff };
   }, []);
   const stars = useMemo(() => {
     const rand = mulberry32(8531);
     return Array.from({ length: 16 }, () => ({
       x: 4 + rand() * 92,
-      y: 2 + rand() * 15,
+      // Réparties au-dessus de la crête, sur toute la hauteur de ciel disponible.
+      y: 2 + rand() * (BAND - BASE_BAND),
       size: `${(0.8 + rand() * 0.9).toFixed(2)}px`,
       // Durée ET décalage (négatif → démarrage en plein cycle) aléatoires : périodes distinctes
       // → jamais toutes synchrones.
@@ -120,11 +155,79 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
     }));
   }, []);
 
+  // Publie le scroll de la bande vers le décor (--sx) → parallaxe des plans (voir global.css).
+  const syncParallax = () => {
+    if (scroller.current && decor.current)
+      decor.current.style.setProperty("--sx", `${scroller.current.scrollLeft}px`);
+  };
+
   // Centre la fenêtre sur le train (sans animation : c'est l'état, pas un mouvement).
   useEffect(() => {
     const el = scroller.current;
     if (el) el.scrollLeft = trainX - el.clientWidth / 2;
+    syncParallax();
   }, [trainX]);
+
+  // La bande est scrollable ET ouvre le voyage au tap. Un swipe/drag pour faire défiler se
+  // termine sinon par un click → on n'ouvre que si le pointeur n'a quasi pas bougé (vrai tap).
+  const pointerFrom = useRef<{ x: number; y: number } | null>(null);
+  // Drag-to-pan à la souris : le tactile garde le défilement natif (overflow, inertie native),
+  // on n'intercepte qu'au pointeur souris pour saisir-glisser la bande. startX + scrollLeft
+  // figés à l'appui ; on suit la vitesse (px/ms) pour prolonger le défilement au relâché.
+  const drag = useRef<{ x: number; scroll: number; lastX: number; lastT: number; v: number } | null>(
+    null,
+  );
+  const fling = useRef<number | null>(null);
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    pointerFrom.current = { x: e.clientX, y: e.clientY };
+    if (e.pointerType !== "mouse" || !scroller.current) return;
+    if (fling.current !== null) cancelAnimationFrame(fling.current); // saisir = stopper l'inertie
+    drag.current = { x: e.clientX, scroll: scroller.current.scrollLeft, lastX: e.clientX, lastT: performance.now(), v: 0 };
+    try {
+      scroller.current.setPointerCapture(e.pointerId);
+    } catch {
+      // pointeur déjà relâché (edge navigateur) : le drag marche sans capture.
+    }
+  };
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || !scroller.current) return;
+    scroller.current.scrollLeft = d.scroll - (e.clientX - d.x);
+    const now = performance.now();
+    const dt = now - d.lastT;
+    if (dt > 0) d.v = (e.clientX - d.lastX) / dt;
+    d.lastX = e.clientX;
+    d.lastT = now;
+  };
+  // Relâché : prolonge le défilement à la vitesse acquise, amortie à chaque frame (friction),
+  // jusqu'à l'arrêt ou une butée. La bande défile à l'inverse du pointeur → vitesse scroll = -v.
+  const endDrag = () => {
+    const el = scroller.current;
+    const d = drag.current;
+    drag.current = null;
+    if (!el || !d || Math.abs(d.v) < 0.05) return;
+    let vs = -d.v;
+    let prev = performance.now();
+    const step = (t: number) => {
+      const dt = t - prev;
+      prev = t;
+      el.scrollLeft += vs * dt;
+      vs *= Math.pow(0.95, dt / 16);
+      const max = el.scrollWidth - el.clientWidth;
+      if (el.scrollLeft <= 0 || el.scrollLeft >= max || Math.abs(vs) < 0.02) {
+        fling.current = null;
+        return;
+      }
+      fling.current = requestAnimationFrame(step);
+    };
+    fling.current = requestAnimationFrame(step);
+  };
+  useEffect(() => () => void (fling.current !== null && cancelAnimationFrame(fling.current)), []);
+  const openIfTap = (e: ReactMouseEvent) => {
+    const from = pointerFrom.current;
+    if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > 8) return;
+    onOpen();
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -147,9 +250,9 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
           )}
         </span>
       </button>
-      <div className="relative overflow-hidden">
+      <div className={`decor-scene relative overflow-hidden ${sky.day ? "" : "is-night"}`} ref={decor}>
         <div
-          className="decor-layer decor-sky"
+          className={`decor-layer decor-sky ${sky.day ? "" : "is-night"}`}
           aria-hidden="true"
           style={{ WebkitMaskImage: skyMask, maskImage: skyMask }}
         >
@@ -178,12 +281,24 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
           aria-hidden="true"
           style={{ WebkitMaskImage: mountainMask, maskImage: mountainMask }}
         />
+        <div className="decor-layer decor-cities" aria-hidden="true">
+          {cities.map((c) => (
+            <span key={c.index} className="decor-city" style={{ left: `calc(${c.x}px - var(--sx, 0px))` }}>
+              <CityGlyph />
+            </span>
+          ))}
+        </div>
         <div className="decor-layer decor-trees-far" aria-hidden="true" />
         <div className="decor-layer decor-trees" aria-hidden="true" />
         <div
           ref={scroller}
-          className="relative cursor-pointer overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          onClick={onOpen}
+          className="relative cursor-grab touch-pan-x select-none overflow-x-auto [scrollbar-width:none] active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onScroll={syncParallax}
+          onClick={openIfTap}
           aria-hidden="true"
         >
           <div className="relative" style={{ width: innerW, height: STRIP_H }}>
@@ -195,7 +310,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             aria-hidden="true"
           >
             {/* Voie ferrée : traverses (ligne épaisse en pointillés verticaux) sous deux
-                rails parallèles. Le chemin parcouru repasse les rails à l'encre. */}
+                rails parallèles. */}
             <line
               className="rail-sleepers"
               x1={0}
@@ -208,8 +323,6 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             />
             <line x1={0} y1={LINE_Y - 2} x2={innerW} y2={LINE_Y - 2} stroke="var(--hairline)" strokeWidth={1} />
             <line x1={0} y1={LINE_Y + 2} x2={innerW} y2={LINE_Y + 2} stroke="var(--hairline)" strokeWidth={1} />
-            <line x1={startX} y1={LINE_Y - 2} x2={trainX} y2={LINE_Y - 2} stroke="var(--ink)" strokeWidth={1.2} />
-            <line x1={startX} y1={LINE_Y + 2} x2={trainX} y2={LINE_Y + 2} stroke="var(--ink)" strokeWidth={1.2} />
             {/* Poteaux de station (passées = ink, à venir = hairline). */}
             {stations.map((s) => (
               <line
@@ -225,7 +338,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
             {/* Lignes de vitesse (集中線) : traînée à l'encre derrière le train, à hauteur de
                 caisse. Deux plans — proche (net, rapide) et lointain (pâle, lent) — pour
                 l'effet de profondeur. Défilent vers l'arrière quand le train « roule ». */}
-            <g transform={`translate(${trainX - 145}, ${LINE_Y - 7})`} aria-hidden="true">
+            <g transform={`translate(${trainX - 176.5}, ${LINE_Y - 7})`} aria-hidden="true">
               {[
                 { y: -2, len: 11, stroke: "var(--ink)", dur: "0.8s", delay: "0s" },
                 { y: 2, len: 9, stroke: "var(--ink)", dur: "0.9s", delay: "0.25s" },
@@ -246,11 +359,11 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
                 />
               ))}
             </g>
-            {/* Le train, rame shinkansen : motrice de queue (nez à gauche) + deux voitures +
+            {/* Le train, rame shinkansen : motrice de queue (nez à gauche) + trois voitures +
                 motrice de tête (nez à droite, EXACTEMENT sur l'avancement). Toutes attelées.
                 Roues dessinées d'abord : les caisses passent par-dessus (roues à demi cachées,
                 comme il se doit). La caisse tangue sans déplacer le nez (train-chug). */}
-            <g transform={`translate(${trainX - 134}, ${LINE_Y - 15.5})`}>
+            <g transform={`translate(${trainX - 165.5}, ${LINE_Y - 15.5})`}>
               <g className="train-chug">
               {/* Motrice de queue : même caisse que la tête, retournée (nez vers l'arrière). */}
               <g transform="translate(37, 0) scale(-1, 1)">
@@ -275,7 +388,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
               </g>
               {/* Attelage motrice de queue → 1re voiture (rame resserrée, façon shinkansen). */}
               <line x1={35} y1={11} x2={36.5} y2={11} stroke="var(--ink)" strokeWidth={1.5} />
-              {[36.5, 68].map((x) => (
+              {[36.5, 68, 99.5].map((x) => (
                 <g key={x} transform={`translate(${x}, 0)`}>
                   <circle cx={7} cy={15.5} r={2} fill="var(--ink)" />
                   <circle cx={23} cy={15.5} r={2} fill="var(--ink)" />
@@ -291,7 +404,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
               ))}
               {/* Motrice de tête : caisse longue, nez profilé (deux cubiques), vitre de cabine
                   effilée dans la pente, bandeau de fenêtres continu sur le flanc. */}
-              <g transform="translate(97.5, 0)">
+              <g transform="translate(129, 0)">
                 <circle cx={8} cy={15.5} r={2} fill="var(--ink)" />
                 <circle cx={28} cy={15.5} r={2} fill="var(--ink)" />
                 {/* Caisse descendue d'1px sur les roues, pointe à grand rayon. */}
