@@ -29,6 +29,7 @@ import {
 import { synthesizeText } from "./ttsClient";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
 import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
+import { normalizeReading } from "./kana";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
 import { leechIds as leechIdsFromReviews } from "./stats";
@@ -46,6 +47,14 @@ async function leechIds(): Promise<Set<string>> {
   return leechIdsFromReviews(await db.getAll("reviews"));
 }
 
+/**
+ * Item testable en saisie : un sens FR exploitable, ou une graphie ≠ lecture. Sinon
+ * (mot kana sans sens) le front de l'exercice EST la réponse — recopie sans intérêt.
+ */
+export function isTrainableVocab(v: VocabItem): boolean {
+  return (!!v.meaning && v.meaning !== "—") || normalizeReading(v.surface) !== normalizeReading(v.reading);
+}
+
 export interface SessionStats {
   dueCount: number;
   newCount: number;
@@ -60,11 +69,14 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
   let dueCount = 0;
   let newCount = 0;
   for (const v of vocab) {
+    if (!isTrainableVocab(v)) continue;
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
     else newCount++;
     // Compétences écoute et production : cartes dédiées, planifiées indépendamment.
-    if (v.cards.oral && isDue(v.cards.oral, horizon)) dueCount++;
+    // Une carte orale n'est servable qu'avec une phrase d'exemple (même filtre que
+    // buildSessionDue) — sinon le backlog affiché surestime la session réelle.
+    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) dueCount++;
     if (v.cards.production && isDue(v.cards.production, horizon)) dueCount++;
   }
   for (const g of grammar) {
@@ -207,6 +219,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
 
   // Collecte items dus (avec carte FSRS)
   for (const v of vocabAll) {
+    if (!isTrainableVocab(v)) continue;
     const c = v.cards.written;
     if (c && isDue(c, horizon)) due.push(vocabTypeExercise(v, c.due.getTime()));
   }
@@ -314,6 +327,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     // Vocab sans carte — objectifs des leçons commencées d'abord, incidents ensuite.
     for (const v of prioritizeNewVocab(vocabAll, started)) {
       if (newCards.length >= toPromote) break;
+      if (!isTrainableVocab(v)) continue;
       const card = newCard(now);
       v.cards.written = card;
       await putVocab(v);
@@ -352,6 +366,7 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
     const v = await getVocab(id);
     if (!v) continue;
     lessonVerbs.push({ surface: v.surface, reading: v.reading, meaning: v.meaning });
+    if (!isTrainableVocab(v)) continue;
     if (!v.cards.written) {
       v.cards.written = newCard(now);
       await putVocab(v);
@@ -371,8 +386,8 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
     out.push(await grammarSessionExercise(g, g.card!.due.getTime(), verbPool));
   }
 
-  // Urgents d'abord, nouveaux à la fin
-  return out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
+  // Urgents d'abord, nouveaux à la fin ; bilan plafonné pour rester digeste.
+  return out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0)).slice(0, SRS.sessionAllCap);
 }
 
 /** Note un exercice d'échauffement et replanifie via FSRS. */

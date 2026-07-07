@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { grammarDetail } from "../lib/inventory";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
@@ -11,7 +11,7 @@ import { useSettings } from "./useSettings";
 import { Markdown } from "./LessonMarkdown";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
-import { IconPlay } from "./kit/Icon";
+import { IconArrowRight, IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 
@@ -23,7 +23,7 @@ interface Props {
 
 export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
   const stories = lesson.stories;
-  const { job, busy, error, start, addStory, regenerateStory, regenerateCourse, progress, label, retry, dismiss } =
+  const { job, busy, error, start, addStory, regenerateCourse, progress, label, retry, dismiss } =
     useLessonGen(lesson);
   const podcast = usePodcastPlayer();
   const podcastBusy = podcast.active && podcast.preparing !== null;
@@ -43,6 +43,20 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
     if (story.lessonId) await markLessonStarted(story.lessonId);
     onOpenStory(story);
   }
+
+  // « Ouvrir → » sur une variante distante : le job télécharge l'histoire depuis le cache
+  // R2, puis on l'ouvre dès qu'elle apparaît dans la leçon (au lieu de laisser l'utilisateur
+  // re-cliquer dans la liste).
+  const [pendingVariant, setPendingVariant] = useState<number | null>(null);
+  useEffect(() => {
+    if (pendingVariant == null) return;
+    const s = stories.find((x) => x.variant === pendingVariant);
+    if (s) {
+      setPendingVariant(null);
+      void read(s);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stories, pendingVariant]);
 
   const headerSlot = useContext(ReaderHeaderSlot);
 
@@ -78,26 +92,12 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 
       <div className="mb-2 flex items-center justify-between">
         <SectionLabel as="h3">Le cours</SectionLabel>
-        {lesson.framing && (
-          <button
-            className="cursor-pointer text-sm text-muted underline disabled:opacity-50"
-            onClick={() => {
-              if (window.confirm("Régénérer le cours de cette leçon ? L'actuel sera remplacé.")) {
-                regenerateCourse();
-              }
-            }}
-            disabled={busy}
-            title="Génère un nouveau cours (l'actuel est conservé si la régénération échoue)"
-          >
-            Régénérer
-          </button>
-        )}
       </div>
         <Cours lesson={lesson} />
 
         {/* En fin de leçon : on vérifie ses acquis après l'avoir parcourue. Les items
             de la leçon entrent en rotation SRS et chaque réponse est replanifiée. */}
-        {onStartReview && (
+        {onStartReview && ready && !busy && (
           <div className="flex justify-center py-2">
             <Button
               onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
@@ -120,7 +120,15 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
                 {stories.map((s, i) => (
                   <li key={s.id}>
                     {i > 0 && <hr className="my-2 border-hairline" />}
-                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="flex cursor-pointer items-center gap-3"
+                      onClick={() => void read(s)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void read(s);
+                      }}
+                    >
                       <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-2">
                         <span className="min-w-0">
                           <span className="font-jp text-sm text-text">{s.title}</span>
@@ -128,26 +136,8 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
                         </span>
                         <ReadabilityBadge text={s.text} />
                       </span>
-                      <span className="flex shrink-0 items-center gap-1">
-                        <button
-                          className="cursor-pointer text-sm text-muted underline disabled:opacity-50"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Régénérer cette histoire ? La version actuelle sera remplacée par une nouvelle.",
-                              )
-                            ) {
-                              regenerateStory(s);
-                            }
-                          }}
-                          disabled={busy}
-                          title="Remplace cette histoire par une nouvelle génération (en cas de mauvaise génération)"
-                        >
-                          Régénérer
-                        </button>
-                        <Button variant="ghost" onClick={() => void read(s)}>
-                          Lire →
-                        </Button>
+                      <span className="shrink-0 text-muted">
+                        <IconArrowRight size={16} />
                       </span>
                     </div>
                   </li>
@@ -157,7 +147,14 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
                     {(stories.length > 0 || i > 0) && <hr className="my-2 border-hairline" />}
                     <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <span className="flex-1 text-sm italic text-muted">Histoire {v} (disponible)</span>
-                      <Button variant="ghost" onClick={() => void addStory(v)} disabled={busy}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setPendingVariant(v);
+                          void addStory(v);
+                        }}
+                        disabled={busy}
+                      >
                         {busy ? "Chargement…" : "Ouvrir →"}
                       </Button>
                     </div>
@@ -188,6 +185,24 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
             </button>
             <button className="cursor-pointer text-muted underline" onClick={() => void dismiss()}>
               Ignorer
+            </button>
+          </p>
+        )}
+
+        {ready && lesson.framing && (
+          <p className="pt-2 text-center text-xs text-muted">
+            La leçon contient des erreurs ?{" "}
+            <button
+              className="cursor-pointer underline disabled:opacity-50"
+              disabled={busy}
+              onClick={() => {
+                if (window.confirm("Régénérer le cours de cette leçon ? L'actuel sera remplacé.")) {
+                  regenerateCourse();
+                }
+              }}
+              title="Génère un nouveau cours (l'actuel est conservé si la régénération échoue)"
+            >
+              Cliquez ici pour la régénérer.
             </button>
           </p>
         )}

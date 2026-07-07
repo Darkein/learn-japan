@@ -36,9 +36,11 @@ export function ExerciseCard({
   onRomajiChange,
 }: Props) {
   const [listened, setListened] = useState(false);
-  // Échappatoire des exercices à l'aveugle : révèle la phrase (audio cassé, hors-ligne
-  // sans cache…) — l'exercice reste faisable, jamais de cul-de-sac.
+  // Échappatoire des exercices d'écoute : révèle la phrase (audio cassé, hors-ligne
+  // sans cache…) — l'exercice reste faisable, jamais de cul-de-sac. Couvre l'aveugle
+  // (audioOnly) et les fronts masqués (◯◯) dont la phrase complète est dans `context`.
   const [textRevealed, setTextRevealed] = useState(false);
+  const canReveal = !!ex.context && (!!ex.audioOnly || ex.context !== ex.front);
 
   // Carte suivante / démontage : coupe la synthèse vocale en cours (sinon l'utterance
   // orpheline peut laisser le focus audio OS actif et le ducking du volume système
@@ -60,16 +62,23 @@ export function ExerciseCard({
           {ex.audioOnly ? (
             <div className="text-lg text-muted">🔊 Écoute la phrase…</div>
           ) : (
-            <JpFront
-              text={ex.front}
-              underline={ex.mode === "type" ? ex.underline : undefined}
-              className="font-jp text-3xl"
-            />
+            <JpFront text={ex.front} className="font-jp text-3xl" />
           )}
           <Button variant="primary" onClick={handleListen}>
             <IconPlay size={16} />
             Écouter
           </Button>
+          {canReveal && (
+            <button
+              className="cursor-pointer text-xs text-muted underline"
+              onClick={() => {
+                setTextRevealed(true);
+                setListened(true);
+              }}
+            >
+              Je ne peux pas écouter — afficher le texte
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -79,16 +88,14 @@ export function ExerciseCard({
                 <IconPlay size={14} />
                 Réécouter
               </Button>
-              {ex.audioOnly && !textRevealed && ex.context && (
+              {canReveal && !textRevealed && (
                 <Button variant="ghost" onClick={() => setTextRevealed(true)}>
                   Afficher le texte
                 </Button>
               )}
             </div>
           )}
-          {ex.audioOnly && textRevealed && ex.context && (
-            <div className="font-jp text-xl">{ex.context}</div>
-          )}
+          {canReveal && textRevealed && <div className="font-jp text-xl">{ex.context}</div>}
           {ex.mode === "choice" ? (
             <ChoiceInput exercise={ex} onGraded={onGraded} onNext={onNext} />
           ) : ex.mode === "build" ? (

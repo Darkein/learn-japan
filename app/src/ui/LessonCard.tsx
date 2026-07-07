@@ -5,7 +5,7 @@ import { SRS } from "../lib/config";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
 import { Badge } from "./kit/Badge";
-import { IconLock } from "./kit/Icon";
+import { IconArrowRight, IconLock } from "./kit/Icon";
 import { ProgressBar } from "./kit/ProgressBar";
 
 interface Props {
@@ -115,6 +115,12 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
         ) : lesson.mastery > 0 ? (
           <ProgressBar value={Math.round(lesson.mastery * 100)} />
         ) : null}
+
+        {!lesson.locked && (
+          <span className="self-end text-muted transition-colors group-hover:text-accent">
+            <IconArrowRight size={16} />
+          </span>
+        )}
       </button>
 
       {lesson.locked && (

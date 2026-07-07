@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import { recordEncounters, type ReEncounter } from "../lib/encounters";
-import type { ItemStatus, StoryRecord } from "../lib/db";
+import { getStory, type ItemStatus, type StoryRecord } from "../lib/db";
+import { getLesson } from "../lib/lessons";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
 import { getCurriculumEntry, type LessonObjectives } from "../lib/curriculum";
@@ -17,6 +18,8 @@ import { Ruby } from "./Ruby";
 import { StoryIllustration } from "./StoryIllustration";
 import { useSettings } from "./useSettings";
 import { StoryTranslation } from "./StoryTranslation";
+import { useGenJobs } from "./useGenJobs";
+import { navigate } from "./useHashRoute";
 import { WordSheet } from "./WordSheet";
 
 export interface LessonContext {
@@ -88,6 +91,18 @@ export function Reader({ incoming }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const lessonCtx = incoming.lessonContext ?? null;
+  const { regenerateStory } = useGenJobs();
+
+  // Régénération depuis la page histoire : l'histoire est supprimée puis regénérée en
+  // arrière-plan → retour à la leçon (qui affiche la progression et notifie à la fin).
+  async function regenerate() {
+    if (!incoming.id || !lessonCtx?.lessonId) return;
+    if (!window.confirm("Régénérer cette histoire ? La version actuelle sera remplacée par une nouvelle.")) return;
+    const [lesson, story] = await Promise.all([getLesson(lessonCtx.lessonId), getStory(incoming.id)]);
+    if (!lesson || !story) return;
+    regenerateStory(lesson, story);
+    navigate(`/cours/${encodeURIComponent(lesson.id)}`);
+  }
 
   // Lecture audio de l'article : phrases dérivées des tokens (réf. stable tant que
   // l'analyse ne change pas → le player se réinitialise à chaque nouvel article).
@@ -261,6 +276,15 @@ export function Reader({ incoming }: Props) {
               text={incoming.text}
               level={incoming.params.level ?? lessonCtx?.level ?? 5}
             />
+          )}
+
+          {incoming.id && lessonCtx?.lessonId && (
+            <p className="mt-8 text-center text-xs text-muted">
+              L'histoire contient des erreurs ?{" "}
+              <button className="cursor-pointer underline" onClick={() => void regenerate()}>
+                Cliquez ici pour la régénérer.
+              </button>
+            </p>
           )}
         </>
       )}

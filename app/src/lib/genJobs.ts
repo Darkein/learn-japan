@@ -176,6 +176,7 @@ export async function startLessonJob(lesson: Lesson): Promise<void> {
     startedAt: now,
     phaseStartedAt: now,
     updatedAt: now,
+    ...(lesson.pregenerated ? { pregenerated: true } : {}),
   };
   jobs.set(lesson.id, job);
   await putGenJob(job);
@@ -198,6 +199,8 @@ export async function addStoryJob(lesson: Lesson, variant?: number): Promise<voi
     startedAt: now,
     phaseStartedAt: now,
     updatedAt: now,
+    // Variante listée côté R2 → simple téléchargement, pas une génération.
+    ...(lesson.remoteStoryVariants.includes(resolved) ? { pregenerated: true } : {}),
   };
   jobs.set(lesson.id, job);
   await putGenJob(job);
@@ -317,8 +320,11 @@ export function jobProgress(job: GenJobRecord, now: number = Date.now()): number
   return Math.min(0.99, base + (1 - base) * grow(TAU_STORY));
 }
 
-/** Libellé d'état lisible pour un job. */
+/** Libellé d'état lisible pour un job. Contenu pré-généré (R2) = téléchargement. */
 export function jobLabel(job: GenJobRecord): string {
-  if (job.status === "error") return "Échec de la génération";
+  if (job.status === "error") return job.pregenerated ? "Échec du téléchargement" : "Échec de la génération";
+  if (job.pregenerated) {
+    return job.phase === "framing" ? "Téléchargement du cours…" : "Téléchargement de l'histoire…";
+  }
   return job.phase === "framing" ? "Génération du cours…" : "Génération de l'histoire…";
 }

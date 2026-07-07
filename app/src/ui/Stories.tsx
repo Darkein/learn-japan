@@ -4,7 +4,9 @@ import { getCurriculum, lessonsForGrammar } from "../lib/curriculum";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
+import { IconArrowRight, IconClose } from "./kit/Icon";
 import { ReadabilityBadge } from "./ReadabilityBadge";
+import { StoryIllustration } from "./StoryIllustration";
 
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
@@ -59,31 +61,54 @@ export function Stories({ onOpen }: Props) {
             return (
               <div
                 key={s.id}
-                className="flex flex-col gap-2 border-t border-hairline py-4 last:border-b"
+                role="button"
+                tabIndex={0}
+                className="flex cursor-pointer items-start gap-3 border-t border-hairline py-4 last:border-b"
+                onClick={() => onOpen(s)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onOpen(s);
+                }}
+                aria-label="Ouvrir l'histoire"
               >
-                <span className="font-jp text-lg">{s.title}</span>
-                <span className="text-sm text-muted">
-                  {new Date(s.createdAt).toLocaleString("fr-FR")}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <ReadabilityBadge text={s.text} />
-                  {lesson && (
-                    <Badge variant="accent">
-                      Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
-                    </Badge>
-                  )}
-                  {derivedLessons.map((l) => (
-                    <Badge key={l.id} variant="accent">
-                      Leçon {l.order.toString().padStart(2, "0")} — {l.title}
-                    </Badge>
-                  ))}
-                  {chips(s.params).map((c) => (
-                    <Badge key={c}>{c}</Badge>
-                  ))}
+                <StoryIllustration storyId={s.id} thumb />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <span className="font-jp text-lg">{s.title}</span>
+                  <span className="text-sm text-muted">
+                    {new Date(s.createdAt).toLocaleString("fr-FR")}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <ReadabilityBadge text={s.text} />
+                    {lesson && (
+                      <Badge variant="accent">
+                        Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
+                      </Badge>
+                    )}
+                    {derivedLessons.map((l) => (
+                      <Badge key={l.id} variant="accent">
+                        Leçon {l.order.toString().padStart(2, "0")} — {l.title}
+                      </Badge>
+                    ))}
+                    {chips(s.params).map((c) => (
+                      <Badge key={c}>{c}</Badge>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-1 flex flex-wrap gap-3">
-                  <Button onClick={() => onOpen(s)}>Ouvrir</Button>
-                  <Button onClick={() => void remove(s.id)}>Supprimer</Button>
+                <div className="flex shrink-0 flex-col items-end justify-between gap-4 self-stretch">
+                  <Button
+                    variant="quiet"
+                    size="icon"
+                    aria-label="Supprimer l'histoire"
+                    title="Supprimer l'histoire"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm("Supprimer cette histoire ?")) void remove(s.id);
+                    }}
+                  >
+                    <IconClose size={16} />
+                  </Button>
+                  <span className="text-muted">
+                    <IconArrowRight size={16} />
+                  </span>
                 </div>
               </div>
             );

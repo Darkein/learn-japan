@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { annotateTokens, type RubySegment } from "../../lib/furigana";
 import { tokenize, type KuromojiToken } from "../../lib/tokenizer";
-import { speakSentence, stopSentence } from "../../lib/tts";
+import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
 import { Button } from "../kit/Button";
 import { IconSpeaker } from "../kit/Icon";
 import { Ruby } from "../Ruby";
@@ -15,6 +15,27 @@ interface Props {
   fr?: string;
   /** Traduction à la demande (bouton « Traduire ») quand `fr` manque. */
   onTranslate?: () => Promise<string | null>;
+}
+
+/**
+ * Bouton d'écoute de la correction quand l'exercice n'a pas de phrase de contexte
+ * (kanji, mot isolé, point de grammaire) : joue le mot (Web Speech) ou la phrase
+ * (Cloud TTS) fournis via `Exercise.audioBack`.
+ */
+export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: string } }) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => {
+        if (audio.sentence) void speakSentence(audio.sentence);
+        else if (audio.word) speakWord(audio.word);
+      }}
+      aria-label="Écouter"
+    >
+      <IconSpeaker size={16} />
+      Écouter
+    </Button>
+  );
 }
 
 /**

@@ -6,6 +6,7 @@ import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _rese
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
 import { gradeCard, buildSession, pickOralVariant } from "./reviewSession";
+import { getCurriculumEntry } from "./curriculum";
 import type { KuromojiToken } from "./tokenizer";
 
 // Corpus d'exemples statique neutralisé : ces tests raisonnent sur les seuls items
@@ -209,6 +210,32 @@ describe("buildSession", () => {
   it("scope:all sans lessonId → []", async () => {
     const result = await buildSession(NOW, { scope: "all" });
     expect(result).toEqual([]);
+  });
+
+  it("scope:all : bilan plafonné à sessionAllCap", async () => {
+    const lessonId = "n5-29-seasons"; // 14 mots dans le curriculum
+    const entry = getCurriculumEntry(lessonId)!;
+    expect(entry.introduces.vocab.length).toBeGreaterThan(SRS.sessionAllCap);
+    for (const id of entry.introduces.vocab) {
+      const [surface, reading] = id.split("|");
+      await putVocab({ id, surface, reading, meaning: "test", tags: [], status: "unknown", cards: {} });
+    }
+    const result = await buildSession(NOW, { scope: "all", lessonId });
+    expect(result.length).toBe(SRS.sessionAllCap);
+  });
+
+  it("scope:due : un mot kana sans sens (front = réponse) n'est pas servi", async () => {
+    await putVocab({
+      id: "ねこ|ねこ",
+      surface: "ねこ",
+      reading: "ねこ",
+      meaning: "—",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")) },
+    });
+    const result = await buildSession(NOW, { scope: "due" });
+    expect(result.find((c) => c.id === "ねこ|ねこ")).toBeUndefined();
   });
 });
 

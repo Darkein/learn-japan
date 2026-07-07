@@ -204,6 +204,8 @@ export interface GenJobRecord {
   refresh?: boolean;
   /** Régénère UNIQUEMENT le cours (framing) sans toucher aux histoires. */
   framingOnly?: boolean;
+  /** Contenu déjà présent dans le cache R2 : téléchargement, pas génération (libellés UI). */
+  pregenerated?: boolean;
 }
 
 interface LearnDB extends DBSchema {

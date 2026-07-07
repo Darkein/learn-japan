@@ -161,3 +161,12 @@ export function IconArrowLeft(props: IconProps) {
     </Svg>
   );
 }
+
+export function IconArrowRight(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 12h14" />
+      <path d="M13 6l6 6-6 6" />
+    </Svg>
+  );
+}

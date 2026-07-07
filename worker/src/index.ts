@@ -368,7 +368,10 @@ export default {
 
     // POST /generate → { text, cached } (synchrone, avec cache R2)
     if (req.method === "POST" && url.pathname === "/generate") {
-      const body = (await req.json().catch(() => ({}))) as GenerateRequest & { refresh?: boolean };
+      const body = (await req.json().catch(() => ({}))) as GenerateRequest & {
+        refresh?: boolean;
+        backfillImage?: boolean;
+      };
       // Composition + validation des entrées AVANT l'appel modèle : un `kind` inconnu
       // ou une requête malformée est un 400 (faute du client), pas un 502 (panne amont).
       let prompt: string;
@@ -401,8 +404,27 @@ export default {
       const isStory = body.kind === "story" || body.kind === "lesson-story" || body.kind === undefined;
 
       if (!refresh) {
-        const hit = await cacheGet<{ text: string; image?: string; mime?: string }>(env.GEN_CACHE, key);
+        const hit = await cacheGet<{ text: string; image?: string; mime?: string; createdAt?: number }>(
+          env.GEN_CACHE,
+          key,
+        );
         if (hit?.text) {
+          // Backfill : les histoires cachées avant la fonctionnalité d'illustration n'ont
+          // pas d'image — on la génère et on réécrit l'objet de cache. UNIQUEMENT sur
+          // demande explicite du client (`backfillImage`) : les modèles image sont hors
+          // free tier (quota 0 → 429), on ne ralentit pas chaque hit avec des retries.
+          if (isStory && !hit.image && body.backfillImage === true && hasAnyKey(env)) {
+            try {
+              const img = await generateImage(env, buildStoryIllustrationPrompt(hit.text, undefined, body.level));
+              if (img) {
+                hit.image = img.data;
+                hit.mime = img.mime;
+                await cachePut(env.GEN_CACHE, key, hit);
+              }
+            } catch {
+              // best-effort : l'histoire est servie sans image
+            }
+          }
           return json({ text: hit.text, cached: true, ...(hit.image ? { image: hit.image, mime: hit.mime } : {}) });
         }
       }

@@ -64,6 +64,10 @@ function openStoryById(id: string): void {
   navigate(`/lecture/${encodeURIComponent(id)}?from=${encodeURIComponent(currentLocation())}`);
 }
 
+function openCourseById(id: string): void {
+  navigate(`/cours/${encodeURIComponent(id)}?from=${encodeURIComponent(currentLocation())}`);
+}
+
 export function GenJobsProvider({ children }: { children: ReactNode }) {
   const { notify } = useNotify();
   const notifyRef = useRef(notify);
@@ -80,9 +84,14 @@ export function GenJobsProvider({ children }: { children: ReactNode }) {
       onDataChange: () => setDataVersion((d) => d + 1),
       onDone: (e) => {
         if (e.fromCache) return;
+        // Leçon complète → on ouvre la LEÇON (le cours) ; histoire seule → la lecture.
         notifyRef.current({
           message: e.withFraming ? `Leçon « ${e.title} » prête.` : "Nouvelle histoire prête.",
-          action: e.story ? { label: "Lire →", onClick: () => openStoryById(e.story!.id) } : undefined,
+          action: e.withFraming
+            ? { label: "Ouvrir →", onClick: () => openCourseById(e.lessonId) }
+            : e.story
+              ? { label: "Lire →", onClick: () => openStoryById(e.story!.id) }
+              : undefined,
         });
       },
     });

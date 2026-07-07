@@ -46,6 +46,8 @@ interface ExerciseBase {
   contextFr?: string;
   /** Lecture audio à faire avant de répondre : phrase (Cloud TTS + cache) ou mot (Web Speech). */
   audio?: { word?: string; sentence?: string };
+  /** Écoute proposée APRÈS la réponse (correction) quand il n'y a pas de phrase de contexte. */
+  audioBack?: { word?: string; sentence?: string };
   /** Exercice à l'aveugle : la face avant ne montre PAS le texte entendu (QCM de sens,
    *  dictée) — bouton « Réécouter » et échappatoire « Afficher le texte » dans la carte. */
   audioOnly?: boolean;
@@ -67,8 +69,6 @@ export interface TypeExercise extends ExerciseBase {
   answers: string[];
   /** Consigne courte affichée au-dessus du champ. */
   prompt?: string;
-  /** Fragment de `front` à souligner (mot cible d'une écoute en contexte). */
-  underline?: string;
 }
 
 export interface ChoiceExercise extends ExerciseBase {

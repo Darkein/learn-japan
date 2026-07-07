@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react";
 import { getStoryImage } from "../lib/db";
+import { backfillStoryImage } from "../lib/lessons";
 
 interface Props {
   /** Id de l'histoire en base. Absent (lecture non enregistrée) → pas d'illustration. */
   storyId?: string;
+  /** Miniature (cartes de listes) : petite vignette, jamais de backfill réseau. */
+  thumb?: boolean;
 }
+
+/** Ids dont le backfill a déjà été tenté cette session — une seule requête par histoire. */
+const backfillTried = new Set<string>();
 
 /**
  * Illustration ukiyo-e d'une histoire, générée avec le texte côté Worker et cachée
- * localement (store `storyImages`). Purement décoratif : on se contente de LIRE le cache —
- * aucune génération ici. Si l'histoire n'a pas (encore) d'image, on n'affiche rien.
+ * localement (store `storyImages`). Purement décoratif. Si l'histoire n'a pas d'image
+ * (générée avant la fonctionnalité d'illustration), on tente une fois de la rapatrier
+ * depuis le cache Worker (`backfillStoryImage`) ; sinon on n'affiche rien.
  */
-export function StoryIllustration({ storyId }: Props) {
+export function StoryIllustration({ storyId, thumb }: Props) {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,11 +26,18 @@ export function StoryIllustration({ storyId }: Props) {
     let cancelled = false;
     setUrl(null);
     if (storyId) {
-      getStoryImage(storyId)
-        .then((blob) => {
-          if (cancelled || !blob) return;
-          objectUrl = URL.createObjectURL(blob);
-          setUrl(objectUrl);
+      const id = storyId;
+      const show = (blob: Blob | null) => {
+        if (cancelled || !blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      };
+      getStoryImage(id)
+        .then(async (blob) => {
+          if (blob || cancelled) return show(blob);
+          if (thumb || backfillTried.has(id) || !navigator.onLine) return;
+          backfillTried.add(id);
+          show(await backfillStoryImage(id));
         })
         .catch(() => {});
     }
@@ -31,7 +45,7 @@ export function StoryIllustration({ storyId }: Props) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [storyId]);
+  }, [storyId, thumb]);
 
   if (!url) return null;
 
@@ -40,7 +54,11 @@ export function StoryIllustration({ storyId }: Props) {
       src={url}
       alt="Illustration de l'histoire"
       loading="lazy"
-      className="w-full max-w-full rounded-md border border-hairline object-cover"
+      className={
+        thumb
+          ? "h-16 w-16 shrink-0 rounded-sm border border-hairline object-cover"
+          : "w-full max-w-full rounded-md border border-hairline object-cover"
+      }
     />
   );
 }

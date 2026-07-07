@@ -3,7 +3,7 @@ import { clozeSentence, translateExampleFr, type ChoiceExercise } from "../../li
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
-import { SentenceFeedback } from "./SentenceFeedback";
+import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
   exercise: ChoiceExercise;
@@ -64,7 +64,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
       </div>
       {picked !== null && (
         <>
-          {ex.cloze && (
+          {ex.cloze ? (
             <SentenceFeedback
               ja={clozeSentence(ex.cloze, ex.choices[ex.answerIndex])}
               fr={ex.contextFr}
@@ -72,6 +72,14 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
                 translateExampleFr(clozeSentence(ex.cloze!, ex.choices[ex.answerIndex]), ex)
               }
             />
+          ) : ex.context ? (
+            <SentenceFeedback
+              ja={ex.context}
+              fr={ex.contextFr}
+              onTranslate={() => translateExampleFr(ex.context!, ex)}
+            />
+          ) : (
+            ex.audioBack && <AudioBackButton audio={ex.audioBack} />
           )}
           {picked === ex.answerIndex ? (
             <>

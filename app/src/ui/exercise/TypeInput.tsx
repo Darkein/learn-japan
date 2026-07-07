@@ -7,7 +7,7 @@ import { isNearMiss } from "../../lib/typo";
 import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
 import { JpFront } from "./JpFront";
-import { SentenceFeedback } from "./SentenceFeedback";
+import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
   exercise: TypeExercise;
@@ -40,7 +40,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
 
   return (
     <>
-      <JpFront text={ex.front} underline={ex.underline} className="font-jp text-3xl" />
+      <JpFront text={ex.front} className="font-jp text-3xl" />
       {result === null ? (
         <>
           {ex.prompt && <span className="text-sm text-muted">{ex.prompt}</span>}
@@ -103,6 +103,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
               onTranslate={() => translateExampleFr(ex.context!, ex)}
             />
           )}
+          {!ex.context && ex.audioBack && <AudioBackButton audio={ex.audioBack} />}
           {result === "correct" ? (
             <GradeButtons onGraded={onGraded} onNext={onNext} />
           ) : result === "almost" ? (

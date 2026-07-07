@@ -6,7 +6,14 @@
 // - à générer : seulement les objectifs sont définis ; l'utilisateur peut lancer la génération.
 // - terminée : marquée lue ; n'empêche pas de la relire.
 
-import { fetchGenerated, generateLesson, generateLessonStory, type GeneratedIndex, type GenState } from "./genClient";
+import {
+  fetchGenerated,
+  generateLesson,
+  generateLessonStory,
+  generateStory,
+  type GeneratedIndex,
+  type GenState,
+} from "./genClient";
 import { saveStory } from "./stories";
 import {
   getCumulativeObjectives,
@@ -19,8 +26,10 @@ import {
   allVocab,
   getGeneratedLesson,
   getLessonProgress,
+  getStory,
   putGeneratedLesson,
   putLessonProgress,
+  putStoryImage,
   storiesForLesson,
   type GeneratedLessonRecord,
   type GrammarItem,
@@ -435,4 +444,31 @@ export async function addLessonStory(
     resolvedVariant,
     image,
   );
+}
+
+/**
+ * Récupère a posteriori l'illustration d'une histoire de leçon qui n'en a pas (histoires
+ * servies depuis le cache R2 avant la fonctionnalité d'illustration). La clé R2 des
+ * histoires de leçon est structurée (lessonId + variant) → l'appel re-touche le même
+ * objet de cache, que le Worker complète d'une image sans regénérer le texte.
+ * Best-effort : null si l'histoire n'est pas rattachée à une leçon ou si rien ne vient.
+ */
+export async function backfillStoryImage(storyId: string): Promise<Blob | null> {
+  const story = await getStory(storyId);
+  // Histoires libres : clé R2 par hash de prompt, non reproductible depuis le record.
+  if (!story?.lessonId || story.variant == null) return null;
+  const lesson = await getLesson(story.lessonId);
+  if (!lesson) return null;
+  const { image } = await generateStory({
+    kind: "lesson-story",
+    lessonId: lesson.id,
+    variant: story.variant,
+    title: lesson.title,
+    level: lesson.level,
+    vocab: lesson.objectives.vocab,
+    grammar: lesson.objectives.grammar,
+    backfillImage: true,
+  });
+  if (image) await putStoryImage(storyId, image);
+  return image ?? null;
 }

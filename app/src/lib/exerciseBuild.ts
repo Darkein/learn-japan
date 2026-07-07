@@ -112,6 +112,7 @@ export async function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): P
       back: `${base}（${reading}）${hint}`,
       prompt: "Écris la lecture en kana (furigana)",
       answers: [reading],
+      audioBack: { word: base },
     });
   }
   return shuffle(out).slice(0, max);
@@ -155,6 +156,7 @@ export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceEx
       back: `${item.surface}（${normalizeReading(item.token.reading ?? "")}）— ${item.meaning}`,
       choices,
       answerIndex,
+      audioBack: { word: item.surface },
     });
   });
   return shuffle(out).slice(0, max);
@@ -163,8 +165,8 @@ export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceEx
 /**
  * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
  * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
- * entendu (exige un exemple). Le mot cible est souligné dans la phrase affichée quand il
- * s'y trouve tel quel.
+ * entendu (exige un exemple). Le mot cible est masqué (◯◯) dans la phrase affichée quand
+ * il s'y trouve tel quel.
  * `listen` + `silent` : remplacement écrit de l'écoute (réglage « sans le son ») — cloze
  * de production sur la phrase d'exemple, mais noté sur la carte ORALE pour que sa
  * planification continue d'avancer.
@@ -211,6 +213,7 @@ export function vocabTypeExercise(
       ...base,
       front: hasMeaning ? v.meaning : v.surface,
       prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+      audioBack: { word: v.surface },
     };
   }
   if (opts.listen) {
@@ -229,14 +232,15 @@ export function vocabTypeExercise(
       track: "vocab",
       skill: "oral",
       id: v.id,
-      front: example?.ja ?? v.surface,
+      // Le mot cible est masqué dans la phrase affichée : c'est la réponse — le laisser
+      // visible transformait l'exercice en recopie.
+      front: example?.ja && hit ? example.ja.replace(hit, "◯◯") : (example?.ja ?? v.surface),
       back: `${v.surface}（${v.reading}）— ${v.meaning}`,
       due,
-      audio: { word: v.surface },
+      audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
       context: example?.ja,
       ...(example?.fr ? { contextFr: example.fr } : {}),
-      ...(example?.ja && hit ? { underline: hit } : {}),
-      prompt: example?.ja && hit ? "Écoute et tape le mot souligné" : "Écoute et tape le mot entendu",
+      prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
       answers,
     };
   }
@@ -250,7 +254,7 @@ export function vocabTypeExercise(
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
     answers,
-    ...(example?.ja ? { context: example.ja } : {}),
+    ...(example?.ja ? { context: example.ja } : { audioBack: { word: v.surface } }),
     ...(example?.fr ? { contextFr: example.fr } : {}),
   };
 }
@@ -436,6 +440,7 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
     choices,
     answerIndex,
     due,
+    audioBack: { word: g.name },
   };
 }
 

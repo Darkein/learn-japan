@@ -41,6 +41,9 @@ interface Props {
   onClose: () => void;
 }
 
+/** Taille maximale du deck d'exercices d'une histoire. */
+const MAX_DECK = 10;
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -97,7 +100,13 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
         buildSentenceExercises(ja, fr),
         kanjiReadingExercises(tokens),
       ]);
-      return shuffle([...particles, ...comp, ...built, ...kanjiRead, ...kanjiChoice]);
+      // Deck plafonné : la compréhension (peu de questions, générées pour l'histoire)
+      // passe toujours, le reste complète jusqu'au plafond.
+      const rest = shuffle([...particles, ...built, ...kanjiRead, ...kanjiChoice]).slice(
+        0,
+        Math.max(0, MAX_DECK - comp.length),
+      );
+      return shuffle([...comp, ...rest]);
     })()
       .then((mixed) => {
         if (cancelled) return;

@@ -26,6 +26,8 @@ export const SRS = {
    * décourageante. Les items les plus urgents passent d'abord, le reste attend.
    */
   sessionCap: 30,
+  /** Plafond du bilan de leçon (« Vérifier mes acquis », scope "all"). */
+  sessionAllCap: 10,
   masteredIntervalDays: 21,
   /**
    * Intervalle FSRS (jours) à partir duquel un item compte pour le DÉBLOCAGE de la leçon

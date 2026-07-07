@@ -40,6 +40,8 @@ export interface GenParams {
   rev?: number;
   /** Ignorer le cache R2 du Worker et régénérer (cours périmé après changement de curriculum). */
   refresh?: boolean;
+  /** Sur cache hit sans image : demander au Worker de générer l'illustration manquante. */
+  backfillImage?: boolean;
 }
 
 export type GeneratedIndex = Record<string, { cours: boolean; coursRev?: number; stories: number[] }>;
