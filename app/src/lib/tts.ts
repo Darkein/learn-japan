@@ -8,7 +8,7 @@
 // préchargement de la phrase suivante, et pose la base du mode voiture (SPEC §11-12).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
+import { buildSilentWavBlob, nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { AnnotatedToken } from "./furigana";
 import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
@@ -55,6 +55,21 @@ export function speakWord(text: string): Promise<void> {
 
 let sentenceAudio: HTMLAudioElement | null = null;
 
+// Le Worker a répondu « pas de clé TTS » (503) : inutile de retenter un aller-retour
+// réseau à chaque phrase. On passe alors DIRECTEMENT à la voix du navigateur, de façon
+// SYNCHRONE dans le geste utilisateur (voir speakSentence) — sinon l'attente réseau
+// consommerait l'activation utilisateur et le repli serait muet sur mobile.
+let ttsUnavailable = false;
+
+// URL d'un court silence, créée une seule fois. Sert à « bénir » un <audio> pendant un
+// geste utilisateur : un élément média ayant joué lors d'un geste garde ensuite le droit
+// de jouer HORS geste (permission par élément, persistante), contrairement à un élément
+// neuf. C'est la clé du correctif des exemples muets (cf. speakSentence).
+let silentUrl: string | null = null;
+function silentPrimeUrl(): string {
+  return (silentUrl ??= URL.createObjectURL(buildSilentWavBlob()));
+}
+
 /**
  * Décharge complètement un <audio> Blob (pause + source retirée + reset). Un élément
  * simplement mis en pause et déréférencé peut, sur Chrome/Android, garder ses ressources
@@ -95,17 +110,47 @@ export async function speakSentence(text: string): Promise<void> {
   if (!clean) return;
   stopSentence();
   primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
+
+  // Worker déjà connu sans clé TTS → repli voix du navigateur SYNCHRONE (dans le geste),
+  // sans aller-retour réseau. Décisif sur mobile : un speak() lancé après une attente est
+  // hors geste et donc muet, alors que speakWord ici garde l'activation utilisateur.
+  if (ttsUnavailable) {
+    await speakWord(clean);
+    return;
+  }
+
+  // On crée l'élément MAINTENANT (dans le geste) et on le « bénit » par une lecture
+  // silencieuse : le fetch Cloud TTS ci-dessous consomme l'activation utilisateur, si bien
+  // qu'un <audio> créé après coup verrait son play() refusé par l'autoplay mobile (d'où des
+  // exemples muets alors que les mots, joués en plein geste, s'entendent). Béni, l'élément
+  // garde le droit de jouer même une fois le blob récupéré, hors geste.
+  const audio = typeof Audio !== "undefined" ? new Audio() : null;
+  if (audio) {
+    audio.src = silentPrimeUrl();
+    audio.play().catch(() => {
+      /* amorçage refusé (pas de geste réel) — le changement de src plus bas l'interrompt */
+    });
+  }
+
   let blob: Blob;
   try {
     blob = await synthesizeText(clean, "ja");
-  } catch {
-    // Worker sans clé TTS ou injoignable → voix du navigateur (résout en fin d'énoncé).
+  } catch (e) {
+    // Worker sans clé TTS (503) → on retient l'info pour repli direct ensuite ; injoignable
+    // → repli ponctuel. Dans les deux cas : voix du navigateur (résout en fin d'énoncé).
+    if (e instanceof TtsUnconfiguredError) ttsUnavailable = true;
+    if (audio) unloadAudio(audio);
     releaseMediaSession(); // annule l'éventuel playbackState "playing" posé avant l'échec
     await speakWord(clean);
     return;
   }
+  if (!audio) {
+    // Environnement sans HTMLAudioElement (SSR / tests) → voix du navigateur.
+    await speakWord(clean);
+    return;
+  }
   const url = URL.createObjectURL(blob);
-  const audio = new Audio(url);
+  audio.src = url;
   sentenceAudio = audio;
   setSpokenMediaSessionMeta();
   setMediaSessionPlaybackState("playing");
