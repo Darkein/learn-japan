@@ -28,7 +28,7 @@ export interface Env {
   // Modèle texte Together (ID complet, ex. "Qwen/Qwen2.5-72B-Instruct-Turbo"). Optionnel :
   // sans lui, un défaut codé en dur prend le relais (togetherModels()).
   TOGETHER_MODEL?: string;
-  // Modèle IMAGE Together (illustration d'histoire), ex. "black-forest-labs/FLUX.1-schnell-Free".
+  // Modèle IMAGE Together (illustration d'histoire), ex. "black-forest-labs/FLUX.1-schnell".
   // Optionnel : défaut codé en dur (imageModel()). Best-effort — sans image l'histoire passe quand même.
   TOGETHER_IMAGE_MODEL?: string;
   // Gemini reste supporté comme REPLI OPTIONNEL via MODEL_CHAIN (provider "gemini"). Ces
@@ -281,9 +281,10 @@ async function generate(env: Env, prompt: string): Promise<string> {
 // Repliée dans /generate (aucun endpoint image public). Best-effort : l'image est
 // décorative, tout échec renvoie null et l'histoire est servie sans illustration.
 
-/** Modèle image Together : `TOGETHER_IMAGE_MODEL` s'il est défini, sinon FLUX schnell (gratuit). */
+/** Modèle image Together : `TOGETHER_IMAGE_MODEL` s'il est défini, sinon FLUX schnell
+ *  serverless (~0,002 $ l'image en 1024×768 ; la variante -Free n'est plus serverless → 400). */
 function imageModel(env: Env): string {
-  return (env.TOGETHER_IMAGE_MODEL ?? "").trim() || "black-forest-labs/FLUX.1-schnell-Free";
+  return (env.TOGETHER_IMAGE_MODEL ?? "").trim() || "black-forest-labs/FLUX.1-schnell";
 }
 
 interface GeneratedImage {

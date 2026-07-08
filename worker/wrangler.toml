@@ -18,9 +18,9 @@ workers_dev = true
 # (le meilleur en japonais). Repli codé en dur : Llama 3.3 70B puis sa variante -Free.
 TOGETHER_MODEL = "Qwen/Qwen2.5-72B-Instruct-Turbo"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
-# image dédié). Défaut si absent : black-forest-labs/FLUX.1-schnell-Free (gratuit ~3 mois,
-# puis ~0,003 $/image). Best-effort : sans image, l'histoire est servie quand même.
-TOGETHER_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell-Free"
+# image dédié). FLUX.1-schnell serverless : ~0,002 $/image en 1024×768 (la variante -Free
+# n'est plus servie en serverless → HTTP 400). Best-effort : sans image, l'histoire passe.
+TOGETHER_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
 # TTS (écoute d'article / mode voiture). Voix et débit par défaut, surchargeables par
