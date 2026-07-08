@@ -59,6 +59,27 @@ describe("/generate via Together", () => {
     expect((firstInit.headers as Record<string, string>).Authorization).toBe("Bearer tk");
   });
 
+  it("rapatrie l'illustration quand Together renvoie une URL (pas du base64)", async () => {
+    const png = new Uint8Array([137, 80, 78, 71]); // en-tête PNG factice
+    const fetchMock = vi.fn(async (url: unknown) => {
+      if (isImageCall(url)) {
+        return new Response(JSON.stringify({ data: [{ url: "https://img.test/x.png" }] }), { status: 200 });
+      }
+      if (url === "https://img.test/x.png") {
+        return new Response(png, { status: 200, headers: { "content-type": "image/png" } });
+      }
+      return togetherOk("神社の物語"); // chat/completions
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await worker.fetch(storyReq(), env);
+    const body = (await res.json()) as { text?: string; image?: string; mime?: string };
+
+    expect(res.status).toBe(200);
+    expect(body.image).toBe(btoa(String.fromCharCode(...png)));
+    expect(body.mime).toBe("image/png");
+  });
+
   it("bascule sur le modèle suivant si le premier est en 429", async () => {
     let textCall = 0;
     const fetchMock = vi.fn(async (url: unknown) => {
