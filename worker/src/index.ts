@@ -291,10 +291,21 @@ interface GeneratedImage {
   mime: string; // ex. "image/png"
 }
 
+/** Uint8Array → base64 (par blocs pour ne pas exploser la pile sur une grande image). */
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
 /**
- * Génère une illustration via Together (FLUX, endpoint OpenAI /images/generations, réponse
- * en base64). Best-effort et SANS backoff (maxAttempts:1) : un seul appel, tout échec
- * (pas de clé, quota, erreur) renvoie null et l'histoire est servie sans image.
+ * Génère une illustration via Together (FLUX, endpoint OpenAI /images/generations).
+ * Together renvoie par DÉFAUT une URL hébergée (pas du base64) → on rapatrie l'image et
+ * on l'encode. Best-effort et SANS backoff (maxAttempts:1) : tout échec renvoie null (et
+ * est loggé pour `wrangler tail`), l'histoire est alors servie sans image.
  */
 async function generateImage(env: Env, prompt: string): Promise<GeneratedImage | null> {
   const key = env.TOGETHER_API_KEY;
@@ -306,19 +317,31 @@ async function generateImage(env: Env, prompt: string): Promise<GeneratedImage |
     height: 768,
     steps: 4, // FLUX schnell est distillé pour 1–4 étapes
     n: 1,
-    response_format: "b64_json",
   });
   try {
     const res = await postWithRetry("https://api.together.xyz/v1/images/generations", body, {
       maxAttempts: 1,
       headers: { Authorization: `Bearer ${key}` },
     });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { data?: { b64_json?: string }[] };
-    const b64 = data?.data?.[0]?.b64_json;
-    if (b64) return { data: b64, mime: "image/png" };
-  } catch {
-    // best-effort : l'histoire est servie sans image
+    if (!res.ok) {
+      console.warn(`Image: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+      return null;
+    }
+    const first = ((await res.json()) as { data?: { b64_json?: string; url?: string }[] })?.data?.[0];
+    // b64_json si jamais demandé/supporté, sinon l'URL FLUX par défaut → fetch + encode.
+    if (first?.b64_json) return { data: first.b64_json, mime: "image/png" };
+    if (first?.url) {
+      const img = await fetch(first.url);
+      if (!img.ok) {
+        console.warn(`Image URL: HTTP ${img.status}`);
+        return null;
+      }
+      const bytes = new Uint8Array(await img.arrayBuffer());
+      return { data: bytesToBase64(bytes), mime: img.headers.get("content-type") || "image/png" };
+    }
+    console.warn("Image: réponse Together sans url ni b64_json");
+  } catch (e) {
+    console.warn(`Image: ${String(e)}`);
   }
   return null;
 }
