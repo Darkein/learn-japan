@@ -38,6 +38,18 @@ function renderBlock(b: Block, idx: number | string, reveal: boolean): ReactNode
     return <ExampleBlock key={idx} pairs={b.pairs} reveal={reveal} />;
   if (b.kind === "callout")
     return <Callout key={idx} ctype={b.ctype} body={b.body} reveal={reveal} />;
+  if (b.kind === "quote")
+    return (
+      <blockquote key={idx} className="font-sans text-sm text-muted">
+        {b.lines.map((l, j) => (
+          <span key={j}>
+            {j > 0 && <br />}
+            <span aria-hidden="true">→ </span>
+            {inlineContent(l, `q${idx}-${j}`, reveal)}
+          </span>
+        ))}
+      </blockquote>
+    );
   return (
     <p key={idx}>
       {b.lines.map((l, j) => (

@@ -71,6 +71,45 @@ describe("parseBlocks — encadrés :::", () => {
     expect(callout(blocks, "warning")?.body).toContain("Une mise en garde.");
   });
 
+  // Régression : dans un :::pitfall, le modèle réutilise la convention « phrase JP puis
+  // > glose » des :::example. La ligne `>` doit devenir un bloc quote (glose formatée),
+  // pas du texte brut avec le chevron.
+  it("ligne > hors :::example → bloc quote sans le chevron", () => {
+    const md = [
+      ":::pitfall",
+      "私は英語を勉強",
+      "> Erreur : oubli de する",
+      ":::",
+    ].join("\n");
+    const blocks = parseBlocks(md);
+    const pit = callout(blocks, "pitfall");
+    expect(pit?.body).toContain("> Erreur : oubli de する");
+
+    const inner = parseBlocks(pit!.body);
+    expect(kinds(inner)).toEqual(["para", "quote"]);
+    const quote = inner.find((b) => b.kind === "quote");
+    expect(quote && "lines" in quote && quote.lines).toEqual(["Erreur : oubli de する"]);
+  });
+
+  // Le modèle écrit parfois `::` ou `::::` au lieu de `:::` : ces lignes doivent fermer
+  // le bloc (et jamais apparaître comme texte).
+  it("fermeture mal comptée (:: ou ::::) : ferme le bloc sans fuiter dans le rendu", () => {
+    const md = [
+      ":::example",
+      "猫がいます。",
+      "> Il y a un chat.",
+      "::",
+      "Texte après.",
+      ":::summary",
+      "- Point A",
+      "::::",
+    ].join("\n");
+    const blocks = parseBlocks(md);
+    expect(kinds(blocks)).toEqual(["example", "para", "callout"]);
+    const para = blocks.find((b) => b.kind === "para");
+    expect(para && "lines" in para && para.lines).toEqual(["Texte après."]);
+  });
+
   it("un :::example non refermé en fin de texte reste borné à son contenu", () => {
     const md = [
       "Texte d'intro.",

@@ -10,6 +10,7 @@ export type Block =
   | { kind: "table"; head: string[]; rows: string[][] }
   | { kind: "example"; pairs: { jp: string; fr?: string }[] }
   | { kind: "callout"; ctype: "info" | "warning" | "pitfall" | "summary"; body: string }
+  | { kind: "quote"; lines: string[] }
   | { kind: "para"; lines: string[] };
 
 export function parseBlocks(text: string): Block[] {
@@ -21,7 +22,8 @@ export function parseBlocks(text: string): Block[] {
     const line = lines[i];
 
     if (line.trim() === "") { i++; continue; }
-    if (line.trim() === ":::") { i++; continue; }
+    // Fermeture orpheline — tolère les variantes mal comptées du modèle (`::`, `::::`).
+    if (/^:{2,}$/.test(line.trim())) { i++; continue; }
     if (line.trim() === "---") { blocks.push({ kind: "hr" }); i++; continue; }
 
     const fenceMatch = line.match(/^\s*:::(\w+)/);
@@ -37,7 +39,9 @@ export function parseBlocks(text: string): Block[] {
       // se retrouvait rendu à l'intérieur de l'encadré.
       while (i < lines.length) {
         const bl = lines[i];
-        if (bl.trim() === ":::") { i++; break; } // fermeture explicite → consommée
+        // Fermeture explicite → consommée. Le modèle écrit parfois `::` ou `::::` au
+        // lieu de `:::` : toute ligne faite uniquement de 2+ deux-points ferme le bloc.
+        if (/^:{2,}$/.test(bl.trim())) { i++; break; }
         // Frontière d'un bloc non refermé : on clôt AVANT cette ligne, sans la
         // consommer, pour qu'elle soit reprise normalement par la boucle principale.
         if (/^\s*:::\w/.test(bl) || /^\s*#{1,6}\s/.test(bl)) break;
@@ -105,11 +109,22 @@ export function parseBlocks(text: string): Block[] {
       continue;
     }
 
+    // Citation `>` hors :::example (le modèle réutilise parfois la convention
+    // « phrase JP puis > glose » dans un encadré) : rendue en glose, pas en texte brut.
+    if (/^\s*>/.test(line)) {
+      const qlines: string[] = [];
+      while (i < lines.length && /^\s*>/.test(lines[i]))
+        qlines.push(lines[i++].replace(/^\s*>\s?/, "").trim());
+      const filtered = qlines.filter(Boolean);
+      if (filtered.length > 0) blocks.push({ kind: "quote", lines: filtered });
+      continue;
+    }
+
     const plines: string[] = [];
     while (i < lines.length) {
       const l = lines[i];
       if (l.trim() === "") break;
-      if (/^\s*:::/.test(l) || /^\s*#{1,6}\s/.test(l) || l.trim().startsWith("|") || /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l) || l.trim() === "---") break;
+      if (/^\s*:::/.test(l) || /^\s*#{1,6}\s/.test(l) || l.trim().startsWith("|") || /^\s*[-*]\s+/.test(l) || /^\s*\d+\.\s+/.test(l) || /^\s*>/.test(l) || l.trim() === "---") break;
       plines.push(l);
       i++;
     }
