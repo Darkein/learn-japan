@@ -377,11 +377,12 @@ export async function ensureLessonFraming(
   return framing;
 }
 
-// Révision (leçons précédentes) mélangée aux histoires — dosage léger, pondéré plus bas que
-// les cibles de la leçon courante. Tirage aléatoire à chaque variante pour éviter qu'un même
-// thème (ex. un mot vu en leçon 1) ne revienne systématiquement.
-const REVIEW_VOCAB_COUNT = 6;
-const REVIEW_GRAMMAR_COUNT = 2;
+// Révision (leçons précédentes) mélangée aux histoires — dosage généreux mais pondéré plus
+// bas que les cibles de la leçon courante (bornes worker : 20 vocab / 8 grammaire). Tirage
+// aléatoire à chaque variante pour éviter qu'un même thème (ex. un mot vu en leçon 1) ne
+// revienne systématiquement, et pour que deux variantes d'une même leçon divergent.
+const REVIEW_VOCAB_COUNT = 16;
+const REVIEW_GRAMMAR_COUNT = 4;
 const AVOID_TITLES_MAX = 5;
 
 /** Prochaine variante d'histoire non encore matérialisée : max(local ∪ distant) + 1. */

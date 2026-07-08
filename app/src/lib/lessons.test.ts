@@ -227,8 +227,8 @@ describe("addLessonStory — révision pondérée", () => {
     await addLessonStory(target);
 
     const call = (genClient.generateLessonStory as any).mock.calls.at(-1)[0];
-    expect(call.reviewVocab.length).toBeLessThanOrEqual(6);
-    expect(call.reviewGrammar.length).toBeLessThanOrEqual(2);
+    expect(call.reviewVocab.length).toBeLessThanOrEqual(16);
+    expect(call.reviewGrammar.length).toBeLessThanOrEqual(4);
 
     const currentVocabKeys = new Set(target.objectives.vocab.map((v: any) => v.ja + "|" + (v.yomi ?? "")));
     for (const v of call.reviewVocab) {

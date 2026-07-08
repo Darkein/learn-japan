@@ -114,16 +114,16 @@ describe("buildLessonStoryPrompt", () => {
     expect(prompt).not.toContain("révision");
   });
 
-  it("avec révision : vocab/grammaire de révision présentés comme secondaires", () => {
+  it("avec révision : vocab/grammaire de révision à réemployer librement", () => {
     const prompt = buildLessonStoryPrompt({
       ...lesson,
       kind: "lesson-story",
       reviewVocab: [{ ja: "犬", yomi: "いぬ", fr: "chien" }],
       reviewGrammar: ["n5-ga-subject"],
     });
-    expect(prompt).toContain("PARCIMONIE");
-    expect(prompt).toContain("Vocabulaire de révision (optionnel) : 犬 (いぬ) = chien.");
-    expect(prompt).toContain("Grammaire de révision (optionnelle) : n5-ga-subject.");
+    expect(prompt).toContain("LIBREMENT");
+    expect(prompt).toContain("Vocabulaire de révision : 犬 (いぬ) = chien.");
+    expect(prompt).toContain("Grammaire de révision : n5-ga-subject.");
   });
 
   it("avoidTitles : consigne d'éviter les thèmes déjà utilisés pour cette leçon", () => {

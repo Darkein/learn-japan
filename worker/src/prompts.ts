@@ -264,10 +264,10 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
 
   const review = [
     reviewVocab.length || reviewGrammarList.length
-      ? "Tu peux, avec PARCIMONIE, réemployer quelques éléments déjà vus pour réviser (secondaires — le cœur du texte reste les cibles ci-dessus) :"
+      ? "Réemploie LIBREMENT ces éléments déjà appris pour enrichir et varier le récit (le cœur du texte reste les cibles ci-dessus, mais pioche largement dans cette liste — un récit qui n'utilise que les cibles devient pauvre et répétitif) :"
       : "",
-    reviewVocab.length ? `Vocabulaire de révision (optionnel) : ${reviewVocab.map(fmtVocab).join(", ")}.` : "",
-    reviewGrammarList.length ? `Grammaire de révision (optionnelle) : ${reviewGrammarList.join(", ")}.` : "",
+    reviewVocab.length ? `Vocabulaire de révision : ${reviewVocab.map(fmtVocab).join(", ")}.` : "",
+    reviewGrammarList.length ? `Grammaire de révision : ${reviewGrammarList.join(", ")}.` : "",
   ];
 
   return [
@@ -276,7 +276,7 @@ export function buildLessonStoryPrompt(r: GenerateRequest): string {
     "Il doit mettre en scène ces éléments cibles :",
     ...objectives,
     ...review,
-    "Privilégie un vocabulaire très simple et déjà vu ; un peu de nouveauté reste permise si nécessaire.",
+    `Au-delà de ces listes, tu peux introduire quelques mots nouveaux de niveau N${level} (ou plus simple) quand le récit y gagne — l'apprenant pourra consulter leur traduction. Reste en revanche strictement dans la grammaire indiquée ci-dessus, ou plus élémentaire qu'elle.`,
     "VARIÉTÉ : ne répète pas le même sujet ni le même schéma d'une phrase à l'autre (évite l'enchaînement « Xがいます。かわいいXです。Xが〜ます。 »). Fais avancer l'action, change de sujet, varie les tournures ; que chaque phrase apporte un élément nouveau.",
     "ORTHOGRAPHE : écris chaque mot dans sa graphie japonaise standard, avec les kanji usuels — n'écris JAMAIS en kana (hiragana) un mot qui s'écrit normalement en kanji. Reprends exactement la graphie donnée pour le vocabulaire ci-dessus, partie avant la parenthèse (ex. « 牛乳 » et non « ぎゅうにゅう », « 今日 » et non « きょう »). L'application ajoute les furigana automatiquement : l'apprenant lira la lecture au-dessus du kanji.",
     "",
