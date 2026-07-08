@@ -94,11 +94,44 @@ function toStory(data: GenerateResponse): GeneratedStory {
   };
 }
 
+// File d'attente GLOBALE des appels /generate : un seul en vol à la fois, avec un
+// espacement minimal entre deux départs. Les limites de débit du fournisseur sont
+// DYNAMIQUES (elles se durcissent sous rafale) : sérialiser côté client évite qu'un
+// enchaînement histoire + traduction + QCM ne déclenche des 429 en cascade.
+const GEN_GAP_MS = 1_000;
+let genQueue: Promise<unknown> = Promise.resolve();
+let lastGenEndedAt = 0;
+
+function enqueueGenerate<T>(task: () => Promise<T>): Promise<T> {
+  const next = genQueue.then(async () => {
+    const wait = lastGenEndedAt + GEN_GAP_MS - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    try {
+      return await task();
+    } finally {
+      lastGenEndedAt = Date.now();
+    }
+  });
+  // La file survit aux échecs : l'erreur est propagée à l'appelant, pas à la chaîne.
+  genQueue = next.catch(() => {});
+  return next;
+}
+
 /**
  * Aller-retour synchrone vers le Worker /generate : renvoie la réponse brute décodée
- * ({ text, image? }). `onState` permet d'afficher la progression côté UI.
+ * ({ text, image? }). Les appels sont sérialisés (voir enqueueGenerate) ; `onState`
+ * permet d'afficher la progression côté UI (« queued » tant qu'un autre appel est en vol).
  */
 async function postGenerate(
+  params: GenParams,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<GenerateResponse> {
+  onState?.("queued");
+  return enqueueGenerate(() => doPostGenerate(params, onState, opts));
+}
+
+async function doPostGenerate(
   params: GenParams,
   onState?: (s: GenState) => void,
   opts: { timeoutMs?: number } = {},
