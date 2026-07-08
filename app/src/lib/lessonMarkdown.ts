@@ -29,15 +29,21 @@ export function parseBlocks(text: string): Block[] {
       const ftype = fenceMatch[1];
       i++;
       const body: string[] = [];
-      let depth = 1;
+      // Les encadrés (:::example/info/warning/pitfall/summary) NE s'imbriquent PAS.
+      // Le corps court jusqu'à la ligne de fermeture `:::` — MAIS si le modèle l'oublie
+      // (cela arrive), on borne quand même le bloc au prochain marqueur structurel :
+      // un nouvel ouvreur `:::type` ou un titre `#`. Sans cette borne, un `:::pitfall`
+      // non refermé avalait tout le reste de la leçon (dont le `:::summary` final), qui
+      // se retrouvait rendu à l'intérieur de l'encadré.
       while (i < lines.length) {
         const bl = lines[i];
-        if (/^\s*:::\w/.test(bl)) depth++;
-        else if (bl.trim() === ":::") { depth--; if (depth === 0) break; }
+        if (bl.trim() === ":::") { i++; break; } // fermeture explicite → consommée
+        // Frontière d'un bloc non refermé : on clôt AVANT cette ligne, sans la
+        // consommer, pour qu'elle soit reprise normalement par la boucle principale.
+        if (/^\s*:::\w/.test(bl) || /^\s*#{1,6}\s/.test(bl)) break;
         body.push(bl);
         i++;
       }
-      i++;
 
       if (ftype === "example") {
         const pairs: { jp: string; fr?: string }[] = [];
