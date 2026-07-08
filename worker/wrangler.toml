@@ -14,7 +14,9 @@ workers_dev = true
 #   wrangler secret put GEMINI_API_KEY
 # Clés additionnelles (autres projets Google AI) pour répartir le quota et servir
 # de repli sur 429 : wrangler secret put GEMINI_API_KEY_2  (puis _3, … jusqu'à _10).
-# Le Worker, pour chaque modèle, essaie toutes les clés avant de dégrader de modèle.
+# À chaque génération, le Worker tire quelques clés AU HASARD par modèle (et plafonne
+# le nombre d'appels amont) avant de dégrader de modèle → évite le « Too many
+# subrequests » de Cloudflare tout en lissant l'usage entre les projets.
 GEMINI_MODEL = "gemini-2.5-flash"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
 # image dédié). Réutilise les mêmes clés GEMINI_API_KEY(_n). Sans cette var, un défaut codé

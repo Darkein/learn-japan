@@ -23,7 +23,9 @@ import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, l
 export interface Env {
   // Clé Gemini principale (SECRET). Des clés additionnelles GEMINI_API_KEY_2,
   // _3, … (jusqu'à _10) sont lues dynamiquement → répartir le quota / repli sur
-  // un autre projet quand le premier est à 429. Voir geminiKeyEnvs().
+  // un autre projet quand le premier est à 429. À chaque génération, quelques clés
+  // sont tirées AU HASARD (pas toujours la première) pour lisser l'usage. Voir
+  // geminiKeyEnvs() / resolveChain().
   GEMINI_API_KEY?: string;
   GEMINI_MODEL: string;
   // Modèle Gemini de génération d'IMAGE (illustration d'histoire). Optionnel : sans lui,
@@ -84,12 +86,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // 429 (quota), 500/503 (modèle surchargé) sont transitoires → on réessaie.
 const TRANSIENT = new Set([429, 500, 503]);
+// Sous-ensemble « surcharge serveur » : un 500/503 peut se rétablir en une poignée
+// de secondes. Un 429, LUI, est propre à la clé/au projet (quota par minute ou crédits
+// épuisés) et ne se rétablit PAS pendant l'invocation → inutile de le réessayer sur la
+// MÊME clé : changer de clé (voir generate()) est le vrai repli, et bien moins coûteux
+// en sous-requêtes (Cloudflare en plafonne le nombre par invocation).
+const SERVER_TRANSIENT = new Set([500, 503]);
 
 /**
  * POST JSON avec backoff exponentiel (0,5 s → 1 s → 2 s) sur erreurs transitoires.
  * Renvoie la DERNIÈRE réponse, réussie ou non : l'appelant interprète le statut/corps.
+ * `retryOn` restreint les statuts réessayés (défaut : tous les transitoires) ; `maxAttempts`
+ * borne le nombre de fetch — capital car Cloudflare limite les sous-requêtes/invocation.
  */
-async function postWithRetry(url: string, body: string, maxAttempts = 4): Promise<Response> {
+async function postWithRetry(
+  url: string,
+  body: string,
+  opts: { maxAttempts?: number; retryOn?: Set<number> } = {},
+): Promise<Response> {
+  const maxAttempts = opts.maxAttempts ?? 4;
+  const retryOn = opts.retryOn ?? TRANSIENT;
   let res!: Response;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     res = await fetch(url, {
@@ -97,7 +113,7 @@ async function postWithRetry(url: string, body: string, maxAttempts = 4): Promis
       headers: { "Content-Type": "application/json" },
       body,
     });
-    if (res.ok || !TRANSIENT.has(res.status) || attempt === maxAttempts) break;
+    if (res.ok || !retryOn.has(res.status) || attempt === maxAttempts) break;
     await sleep(500 * 2 ** (attempt - 1));
   }
   return res;
@@ -109,6 +125,30 @@ interface ModelEntry {
   provider: "gemini";
   model: string;
   keyEnv: string;
+}
+
+// Cloudflare plafonne les sous-requêtes (fetch) par invocation de Worker : 50 sur le
+// plan gratuit, 1000 en payant. La chaîne modèles×clés est vaste (8 modèles × 10 clés
+// = 80) et, multipliée par les retries, dépassait la limite → « Too many subrequests ».
+// On borne donc explicitement les appels amont par invocation, avec de la marge pour
+// l'illustration et les lectures/écritures R2.
+//   MAX_KEYS_PER_MODEL : nb de clés (au hasard) tentées par modèle avant de dégrader.
+//     Un 429 est propre à une clé → quelques clés suffisent à en trouver une avec du
+//     quota ; balayer les 10 serait coûteux et inutile.
+//   MAX_TEXT_CALLS : plafond DUR de tentatives de génération de texte par invocation.
+//   MAX_IMAGE_CALLS : idem pour l'illustration (best-effort, souvent hors quota).
+const MAX_KEYS_PER_MODEL = 3;
+const MAX_TEXT_CALLS = 12;
+const MAX_IMAGE_CALLS = 2;
+
+/** Mélange de Fisher–Yates (copie) → ordre aléatoire sans muter l'entrée. */
+function shuffle<T>(arr: readonly T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 /**
@@ -123,21 +163,13 @@ function geminiKeyEnvs(env: Env): string[] {
   return names.filter((n) => (rec[n] ?? "").trim().length > 0);
 }
 
-/** Chaîne de modèles, du plus puissant au plus léger. `MODEL_CHAIN` (JSON) prime. */
-function resolveChain(env: Env): ModelEntry[] {
-  if (env.MODEL_CHAIN) {
-    try {
-      const parsed = JSON.parse(env.MODEL_CHAIN) as ModelEntry[];
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    } catch {
-      // JSON invalide → on retombe sur le défaut ci-dessous.
-    }
-  }
+/** Modèles de génération, du plus puissant au plus léger (sans les clés). */
+function resolveModels(env: Env): string[] {
   const primary = env.GEMINI_MODEL || "gemini-2.5-flash";
   // Du plus puissant au plus léger, par palier (pro → flash → flash-lite), la
   // génération la plus récente d'abord dans chaque palier. `primary` (le modèle
   // configuré) est inséré juste après le pro ; le Set dédoublonne si besoin.
-  const models = [...new Set([
+  return [...new Set([
     "gemini-2.5-pro",
     primary,
     "gemini-3.5-flash",
@@ -147,14 +179,32 @@ function resolveChain(env: Env): ModelEntry[] {
     "gemini-3.1-flash-lite",
     "gemini-2.5-flash-lite",
   ])];
+}
+
+/**
+ * Chaîne ordonnée de tentatives (modèle+clé). `MODEL_CHAIN` (JSON) prime tel quel.
+ * Sinon : chaque modèle (fort→léger) essayé sur MAX_KEYS_PER_MODEL clés tirées AU
+ * HASARD (nouveau tirage par modèle) → répartit le quota entre projets, évite
+ * d'épuiser toujours la première clé, et borne les sous-requêtes. Un 429 étant
+ * propre à une clé, on change de clé (repli) avant de dégrader de modèle.
+ */
+function resolveChain(env: Env): ModelEntry[] {
+  if (env.MODEL_CHAIN) {
+    try {
+      const parsed = JSON.parse(env.MODEL_CHAIN) as ModelEntry[];
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    } catch {
+      // JSON invalide → on retombe sur le défaut ci-dessous.
+    }
+  }
   // Au moins GEMINI_API_KEY même absente → laisse generate() détecter l'absence
   // de clé et répondre le stub. Sinon : toutes les clés configurées.
   const keyEnvs = geminiKeyEnvs(env);
   const envs = keyEnvs.length ? keyEnvs : ["GEMINI_API_KEY"];
-  // Modèle d'abord, clés ensuite : un 429 est par projet/clé → on change de clé
-  // pour GARDER le meilleur modèle avant de dégrader vers un modèle plus léger.
-  return models.flatMap((model) =>
-    envs.map((keyEnv) => ({ provider: "gemini" as const, model, keyEnv })),
+  return resolveModels(env).flatMap((model) =>
+    shuffle(envs)
+      .slice(0, MAX_KEYS_PER_MODEL)
+      .map((keyEnv) => ({ provider: "gemini" as const, model, keyEnv })),
   );
 }
 
@@ -186,7 +236,10 @@ async function callModel(env: Env, entry: ModelEntry, prompt: string): Promise<s
     generationConfig: genConfig(entry.model),
   });
 
-  const res = await postWithRetry(url, body);
+  // On ne réessaie QUE sur surcharge serveur (500/503) : un 429 est propre à cette
+  // clé/projet et ne se rétablit pas ici → on remonte tout de suite pour que generate()
+  // change de clé (bien moins coûteux en sous-requêtes qu'un backoff sur place).
+  const res = await postWithRetry(url, body, { maxAttempts: 2, retryOn: SERVER_TRANSIENT });
   if (!res.ok) {
     throw new Error(`${entry.model}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
   }
@@ -210,14 +263,19 @@ async function generate(env: Env, prompt: string): Promise<string> {
   }
 
   const errors: string[] = [];
+  let attempts = 0;
   for (const entry of chain) {
+    // Garde-fou sous-requêtes : on ne dépasse jamais MAX_TEXT_CALLS appels amont,
+    // quel que soit le nombre de clés/modèles → jamais de « Too many subrequests ».
+    if (attempts >= MAX_TEXT_CALLS) break;
+    attempts++;
     try {
       const text = await callModel(env, entry, prompt);
       if (errors.length) console.warn(`Repli sur ${entry.model} après : ${errors.join(" | ")}`);
       return text;
     } catch (e) {
       errors.push(String(e));
-      // Modèle suivant dans la chaîne…
+      // Clé/modèle suivant dans la chaîne…
     }
   }
   throw new Error(`Tous les modèles ont échoué : ${errors.join(" | ")}`);
@@ -244,7 +302,10 @@ interface GeneratedImage {
  */
 async function generateImage(env: Env, prompt: string): Promise<GeneratedImage | null> {
   const model = imageModel(env);
-  const keyEnvs = geminiKeyEnvs(env);
+  // Best-effort et SOUVENT hors quota (modèles image hors free tier → 429) : on se
+  // limite à quelques clés au hasard, SANS backoff (maxAttempts:1). Sinon boucler sur
+  // les 10 clés × retries engloutissait le budget de sous-requêtes à chaque histoire.
+  const keyEnvs = shuffle(geminiKeyEnvs(env)).slice(0, MAX_IMAGE_CALLS);
   if (!keyEnvs.length) return null;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
@@ -255,7 +316,7 @@ async function generateImage(env: Env, prompt: string): Promise<GeneratedImage |
     if (!key) continue;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     try {
-      const res = await postWithRetry(url, body);
+      const res = await postWithRetry(url, body, { maxAttempts: 1 });
       if (!res.ok) continue; // quota/erreur sur cette clé → clé suivante
       const data = (await res.json()) as {
         candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
