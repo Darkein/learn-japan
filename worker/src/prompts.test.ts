@@ -23,10 +23,23 @@ const lesson: GenerateRequest = {
 describe("buildLessonPrompt", () => {
   const prompt = buildLessonPrompt(lesson);
 
-  it("demande une vraie leçon développée (plus un simple cadrage bref)", () => {
-    expect(prompt).toContain("véritable leçon de japonais");
-    expect(prompt).toContain("pas une simple introduction");
+  it("persona professeur + exigence de contenu précis et nouveau", () => {
+    expect(prompt).toContain("professeur de japonais expérimenté");
+    expect(prompt).toContain("PRÉCISES et NOUVELLES");
     expect(prompt).not.toContain("2 à 4 phrases courtes");
+  });
+
+  it("exige densité : checklist CONTENU, garde-fou EXACTITUDE, règle ANTI-RÉPÉTITION", () => {
+    expect(prompt).toContain("CONTENU");
+    expect(prompt).toContain("PORTÉE");
+    expect(prompt).toContain("EXACTITUDE");
+    expect(prompt).toContain("ANTI-RÉPÉTITION");
+    expect(prompt).toContain("UNE seule fois");
+  });
+
+  it("résumé : 2 à 4 puces sur des points différents, règle de base bornée à une puce", () => {
+    expect(prompt).toContain("point DIFFÉRENT");
+    expect(prompt).toContain("au maximum UNE puce");
   });
 
   it("exige des exemples travaillés (JP / traduction) dans des blocs :::example", () => {
@@ -42,17 +55,18 @@ describe("buildLessonPrompt", () => {
   });
 
   it("borne la longueur selon le nombre de points de grammaire", () => {
-    expect(prompt).toContain("300 à 450 mots"); // 1 point
+    expect(prompt).toContain("350 à 500 mots"); // 1 point
     const two = buildLessonPrompt({ ...lesson, grammar: ["a", "b"] });
-    expect(two).toContain("450 à 650 mots");
+    expect(two).toContain("500 à 700 mots");
     const three = buildLessonPrompt({ ...lesson, grammar: ["a", "b", "c"] });
-    expect(three).toContain("650 à 850 mots");
+    expect(three).toContain("700 à 900 mots");
   });
 
-  it("toutes premières leçons (lessonOrder ≤ 5) : courtes et sans digressions", () => {
+  it("toutes premières leçons (lessonOrder ≤ 5) : courtes mais denses", () => {
     const intro = buildLessonPrompt({ ...lesson, lessonOrder: 1 });
     expect(intro).toContain("250 à 400 mots");
     expect(intro).toContain("débutant absolu");
+    expect(intro).toContain("particularités concrètes");
     expect(intro).not.toContain("en profondeur");
     // Au-delà de la 5e leçon, retour au régime normal (profondeur + registre).
     const later = buildLessonPrompt({ ...lesson, lessonOrder: 6 });

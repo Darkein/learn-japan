@@ -15,7 +15,7 @@
             {
               "id": "n5-01-today-book",
               "order": 1,
-              "rev": 2,
+              "rev": 3,
               "title": "La première phrase : は et を",
               "summary": "Un thème avec は, un objet avec を : 今日は本を読む。",
               "introduces": {
@@ -34,7 +34,7 @@
             {
               "id": "n5-02-cat-water",
               "order": 2,
-              "rev": 2,
+              "rev": 3,
               "title": "Le chat boit : le sujet が",
               "summary": "Marquer qui fait l'action avec が.",
               "introduces": {
@@ -53,7 +53,7 @@
             {
               "id": "n5-03-hot-day",
               "order": 3,
-              "rev": 2,
+              "rev": 3,
               "title": "Il fait chaud : les adjectifs en -い (et も)",
               "summary": "L'adjectif en -い termine la phrase tout seul ; も pour dire « aussi ».",
               "introduces": {
@@ -75,7 +75,7 @@
             {
               "id": "n5-04-study-japanese",
               "order": 4,
-              "rev": 2,
+              "rev": 3,
               "title": "J'étudie : les verbes en する",
               "summary": "Fabriquer un verbe à partir d'un nom : 勉強する.",
               "introduces": {
@@ -95,7 +95,7 @@
             {
               "id": "n5-05-teacher-student",
               "order": 5,
-              "rev": 2,
+              "rev": 3,
               "title": "です et の : être et appartenir",
               "summary": "La copule polie です et le lien の : 私は学生です。先生の本。",
               "introduces": {
@@ -142,7 +142,7 @@
             {
               "id": "n5-06-weather",
               "order": 7,
-              "rev": 2,
+              "rev": 3,
               "title": "La météo : l'adjectif devant le nom (et ね)",
               "summary": "L'adjectif en -い s'accroche au nom (暑い日) ; ね cherche l'accord.",
               "introduces": {
@@ -166,7 +166,7 @@
             {
               "id": "n5-07-mountain-river",
               "order": 8,
-              "rev": 2,
+              "rev": 3,
               "title": "Montagne et rivière : と et ある",
               "summary": "Relier avec と ; dire qu'une chose existe avec ある.",
               "introduces": {
@@ -213,7 +213,7 @@
             {
               "id": "n5-08-eating",
               "order": 10,
-              "rev": 2,
+              "rev": 3,
               "title": "Manger poliment : la forme ます",
               "summary": "Le registre poli des verbes : 食べます、飲みます.",
               "introduces": {
@@ -236,7 +236,7 @@
             {
               "id": "n5-09-talking",
               "order": 11,
-              "rev": 2,
+              "rev": 3,
               "title": "Parler en japonais : で et le passé ました",
               "summary": "Le moyen avec で (日本語で) et le passé poli ました.",
               "introduces": {
@@ -266,7 +266,7 @@
             {
               "id": "n5-10-people",
               "order": 12,
-              "rev": 2,
+              "rev": 3,
               "title": "Les gens autour de moi : いる et le lieu に",
               "summary": "L'existence des êtres animés (いる) et le lieu avec に.",
               "introduces": {
@@ -289,7 +289,7 @@
             {
               "id": "n5-25-motion",
               "order": 13,
-              "rev": 2,
+              "rev": 3,
               "title": "Aller et venir : la direction へ",
               "summary": "Les verbes de mouvement et la direction avec へ ; enchaîner avec そして.",
               "introduces": {
@@ -314,7 +314,7 @@
             {
               "id": "n5-11-japan-country",
               "order": 14,
-              "rev": 2,
+              "rev": 3,
               "title": "Du Japon à l'école : から et に",
               "summary": "La provenance avec から, la destination avec に.",
               "introduces": {
@@ -361,7 +361,7 @@
             {
               "id": "n5-12-memorizing",
               "order": 16,
-              "rev": 2,
+              "rev": 3,
               "title": "La forme て et l'action en cours (ている)",
               "summary": "La forme て des verbes, puis ている : 日本語を勉強している。",
               "introduces": {
@@ -386,7 +386,7 @@
             {
               "id": "n5-13-animals",
               "order": 17,
-              "rev": 2,
+              "rev": 3,
               "title": "Chat et chien : « avec » と",
               "summary": "L'accompagnement avec と : 犬と遊ぶ.",
               "introduces": {
@@ -415,7 +415,7 @@
             {
               "id": "n5-14-question-particle",
               "order": 18,
-              "rev": 2,
+              "rev": 3,
               "title": "Poser une question : か et 何",
               "summary": "La particule finale か et les mots pour demander « quoi, comment, pourquoi ».",
               "introduces": {
@@ -438,7 +438,7 @@
             {
               "id": "n5-15-negation",
               "order": 19,
-              "rev": 2,
+              "rev": 3,
               "title": "Dire non : ない et ません",
               "summary": "La négation neutre (ない) et polie (ません) ; répondre いいえ.",
               "introduces": {
@@ -490,7 +490,7 @@
             {
               "id": "n5-16-numbers-1-5",
               "order": 21,
-              "rev": 2,
+              "rev": 3,
               "title": "Compter (1 à 5) et montrer : これ/それ/あれ",
               "summary": "Les premiers chiffres, zéro, et les démonstratifs : これは本です。",
               "introduces": {
@@ -514,7 +514,7 @@
             {
               "id": "n5-17-numbers-6-10",
               "order": 22,
-              "rev": 2,
+              "rev": 3,
               "title": "Compter (6 à 10) : le système des nombres, et だ",
               "summary": "La suite des chiffres, la logique de numération, et le だ du registre neutre.",
               "introduces": {
@@ -536,7 +536,7 @@
             {
               "id": "n5-18-big-numbers",
               "order": 23,
-              "rev": 2,
+              "rev": 3,
               "title": "L'argent et le passé : た et ませんでした",
               "summary": "Cent, mille, dix mille yens — acheter au passé (neutre et poli négatif).",
               "introduces": {
@@ -560,7 +560,7 @@
             {
               "id": "n5-19-days-elements",
               "order": 24,
-              "rev": 2,
+              "rev": 3,
               "title": "Compter gens et choses : 人 et つ",
               "summary": "Le compteur natif 〜つ, les personnes (一人・二人) et l'âge.",
               "introduces": {
@@ -647,7 +647,7 @@
             {
               "id": "n5-20-time",
               "order": 27,
-              "rev": 2,
+              "rev": 3,
               "title": "L'heure : に, まで et いつ",
               "summary": "Le moment précis avec に, la limite avec まで, demander avec いつ.",
               "introduces": {
@@ -805,7 +805,7 @@
             {
               "id": "n5-21-routine",
               "order": 33,
-              "rev": 2,
+              "rev": 3,
               "title": "Où ça se passe : で, ここ et どこ",
               "summary": "Le lieu d'action avec で, ici/là avec ここ・そこ, demander avec どこ.",
               "introduces": {
@@ -830,7 +830,7 @@
             {
               "id": "n5-22-directions-1",
               "order": 34,
-              "rev": 2,
+              "rev": 3,
               "title": "Se repérer : l'adjectif au négatif et au passé",
               "summary": "くない et かった : conjuguer les adjectifs en -い dans l'espace.",
               "introduces": {
@@ -855,7 +855,7 @@
             {
               "id": "n5-23-directions-2",
               "order": 35,
-              "rev": 2,
+              "rev": 3,
               "title": "Demander et proposer : てください, ましょう",
               "summary": "右に曲がってください。行きましょう。— guider et inviter.",
               "introduces": {
@@ -910,7 +910,7 @@
             {
               "id": "n5-24-size",
               "order": 37,
-              "rev": 2,
+              "rev": 3,
               "title": "Vouloir : たい et ほしい (et よ)",
               "summary": "Exprimer l'envie de faire (たい) et d'avoir (ほしい) ; affirmer avec よ.",
               "introduces": {
@@ -1412,7 +1412,7 @@
             {
               "id": "n5-26-family",
               "order": 56,
-              "rev": 2,
+              "rev": 3,
               "title": "La famille : だれ et でも",
               "summary": "Présenter les siens ; demander « qui » ; opposer avec でも.",
               "introduces": {
@@ -1461,7 +1461,7 @@
             {
               "id": "n5-27-around-town",
               "order": 58,
-              "rev": 2,
+              "rev": 3,
               "title": "En ville : ce/cette avec この",
               "summary": "Désigner ce qu'on voit : この車, その店, あの道.",
               "introduces": {

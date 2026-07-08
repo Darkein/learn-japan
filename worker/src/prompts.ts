@@ -198,28 +198,64 @@ export function buildLessonPrompt(r: GenerateRequest): string {
   // Longueur cible : très courte en tout début de parcours, puis proportionnelle au
   // nombre de points enseignés — jamais « riche » sans borne (mur de texte).
   const sizing = intro
-    ? "LONGUEUR : c'est l'une des toutes premières leçons du parcours, lue par un débutant absolu. Fais VOLONTAIREMENT court et rassurant : environ 250 à 400 mots, une idée à la fois, phrases courtes, 2 ou 3 blocs :::example maximum, pas de sous-sections superflues."
+    ? "LONGUEUR : c'est l'une des toutes premières leçons du parcours, lue par un débutant absolu. Vise environ 250 à 400 mots, une idée à la fois, phrases courtes, 2 ou 3 blocs :::example maximum. Densité maximale : coupe le remplissage, garde l'information."
     : grammarList.length <= 1
-      ? "LONGUEUR : vise environ 300 à 450 mots — une leçon focalisée et digeste, sans remplissage."
+      ? "LONGUEUR : vise environ 350 à 500 mots — une leçon focalisée et digeste, chaque paragraphe utile."
       : grammarList.length === 2
-        ? "LONGUEUR : vise environ 450 à 650 mots — développée mais aérée."
-        : "LONGUEUR : vise environ 650 à 850 mots — structurée en sections courtes, sans remplissage.";
+        ? "LONGUEUR : vise environ 500 à 700 mots — développée mais aérée."
+        : "LONGUEUR : vise environ 700 à 900 mots — structurée en sections courtes, chaque section utile.";
 
+  // Consignes courtes et impératives, une par ligne : mieux suivies par un modèle moyen
+  // qu'une phrase composée. Le mode intro reste court mais exige de la substance — court
+  // ne veut pas dire creux (travers observé : la règle répétée 5 fois, rien enseigné).
   const teaching = intro
-    ? "Enseigne UNIQUEMENT la grammaire ci-dessus, simplement : l'intuition de départ, comment l'employer dans le cas le plus courant, et UNE erreur fréquente du francophone débutant. Garde les nuances de registre, les exceptions et les cas particuliers pour des leçons ultérieures."
-    : "Enseigne UNIQUEMENT la grammaire ci-dessus, mais en profondeur : l'intuition de départ, comment et quand l'employer, les nuances de registre (poli / neutre, oral / écrit) et l'erreur fréquente du francophone débutant. Construis l'explication progressivement, du cas le plus simple vers les subtilités.";
+    ? [
+        "Enseigne UNIQUEMENT la grammaire ci-dessus, simplement mais avec de la substance.",
+        "Donne la règle une seule fois, avec un exemple immédiat.",
+        "Montre le cas d'emploi le plus courant.",
+        "Signale UNE erreur fréquente du francophone débutant (bloc :::pitfall).",
+        "Ajoute 1 ou 2 particularités concrètes : une variante et sa nuance, un fait d'usage réel, un « le saviez-vous ».",
+        "Court veut dire SANS remplissage, pas sans contenu : chaque phrase apprend quelque chose de nouveau.",
+        "Garde les nuances avancées et les cas rares pour les leçons suivantes.",
+      ]
+    : [
+        "Enseigne UNIQUEMENT la grammaire ci-dessus, en profondeur.",
+        "Donne la règle une seule fois, au début, avec un exemple immédiat.",
+        "Ensuite élargis : chaque section suivante répond à une QUESTION DIFFÉRENTE de l'apprenant (avec quoi ? exceptions ? nuances ? registre poli/neutre, oral/écrit ?).",
+        "Signale l'erreur typique du francophone dans un bloc :::pitfall.",
+        "Progresse du cas simple vers les subtilités.",
+      ];
 
   return [
-    `Rédige une véritable leçon de japonais (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown. Une vraie leçon qui enseigne et démontre — pas une simple introduction ni un résumé. Cette leçon fait parti d'un ensemble de leçons, pas besoin de phrase de bienvenue.`,
+    "Tu es un professeur de japonais expérimenté qui enseigne à des francophones : tu connais leurs difficultés spécifiques et tu anticipes leurs questions.",
+    `Rédige une leçon de japonais (niveau JLPT N${level}) intitulée « ${title} », en FRANÇAIS et au format Markdown.`,
+    "Objectif : après lecture, l'apprenant sait des choses PRÉCISES et NOUVELLES, pas seulement la règle générale.",
+    "Cette leçon fait partie d'un parcours : pas de phrase de bienvenue, pas d'introduction générale.",
+    "Commence directement par la règle et un premier exemple. N'écris AUCUNE phrase qui reformule le titre.",
     grammar,
     ...exampleMaterial,
-    "",
-    teaching,
+    ...teaching,
+    "CONTENU — couvre chacun de ces aspects s'il s'applique au point enseigné (ordre de priorité) :",
+    "1. PORTÉE : avec quels mots ou situations la structure s'emploie, et avec lesquels elle ne s'emploie pas.",
+    "2. EXCEPTIONS : les cas irréguliers ou surprenants utiles à ce niveau.",
+    "3. VARIANTES : les formes proches et leur nuance (exemple type : 勉強をする vs 勉強する).",
+    "4. USAGE RÉEL : dis si la tournure est très courante, plutôt formelle, plutôt orale ou rare.",
+    "5. FRANÇAIS : une comparaison rapide avec le français quand elle aide.",
+    "Ces libellés (PORTÉE, EXCEPTIONS…) sont des consignes pour toi : ne les recopie pas dans la leçon — formule des titres naturels.",
+    "Une note culturelle courte en :::info est bienvenue si elle éclaire vraiment l'usage.",
+    "EXACTITUDE : appuie-toi uniquement sur des faits de langue standards et bien établis. En cas de doute sur une exception ou une nuance, omets-la. Aucune statistique chiffrée, aucune étymologie douteuse.",
     "Démontre chaque point avec des exemples concrets en japonais. Encadre chaque exemple dans un bloc :::example … ::: : une ligne par phrase japonaise, puis sa traduction française sur la ligne suivante préfixée par « > ». Plusieurs paires JP/traduction sont autorisées dans un même bloc. Pas de romaji (l'application ajoute les furigana automatiquement).",
-    "Pour une tournure fautive, utilise un bloc :::pitfall avec l'explication de l'erreur. Pour une note importante, utilise :::info ; pour une mise en garde, :::warning. Termine la leçon par un bloc :::summary listant les 2 à 4 points clés à retenir.",
-    "IMPORTANT — referme TOUJOURS chaque bloc (:::example, :::pitfall, :::info, :::warning, :::summary) par une ligne seule contenant exactement « ::: » avant d'écrire quoi que ce soit d'autre (titre, paragraphe ou nouveau bloc). Ne jamais imbriquer un bloc dans un autre.",
+    "ORTHOGRAPHE : n'insère JAMAIS d'espace à l'intérieur d'une phrase japonaise — écris « 私は日本語を勉強する。 », pas « 私 は 日本語 を 勉強する。 ». Aucune lecture entre parenthèses (jamais « 私（わたし） » — l'application affiche les furigana toute seule). Chaque phrase d'exemple doit être grammaticalement irréprochable — ne présente jamais une tournure douteuse comme correcte.",
+    "Pour une tournure fautive, utilise un bloc :::pitfall avec l'explication de l'erreur. Pour une note importante, utilise :::info ; pour une mise en garde, :::warning.",
+    "Termine par un bloc :::summary de 2 à 4 puces. Chaque puce porte sur un point DIFFÉRENT vu dans la leçon (règle, portée, exception, nuance, piège). La règle de base occupe au maximum UNE puce.",
+    "IMPORTANT — referme TOUJOURS chaque bloc (:::example, :::pitfall, :::info, :::warning, :::summary) par une ligne seule contenant exactement « ::: » (TROIS deux-points, ni deux ni quatre) avant d'écrire quoi que ce soit d'autre (titre, paragraphe ou nouveau bloc). Ne jamais imbriquer un bloc dans un autre.",
     "Tu peux puiser dans le vocabulaire fourni pour tes exemples, mais NE dresse PAS la liste du vocabulaire et NE l'explique PAS mot à mot (il est déjà affiché à côté) : sers-t'en seulement comme matière à phrases.",
     "N'emploie dans tes exemples QUE la grammaire enseignée ici ou plus élémentaire qu'elle : rien qui ne soit pas encore vu à ce stade du parcours.",
+    "ANTI-RÉPÉTITION — règle stricte :",
+    "La règle de base est énoncée UNE seule fois dans toute la leçon (résumé exclu).",
+    "Chaque phrase apporte une information nouvelle : un fait, une limite, une nuance ou un exemple inédit.",
+    "Il est INTERDIT de redire une idée déjà écrite avec d'autres mots.",
+    "Si un paragraphe se contente de reformuler, supprime-le.",
     `Structure avec des titres Markdown « # » dès qu'il y a plusieurs idées (un seul niveau, et pas de titre pour la leçon), des paragraphes courts, des listes à puces ou numérotées si pertinent. Tu peux utiliser un tableau Markdown pour présenter des formes de conjugaison. Utilise **gras** et *italique* pour mettre en valeur les termes importants en français. ${sizing} Réponds uniquement avec cette leçon en français.`,
   ]
     .filter(Boolean)
