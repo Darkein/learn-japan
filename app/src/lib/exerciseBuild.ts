@@ -8,7 +8,7 @@ import { clozeSentence, clozeSentenceParts, type ChoiceExercise, type BuildExerc
 import type { ComprehensionQuestion } from "./genClient";
 import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
-import { hasKanji, normalizeReading } from "./kana";
+import { answerVariants, hasKanji, normalizeReading } from "./kana";
 import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
@@ -182,9 +182,12 @@ export function vocabTypeExercise(
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
   const example = effectiveExample(v);
+  // La surface/lecture du dico peut porter des conventions d'affichage (parenthèses
+  // optionnelles, alternatives « a; b », marqueur ～) qu'on ne peut pas taper telles
+  // quelles : on accepte toutes leurs variantes développées (voir answerVariants).
   const answers = hasMeaning
-    ? [normalizeReading(v.surface), normalizeReading(v.reading)]
-    : [normalizeReading(v.reading)];
+    ? answerVariants(v.surface, v.reading)
+    : answerVariants(v.reading);
   if (opts.produce) {
     const hit = example?.ja.includes(v.surface)
       ? v.surface
