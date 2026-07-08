@@ -163,19 +163,22 @@ function geminiKeyEnvs(env: Env): string[] {
   return names.filter((n) => (rec[n] ?? "").trim().length > 0);
 }
 
-/** Modèles de génération, du plus puissant au plus léger (sans les clés). */
+/**
+ * Modèles de génération, du plus capable au plus léger (sans les clés).
+ * — Pro (2.5/3.x) est PAYANT depuis avr. 2026 (retiré du free tier) et coûteux
+ *   (~10 $/1M tokens de sortie) → HORS chaîne par défaut, sinon il draine les crédits
+ *   à chaque histoire. Le forcer via MODEL_CHAIN si on accepte le coût pour plus de qualité.
+ * — gemini-2.0-* est déprécié (01/06/2026) → retiré.
+ * Ne restent que des Flash / Flash-Lite : éligibles au free tier (quand la clé n'a PAS
+ * de facturation) et déjà largement assez cohérents pour des leçons et de courtes histoires.
+ */
 function resolveModels(env: Env): string[] {
-  const primary = env.GEMINI_MODEL || "gemini-2.5-flash";
-  // Du plus puissant au plus léger, par palier (pro → flash → flash-lite), la
-  // génération la plus récente d'abord dans chaque palier. `primary` (le modèle
-  // configuré) est inséré juste après le pro ; le Set dédoublonne si besoin.
+  const primary = env.GEMINI_MODEL || "gemini-3.5-flash";
   return [...new Set([
-    "gemini-2.5-pro",
-    primary,
-    "gemini-3.5-flash",
-    "gemini-3-flash",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
+    primary,               // modèle configuré (défaut : 3.5 Flash — frontier + rapide)
+    "gemini-3.5-flash",    // le plus cohérent du lot → tête de chaîne idéale
+    "gemini-3-flash",      // Flash génération précédente
+    "gemini-2.5-flash",    // valeur sûre, éprouvée
     "gemini-3.1-flash-lite",
     "gemini-2.5-flash-lite",
   ])];

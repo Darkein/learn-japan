@@ -17,7 +17,12 @@ workers_dev = true
 # À chaque génération, le Worker tire quelques clés AU HASARD par modèle (et plafonne
 # le nombre d'appels amont) avant de dégrader de modèle → évite le « Too many
 # subrequests » de Cloudflare tout en lissant l'usage entre les projets.
-GEMINI_MODEL = "gemini-2.5-flash"
+#
+# ATTENTION free tier : activer un moyen de paiement sur un projet Google AI SUPPRIME
+# le free tier de ce projet — TOUT appel devient facturé (≠ BigQuery/Cloud Storage). Et
+# les modèles Pro sont payant-only depuis avr. 2026. On ne garde donc QUE du Flash ici :
+# cohérent pour leçons/histoires et gratuit tant que la clé n'a pas de facturation.
+GEMINI_MODEL = "gemini-3.5-flash"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
 # image dédié). Réutilise les mêmes clés GEMINI_API_KEY(_n). Sans cette var, un défaut codé
 # en dur (imageModel()) prend le relais. L'image est best-effort : sans modèle valable,
@@ -32,11 +37,12 @@ REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configu
 TTS_VOICE = "ja-JP-Neural2-B"
 TTS_RATE = "1.0"
 
-# Chaîne de repli, du plus puissant au plus léger : sur quota (429) ou échec d'un
+# Chaîne de repli, du plus capable au plus léger : sur quota (429) ou échec d'un
 # modèle, le Worker bascule sur le suivant. Optionnel — sans cette var, un défaut
-# codé en dur est utilisé (2.5-pro → GEMINI_MODEL → 3.5-flash → 3-flash →
-# 2.5-flash → 2.0-flash → 3.1-flash-lite → 2.5-flash-lite).
-# MODEL_CHAIN = '[{"provider":"gemini","model":"gemini-2.5-pro","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.0-flash","keyEnv":"GEMINI_API_KEY"}]'
+# codé en dur est utilisé (GEMINI_MODEL → 3.5-flash → 3-flash → 2.5-flash →
+# 3.1-flash-lite → 2.5-flash-lite). Pro en est ABSENT (payant-only, coûteux) : pour
+# forcer la qualité Pro en acceptant le coût, l'ajouter explicitement ici, ex. :
+# MODEL_CHAIN = '[{"provider":"gemini","model":"gemini-3.1-pro-preview","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-3.5-flash","keyEnv":"GEMINI_API_KEY"}]'
 
 # Génération SYNCHRONE. Protection : placer Cloudflare Access (login email gratuit)
 # DEVANT ce Worker si besoin. Aucune clé n'est exposée au client : seul le Worker
