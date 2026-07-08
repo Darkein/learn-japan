@@ -1,6 +1,6 @@
 // Configuration runtime. L'URL du Worker de génération est surchargeable via
 // VITE_WORKER_URL (build) ; défaut = Worker déployé. Aucune clé ici : le client
-// ne parle qu'au Worker, qui détient seul la clé Gemini.
+// ne parle qu'au Worker, qui détient seul la clé du fournisseur (Together AI).
 
 const FALLBACK_WORKER_URL = "https://learn-japan-gen.learn-japan-gen.workers.dev";
 

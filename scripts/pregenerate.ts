@@ -184,8 +184,8 @@ async function main(): Promise<void> {
     await processLesson(e, args);
     if (stubSeen) {
       console.error(
-        "\n⚠ Le Worker répond un « stub » : aucune clé Gemini configurée côté Worker.\n" +
-          "  Configure GEMINI_API_KEY (wrangler secret put GEMINI_API_KEY) puis relance.",
+        "\n⚠ Le Worker répond un « stub » : aucune clé configurée côté Worker.\n" +
+          "  Configure TOGETHER_API_KEY (wrangler secret put TOGETHER_API_KEY) puis relance.",
       );
       process.exit(1);
     }

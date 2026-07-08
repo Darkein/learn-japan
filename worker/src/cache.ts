@@ -1,9 +1,9 @@
-// Cache R2 de TOUT ce que le Worker génère (texte Gemini, audio Cloud TTS).
+// Cache R2 de TOUT ce que le Worker génère (texte du fournisseur, audio Cloud TTS).
 //
 // But : économiser le quota (« tokens ») des API amont. Une génération est une fonction
 // PURE de sa requête normalisée — même requête ⇒ même contenu. On stocke donc le résultat
 // dans R2 sous une clé = empreinte SHA-256 de la requête, et tout appel identique ultérieur
-// est servi depuis R2 SANS rappeler Gemini / Cloud TTS. La pré-génération en lot
+// est servi depuis R2 SANS rappeler Together / Cloud TTS. La pré-génération en lot
 // (scripts/pregenerate.ts) remplit ce cache d'avance → l'app lit du déjà-fait.
 //
 // Le binding R2 est OPTIONNEL : sans bucket configuré, le Worker fonctionne comme avant

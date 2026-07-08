@@ -10,17 +10,17 @@ account_id = "8329b0294a47ab8cf1b2556fd98c79b8"
 workers_dev = true
 
 [vars]
-# Modèle texte gratuit (free tier Gemini). La clé est un SECRET, pas une var :
-#   wrangler secret put GEMINI_API_KEY
-# Clés additionnelles (autres projets Google AI) pour répartir le quota et servir
-# de repli sur 429 : wrangler secret put GEMINI_API_KEY_2  (puis _3, … jusqu'à _10).
-# Le Worker, pour chaque modèle, essaie toutes les clés avant de dégrader de modèle.
-GEMINI_MODEL = "gemini-2.5-flash"
+# FOURNISSEUR PAR DÉFAUT : Together AI (API compatible OpenAI). UNE seule clé, un seul
+# compte facturé → fini la jonglerie des 10 clés Gemini et le piège du free tier
+# supprimé dès qu'on active la facturation. La clé est un SECRET, pas une var :
+#   wrangler secret put TOGETHER_API_KEY
+# Modèle texte (ID Together complet). Défaut si absent : Qwen/Qwen2.5-72B-Instruct-Turbo
+# (le meilleur en japonais). Repli codé en dur : Llama 3.3 70B puis sa variante -Free.
+TOGETHER_MODEL = "Qwen/Qwen2.5-72B-Instruct-Turbo"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
-# image dédié). Réutilise les mêmes clés GEMINI_API_KEY(_n). Sans cette var, un défaut codé
-# en dur (imageModel()) prend le relais. L'image est best-effort : sans modèle valable,
-# l'histoire est servie sans illustration.
-GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
+# image dédié). Défaut si absent : black-forest-labs/FLUX.1-schnell-Free (gratuit ~3 mois,
+# puis ~0,003 $/image). Best-effort : sans image, l'histoire est servie quand même.
+TOGETHER_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell-Free"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
 # TTS (écoute d'article / mode voiture). Voix et débit par défaut, surchargeables par
@@ -30,22 +30,23 @@ REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configu
 TTS_VOICE = "ja-JP-Neural2-B"
 TTS_RATE = "1.0"
 
-# Chaîne de repli, du plus puissant au plus léger : sur quota (429) ou échec d'un
-# modèle, le Worker bascule sur le suivant. Optionnel — sans cette var, un défaut
-# codé en dur est utilisé (2.5-pro → GEMINI_MODEL → 3.5-flash → 3-flash →
-# 2.5-flash → 2.0-flash → 3.1-flash-lite → 2.5-flash-lite).
-# MODEL_CHAIN = '[{"provider":"gemini","model":"gemini-2.5-pro","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"},{"provider":"gemini","model":"gemini-2.0-flash","keyEnv":"GEMINI_API_KEY"}]'
+# Chaîne de repli (JSON), du plus capable au plus léger : sur échec d'un modèle, le
+# Worker bascule sur le suivant. Optionnel — sans cette var, le défaut Together est
+# utilisé (TOGETHER_MODEL → Llama 3.3 70B → Llama 3.3 70B -Free). Permet de MÉLANGER
+# les fournisseurs, ex. Together en primaire + Gemini Flash en secours (nécessite alors
+# wrangler secret put GEMINI_API_KEY) :
+# MODEL_CHAIN = '[{"provider":"together","model":"Qwen/Qwen2.5-72B-Instruct-Turbo","keyEnv":"TOGETHER_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"}]'
 
 # Génération SYNCHRONE. Protection : placer Cloudflare Access (login email gratuit)
 # DEVANT ce Worker si besoin. Aucune clé n'est exposée au client : seul le Worker
-# détient GEMINI_API_KEY / GOOGLE_TTS_API_KEY.
+# détient TOGETHER_API_KEY / GOOGLE_TTS_API_KEY.
 
-# Cache R2 de TOUT le contenu généré → on ne rappelle Gemini / Cloud TTS que si le
-# résultat n'est pas déjà en cache (économie de quota / « tokens »). La pré-génération
-# en lot (`npm run content:batch`) remplit ces buckets d'avance. Bindings OPTIONNELS :
+# Cache R2 de TOUT le contenu généré → on ne rappelle Together / Cloud TTS que si le
+# résultat n'est pas déjà en cache (économie de « tokens »). La pré-génération en lot
+# (`npm run content:batch`) remplit ces buckets d'avance. Bindings OPTIONNELS :
 # retirer un binding = revenir à la génération à la volée sans cache (cf. cache.ts).
 [[r2_buckets]]
-binding = "GEN_CACHE"        # textes Gemini (leçons, histoires, traductions, QCM)
+binding = "GEN_CACHE"        # textes générés (leçons, histoires, traductions, QCM)
 bucket_name = "learn-japan-content"
 
 [[r2_buckets]]
@@ -53,4 +54,6 @@ binding = "TTS_CACHE"        # audio Cloud Text-to-Speech (lecteur / podcast)
 bucket_name = "learn-japan-audio"
 
 [secrets]
-required = [ "GEMINI_API_KEY", "GEMINI_API_KEY_2" ]
+# TOGETHER_API_KEY : requis (texte + images). GOOGLE_TTS_API_KEY : optionnel (TTS).
+# GEMINI_API_KEY : seulement si tu ajoutes un repli "gemini" dans MODEL_CHAIN.
+required = [ "TOGETHER_API_KEY" ]
