@@ -89,14 +89,13 @@ function accessOk(req: Request, env: Env): boolean {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// 429 (quota), 500/503 (modèle surchargé) sont transitoires → on réessaie.
+// 429 (rate limit), 500/503 (modèle surchargé) sont transitoires → on réessaie.
+// Les 429 Together sont des limites DYNAMIQUES (« shift with live model capacity »)
+// qui se rétablissent en quelques secondes : les réessayer sur place donne sa chance
+// au modèle primaire au lieu de dégrader systématiquement vers le repli. Un 429 de
+// crédits épuisés, lui, persiste — la chaîne de repli (generate()) le couvre après
+// épuisement des tentatives, MAX_TEXT_CALLS bornant le total de sous-requêtes.
 const TRANSIENT = new Set([429, 500, 503]);
-// Sous-ensemble « surcharge serveur » : un 500/503 peut se rétablir en une poignée
-// de secondes. Un 429, LUI, est propre à la clé/au projet (quota par minute ou crédits
-// épuisés) et ne se rétablit PAS pendant l'invocation → inutile de le réessayer sur la
-// MÊME clé : changer de clé (voir generate()) est le vrai repli, et bien moins coûteux
-// en sous-requêtes (Cloudflare en plafonne le nombre par invocation).
-const SERVER_TRANSIENT = new Set([500, 503]);
 
 /**
  * POST JSON avec backoff exponentiel (0,5 s → 1 s → 2 s) sur erreurs transitoires.
@@ -139,17 +138,14 @@ interface ModelEntry {
 const MAX_TEXT_CALLS = 12;
 
 /**
- * Modèles texte Together (IDs complets), du plus capable au plus léger. Qwen2.5 72B est
- * le meilleur du lot en japonais/coréen → tête de chaîne pour des leçons et histoires
- * cohérentes ; Llama 3.3 70B en repli, puis sa variante gratuite en dernier secours.
+ * Modèle texte Together (ID complet). UN SEUL modèle, sans repli : tout le contenu
+ * (leçons, histoires) doit garder un style consistant — un repli vers un modèle plus
+ * faible produirait des textes hétérogènes mis en cache définitivement dans R2. Les 429
+ * dynamiques sont absorbés par MODEL_RETRY ; un échec persistant remonte au client, qui
+ * sait relancer (jobs). MODEL_CHAIN reste le moyen EXPLICITE de configurer un repli.
  */
 function togetherModels(env: Env): string[] {
-  const primary = (env.TOGETHER_MODEL ?? "").trim() || "Qwen/Qwen2.5-72B-Instruct-Turbo";
-  return [...new Set([
-    primary,
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-  ])];
+  return [(env.TOGETHER_MODEL ?? "").trim() || "deepseek-ai/DeepSeek-V4-Pro"];
 }
 
 /**
@@ -193,10 +189,11 @@ function genConfig(model: string): Record<string, unknown> {
   return cfg;
 }
 
-// On ne réessaie QUE sur surcharge serveur (500/503). Un 429 (quota/crédits) ne se
-// rétablit pas dans l'invocation → on remonte tout de suite pour dégrader de modèle,
-// bien moins coûteux en sous-requêtes qu'un backoff sur place.
-const MODEL_RETRY = { maxAttempts: 2, retryOn: SERVER_TRANSIENT } as const;
+// 4 tentatives par modèle (backoff 0,5 s → 1 s → 2 s) sur 429/500/503 : les limites
+// dynamiques Together se rétablissent en secondes, et comme il n'y a plus de modèle de
+// repli par défaut (consistance de style), on insiste avant de remonter l'échec au
+// client (jobs relançables). Budget borné par MAX_TEXT_CALLS quoi qu'il arrive.
+const MODEL_RETRY = { maxAttempts: 4, retryOn: TRANSIENT } as const;
 
 /** Together AI — API compatible OpenAI (chat/completions), clé en Bearer. */
 async function callTogether(model: string, key: string, prompt: string): Promise<string> {
@@ -204,7 +201,13 @@ async function callTogether(model: string, key: string, prompt: string): Promise
     model,
     messages: [{ role: "user", content: prompt }],
     max_tokens: 4096,
-    temperature: 0.8,
+    // 0.7 : assez de variété pour les histoires, moins d'approximations factuelles dans
+    // les leçons qu'à 0.8 (vu : une tournure agrammaticale présentée comme correcte).
+    temperature: 0.7,
+    // Les modèles hybrides « thinking » (DeepSeek V4, Kimi K2.6…) brûlent sinon tout le
+    // max_tokens en raisonnement et renvoient un contenu vide/tronqué. Les modèles sans
+    // template de thinking (Qwen3 Instruct, Llama) ignorent la variable sans erreur.
+    chat_template_kwargs: { thinking: false },
   });
   const res = await postWithRetry("https://api.together.xyz/v1/chat/completions", body, {
     ...MODEL_RETRY,
@@ -248,8 +251,9 @@ async function callModel(env: Env, entry: ModelEntry, prompt: string): Promise<s
 }
 
 /**
- * Génère via la chaîne ordonnée : sur quota épuisé ou échec persistant d'un modèle,
- * on bascule sur le suivant. N'échoue qu'une fois TOUTE la chaîne épuisée.
+ * Génère via la chaîne ordonnée : sur échec persistant d'un maillon, on passe au
+ * suivant. Par défaut la chaîne n'a qu'UN maillon (consistance de style) ; seul un
+ * MODEL_CHAIN explicite réintroduit une dégradation multi-modèles/fournisseurs.
  */
 async function generate(env: Env, prompt: string): Promise<string> {
   const chain = resolveChain(env);

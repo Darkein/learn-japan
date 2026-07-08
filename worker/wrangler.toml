@@ -14,9 +14,11 @@ workers_dev = true
 # compte facturé → fini la jonglerie des 10 clés Gemini et le piège du free tier
 # supprimé dès qu'on active la facturation. La clé est un SECRET, pas une var :
 #   wrangler secret put TOGETHER_API_KEY
-# Modèle texte (ID Together complet). Défaut si absent : Qwen/Qwen2.5-72B-Instruct-Turbo
-# (le meilleur en japonais). Repli codé en dur : Llama 3.3 70B puis sa variante -Free.
-TOGETHER_MODEL = "Qwen/Qwen2.5-72B-Instruct-Turbo"
+# Modèle texte (ID Together complet). Défaut si absent : deepseek-ai/DeepSeek-V4-Pro
+# (meilleur modèle ouvert du catalogue — le cache R2 rend son surcoût négligeable).
+# AUCUN repli par défaut : un seul modèle pour un style consistant (les 429 dynamiques
+# sont réessayés sur place ; un échec persistant remonte au client, relançable).
+TOGETHER_MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
 # image dédié). FLUX.1-schnell serverless : ~0,002 $/image en 1024×768 (la variante -Free
 # n'est plus servie en serverless → HTTP 400). Best-effort : sans image, l'histoire passe.
@@ -31,11 +33,11 @@ TTS_VOICE = "ja-JP-Neural2-B"
 TTS_RATE = "1.0"
 
 # Chaîne de repli (JSON), du plus capable au plus léger : sur échec d'un modèle, le
-# Worker bascule sur le suivant. Optionnel — sans cette var, le défaut Together est
-# utilisé (TOGETHER_MODEL → Llama 3.3 70B → Llama 3.3 70B -Free). Permet de MÉLANGER
+# Worker bascule sur le suivant. Optionnel — sans cette var, TOGETHER_MODEL seul est
+# utilisé (pas de dégradation : style consistant). Permet de MÉLANGER
 # les fournisseurs, ex. Together en primaire + Gemini Flash en secours (nécessite alors
 # wrangler secret put GEMINI_API_KEY) :
-# MODEL_CHAIN = '[{"provider":"together","model":"Qwen/Qwen2.5-72B-Instruct-Turbo","keyEnv":"TOGETHER_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"}]'
+# MODEL_CHAIN = '[{"provider":"together","model":"deepseek-ai/DeepSeek-V4-Pro","keyEnv":"TOGETHER_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"}]'
 
 # Génération SYNCHRONE. Protection : placer Cloudflare Access (login email gratuit)
 # DEVANT ce Worker si besoin. Aucune clé n'est exposée au client : seul le Worker

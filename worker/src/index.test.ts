@@ -36,9 +36,9 @@ describe("/generate via Together", () => {
 
     // Tout a échoué → 502, sans exploser le budget de sous-requêtes (MAX_TEXT_CALLS = 12).
     expect(res.status).toBe(502);
-    // 429 non réessayé (SERVER_TRANSIENT) → 1 fetch/tentative ; texte échoué ⇒ pas d'appel image.
+    // Un seul modèle par défaut, 4 tentatives (MODEL_RETRY) ; texte échoué ⇒ pas d'appel image.
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(12);
-  });
+  }, 15_000);
 
   it("renvoie le texte au format OpenAI et tape le bon endpoint avec Bearer", async () => {
     const fetchMock = vi.fn(async (url: unknown) =>
@@ -80,10 +80,12 @@ describe("/generate via Together", () => {
     expect(body.mime).toBe("image/png");
   });
 
-  it("bascule sur le modèle suivant si le premier est en 429", async () => {
+  it("réessaie le MÊME modèle sur 429 (limite dynamique) au lieu de dégrader", async () => {
     let textCall = 0;
-    const fetchMock = vi.fn(async (url: unknown) => {
+    const textModels: string[] = [];
+    const fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
       if (isImageCall(url)) return together429();
+      textModels.push((JSON.parse(String(init?.body)) as { model: string }).model);
       return ++textCall === 1 ? together429() : togetherOk("神社の物語");
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -94,5 +96,7 @@ describe("/generate via Together", () => {
     expect(res.status).toBe(200);
     expect(body.text).toBe("神社の物語");
     expect(textCall).toBeGreaterThanOrEqual(2);
+    // Consistance de style : toutes les tentatives visent le même modèle.
+    expect(new Set(textModels).size).toBe(1);
   });
 });
