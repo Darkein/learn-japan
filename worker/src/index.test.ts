@@ -1,15 +1,11 @@
-// Garde-fou « Too many subrequests » : une invocation de /generate ne doit JAMAIS
-// dépasser le budget d'appels amont, même avec 10 clés toutes en 429 (crédits épuisés).
-// On mocke `fetch` global pour compter les sous-requêtes réellement émises.
+// Garde-fou « Too many subrequests » + parcours Together : une invocation de /generate
+// ne doit JAMAIS dépasser le budget d'appels amont, et doit parler le format OpenAI de
+// Together. On mocke `fetch` global pour compter/piloter les sous-requêtes.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./index";
 
-// Env minimal : 10 clés Gemini, pas de cache R2 (bindings optionnels → génération à la volée).
-function envWithKeys(n: number): Record<string, string> {
-  const env: Record<string, string> = { GEMINI_MODEL: "gemini-2.5-flash", REQUIRE_ACCESS: "false" };
-  for (let i = 1; i <= n; i++) env[i === 1 ? "GEMINI_API_KEY" : `GEMINI_API_KEY_${i}`] = `k${i}`;
-  return env;
-}
+// Env minimal : une clé Together, pas de cache R2 (bindings optionnels → génération à la volée).
+const env = { TOGETHER_API_KEY: "tk", REQUIRE_ACCESS: "false" } as never;
 
 function storyReq() {
   return new Request("https://worker.test/generate", {
@@ -19,55 +15,63 @@ function storyReq() {
   });
 }
 
-const gemini429 = () =>
-  new Response(JSON.stringify({ error: { code: 429, message: "prepayment credits depleted" } }), { status: 429 });
+// Réponses au format OpenAI/Together (chat/completions).
+const together429 = () =>
+  new Response(JSON.stringify({ error: { message: "rate limited" } }), { status: 429 });
 
-const geminiOk = (text: string) =>
-  new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
+const togetherOk = (text: string) =>
+  new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: text } }] }), { status: 200 });
+
+// Images Together : /images/generations. Ici toujours en échec → l'histoire passe sans image.
+const isImageCall = (url: unknown) => typeof url === "string" && url.includes("/images/generations");
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("bornage des sous-requêtes /generate", () => {
-  it("plafonne les appels amont quand toutes les clés sont en 429", async () => {
-    const fetchMock = vi.fn(async () => gemini429());
+describe("/generate via Together", () => {
+  it("plafonne les appels amont quand tout est en 429", async () => {
+    const fetchMock = vi.fn(async () => together429());
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await worker.fetch(storyReq(), envWithKeys(10) as never);
+    const res = await worker.fetch(storyReq(), env);
 
-    // Tout a échoué → 502, mais SANS avoir explosé le budget de sous-requêtes.
+    // Tout a échoué → 502, sans exploser le budget de sous-requêtes (MAX_TEXT_CALLS = 12).
     expect(res.status).toBe(502);
-    // MAX_TEXT_CALLS = 12. Un 429 n'est PAS réessayé (SERVER_TRANSIENT) → 1 fetch/tentative.
-    // Aucun appel image (le texte a échoué avant). Marge confortable sous la limite (50) de Cloudflare.
+    // 429 non réessayé (SERVER_TRANSIENT) → 1 fetch/tentative ; texte échoué ⇒ pas d'appel image.
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(12);
   });
 
-  it("s'arrête au premier modèle qui répond (peu d'appels)", async () => {
-    // Toutes les clés répondent OK : le premier essai suffit pour le texte. L'illustration
-    // best-effort (même endpoint, réponse sans image) ajoute au plus MAX_IMAGE_CALLS appels.
-    const fetchMock = vi.fn(async () => geminiOk("むかしむかし、ある神社に…"));
+  it("renvoie le texte au format OpenAI et tape le bon endpoint avec Bearer", async () => {
+    const fetchMock = vi.fn(async (url: unknown) =>
+      isImageCall(url) ? together429() : togetherOk("むかしむかし、ある神社に…"),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await worker.fetch(storyReq(), envWithKeys(10) as never);
+    const res = await worker.fetch(storyReq(), env);
     const body = (await res.json()) as { text?: string; cached?: boolean };
 
     expect(res.status).toBe(200);
     expect(body.text).toContain("神社");
     expect(body.cached).toBe(false);
-    // 1 appel texte + au plus 2 appels image (MAX_IMAGE_CALLS) → jamais un balayage des 10 clés.
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(3);
+
+    // Premier appel = chat/completions Together, clé en Authorization: Bearer.
+    const [firstUrl, firstInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(firstUrl).toBe("https://api.together.xyz/v1/chat/completions");
+    expect((firstInit.headers as Record<string, string>).Authorization).toBe("Bearer tk");
   });
 
-  it("bascule sur une autre clé/modèle si le premier essai est en 429", async () => {
-    // Premier appel 429, puis succès : on doit obtenir le texte via le repli, sans crasher.
-    let call = 0;
-    const fetchMock = vi.fn(async () => (++call === 1 ? gemini429() : geminiOk("神社の物語")));
+  it("bascule sur le modèle suivant si le premier est en 429", async () => {
+    let textCall = 0;
+    const fetchMock = vi.fn(async (url: unknown) => {
+      if (isImageCall(url)) return together429();
+      return ++textCall === 1 ? together429() : togetherOk("神社の物語");
+    });
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await worker.fetch(storyReq(), envWithKeys(10) as never);
+    const res = await worker.fetch(storyReq(), env);
     const body = (await res.json()) as { text?: string };
 
     expect(res.status).toBe(200);
     expect(body.text).toBe("神社の物語");
-    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(textCall).toBeGreaterThanOrEqual(2);
   });
 });

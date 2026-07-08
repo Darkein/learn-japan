@@ -148,7 +148,7 @@ async function generate(
     throw new Error(data.error ?? `HTTP ${res.status}`);
   }
   if (data.text.startsWith("【stub】")) {
-    throw new Error("le Worker répond un stub : aucune clé Gemini configurée côté Worker");
+    throw new Error("le Worker répond un stub : aucune clé configurée côté Worker (TOGETHER_API_KEY)");
   }
   // Une ligne par mot : « N. phrase japonaise || traduction française »
   const out = new Map<string, { ja: string; fr: string }>();

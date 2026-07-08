@@ -1,7 +1,7 @@
-// Worker de génération — détenteur de la clé Gemini, porte d'auth.
+// Worker de génération — détenteur de la clé Together AI (fournisseur par défaut), porte d'auth.
 // Le client public (PWA) n'a JAMAIS de clé : il poste une requête ici et reçoit le texte.
 //
-// Génération SYNCHRONE : pour une courte histoire, Gemini répond en quelques secondes,
+// Génération SYNCHRONE : pour une courte histoire, le modèle répond en quelques secondes,
 // bien dans les limites d'un Worker.
 //
 // TTS SYNCHRONE aussi (POST /tts) : on synthétise une phrase à la demande et on renvoie
@@ -21,19 +21,24 @@ import { buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, compos
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 
 export interface Env {
-  // Clé Gemini principale (SECRET). Des clés additionnelles GEMINI_API_KEY_2,
-  // _3, … (jusqu'à _10) sont lues dynamiquement → répartir le quota / repli sur
-  // un autre projet quand le premier est à 429. À chaque génération, quelques clés
-  // sont tirées AU HASARD (pas toujours la première) pour lisser l'usage. Voir
-  // geminiKeyEnvs() / resolveChain().
+  // FOURNISSEUR PAR DÉFAUT : Together AI (API compatible OpenAI). Une SEULE clé suffit
+  // (wrangler secret put TOGETHER_API_KEY) → fini la jonglerie des 10 clés Gemini et le
+  // piège du free tier supprimé dès qu'on active la facturation. Voir callTogether().
+  TOGETHER_API_KEY?: string;
+  // Modèle texte Together (ID complet, ex. "Qwen/Qwen2.5-72B-Instruct-Turbo"). Optionnel :
+  // sans lui, un défaut codé en dur prend le relais (togetherModels()).
+  TOGETHER_MODEL?: string;
+  // Modèle IMAGE Together (illustration d'histoire), ex. "black-forest-labs/FLUX.1-schnell-Free".
+  // Optionnel : défaut codé en dur (imageModel()). Best-effort — sans image l'histoire passe quand même.
+  TOGETHER_IMAGE_MODEL?: string;
+  // Gemini reste supporté comme REPLI OPTIONNEL via MODEL_CHAIN (provider "gemini"). Ces
+  // variables ne servent que dans ce cas ; le chemin par défaut n'en dépend plus.
   GEMINI_API_KEY?: string;
-  GEMINI_MODEL: string;
-  // Modèle Gemini de génération d'IMAGE (illustration d'histoire). Optionnel : sans lui,
-  // un défaut codé en dur (imageModel()) prend le relais. Les mêmes clés GEMINI_API_KEY(_n)
-  // servent (rotation quota).
+  GEMINI_MODEL?: string;
   GEMINI_IMAGE_MODEL?: string;
-  // Chaîne de repli (JSON) : [{ provider, model, keyEnv }], du plus puissant au
-  // plus léger. Optionnel — un défaut codé en dur prend le relais (resolveChain).
+  // Chaîne de repli (JSON) : [{ provider, model, keyEnv }], du plus capable au plus
+  // léger. Optionnel — sans elle, le défaut Together (resolveChain) prend le relais.
+  // Permet de mélanger les fournisseurs, ex. Together en primaire + Gemini en secours.
   MODEL_CHAIN?: string;
   REQUIRE_ACCESS: string;
   // TTS (mode voiture / écoute d'article). Clé Google Cloud Text-to-Speech : un
@@ -44,7 +49,7 @@ export interface Env {
   TTS_RATE?: string;
   // Cache R2 de TOUT le contenu généré (économise le quota amont). OPTIONNELS : sans
   // binding, le Worker génère à la volée sans cache (voir cache.ts).
-  //   GEN_CACHE → textes Gemini (bucket learn-japan-content)
+  //   GEN_CACHE → textes générés (bucket learn-japan-content)
   //   TTS_CACHE → audio Cloud TTS  (bucket learn-japan-audio)
   GEN_CACHE?: R2Bucket;
   TTS_CACHE?: R2Bucket;
@@ -102,7 +107,7 @@ const SERVER_TRANSIENT = new Set([500, 503]);
 async function postWithRetry(
   url: string,
   body: string,
-  opts: { maxAttempts?: number; retryOn?: Set<number> } = {},
+  opts: { maxAttempts?: number; retryOn?: Set<number>; headers?: Record<string, string> } = {},
 ): Promise<Response> {
   const maxAttempts = opts.maxAttempts ?? 4;
   const retryOn = opts.retryOn ?? TRANSIENT;
@@ -110,7 +115,7 @@ async function postWithRetry(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...opts.headers },
       body,
     });
     if (res.ok || !retryOn.has(res.status) || attempt === maxAttempts) break;
@@ -119,77 +124,38 @@ async function postWithRetry(
   return res;
 }
 
-// Un maillon de la chaîne de génération. `keyEnv` nomme la variable d'env qui
-// porte la clé → forme extensible (un autre fournisseur = un autre keyEnv/adaptateur).
+// Un maillon de la chaîne de génération. `keyEnv` nomme la variable d'env qui porte la
+// clé → forme extensible : chaque `provider` a son adaptateur (callTogether/callGemini).
 interface ModelEntry {
-  provider: "gemini";
+  provider: "together" | "gemini";
   model: string;
   keyEnv: string;
 }
 
 // Cloudflare plafonne les sous-requêtes (fetch) par invocation de Worker : 50 sur le
-// plan gratuit, 1000 en payant. La chaîne modèles×clés est vaste (8 modèles × 10 clés
-// = 80) et, multipliée par les retries, dépassait la limite → « Too many subrequests ».
-// On borne donc explicitement les appels amont par invocation, avec de la marge pour
-// l'illustration et les lectures/écritures R2.
-//   MAX_KEYS_PER_MODEL : nb de clés (au hasard) tentées par modèle avant de dégrader.
-//     Un 429 est propre à une clé → quelques clés suffisent à en trouver une avec du
-//     quota ; balayer les 10 serait coûteux et inutile.
-//   MAX_TEXT_CALLS : plafond DUR de tentatives de génération de texte par invocation.
-//   MAX_IMAGE_CALLS : idem pour l'illustration (best-effort, souvent hors quota).
-const MAX_KEYS_PER_MODEL = 3;
+// plan gratuit, 1000 en payant. MAX_TEXT_CALLS borne DUR les tentatives de génération
+// de texte par invocation (l'illustration n'en fait qu'une, best-effort) → jamais de
+// « Too many subrequests », avec de la marge pour les lectures/écritures R2.
 const MAX_TEXT_CALLS = 12;
-const MAX_IMAGE_CALLS = 2;
-
-/** Mélange de Fisher–Yates (copie) → ordre aléatoire sans muter l'entrée. */
-function shuffle<T>(arr: readonly T[]): T[] {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 /**
- * Noms des variables d'env portant une clé Gemini, dans l'ordre de préférence :
- * GEMINI_API_KEY puis GEMINI_API_KEY_2, _3, … (ajouter une clé = répartir le
- * quota / un repli quand un projet est à 429). Seules les clés non vides comptent.
+ * Modèles texte Together (IDs complets), du plus capable au plus léger. Qwen2.5 72B est
+ * le meilleur du lot en japonais/coréen → tête de chaîne pour des leçons et histoires
+ * cohérentes ; Llama 3.3 70B en repli, puis sa variante gratuite en dernier secours.
  */
-function geminiKeyEnvs(env: Env): string[] {
-  const rec = env as unknown as Record<string, string | undefined>;
-  const names = ["GEMINI_API_KEY"];
-  for (let i = 2; i <= 10; i++) names.push(`GEMINI_API_KEY_${i}`);
-  return names.filter((n) => (rec[n] ?? "").trim().length > 0);
-}
-
-/**
- * Modèles de génération, du plus capable au plus léger (sans les clés).
- * — Pro (2.5/3.x) est PAYANT depuis avr. 2026 (retiré du free tier) et coûteux
- *   (~10 $/1M tokens de sortie) → HORS chaîne par défaut, sinon il draine les crédits
- *   à chaque histoire. Le forcer via MODEL_CHAIN si on accepte le coût pour plus de qualité.
- * — gemini-2.0-* est déprécié (01/06/2026) → retiré.
- * Ne restent que des Flash / Flash-Lite : éligibles au free tier (quand la clé n'a PAS
- * de facturation) et déjà largement assez cohérents pour des leçons et de courtes histoires.
- */
-function resolveModels(env: Env): string[] {
-  const primary = env.GEMINI_MODEL || "gemini-3.5-flash";
+function togetherModels(env: Env): string[] {
+  const primary = (env.TOGETHER_MODEL ?? "").trim() || "Qwen/Qwen2.5-72B-Instruct-Turbo";
   return [...new Set([
-    primary,               // modèle configuré (défaut : 3.5 Flash — frontier + rapide)
-    "gemini-3.5-flash",    // le plus cohérent du lot → tête de chaîne idéale
-    "gemini-3-flash",      // Flash génération précédente
-    "gemini-2.5-flash",    // valeur sûre, éprouvée
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash-lite",
+    primary,
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
   ])];
 }
 
 /**
- * Chaîne ordonnée de tentatives (modèle+clé). `MODEL_CHAIN` (JSON) prime tel quel.
- * Sinon : chaque modèle (fort→léger) essayé sur MAX_KEYS_PER_MODEL clés tirées AU
- * HASARD (nouveau tirage par modèle) → répartit le quota entre projets, évite
- * d'épuiser toujours la première clé, et borne les sous-requêtes. Un 429 étant
- * propre à une clé, on change de clé (repli) avant de dégrader de modèle.
+ * Chaîne ordonnée de tentatives (fournisseur+modèle+clé). `MODEL_CHAIN` (JSON) prime tel
+ * quel — utile pour mélanger les fournisseurs (ex. Together primaire + Gemini en secours).
+ * Défaut : Together seul, une clé, du modèle le plus cohérent au plus léger.
  */
 function resolveChain(env: Env): ModelEntry[] {
   if (env.MODEL_CHAIN) {
@@ -200,27 +166,25 @@ function resolveChain(env: Env): ModelEntry[] {
       // JSON invalide → on retombe sur le défaut ci-dessous.
     }
   }
-  // Au moins GEMINI_API_KEY même absente → laisse generate() détecter l'absence
-  // de clé et répondre le stub. Sinon : toutes les clés configurées.
-  const keyEnvs = geminiKeyEnvs(env);
-  const envs = keyEnvs.length ? keyEnvs : ["GEMINI_API_KEY"];
-  return resolveModels(env).flatMap((model) =>
-    shuffle(envs)
-      .slice(0, MAX_KEYS_PER_MODEL)
-      .map((keyEnv) => ({ provider: "gemini" as const, model, keyEnv })),
-  );
+  // keyEnv toujours "TOGETHER_API_KEY" même absente → generate() détecte l'absence de
+  // clé et répond le stub (squelette testable hors-ligne, jamais mis en cache).
+  return togetherModels(env).map((model) => ({
+    provider: "together" as const,
+    model,
+    keyEnv: "TOGETHER_API_KEY",
+  }));
 }
 
 function keyFor(env: Env, entry: ModelEntry): string | undefined {
   return (env as unknown as Record<string, string | undefined>)[entry.keyEnv];
 }
 
-/** Au moins une clé Gemini configurée ? Sinon generate() renvoie un stub (à NE PAS cacher). */
+/** Au moins une clé configurée dans la chaîne ? Sinon generate() renvoie un stub (à NE PAS cacher). */
 function hasAnyKey(env: Env): boolean {
   return resolveChain(env).some((e) => keyFor(env, e));
 }
 
-/** Config de génération : assez de tokens pour un petit article, sans gaspiller en « thinking ». */
+/** Config Gemini : assez de tokens pour un petit article, sans gaspiller en « thinking ». */
 function genConfig(model: string): Record<string, unknown> {
   const cfg: Record<string, unknown> = { maxOutputTokens: 4096 };
   // Gemini 2.5 Flash active le « thinking » par défaut : il consomme le budget de
@@ -229,29 +193,58 @@ function genConfig(model: string): Record<string, unknown> {
   return cfg;
 }
 
-/** Un seul modèle, avec backoff exponentiel sur erreurs transitoires (429/500/503). */
-async function callModel(env: Env, entry: ModelEntry, prompt: string): Promise<string> {
-  const key = keyFor(env, entry);
-  if (!key) throw new Error(`${entry.keyEnv} manquant pour ${entry.model}`);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${entry.model}:generateContent?key=${key}`;
+// On ne réessaie QUE sur surcharge serveur (500/503). Un 429 (quota/crédits) ne se
+// rétablit pas dans l'invocation → on remonte tout de suite pour dégrader de modèle,
+// bien moins coûteux en sous-requêtes qu'un backoff sur place.
+const MODEL_RETRY = { maxAttempts: 2, retryOn: SERVER_TRANSIENT } as const;
+
+/** Together AI — API compatible OpenAI (chat/completions), clé en Bearer. */
+async function callTogether(model: string, key: string, prompt: string): Promise<string> {
+  const body = JSON.stringify({
+    model,
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 4096,
+    temperature: 0.8,
+  });
+  const res = await postWithRetry("https://api.together.xyz/v1/chat/completions", body, {
+    ...MODEL_RETRY,
+    headers: { Authorization: `Bearer ${key}` },
+  });
+  if (!res.ok) {
+    throw new Error(`${model}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const text = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error(`Réponse vide (${model})`);
+  return text.trim();
+}
+
+/** Gemini — repli optionnel (via MODEL_CHAIN), clé dans l'URL, format generateContent. */
+async function callGemini(model: string, key: string, prompt: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: genConfig(entry.model),
+    generationConfig: genConfig(model),
   });
-
-  // On ne réessaie QUE sur surcharge serveur (500/503) : un 429 est propre à cette
-  // clé/projet et ne se rétablit pas ici → on remonte tout de suite pour que generate()
-  // change de clé (bien moins coûteux en sous-requêtes qu'un backoff sur place).
-  const res = await postWithRetry(url, body, { maxAttempts: 2, retryOn: SERVER_TRANSIENT });
+  const res = await postWithRetry(url, body, MODEL_RETRY);
   if (!res.ok) {
-    throw new Error(`${entry.model}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+    throw new Error(`${model}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
   }
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  if (!text.trim()) throw new Error(`Réponse vide (${entry.model})`);
+  if (!text.trim()) throw new Error(`Réponse vide (${model})`);
   return text.trim();
+}
+
+/** Un seul maillon : route vers l'adaptateur du fournisseur. */
+async function callModel(env: Env, entry: ModelEntry, prompt: string): Promise<string> {
+  const key = keyFor(env, entry);
+  if (!key) throw new Error(`${entry.keyEnv} manquant pour ${entry.model}`);
+  return entry.provider === "gemini"
+    ? callGemini(entry.model, key, prompt)
+    : callTogether(entry.model, key, prompt);
 }
 
 /**
@@ -262,7 +255,7 @@ async function generate(env: Env, prompt: string): Promise<string> {
   const chain = resolveChain(env);
   // Aucune clé configurée nulle part → réponse stub (squelette testable hors-ligne).
   if (!chain.some((e) => keyFor(env, e))) {
-    return `【stub】${prompt.slice(0, 40)}… (configurer GEMINI_API_KEY)`;
+    return `【stub】${prompt.slice(0, 40)}… (configurer TOGETHER_API_KEY)`;
   }
 
   const errors: string[] = [];
@@ -288,9 +281,9 @@ async function generate(env: Env, prompt: string): Promise<string> {
 // Repliée dans /generate (aucun endpoint image public). Best-effort : l'image est
 // décorative, tout échec renvoie null et l'histoire est servie sans illustration.
 
-/** Modèle image : `GEMINI_IMAGE_MODEL` s'il est défini, sinon un défaut raisonnable. */
+/** Modèle image Together : `TOGETHER_IMAGE_MODEL` s'il est défini, sinon FLUX schnell (gratuit). */
 function imageModel(env: Env): string {
-  return (env.GEMINI_IMAGE_MODEL ?? "").trim() || "gemini-2.5-flash-image";
+  return (env.TOGETHER_IMAGE_MODEL ?? "").trim() || "black-forest-labs/FLUX.1-schnell-Free";
 }
 
 interface GeneratedImage {
@@ -299,39 +292,33 @@ interface GeneratedImage {
 }
 
 /**
- * Génère une illustration via un modèle Gemini « image » (responseModalities IMAGE).
- * Essaie chaque clé configurée (rotation quota, comme le texte). Renvoie l'image en
- * base64 + son type MIME, ou null si aucune clé / erreur amont / réponse sans image.
+ * Génère une illustration via Together (FLUX, endpoint OpenAI /images/generations, réponse
+ * en base64). Best-effort et SANS backoff (maxAttempts:1) : un seul appel, tout échec
+ * (pas de clé, quota, erreur) renvoie null et l'histoire est servie sans image.
  */
 async function generateImage(env: Env, prompt: string): Promise<GeneratedImage | null> {
-  const model = imageModel(env);
-  // Best-effort et SOUVENT hors quota (modèles image hors free tier → 429) : on se
-  // limite à quelques clés au hasard, SANS backoff (maxAttempts:1). Sinon boucler sur
-  // les 10 clés × retries engloutissait le budget de sous-requêtes à chaque histoire.
-  const keyEnvs = shuffle(geminiKeyEnvs(env)).slice(0, MAX_IMAGE_CALLS);
-  if (!keyEnvs.length) return null;
+  const key = env.TOGETHER_API_KEY;
+  if (!key) return null;
   const body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { responseModalities: ["IMAGE"] },
+    model: imageModel(env),
+    prompt,
+    width: 1024,
+    height: 768,
+    steps: 4, // FLUX schnell est distillé pour 1–4 étapes
+    n: 1,
+    response_format: "b64_json",
   });
-  for (const keyEnv of keyEnvs) {
-    const key = (env as unknown as Record<string, string | undefined>)[keyEnv];
-    if (!key) continue;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-    try {
-      const res = await postWithRetry(url, body, { maxAttempts: 1 });
-      if (!res.ok) continue; // quota/erreur sur cette clé → clé suivante
-      const data = (await res.json()) as {
-        candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
-      };
-      for (const part of data?.candidates?.[0]?.content?.parts ?? []) {
-        if (part.inlineData?.data) {
-          return { data: part.inlineData.data, mime: part.inlineData.mimeType || "image/png" };
-        }
-      }
-    } catch {
-      // clé suivante
-    }
+  try {
+    const res = await postWithRetry("https://api.together.xyz/v1/images/generations", body, {
+      maxAttempts: 1,
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { data?: { b64_json?: string }[] };
+    const b64 = data?.data?.[0]?.b64_json;
+    if (b64) return { data: b64, mime: "image/png" };
+  } catch {
+    // best-effort : l'histoire est servie sans image
   }
   return null;
 }

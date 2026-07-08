@@ -1,5 +1,5 @@
 // Client de génération : poste une requête CIBLÉE au Worker, qui répond directement.
-// Le Worker (et lui seul) appelle Gemini avec la clé secrète → rien à voler côté client.
+// Le Worker (et lui seul) appelle le fournisseur (Together AI) avec la clé secrète → rien à voler côté client.
 //
 // SÉCURITÉ — le client n'envoie QUE des paramètres structurés (kind + champs). C'est le
 // Worker qui compose le prompt depuis des gabarits fixes (voir worker/src/prompts.ts) :

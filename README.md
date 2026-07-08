@@ -9,7 +9,7 @@ niveau, furigana et **gloss littéral déterministes** (kuromoji), révision esp
 **Phase 0 — fondations & déploiement** ✅
 - PWA (Vite + React + TS + vite-plugin-pwa), thème *Sumi & Washi* sombre/adaptatif.
 - Furigana déterministes + gloss littéral interlinéaire.
-- SRS (FSRS) + schéma IndexedDB. Worker Cloudflare (`/generate` Gemini, synchrone).
+- SRS (FSRS) + schéma IndexedDB. Worker Cloudflare (`/generate` Together AI, synchrone).
 - Déploiement auto : PWA → GitHub Pages, Worker → Cloudflare (GitHub Actions).
 
 **Phase 1 — boucle de lecture** (en cours)
@@ -55,20 +55,22 @@ décompressé puis mis en cache (IndexedDB) → offline après le premier usage.
 
 ## Worker (génération protégée, gratuite)
 
-Génération **synchrone**. La seule clé indispensable à poser sur le Worker est Gemini :
+Génération **synchrone** via **Together AI** (API compatible OpenAI). Une seule clé à poser :
 
 ```bash
 cd worker
-npx wrangler secret put GEMINI_API_KEY      # clé Google AI Studio (free tier)
+npx wrangler secret put TOGETHER_API_KEY    # clé Together AI (texte + images)
 ```
 
 Le déploiement du Worker est ensuite **automatique** (workflow `deploy-worker.yml`).
-Aucune clé n'est exposée au client : seul le Worker détient `GEMINI_API_KEY`.
-Option : placer **Cloudflare Access** devant le Worker puis `REQUIRE_ACCESS="true"`.
+Aucune clé n'est exposée au client : seul le Worker détient `TOGETHER_API_KEY`.
+Modèle par défaut : `Qwen/Qwen2.5-72B-Instruct-Turbo` (excellent en japonais), repli Llama 3.3 70B ;
+images via `FLUX.1-schnell-Free`. Gemini reste utilisable en **repli** via `MODEL_CHAIN` (voir
+`wrangler.toml`). Option : placer **Cloudflare Access** devant le Worker puis `REQUIRE_ACCESS="true"`.
 
 ### Cache R2 + pré-génération en lot (économiser les « tokens »)
 
-Tout ce que le Worker génère (textes Gemini **et** audio Cloud TTS) est **mis en cache sur
+Tout ce que le Worker génère (textes **et** audio Cloud TTS) est **mis en cache sur
 R2** sous une clé déterministe : un appel identique ultérieur est servi depuis R2 **sans
 rappeler** l'API amont → on économise le quota. Deux buckets, déclarés dans `wrangler.toml` :
 `learn-japan-content` (`GEN_CACHE`, textes) et `learn-japan-audio` (`TTS_CACHE`, audio).
@@ -122,6 +124,6 @@ Deux workflows tournent à chaque push : `deploy.yml` (PWA → Pages) et
 | idem → **Secrets** | `CLOUDFLARE_ACCOUNT_ID` | *(optionnel, si le token couvre plusieurs comptes)* |
 | idem → **Variables** | `VITE_WORKER_URL` | `https://learn-japan-gen.<sous-domaine>.workers.dev` |
 
-Le secret Gemini (`wrangler secret put GEMINI_API_KEY`) reste posé directement sur le
+Le secret Together (`wrangler secret put TOGETHER_API_KEY`) reste posé directement sur le
 Worker, hors GitHub. Une fois ces réglages faits, **tout se teste depuis l'URL Pages**,
 génération réelle incluse — plus aucun dev local requis.
