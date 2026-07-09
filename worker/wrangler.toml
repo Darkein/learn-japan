@@ -58,4 +58,4 @@ bucket_name = "learn-japan-audio"
 [secrets]
 # TOGETHER_API_KEY : requis (texte + images). GOOGLE_TTS_API_KEY : optionnel (TTS).
 # GEMINI_API_KEY : seulement si tu ajoutes un repli "gemini" dans MODEL_CHAIN.
-required = [ "TOGETHER_API_KEY" ]
+required = [ "TOGETHER_API_KEY", "GOOGLE_TTS_API_KEY" ]
