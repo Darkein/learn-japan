@@ -178,7 +178,7 @@ export function Reader({ incoming }: Props) {
         <>
           <StoryIllustration storyId={incoming.id} />
           <p className="text-sm text-muted">Tape un mot pour ouvrir lecture, sens et suivi de révision.</p>
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+          <div className={`flex flex-wrap items-baseline gap-x-1.5 ${settings.furiganaDefault ? "gap-y-1" : "gap-y-3"}`}>
             {result.tokens.map((tok, i) => {
               const g = result.gloss[i];
               const active = i === player.currentTokenIndex;
@@ -197,10 +197,14 @@ export function Reader({ incoming }: Props) {
                   tabIndex={0}
                 >
                   <span
-                    className={`font-jp text-2xl border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
+                    className={`font-jp text-xl border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
                     style={{ borderBottomColor: underlineColor(tok, statuses) }}
                   >
-                    <Ruby segments={tok.segments} reveal={settings.furiganaDefault && !known} />
+                    <Ruby
+                      segments={tok.segments}
+                      reveal={settings.furiganaDefault && !known}
+                      reserve={settings.furiganaDefault}
+                    />
                   </span>
                   {settings.glossDefault && !known && (
                     <span

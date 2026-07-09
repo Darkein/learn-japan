@@ -396,8 +396,20 @@ export async function storiesForLesson(lessonId: string): Promise<StoryRecord[]>
 }
 
 // Illustrations d'histoires (ukiyo-e) ----------------------------------------
+
+// Bus minimal : notifie les vignettes/illustrations montées quand une image d'histoire est
+// écrite (génération inline ou backfill) → mise à jour en direct, sans rechargement de page.
+const storyImageListeners = new Set<(storyId: string) => void>();
+export function onStoryImageSaved(fn: (storyId: string) => void): () => void {
+  storyImageListeners.add(fn);
+  return () => {
+    storyImageListeners.delete(fn);
+  };
+}
+
 export async function putStoryImage(storyId: string, image: Blob): Promise<void> {
   await (await getDB()).put("storyImages", { id: storyId, image, createdAt: Date.now() });
+  for (const l of storyImageListeners) l(storyId);
 }
 /** Blob de l'illustration d'une histoire, ou null si aucune n'a été générée/cachée. */
 export async function getStoryImage(storyId: string): Promise<Blob | null> {

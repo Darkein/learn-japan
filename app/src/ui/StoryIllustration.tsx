@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
-import { getStoryImage } from "../lib/db";
+import { useEffect, useRef, useState } from "react";
+import { getMeta, getStoryImage, onStoryImageSaved, putMeta } from "../lib/db";
 import { backfillStoryImage } from "../lib/lessons";
+
+/** Clé du marqueur persistant « backfill déjà tenté sans image » (évite de re-appeler
+ * /generate à chaque rechargement pour une histoire sans illustration en cache R2). */
+const triedKey = (id: string) => `storyImageTried:${id}`;
 
 interface Props {
   /** Id de l'histoire en base. Absent (lecture non enregistrée) → pas d'illustration. */
@@ -20,34 +24,72 @@ const backfillTried = new Set<string>();
  */
 export function StoryIllustration({ storyId, thumb }: Props) {
   const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
     let cancelled = false;
     setUrl(null);
-    if (storyId) {
-      const id = storyId;
-      const show = (blob: Blob | null) => {
-        if (cancelled || !blob) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      };
-      getStoryImage(id)
-        .then(async (blob) => {
-          if (blob || cancelled) return show(blob);
-          if (thumb || backfillTried.has(id) || !navigator.onLine) return;
-          backfillTried.add(id);
-          show(await backfillStoryImage(id));
-        })
-        .catch(() => {});
-    }
+    setLoading(!!storyId);
+    if (!storyId) return;
+    const id = storyId;
+
+    const show = (blob: Blob | null) => {
+      if (cancelled) return;
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = blob ? URL.createObjectURL(blob) : null;
+      setUrl(objectUrlRef.current);
+      setLoading(false);
+    };
+
+    getStoryImage(id)
+      .then(async (blob) => {
+        if (cancelled) return;
+        if (blob) return show(blob);
+        if (thumb || backfillTried.has(id) || !navigator.onLine) return show(null);
+        if (await getMeta<boolean>(triedKey(id))) return show(null);
+        backfillTried.add(id);
+        const filled = await backfillStoryImage(id);
+        if (cancelled) return;
+        // Aucune image côté Worker : marqueur persistant → plus de re-tentative aux
+        // prochains chargements (le Set en mémoire, lui, est vidé à chaque reload).
+        if (!filled) await putMeta(triedKey(id), true);
+        show(filled);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    // Mise à jour en direct : image écrite après le montage (génération inline best-effort
+    // arrivée en retard, ou backfill depuis un autre écran) → la vignette s'affiche sans reload.
+    const unsub = onStoryImageSaved((savedId) => {
+      if (savedId !== id) return;
+      void getStoryImage(id).then((blob) => blob && show(blob));
+    });
+
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      unsub();
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
     };
   }, [storyId, thumb]);
 
-  if (!url) return null;
+  if (!url) {
+    if (!loading) return null;
+    return (
+      <div
+        aria-hidden="true"
+        className={
+          thumb
+            ? "h-12 w-12 shrink-0 animate-pulse rounded-sm border border-hairline bg-surface-2"
+            : "aspect-[4/3] w-full animate-pulse rounded-md border border-hairline bg-surface-2"
+        }
+      />
+    );
+  }
 
   return (
     <img
@@ -56,7 +98,7 @@ export function StoryIllustration({ storyId, thumb }: Props) {
       loading="lazy"
       className={
         thumb
-          ? "h-16 w-16 shrink-0 rounded-sm border border-hairline object-cover"
+          ? "h-12 w-12 shrink-0 rounded-sm border border-hairline object-cover"
           : "w-full max-w-full rounded-md border border-hairline object-cover"
       }
     />

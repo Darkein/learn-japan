@@ -14,6 +14,7 @@ import { Card } from "./kit/Card";
 import { IconArrowRight, IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReadabilityBadge } from "./ReadabilityBadge";
+import { StoryIllustration } from "./StoryIllustration";
 
 interface Props {
   lesson: Lesson;
@@ -129,6 +130,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
                         if (e.key === "Enter") void read(s);
                       }}
                     >
+                      <StoryIllustration storyId={s.id} thumb />
                       <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-2">
                         <span className="min-w-0">
                           <span className="font-jp text-sm text-text">{s.title}</span>

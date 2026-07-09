@@ -230,9 +230,9 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <button
-        className="flex cursor-pointer items-baseline justify-between gap-4 text-left"
+        className="flex min-w-0 cursor-pointer items-baseline justify-between gap-4 text-left"
         onClick={onOpen}
         aria-label={`Voir le voyage sur le ${route.name}`}
       >
@@ -250,7 +250,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
           )}
         </span>
       </button>
-      <div className={`decor-scene relative overflow-hidden ${sky.day ? "" : "is-night"}`} ref={decor}>
+      <div className={`decor-scene relative min-w-0 overflow-hidden ${sky.day ? "" : "is-night"}`} ref={decor}>
         <div
           className={`decor-layer decor-sky ${sky.day ? "" : "is-night"}`}
           aria-hidden="true"

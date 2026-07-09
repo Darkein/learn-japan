@@ -130,23 +130,25 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
           {dailyData.dueCount > 0 && (() => {
             const goalMet = dailyData.reviewed >= dailyData.goal;
             return (
-              <Card accentFlag className="flex items-center justify-between gap-4">
+              <Card accentFlag className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
                   <SectionLabel>{goalMet ? "Renforcement" : "Flux d'étude"}</SectionLabel>
                   <span className="font-serif text-lg text-text">
                     {dailyData.dueCount} élément{dailyData.dueCount > 1 ? "s" : ""}{" "}
-                    {goalMet ? "à consolider" : "à réviser — puis la suite s'enchaîne"}
+                    {goalMet ? "à consolider" : "à réviser"}
                   </span>
-                  <button
-                    className="cursor-pointer self-start p-0 text-xs text-muted transition-colors hover:text-accent"
-                    onClick={onStartReview}
-                  >
-                    Seulement les révisions →
-                  </button>
+                  <span className="text-sm text-muted">
+                    Le flux enchaîne tes révisions, puis une lecture ou une leçon adaptée.
+                  </span>
                 </div>
-                <Button variant="primary" className="whitespace-nowrap" onClick={onStartFlow}>
-                  {goalMet ? "Continuer" : "Commencer"}
-                </Button>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="primary" onClick={onStartFlow}>
+                    {goalMet ? "Continuer le flux" : "Démarrer le flux"}
+                  </Button>
+                  <Button variant="ghost" onClick={onStartReview}>
+                    Réviser seulement
+                  </Button>
+                </div>
               </Card>
             );
           })()}
