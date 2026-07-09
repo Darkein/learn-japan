@@ -13,10 +13,13 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconClose,
+  IconInfinity,
   IconNext,
   IconPause,
   IconPlay,
   IconPrev,
+  IconRepeat,
+  IconRepeatOne,
 } from "./kit/Icon";
 
 const CHAPTER_LABEL: Record<PodcastSegment["chapter"], string> = {
@@ -24,6 +27,12 @@ const CHAPTER_LABEL: Record<PodcastSegment["chapter"], string> = {
   quiz: "Quiz",
   histoire: "Histoire",
   comprehension: "Compréhension",
+};
+
+const MODE_LABEL: Record<"auto" | "repeat" | "once", string> = {
+  auto: "Lecture auto",
+  repeat: "Répétition",
+  once: "Jouer une fois",
 };
 
 /** Libellé court d'un segment pour la tracklist. */
@@ -39,6 +48,7 @@ export function PodcastPlayer() {
   const wide = useMediaQuery("(min-width: 60rem)");
   const [open, setOpen] = useState(false);
   const draggingRef = useRef(false);
+  const dragFrom = useRef<number | null>(null);
   if (!p.active) return null;
 
   // Le bottom nav n'apparaît qu'en mobile (pas grand écran) et que sur les 3 onglets
@@ -86,7 +96,49 @@ export function PodcastPlayer() {
         className="mx-auto max-w-[44rem] px-4 py-3"
         style={{ paddingBottom: showBottomNav ? undefined : "calc(var(--safe-b) + 0.75rem)" }}
       >
-        {/* Tracklist repliable */}
+        {/* File d'attente éditable (pistes) : réordonnancement par glisser-déposer + retrait. */}
+        {open && p.queue.length > 0 && (
+          <ol className="mb-3 max-h-48 list-none overflow-y-auto rounded-sm border border-hairline">
+            {p.queue.map((item, qi) => {
+              const isCurrent = qi === p.queueIndex;
+              const key = item.kind === "lesson" ? `l-${item.lessonId}-${qi}` : `s-${item.storyId}-${qi}`;
+              return (
+                <li
+                  key={key}
+                  draggable
+                  onDragStart={() => (dragFrom.current = qi)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragFrom.current !== null && dragFrom.current !== qi) p.reorderQueue(dragFrom.current, qi);
+                    dragFrom.current = null;
+                  }}
+                  className={`flex items-center gap-2 border-b border-hairline px-3 py-2 text-sm last:border-b-0 ${isCurrent ? "text-accent" : "text-text"}`}
+                >
+                  <span className="cursor-grab select-none text-muted" aria-hidden="true">
+                    ⠿
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="mr-1.5 text-xs uppercase tracking-wide text-muted">
+                      {item.kind === "lesson" ? "Leçon" : "Histoire"}
+                    </span>
+                    {item.title}
+                  </span>
+                  {!isCurrent && (
+                    <button
+                      className="shrink-0 cursor-pointer text-muted hover:text-accent"
+                      aria-label="Retirer de la file"
+                      onClick={() => p.removeFromQueue(qi)}
+                    >
+                      <IconClose size={14} />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+
+        {/* Tracklist repliable (chapitres de la piste courante) */}
         {open && tracks.length > 0 && (
           <ol className="mb-3 max-h-64 list-none overflow-y-auto rounded-sm border border-hairline">
             {tracks.map(({ seg, i }, ti) => {
@@ -131,6 +183,20 @@ export function PodcastPlayer() {
               </span>
             )}
           </div>
+          <Button
+            size="icon"
+            onClick={p.cycleMode}
+            aria-label={`Mode : ${MODE_LABEL[p.mode]}`}
+            title={MODE_LABEL[p.mode]}
+          >
+            {p.mode === "auto" ? (
+              <IconInfinity size={16} />
+            ) : p.mode === "repeat" ? (
+              <IconRepeat size={16} />
+            ) : (
+              <IconRepeatOne size={16} />
+            )}
+          </Button>
           <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
             Liste
             {open ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}

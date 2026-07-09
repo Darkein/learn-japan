@@ -170,3 +170,34 @@ export function IconArrowRight(props: IconProps) {
     </Svg>
   );
 }
+
+export function IconInfinity(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 9a3 3 0 1 0 0 6c2 0 3-2 4-3s2-3 4-3a3 3 0 1 1 0 6c-2 0-3-2-4-3s-2-3-4-3Z" />
+    </Svg>
+  );
+}
+
+export function IconRepeat(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M17 4l3 3-3 3" />
+      <path d="M20 7H8a4 4 0 0 0-4 4v1" />
+      <path d="M7 20l-3-3 3-3" />
+      <path d="M4 17h12a4 4 0 0 0 4-4v-1" />
+    </Svg>
+  );
+}
+
+export function IconRepeatOne(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M17 4l3 3-3 3" />
+      <path d="M20 7H8a4 4 0 0 0-4 4v1" />
+      <path d="M7 20l-3-3 3-3" />
+      <path d="M4 17h12a4 4 0 0 0 4-4v-1" />
+      <path d="M11.5 12.5l1-.7V16" />
+    </Svg>
+  );
+}
