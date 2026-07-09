@@ -190,11 +190,11 @@ export function PodcastPlayer() {
             title={MODE_LABEL[p.mode]}
           >
             {p.mode === "auto" ? (
-              <IconInfinity size={14} />
+              <IconInfinity size={18} />
             ) : p.mode === "repeat" ? (
-              <IconRepeat size={14} />
+              <IconRepeat size={18} />
             ) : (
-              <IconRepeatOne size={14} />
+              <IconRepeatOne size={18} />
             )}
           </Button>
           <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>

@@ -240,16 +240,18 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   async function handleEnded(): Promise<void> {
     const q = queueRef.current;
     const idx = qIndexRef.current;
+    // Fin terminale (rien à enchaîner) : on rembobine la piste courante pour que « Lecture »
+    // reparte du début plutôt que de rejouer la dernière phrase.
+    const rewind = () => {
+      player.setIndex(0);
+      patch({ playing: false, index: 0, segProgress: 0, currentTokenIndex: null });
+    };
     const action = endAction(modeRef.current, idx + 1 < q.length);
     if (action === "advance") return playQueueIndex(idx + 1);
     if (action === "loop") return playQueueIndex(0);
-    if (action === "stop") {
-      // Fin de la file : on rembobine la piste courante pour que « Lecture » reparte du début.
-      player.setIndex(0);
-      return patch({ playing: false, index: 0, segProgress: 0, currentTokenIndex: null });
-    }
+    if (action === "stop") return rewind();
     const next = await computeNext(q[q.length - 1]);
-    if (!next) return patch({ playing: false });
+    if (!next) return rewind();
     const nq = [...q, next];
     setQueue(nq);
     playQueueIndex(nq.length - 1);

@@ -262,17 +262,20 @@ export function Reader({ incoming }: Props) {
                 </button>
               </div>
               {menuOpen && incoming.id && (
-                <div className="absolute left-0 top-full z-20 mt-1 rounded-sm border border-hairline bg-surface shadow">
-                  <button
-                    className="block w-full cursor-pointer whitespace-nowrap px-3 py-2 text-left text-sm hover:bg-surface-2"
-                    onClick={() => {
-                      podcast.enqueueStory({ storyId: incoming.id!, title: incoming.title ?? "Histoire" });
-                      setMenuOpen(false);
-                    }}
-                  >
-                    Ajouter à la file d'attente
-                  </button>
-                </div>
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute left-0 top-full z-20 mt-1 rounded-sm border border-hairline bg-surface shadow">
+                    <button
+                      className="block w-full cursor-pointer whitespace-nowrap px-3 py-2 text-left text-sm hover:bg-surface-2"
+                      onClick={() => {
+                        podcast.enqueueStory({ storyId: incoming.id!, title: incoming.title ?? "Histoire" });
+                        setMenuOpen(false);
+                      }}
+                    >
+                      Ajouter à la file d'attente
+                    </button>
+                  </div>
+                </>
               )}
             </div>
             <Button variant="primary" onClick={() => setExoOpen(true)}>
