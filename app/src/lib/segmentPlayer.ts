@@ -5,9 +5,15 @@
 
 import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { PodcastSegment } from "./podcastScript";
-import { synthesizeText, TtsUnconfiguredError } from "./ttsClient";
+import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
 const LANG_TAG: Record<PodcastSegment["lang"], string> = { fr: "fr-FR", ja: "ja-JP" };
+
+export function tokenAtTime(marks: { i: number; t: number }[], t: number): number | null {
+  let cur: number | null = null;
+  for (const m of marks) if (t >= m.t) cur = m.i;
+  return cur;
+}
 
 function speechSupported(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
@@ -26,6 +32,8 @@ export interface SegmentPlayerCallbacks {
   onProgress: (p: number) => void;
   /** Erreur de synthèse (hors « TTS non configuré », qui bascule sur Web Speech). */
   onError: (message: string) => void;
+  /** Token courant surligné (index global) pour un segment histoire, null sinon. */
+  onToken: (index: number | null) => void;
   /** Fin du dernier segment (enchaîner sur la leçon suivante / boucler). */
   onEnded: () => void;
 }
@@ -118,6 +126,21 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     u.lang = LANG_TAG[seg.lang];
     const v = pickVoice(seg.lang);
     if (v) u.voice = v;
+    if (seg.tokens) {
+      const offsets: number[] = [];
+      let acc = 0;
+      for (const t of seg.tokens) {
+        offsets.push(acc);
+        acc += t.length;
+      }
+      const base = seg.baseTokenIndex ?? 0;
+      u.onboundary = (e) => {
+        if (r !== run) return;
+        let local = 0;
+        for (let k = 0; k < offsets.length; k++) if (e.charIndex >= offsets[k]) local = k;
+        cb.onToken(base + local);
+      };
+    }
     // Pas d'événement de progression natif en Web Speech : estimation par durée/débit de lecture.
     const estMs = Math.max(400, (seg.text.length / 5) * 1000);
     const startedAt = Date.now();
@@ -144,8 +167,15 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     const seg = segments[i];
     if (!seg) return;
     let blob: Blob;
+    let marks: { i: number; t: number }[] = [];
     try {
-      blob = await synthesizeText(seg.text, seg.lang);
+      if (seg.tokens) {
+        const out = await synthesizeSentence(seg.tokens, seg.baseTokenIndex ?? 0);
+        blob = out.audio;
+        marks = out.marks;
+      } else {
+        blob = await synthesizeText(seg.text, seg.lang);
+      }
     } catch (e) {
       if (r !== run) return;
       if (e instanceof TtsUnconfiguredError) {
@@ -166,6 +196,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       if (r !== run) return;
       const d = el.duration;
       if (d && isFinite(d) && d > 0) cb.onProgress(Math.min(1, el.currentTime / d));
+      if (marks.length) cb.onToken(tokenAtTime(marks, el.currentTime));
     };
     try {
       await el.play();
@@ -185,6 +216,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     }
     index = i;
     cb.onSegmentStart(i);
+    if (!segments[i]?.tokens) cb.onToken(null);
     if (mode === "speech") speakSegment(i, r);
     else void playCloud(i, r);
   }

@@ -83,6 +83,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     playerRef.current = createSegmentPlayer({
       onSegmentStart: (i) => patch({ index: i, segProgress: 0 }),
       onProgress: (p) => patch({ segProgress: p }),
+      onToken: () => {},
       onError: (message) => patch({ error: message, playing: false }),
       onEnded: () => {
         const target = chainTargetRef.current;
