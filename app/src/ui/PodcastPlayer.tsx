@@ -184,17 +184,17 @@ export function PodcastPlayer() {
             )}
           </div>
           <Button
-            size="icon"
+            size="sm"
             onClick={p.cycleMode}
             aria-label={`Mode : ${MODE_LABEL[p.mode]}`}
             title={MODE_LABEL[p.mode]}
           >
             {p.mode === "auto" ? (
-              <IconInfinity size={16} />
+              <IconInfinity size={14} />
             ) : p.mode === "repeat" ? (
-              <IconRepeat size={16} />
+              <IconRepeat size={14} />
             ) : (
-              <IconRepeatOne size={16} />
+              <IconRepeatOne size={14} />
             )}
           </Button>
           <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>

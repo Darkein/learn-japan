@@ -243,7 +243,11 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     const action = endAction(modeRef.current, idx + 1 < q.length);
     if (action === "advance") return playQueueIndex(idx + 1);
     if (action === "loop") return playQueueIndex(0);
-    if (action === "stop") return patch({ playing: false });
+    if (action === "stop") {
+      // Fin de la file : on rembobine la piste courante pour que « Lecture » reparte du début.
+      player.setIndex(0);
+      return patch({ playing: false, index: 0, segProgress: 0, currentTokenIndex: null });
+    }
     const next = await computeNext(q[q.length - 1]);
     if (!next) return patch({ playing: false });
     const nq = [...q, next];

@@ -220,36 +220,47 @@ export function Reader({ incoming }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex items-stretch">
-              <Button
-                active={isActiveStory && podcast.playing}
-                onClick={() => {
-                  if (!incoming.id) return;
-                  if (isActiveStory) podcast.toggle();
-                  else podcast.playStory({ storyId: incoming.id, title: incoming.title ?? "Histoire" });
-                }}
-                disabled={!incoming.id || (isActiveStory && !!podcast.preparing)}
+            <div className="relative inline-flex">
+              <div
+                className={`inline-flex items-stretch overflow-hidden rounded-sm border bg-surface transition-colors ${
+                  isActiveStory && podcast.playing ? "border-accent" : "border-hairline-strong hover:border-accent"
+                } ${!incoming.id ? "opacity-50" : ""}`}
               >
-                {isActiveStory && podcast.playing ? (
-                  <>
-                    <IconPause size={16} />
-                    Pause
-                  </>
-                ) : (
-                  <>
-                    <IconPlay size={16} />
-                    Écouter l'article
-                  </>
-                )}
-              </Button>
-              <Button
-                size="icon"
-                aria-label="Options de lecture"
-                onClick={() => setMenuOpen((o) => !o)}
-                disabled={!incoming.id}
-              >
-                <IconChevronDown size={16} />
-              </Button>
+                <button
+                  onClick={() => {
+                    if (!incoming.id) return;
+                    if (isActiveStory) podcast.toggle();
+                    else podcast.playStory({ storyId: incoming.id, title: incoming.title ?? "Histoire" });
+                  }}
+                  disabled={!incoming.id || (isActiveStory && !!podcast.preparing)}
+                  className={`inline-flex min-h-11 items-center gap-2 px-4 font-sans text-sm transition-colors disabled:cursor-not-allowed ${
+                    isActiveStory && podcast.playing ? "text-accent" : "text-text"
+                  } ${incoming.id ? "cursor-pointer hover:bg-surface-2" : ""}`}
+                >
+                  {isActiveStory && podcast.playing ? (
+                    <>
+                      <IconPause size={16} />
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <IconPlay size={16} />
+                      Écouter
+                    </>
+                  )}
+                </button>
+                <button
+                  aria-label="Options de lecture"
+                  onClick={() => setMenuOpen((o) => !o)}
+                  disabled={!incoming.id}
+                  aria-expanded={menuOpen}
+                  className={`inline-flex items-center border-l border-hairline-strong px-2 text-text transition-colors disabled:cursor-not-allowed ${
+                    incoming.id ? "cursor-pointer hover:bg-surface-2" : ""
+                  }`}
+                >
+                  <IconChevronDown size={16} />
+                </button>
+              </div>
               {menuOpen && incoming.id && (
                 <div className="absolute left-0 top-full z-20 mt-1 rounded-sm border border-hairline bg-surface shadow">
                   <button
