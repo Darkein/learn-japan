@@ -171,6 +171,15 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+export function IconLink(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.5 1.5" />
+      <path d="M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.5-1.5" />
+    </Svg>
+  );
+}
+
 export function IconInfinity(props: IconProps) {
   return (
     <Svg {...props}>

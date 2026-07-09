@@ -25,8 +25,16 @@ import { generatePodcastPack } from "../lib/podcast";
 import { PACK_VERSION, type PodcastSegment } from "../lib/podcastScript";
 import { createSegmentPlayer, type SegmentPlayer } from "../lib/segmentPlayer";
 import { buildStorySegments } from "../lib/storyPodcast";
+import { navigate } from "./useHashRoute";
 
 const RESUME_KEY = "podcast.resume";
+const AUTONAV_KEY = "podcast.autonav";
+
+/** Chemin de la page correspondant à une piste (histoire → lecteur, leçon → cours). */
+function pageForItem(item: QueueItem): string {
+  const id = encodeURIComponent(item.kind === "story" ? item.storyId : item.lessonId);
+  return item.kind === "story" ? `/lecture/${id}` : `/cours/${id}`;
+}
 
 interface PodcastState {
   active: boolean;
@@ -50,6 +58,8 @@ interface PodcastState {
   currentTokenIndex: number | null;
   /** Id de l'histoire en cours de lecture (pour le surlignage côté Reader), null si leçon. */
   activeStoryId: string | null;
+  /** Suivre automatiquement la lecture en naviguant vers la page de la piste courante. */
+  autoNavigate: boolean;
 }
 
 interface StoryRef {
@@ -61,9 +71,14 @@ interface PodcastApi extends PodcastState {
   startLesson: (lessonId: string) => void;
   playStory: (item: StoryRef) => void;
   enqueueStory: (item: StoryRef) => void;
+  playQueueItem: (index: number) => void;
   reorderQueue: (from: number, to: number) => void;
   removeFromQueue: (index: number) => void;
   cycleMode: () => void;
+  toggleAutoNavigate: () => void;
+  seekFraction: (frac: number) => void;
+  /** Chemin de la page de la piste courante (null si aucune). */
+  currentPage: () => string | null;
   toggle: () => void;
   next: () => void;
   prev: () => void;
@@ -89,6 +104,7 @@ const INITIAL_STATE: PodcastState = {
   mode: "auto",
   currentTokenIndex: null,
   activeStoryId: null,
+  autoNavigate: false,
 };
 
 export function PodcastProvider({ children }: { children: ReactNode }) {
@@ -102,6 +118,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const qIndexRef = useRef(0); // index de la piste courante dans la file
   const modeRef = useRef<PlayMode>("auto"); // miroir du mode de lecture
   const endedRef = useRef<() => void>(() => undefined); // fin de piste (recalculée à chaque rendu)
+  const autoNavRef = useRef(false); // miroir du suivi auto vers la page de la piste
 
   const patch = useCallback((p: Partial<PodcastState>) => setState((s) => ({ ...s, ...p })), []);
 
@@ -119,9 +136,9 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const player = playerRef.current;
 
   const startAt = useCallback(
-    (i: number) => {
+    (i: number, offset?: number) => {
       patch({ playing: true, error: null });
-      player.start(i);
+      player.start(i, offset);
     },
     [patch, player],
   );
@@ -132,6 +149,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     async (item: QueueItem, opts?: { resumeIndex?: number; autoplay?: boolean }) => {
       const autoplay = opts?.autoplay ?? true;
       const startIndex = opts?.resumeIndex ?? 0;
+      // Suivi auto : on bascule vers la page de la piste (jamais lors d'une reprise silencieuse).
+      if (autoplay && autoNavRef.current) navigate(pageForItem(item));
       player.halt();
       const token = ++loadTokenRef.current;
       player.resetMode();
@@ -356,6 +375,41 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const prev = useCallback(() => seek(player.index() - 1), [player, seek]);
   const jumpTo = useCallback((i: number) => seek(i), [seek]);
 
+  // Scrub proportionnel sur toute la piste : la fraction (0..1) désigne un segment ET un
+  // décalage DANS ce segment → on ne repart plus au début de la phrase.
+  const seekFraction = useCallback(
+    (frac: number) => {
+      if (!player.hasSegments()) return;
+      const n = state.segments.length;
+      if (n === 0) return;
+      const pos = Math.min(Math.max(frac, 0), 0.99999) * n;
+      const seg = Math.min(Math.floor(pos), n - 1);
+      const within = pos - seg;
+      if (playingRef.current) {
+        startAt(seg, within);
+      } else {
+        player.setIndex(seg);
+        player.primeSeek(within);
+        patch({ index: seg, segProgress: within });
+      }
+    },
+    [patch, player, startAt, state.segments.length],
+  );
+
+  const playQueueItem = useCallback((i: number) => playQueueIndex(i), [playQueueIndex]);
+
+  const toggleAutoNavigate = useCallback(() => {
+    const v = !autoNavRef.current;
+    autoNavRef.current = v;
+    patch({ autoNavigate: v });
+    if (typeof window !== "undefined") localStorage.setItem(AUTONAV_KEY, v ? "1" : "0");
+  }, [patch]);
+
+  const currentPage = useCallback(() => {
+    const it = queueRef.current[qIndexRef.current];
+    return it ? pageForItem(it) : null;
+  }, []);
+
   const close = useCallback(() => {
     player.halt();
     loadTokenRef.current++;
@@ -420,6 +474,14 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     }
   }, [state.active, state.queue, state.queueIndex, state.index, state.mode]);
 
+  // Restaure la préférence de suivi auto (persistée).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = localStorage.getItem(AUTONAV_KEY) === "1";
+    autoNavRef.current = v;
+    if (v) patch({ autoNavigate: true });
+  }, [patch]);
+
   // Miroirs impératifs (lus par les callbacks sans closure périmée).
   useEffect(() => {
     playingRef.current = state.playing;
@@ -473,16 +535,37 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       startLesson,
       playStory,
       enqueueStory,
+      playQueueItem,
       reorderQueue,
       removeFromQueue,
       cycleMode,
+      toggleAutoNavigate,
+      seekFraction,
+      currentPage,
       toggle,
       next,
       prev,
       jumpTo,
       close,
     }),
-    [state, startLesson, playStory, enqueueStory, reorderQueue, removeFromQueue, cycleMode, toggle, next, prev, jumpTo, close],
+    [
+      state,
+      startLesson,
+      playStory,
+      enqueueStory,
+      playQueueItem,
+      reorderQueue,
+      removeFromQueue,
+      cycleMode,
+      toggleAutoNavigate,
+      seekFraction,
+      currentPage,
+      toggle,
+      next,
+      prev,
+      jumpTo,
+      close,
+    ],
   );
 
   return <PodcastContext.Provider value={api}>{children}</PodcastContext.Provider>;

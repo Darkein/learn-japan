@@ -45,10 +45,12 @@ export interface SegmentPlayer {
   index: () => number;
   /** Positionne l'index sans lancer la lecture (navigation en pause). */
   setIndex: (i: number) => void;
+  /** Mémorise un décalage (0..1) DANS le prochain segment démarré (reprise après scrub en pause). */
+  primeSeek: (frac: number) => void;
   /** Repart en mode Cloud TTS (nouveau pack) après un éventuel repli Web Speech. */
   resetMode: () => void;
-  /** (Re)lance la lecture au segment donné. */
-  start: (fromIndex: number) => void;
+  /** (Re)lance la lecture au segment donné, éventuellement à un décalage (0..1) dans ce segment. */
+  start: (fromIndex: number, offset?: number) => void;
   /** Coupe la lecture en cours et invalide toute continuation en vol. */
   halt: () => void;
 }
@@ -62,6 +64,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   let url: string | null = null;
   let pauseTimer: ReturnType<typeof setTimeout> | null = null;
   let speechTimer: ReturnType<typeof setInterval> | null = null;
+  let seekOffset = 0; // décalage (0..1) à appliquer au prochain segment cloud démarré
 
   function cleanupAudio(): void {
     if (pauseTimer) {
@@ -191,6 +194,18 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     url = URL.createObjectURL(blob);
     const el = new Audio(url);
     audio = el;
+    // Reprise proportionnelle (scrub barre d'avancement) : positionne dans le timeline
+    // du segment avant lecture. Appliqué une seule fois, puis remis à zéro pour que les
+    // segments suivants repartent bien de leur début.
+    if (seekOffset > 0) {
+      const off = seekOffset;
+      seekOffset = 0;
+      const apply = () => {
+        if (el.duration && isFinite(el.duration)) el.currentTime = Math.min(off * el.duration, el.duration - 0.05);
+      };
+      if (el.readyState >= 1) apply();
+      else el.addEventListener("loadedmetadata", apply, { once: true });
+    }
     el.onended = () => afterSegment(i, r);
     el.ontimeupdate = () => {
       if (r !== run) return;
@@ -230,10 +245,14 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     setIndex: (i) => {
       index = i;
     },
+    primeSeek: (frac) => {
+      seekOffset = Math.min(Math.max(frac, 0), 1);
+    },
     resetMode: () => {
       mode = "cloud";
     },
-    start: (fromIndex) => {
+    start: (fromIndex, offset) => {
+      if (offset != null) seekOffset = Math.min(Math.max(offset, 0), 1);
       primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
       playFrom(fromIndex, ++run);
     },

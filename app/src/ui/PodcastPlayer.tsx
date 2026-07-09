@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import type { PodcastSegment } from "../lib/podcastScript";
 import { BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { usePodcastPlayer } from "./usePodcastPlayer";
-import { useHashRoute } from "./useHashRoute";
+import { navigate, useHashRoute } from "./useHashRoute";
 import { useMediaQuery } from "./useMediaQuery";
 import { Button } from "./kit/Button";
 import {
@@ -14,6 +14,7 @@ import {
   IconChevronUp,
   IconClose,
   IconInfinity,
+  IconLink,
   IconNext,
   IconPause,
   IconPlay,
@@ -84,7 +85,7 @@ export function PodcastPlayer() {
 
   function seekAtClientX(clientX: number, rect: DOMRect) {
     const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    p.jumpTo(Math.min(p.segments.length - 1, Math.floor(frac * p.segments.length)));
+    p.seekFraction(frac);
   }
 
   return (
@@ -117,12 +118,16 @@ export function PodcastPlayer() {
                   <span className="cursor-grab select-none text-muted" aria-hidden="true">
                     ⠿
                   </span>
-                  <span className="min-w-0 flex-1 truncate">
+                  <button
+                    className="min-w-0 flex-1 cursor-pointer truncate text-left hover:text-accent"
+                    onClick={() => p.playQueueItem(qi)}
+                    title="Lire cette piste"
+                  >
                     <span className="mr-1.5 text-xs uppercase tracking-wide text-muted">
                       {item.kind === "lesson" ? "Leçon" : "Histoire"}
                     </span>
                     {item.title}
-                  </span>
+                  </button>
                   {!isCurrent && (
                     <button
                       className="shrink-0 cursor-pointer text-muted hover:text-accent"
@@ -171,7 +176,16 @@ export function PodcastPlayer() {
 
         <div className="mb-2 flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <span className="truncate font-sans text-sm font-medium text-text">{p.title}</span>
+            <button
+              className="max-w-full cursor-pointer truncate align-baseline font-sans text-sm font-medium text-text hover:text-accent hover:underline"
+              onClick={() => {
+                const pg = p.currentPage();
+                if (pg) navigate(pg);
+              }}
+              title="Ouvrir la page de la piste"
+            >
+              {p.title}
+            </button>
             {p.segments.length > 0 && (
               <span className="ml-2 font-sans text-xs text-muted">
                 {Math.max(1, Math.ceil(p.segments.reduce((n, s) => n + s.text.length, 0) / 300))} min
@@ -183,6 +197,16 @@ export function PodcastPlayer() {
               </span>
             )}
           </div>
+          <Button
+            size="sm"
+            active={p.autoNavigate}
+            onClick={p.toggleAutoNavigate}
+            aria-pressed={p.autoNavigate}
+            aria-label={p.autoNavigate ? "Suivi auto activé" : "Suivi auto désactivé"}
+            title="Suivre la lecture : ouvrir la page de la piste courante"
+          >
+            <IconLink size={18} />
+          </Button>
           <Button
             size="sm"
             onClick={p.cycleMode}
