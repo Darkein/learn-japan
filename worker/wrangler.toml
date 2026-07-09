@@ -55,6 +55,13 @@ bucket_name = "learn-japan-content"
 binding = "TTS_CACHE"        # audio Cloud Text-to-Speech (lecteur / podcast)
 bucket_name = "learn-japan-audio"
 
+# Sauvegardes d'avancement utilisateur (sync multi-appareils par code de session).
+# SÉPARÉ des caches : seules données NON régénérables. Créer une fois :
+#   wrangler r2 bucket create learn-japan-progress
+[[r2_buckets]]
+binding = "PROGRESS"
+bucket_name = "learn-japan-progress"
+
 [secrets]
 # TOGETHER_API_KEY : requis (texte + images). GOOGLE_TTS_API_KEY : optionnel (TTS).
 # GEMINI_API_KEY : seulement si tu ajoutes un repli "gemini" dans MODEL_CHAIN.

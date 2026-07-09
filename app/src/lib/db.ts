@@ -250,7 +250,8 @@ interface LearnDB extends DBSchema {
 }
 
 const DB_NAME = "learn-japan";
-const DB_VERSION = 13;
+/** Version du schéma — embarquée dans les sauvegardes cloud (refus d'importer plus récent). */
+export const DB_VERSION = 13;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 

@@ -4,6 +4,7 @@ import { useSettings, THEMES, STORY_RATES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { SectionLabel } from "./kit/SectionLabel";
+import { SyncSection } from "./SyncSection";
 
 const REMINDER_HOURS: { value: number; label: string }[] = [
   { value: 9, label: "Matin" },
@@ -137,6 +138,8 @@ export function SettingsSections({ quick }: Props) {
           </div>
         </section>
       )}
+
+      {!quick && <SyncSection />}
 
       <section>
         <SectionLabel as="h3" className="mb-3">Thème</SectionLabel>

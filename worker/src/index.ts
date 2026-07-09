@@ -19,6 +19,7 @@
 
 import { buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
+import { handleProgressPull, handleProgressPush } from "./progress";
 
 export interface Env {
   // FOURNISSEUR PAR DÉFAUT : Together AI (API compatible OpenAI). Une SEULE clé suffit
@@ -53,6 +54,10 @@ export interface Env {
   //   TTS_CACHE → audio Cloud TTS  (bucket learn-japan-audio)
   GEN_CACHE?: R2Bucket;
   TTS_CACHE?: R2Bucket;
+  // Sauvegardes d'avancement utilisateur (sync multi-appareils). SÉPARÉ des caches :
+  // seules données NON régénérables du système. Optionnel : sans binding, /progress/* → 503.
+  //   PROGRESS → bucket learn-japan-progress
+  PROGRESS?: R2Bucket;
 }
 
 interface TtsRequest {
@@ -71,13 +76,14 @@ interface TtsRequest {
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Base-Updated-At,X-Force",
+  "Access-Control-Expose-Headers": "X-Updated-At",
 };
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS },
+    headers: { "Content-Type": "application/json", ...CORS, ...headers },
   });
 }
 
@@ -444,6 +450,14 @@ export default {
     if (!accessOk(req, env)) return json({ error: "unauthorized" }, 401);
 
     const url = new URL(req.url);
+
+    // POST /progress/pull|push → sauvegarde d'avancement (blob gzip opaque, voir progress.ts)
+    if (req.method === "POST" && url.pathname === "/progress/pull") {
+      return handleProgressPull(req, env.PROGRESS, json, CORS);
+    }
+    if (req.method === "POST" && url.pathname === "/progress/push") {
+      return handleProgressPush(req, env.PROGRESS, json);
+    }
 
     // POST /generate → { text, cached } (synchrone, avec cache R2)
     if (req.method === "POST" && url.pathname === "/generate") {

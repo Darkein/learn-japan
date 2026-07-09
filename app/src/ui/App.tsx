@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
 import { enrollStory } from "../lib/enroll";
+import { initSync } from "../lib/sync";
 import { getLesson, type Lesson } from "../lib/lessons";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { Button } from "./kit/Button";
@@ -71,6 +72,10 @@ export function App() {
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
+
+  // Sauvegarde cloud par code de session : fast-forward au lancement, push périodique,
+  // push best-effort au passage en arrière-plan. No-op sans code configuré (voir lib/sync.ts).
+  useEffect(() => initSync(), []);
 
   // Le lecteur podcast est porté ici (au-dessus du routage) pour persister entre les
   // onglets et les pages, et la barre est rendue par-dessus tout le contenu.
