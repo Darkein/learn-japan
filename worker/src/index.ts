@@ -17,7 +17,7 @@
 // des gabarits fixes (voir prompts.ts). Aucune instruction libre ne transite → l'endpoint
 // ne peut pas être détourné en proxy LLM générique « hors japonais ».
 
-import { buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, type GenerateRequest } from "./prompts";
+import { buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, IMAGE_NEGATIVE, type GenerateRequest } from "./prompts";
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 import { handleProgressPull, handleProgressPush } from "./progress";
 
@@ -291,10 +291,11 @@ async function generate(env: Env, prompt: string): Promise<string> {
 // Repliée dans /generate (aucun endpoint image public). Best-effort : l'image est
 // décorative, tout échec renvoie null et l'histoire est servie sans illustration.
 
-/** Modèle image Together : `TOGETHER_IMAGE_MODEL` s'il est défini, sinon FLUX schnell
- *  serverless (~0,002 $ l'image en 1024×768 ; la variante -Free n'est plus serverless → 400). */
+/** Modèle image Together : `TOGETHER_IMAGE_MODEL` s'il est défini, sinon FLUX.2-dev
+ *  (~0,012 $ l'image en 1024×768 ; nettement plus cohérent que schnell, licence NON
+ *  commerciale). Repli historique schnell via la var d'env si besoin. */
 function imageModel(env: Env): string {
-  return (env.TOGETHER_IMAGE_MODEL ?? "").trim() || "black-forest-labs/FLUX.1-schnell";
+  return (env.TOGETHER_IMAGE_MODEL ?? "").trim() || "black-forest-labs/FLUX.2-dev";
 }
 
 interface GeneratedImage {
@@ -321,12 +322,18 @@ function bytesToBase64(bytes: Uint8Array): string {
 async function generateImage(env: Env, prompt: string): Promise<GeneratedImage | null> {
   const key = env.TOGETHER_API_KEY;
   if (!key) return null;
+  const model = imageModel(env);
+  // `steps: 4` est SPÉCIFIQUE au distillé FLUX.1-schnell. Les autres modèles (FLUX.2, Qwen,
+  // Seedream…) ont un défaut bien plus élevé → on laisse le défaut du modèle (ne pas forcer 4,
+  // sinon rendu dégradé). Le negative prompt cible les artefacts (branches parasites,
+  // architecture déformée) ; ignoré par les modèles qui ne le supportent pas.
   const body = JSON.stringify({
-    model: imageModel(env),
+    model,
     prompt,
+    negative_prompt: IMAGE_NEGATIVE,
     width: 1024,
     height: 768,
-    steps: 4, // FLUX schnell est distillé pour 1–4 étapes
+    ...(model.includes("schnell") ? { steps: 4 } : {}),
     n: 1,
   });
   try {

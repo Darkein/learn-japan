@@ -435,6 +435,17 @@ export const IMAGE_STYLE = [
 ].join(" ");
 
 /**
+ * Prompt NÉGATIF : cible les artefacts fréquents des modèles distillés (branches parasites,
+ * architecture déformée, anatomie incorrecte). Utilisé par les modèles qui le supportent
+ * (FLUX.2, Qwen, Seedream…) ; ignoré par FLUX.1-schnell.
+ */
+export const IMAGE_NEGATIVE = [
+  "branches parasites ou flottantes, éléments déconnectés, architecture déformée,",
+  "toit ou perspective impossible, membres ou doigts en trop, mains malformées,",
+  "ombres photoréalistes, rendu 3D, texte, lettres, filigrane, signature, flou, image chargée",
+].join(" ");
+
+/**
  * Prompt d'illustration d'une histoire : STYLE figé (ukiyo-e) + une scène dérivée du texte
  * japonais déjà généré et du titre français. Le texte est assaini/borné comme toute entrée.
  * Contraintes fixes : une seule illustration, une scène unique fidèle au récit, et AUCUN

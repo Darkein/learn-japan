@@ -20,9 +20,11 @@ workers_dev = true
 # sont réessayés sur place ; un échec persistant remonte au client, relançable).
 TOGETHER_MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
-# image dédié). FLUX.1-schnell serverless : ~0,002 $/image en 1024×768 (la variante -Free
-# n'est plus servie en serverless → HTTP 400). Best-effort : sans image, l'histoire passe.
-TOGETHER_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
+# image dédié). FLUX.2-dev : ~0,012 $/image en 1024×768, nettement plus cohérent que le
+# distillé schnell (moins de branches parasites / architecture déformée) et accepte un
+# negative prompt. LICENCE NON COMMERCIALE (usage perso/éducatif). Best-effort : sans image,
+# l'histoire passe. Repli économique : "black-forest-labs/FLUX.1-schnell".
+TOGETHER_IMAGE_MODEL = "black-forest-labs/FLUX.2-dev"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
 # TTS (écoute d'article / mode voiture). Voix et débit par défaut, surchargeables par
