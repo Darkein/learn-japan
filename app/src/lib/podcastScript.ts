@@ -22,6 +22,10 @@ export interface PodcastSegment {
   pauseAfterMs?: number;
   /** Libellé court pour la tracklist (sinon dérivé du texte). */
   label?: string;
+  /** Surfaces des tokens de la phrase (histoire) : active la synthèse avec timepoints. */
+  tokens?: string[];
+  /** Index GLOBAL du 1er token de la phrase (surlignage). */
+  baseTokenIndex?: number;
 }
 
 /** Segment avant attribution de l'id global (assigné en fin d'assemblage). */
