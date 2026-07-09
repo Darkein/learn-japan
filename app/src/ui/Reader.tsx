@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import { recordEncounters, type ReEncounter } from "../lib/encounters";
 import { getStory, type ItemStatus, type StoryRecord } from "../lib/db";
@@ -7,11 +7,11 @@ import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
 import { getCurriculumEntry, type LessonObjectives } from "../lib/curriculum";
 import type { StoryParams } from "../lib/stories";
-import { splitSentences, useArticlePlayer } from "../lib/tts";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
-import { IconPause, IconPlay } from "./kit/Icon";
+import { IconChevronDown, IconPause, IconPlay } from "./kit/Icon";
+import { usePodcastPlayer } from "./usePodcastPlayer";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReaderExercises } from "./ReaderExercises";
 import { Ruby } from "./Ruby";
@@ -89,9 +89,14 @@ export function Reader({ incoming }: Props) {
   const [transOpen, setTransOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const lessonCtx = incoming.lessonContext ?? null;
   const { regenerateStory } = useGenJobs();
+
+  const podcast = usePodcastPlayer();
+  const isActiveStory = !!incoming.id && podcast.activeStoryId === incoming.id;
+  const currentTokenIndex = isActiveStory ? podcast.currentTokenIndex : null;
 
   // Régénération depuis la page histoire : l'histoire est supprimée puis regénérée en
   // arrière-plan → retour à la leçon (qui affiche la progression et notifie à la fin).
@@ -103,11 +108,6 @@ export function Reader({ incoming }: Props) {
     regenerateStory(lesson, story);
     navigate(`/cours/${encodeURIComponent(lesson.id)}`);
   }
-
-  // Lecture audio de l'article : phrases dérivées des tokens (réf. stable tant que
-  // l'analyse ne change pas → le player se réinitialise à chaque nouvel article).
-  const sentences = useMemo(() => (result ? splitSentences(result.tokens) : []), [result]);
-  const player = useArticlePlayer(sentences, settings.storyRate);
 
   // (Ré)analyse à chaque ouverture d'une histoire/leçon.
   useEffect(() => {
@@ -181,7 +181,7 @@ export function Reader({ incoming }: Props) {
           <div className={`flex flex-wrap items-baseline gap-x-1.5 ${settings.furiganaDefault ? "gap-y-1" : "gap-y-3"}`}>
             {result.tokens.map((tok, i) => {
               const g = result.gloss[i];
-              const active = i === player.currentTokenIndex;
+              const active = i === currentTokenIndex;
               // Estompage : un mot marqué « connu » perd ses béquilles (gloss, furigana) —
               // le sens reste accessible au tap. Ne concerne que les mots de contenu suivis.
               const known =
@@ -220,25 +220,50 @@ export function Reader({ incoming }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button
-              active={player.playing}
-              onClick={player.toggle}
-              disabled={player.loading || sentences.length === 0}
-            >
-              {player.loading ? (
-                "Chargement…"
-              ) : player.playing ? (
-                <>
-                  <IconPause size={16} />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <IconPlay size={16} />
-                  Écouter l'article
-                </>
+            <div className="relative flex items-stretch">
+              <Button
+                active={isActiveStory && podcast.playing}
+                onClick={() => {
+                  if (!incoming.id) return;
+                  if (isActiveStory) podcast.toggle();
+                  else podcast.playStory({ storyId: incoming.id, title: incoming.title ?? "Histoire" });
+                }}
+                disabled={!incoming.id || (isActiveStory && !!podcast.preparing)}
+              >
+                {isActiveStory && podcast.playing ? (
+                  <>
+                    <IconPause size={16} />
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <IconPlay size={16} />
+                    Écouter l'article
+                  </>
+                )}
+              </Button>
+              <Button
+                size="icon"
+                aria-label="Options de lecture"
+                onClick={() => setMenuOpen((o) => !o)}
+                disabled={!incoming.id}
+              >
+                <IconChevronDown size={16} />
+              </Button>
+              {menuOpen && incoming.id && (
+                <div className="absolute left-0 top-full z-20 mt-1 rounded-sm border border-hairline bg-surface shadow">
+                  <button
+                    className="block w-full cursor-pointer whitespace-nowrap px-3 py-2 text-left text-sm hover:bg-surface-2"
+                    onClick={() => {
+                      podcast.enqueueStory({ storyId: incoming.id!, title: incoming.title ?? "Histoire" });
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Ajouter à la file d'attente
+                  </button>
+                </div>
               )}
-            </Button>
+            </div>
             <Button variant="primary" onClick={() => setExoOpen(true)}>
               Exercices
             </Button>
@@ -254,8 +279,6 @@ export function Reader({ incoming }: Props) {
               {reEncounters.length > 1 ? "s" : ""} que tu connais.
             </p>
           )}
-
-          {player.error && <p className="text-sm text-accent">Audio indisponible : {player.error}</p>}
 
           {exoOpen && (
             <ReaderExercises
