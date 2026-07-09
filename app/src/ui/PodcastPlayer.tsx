@@ -19,7 +19,7 @@ import {
   IconPlay,
   IconPrev,
   IconRepeat,
-  IconRepeatOne,
+  IconRepeatOff,
 } from "./kit/Icon";
 
 const CHAPTER_LABEL: Record<PodcastSegment["chapter"], string> = {
@@ -190,11 +190,11 @@ export function PodcastPlayer() {
             title={MODE_LABEL[p.mode]}
           >
             {p.mode === "auto" ? (
-              <IconInfinity size={18} />
+              <IconInfinity size={22} />
             ) : p.mode === "repeat" ? (
-              <IconRepeat size={18} />
+              <IconRepeat size={22} />
             ) : (
-              <IconRepeatOne size={18} />
+              <IconRepeatOff size={22} />
             )}
           </Button>
           <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>

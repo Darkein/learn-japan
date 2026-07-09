@@ -225,16 +225,20 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   // Suite à ajouter en mode « auto » quand la file est épuisée : leçon suivante du curriculum
   // ou histoire suivante de la bibliothèque (triée du plus récent au plus ancien).
   async function computeNext(last: QueueItem): Promise<QueueItem | null> {
+    // Boucle sur la bibliothèque : au bout, on revient au début (radio « lecture auto »).
+    // `null` seulement s'il n'existe aucune AUTRE piste que celle qui vient de finir.
     if (last.kind === "lesson") {
       const order = getCurriculum();
       const i = order.findIndex((c) => c.id === last.lessonId);
-      const nxt = i >= 0 ? order[i + 1] : undefined;
-      return nxt ? { kind: "lesson", lessonId: nxt.id, title: nxt.title } : null;
+      if (i < 0 || order.length === 0) return null;
+      const nxt = order[(i + 1) % order.length];
+      return nxt.id === last.lessonId ? null : { kind: "lesson", lessonId: nxt.id, title: nxt.title };
     }
     const all = await allStories();
     const i = all.findIndex((s) => s.id === last.storyId);
-    const nxt = i >= 0 ? all[i + 1] : undefined;
-    return nxt ? { kind: "story", storyId: nxt.id, title: nxt.titleFr ?? nxt.title } : null;
+    if (i < 0 || all.length === 0) return null;
+    const nxt = all[(i + 1) % all.length];
+    return nxt.id === last.storyId ? null : { kind: "story", storyId: nxt.id, title: nxt.titleFr ?? nxt.title };
   }
 
   async function handleEnded(): Promise<void> {

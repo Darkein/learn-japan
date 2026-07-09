@@ -190,14 +190,14 @@ export function IconRepeat(props: IconProps) {
   );
 }
 
-export function IconRepeatOne(props: IconProps) {
+export function IconRepeatOff(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M17 4l3 3-3 3" />
       <path d="M20 7H8a4 4 0 0 0-4 4v1" />
       <path d="M7 20l-3-3 3-3" />
       <path d="M4 17h12a4 4 0 0 0 4-4v-1" />
-      <path d="M11.5 12.5l1-.7V16" />
+      <path d="M4 4l16 16" />
     </Svg>
   );
 }
