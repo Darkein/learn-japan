@@ -15,7 +15,7 @@ import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
 import { SwipeNavigator } from "./SwipeNavigator";
 import { useStoryNeighbors } from "./useStoryNeighbors";
-import { lessonNeighbors } from "../lib/curriculum";
+import { useLessonNeighbors } from "./useLessonNeighbors";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { useMediaQuery } from "./useMediaQuery";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
@@ -122,8 +122,7 @@ function AppShell() {
   const tab = tabForRoute(route);
   // Voisins pour la navigation adjacente (swipe / flèches). Hooks appelés inconditionnellement.
   const storyNeighbors = useStoryNeighbors(route.kind === "reader" ? reader?.id : undefined);
-  const courseNeighbors =
-    route.kind === "course" && course ? lessonNeighbors(course.id) : {};
+  const courseNeighbors = useLessonNeighbors(route.kind === "course" ? course?.id : undefined);
 
   // Quand une génération aboutit (dataVersion), on rafraîchit l'onglet courant et on
   // recharge le cours ouvert (le cours devient lisible, une nouvelle histoire apparaît).

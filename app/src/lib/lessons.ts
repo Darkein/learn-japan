@@ -274,6 +274,25 @@ export async function listLessons(): Promise<Lesson[]> {
   return lessons;
 }
 
+/**
+ * Leçons adjacentes pour la navigation par swipe / flèches, restreintes aux seules leçons
+ * **débloquées** (`!locked`) : on saute les leçons verrouillées. `lessons` est la liste
+ * ordonnée renvoyée par `listLessons()`. Renvoie `undefined` aux extrémités, et un objet vide
+ * si la leçon courante est elle-même verrouillée (donc absente de la séquence parcourable).
+ */
+export function unlockedNeighbors(
+  lessons: Pick<Lesson, "id" | "locked">[],
+  id: string,
+): { prevId?: string; nextId?: string } {
+  const unlocked = lessons.filter((l) => !l.locked);
+  const i = unlocked.findIndex((l) => l.id === id);
+  if (i === -1) return {};
+  return {
+    prevId: i > 0 ? unlocked[i - 1].id : undefined,
+    nextId: i < unlocked.length - 1 ? unlocked[i + 1].id : undefined,
+  };
+}
+
 /** Ids de grammaire introduits par une leçon débloquée (non verrouillée), pour la mise en avant. */
 export async function getUnlockedGrammarIds(): Promise<string[]> {
   const lessons = await listLessons();
