@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { grammarDetail } from "../lib/inventory";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
+import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderHeaderSlot } from "./ReaderPage";
@@ -78,6 +79,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
           </>
         )}
       </Button>
+      <DownloadButton target={{ kind: "lesson", lesson }} />
     </>
   );
 

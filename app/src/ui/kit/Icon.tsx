@@ -171,6 +171,25 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+export function IconDownload(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 4v11" />
+      <path d="M7 10.5l5 5 5-5" />
+      <path d="M5 19.5h14" />
+    </Svg>
+  );
+}
+
+export function IconDownloadDone(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 10.5l4 4 8-8.5" />
+      <path d="M5 19.5h14" />
+    </Svg>
+  );
+}
+
 export function IconLink(props: IconProps) {
   return (
     <Svg {...props}>
