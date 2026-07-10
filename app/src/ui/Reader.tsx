@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { analyze, type AnalyzedSentence } from "../lib/analyze";
+import { analyze, peekAnalysis, type AnalyzedSentence } from "../lib/analyze";
 import { recordEncounters, type ReEncounter } from "../lib/encounters";
 import { getStory, type ItemStatus, type StoryRecord } from "../lib/db";
 import { getLesson } from "../lib/lessons";
@@ -87,7 +87,10 @@ interface Props {
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
 export function Reader({ incoming, preview = false }: Props) {
   const { settings } = useSettings();
-  const [result, setResult] = useState<AnalyzedSentence | null>(null);
+  // Initialisation synchrone depuis le cache d'analyse : si le texte a déjà été analysé (page
+  // voisine affichée en aperçu pendant le carrousel), on rend le contenu d'emblée, sans passer
+  // par « Chargement du tokenizer… » au remontage de la page active.
+  const [result, setResult] = useState<AnalyzedSentence | null>(() => peekAnalysis(incoming.text) ?? null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
   const [reEncounters, setReEncounters] = useState<ReEncounter[]>([]);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
@@ -127,13 +130,17 @@ export function Reader({ incoming, preview = false }: Props) {
       setResult(null);
       return;
     }
-    setLoading(true);
     setError(null);
     setOpenIdx(null);
     setExoOpen(false);
     setTransOpen(false);
+    // Déjà analysé : affichage immédiat, on n'affiche PAS l'état de chargement (pas de flash
+    // « Chargement du tokenizer… » au remontage). On charge quand même statuts + rencontres.
+    const cached = peekAnalysis(t);
+    if (cached) setResult(cached);
+    else setLoading(true);
     try {
-      const analyzed = await analyze(t);
+      const analyzed = cached ?? (await analyze(t));
       setResult(analyzed);
       const ids = analyzed.tokens.filter((x) => isContent(x.token)).map((x) => itemIdFor(x.token));
       setStatuses(await statusesFor(ids));
