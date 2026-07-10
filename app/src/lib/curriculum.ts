@@ -104,20 +104,6 @@ export function getCurriculumEntry(id: string): CurriculumEntry | undefined {
 }
 
 /**
- * Leçons adjacentes dans l'ordre pédagogique (voisinage pour la navigation par swipe /
- * flèches). Le verrou d'unlock est volontairement ignoré : la navigation adjacente est une
- * action délibérée. Renvoie `undefined` aux extrémités (première / dernière leçon).
- */
-export function lessonNeighbors(id: string): { prevId?: string; nextId?: string } {
-  const i = CURRICULUM.findIndex((c) => c.id === id);
-  if (i === -1) return {};
-  return {
-    prevId: i > 0 ? CURRICULUM[i - 1].id : undefined,
-    nextId: i < CURRICULUM.length - 1 ? CURRICULUM[i + 1].id : undefined,
-  };
-}
-
-/**
  * Lexique cumulé connu à la leçon `id` : union des objectifs de toutes les leçons
  * déjà vues (niveau supérieur, ou même niveau d'ordre <= celui de la leçon). Sert à
  * contraindre la génération pour qu'une histoire n'emploie que du vocabulaire déjà introduit.
