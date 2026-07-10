@@ -10,7 +10,7 @@ import {
   type ItemStatus,
   type VocabItem,
 } from "./db";
-import { staticExample } from "./inventory";
+import { staticExample, type InvVocab } from "./inventory";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -92,6 +92,37 @@ export async function applyStatus(
     track: "vocab",
     skill: "written",
     grade: ACTION_TO_GRADE[action],
+    at: now.getTime(),
+  });
+  return item;
+}
+
+/**
+ * Ajoute un mot de l'inventaire au SRS avec le statut « à revoir » (bouton
+ * suggestion de la fiche kanji). Un item déjà en base est retourné tel quel —
+ * on ne rétrograde jamais un mot connu.
+ */
+export async function addInventoryWordToReview(
+  v: InvVocab,
+  now: Date = new Date(),
+): Promise<VocabItem> {
+  const existing = await getVocab(v.id);
+  if (existing) return existing;
+  const item: VocabItem = {
+    id: v.id,
+    surface: v.ja,
+    reading: v.yomi ?? v.ja,
+    meaning: v.fr,
+    tags: [],
+    status: "review",
+    cards: { written: review(newCard(now), "good", now) },
+  };
+  await putVocab(item);
+  await logReview({
+    itemId: item.id,
+    track: "vocab",
+    skill: "written",
+    grade: "good",
     at: now.getTime(),
   });
   return item;

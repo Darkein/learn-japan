@@ -3,7 +3,7 @@
 
 import type { ReactNode } from "react";
 import type { ItemStatus } from "../lib/db";
-import type { allGrammarInv, allKanjiInv, allVocabInv } from "../lib/inventory";
+import type { allGrammarInv, allKanjiInv, allVocabInv, InvVocab } from "../lib/inventory";
 import { Badge } from "./kit/Badge";
 
 const STATUS_LABEL: Record<ItemStatus, string> = {
@@ -23,9 +23,12 @@ interface RowsProps {
   };
   matches: (track: "kanji" | "vocab" | "grammar", id: string, lvl: number) => boolean;
   statusOf: (track: "vocab" | "grammar", id: string) => ItemStatus;
+  onOpenKanji: (ch: string) => void;
+  onOpenVocab: (v: InvVocab) => void;
 }
 
-function StatusTag({ status }: { status: ItemStatus }) {
+/** Pastille de statut (point coloré + libellé) — aussi réutilisée par KanjiSheet. */
+export function StatusTag({ status }: { status: ItemStatus }) {
   const dot =
     status === "unknown"
       ? "bg-state-unknown"
@@ -44,24 +47,27 @@ function LevelTag({ level, className = "" }: { level: number; className?: string
   return <Badge className={className}>N{level}</Badge>;
 }
 
-export function InventoryRows({ section, inventory, matches, statusOf }: RowsProps) {
+export function InventoryRows({ section, inventory, matches, statusOf, onOpenKanji, onOpenVocab }: RowsProps) {
   if (section === "kanji") {
     const items = inventory.kanji.filter((k) => matches("kanji", k.id, k.level));
     return (
       <List count={items.length}>
         {items.slice(0, MAX_ROWS).map((k) => (
-          <li
-            key={k.id}
-            className="flex flex-col gap-1 border-t border-hairline py-3 last:border-b sm:grid sm:grid-cols-[2.5rem_1fr_1.5fr_auto] sm:items-baseline sm:gap-3 sm:py-2"
-          >
-            <span className="flex items-baseline gap-3 sm:contents">
-              <span className="font-jp text-lg text-text">{k.ja}</span>
-              <LevelTag level={k.level} className="ml-auto sm:order-4 sm:ml-0 sm:justify-self-end" />
-            </span>
-            <span className="font-jp text-sm text-muted">
-              {[...k.kun, ...k.on].slice(0, 4).join("・")}
-            </span>
-            <span className="font-sans text-sm text-text">{k.fr}</span>
+          <li key={k.id} className="border-t border-hairline last:border-b">
+            <button
+              className="flex w-full cursor-pointer flex-col gap-1 py-3 text-left transition-colors hover:bg-surface sm:grid sm:grid-cols-[2.5rem_1fr_1.5fr_auto] sm:items-baseline sm:gap-3 sm:py-2"
+              onClick={() => onOpenKanji(k.id)}
+              aria-label={`Ouvrir la fiche du kanji ${k.ja}`}
+            >
+              <span className="flex items-baseline gap-3 sm:contents">
+                <span className="font-jp text-lg text-text">{k.ja}</span>
+                <LevelTag level={k.level} className="ml-auto sm:order-4 sm:ml-0 sm:justify-self-end" />
+              </span>
+              <span className="font-jp text-sm text-muted">
+                {[...k.kun, ...k.on].slice(0, 4).join("・")}
+              </span>
+              <span className="font-sans text-sm text-text">{k.fr}</span>
+            </button>
           </li>
         ))}
       </List>
@@ -72,17 +78,20 @@ export function InventoryRows({ section, inventory, matches, statusOf }: RowsPro
     return (
       <List count={items.length}>
         {items.slice(0, MAX_ROWS).map((v) => (
-          <li
-            key={v.id}
-            className="flex flex-col gap-1 border-t border-hairline py-3 last:border-b min-[60rem]:grid min-[60rem]:grid-cols-[7rem_6rem_1fr_auto_auto] min-[60rem]:items-baseline min-[60rem]:gap-3 min-[60rem]:py-2"
-          >
-            <span className="flex items-baseline gap-3 min-[60rem]:contents">
-              <span className="font-jp text-lg text-text">{v.ja}</span>
-              <LevelTag level={v.level} className="ml-auto min-[60rem]:order-4 min-[60rem]:ml-0 min-[60rem]:justify-self-end" />
-            </span>
-            <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
-            <span className="font-sans text-sm text-text">{v.fr}</span>
-            <StatusTag status={statusOf("vocab", v.id)} />
+          <li key={v.id} className="border-t border-hairline last:border-b">
+            <button
+              className="flex w-full cursor-pointer flex-col gap-1 py-3 text-left transition-colors hover:bg-surface min-[60rem]:grid min-[60rem]:grid-cols-[7rem_6rem_1fr_auto_auto] min-[60rem]:items-baseline min-[60rem]:gap-3 min-[60rem]:py-2"
+              onClick={() => onOpenVocab(v)}
+              aria-label={`Ouvrir la fiche du mot ${v.ja}`}
+            >
+              <span className="flex items-baseline gap-3 min-[60rem]:contents">
+                <span className="font-jp text-lg text-text">{v.ja}</span>
+                <LevelTag level={v.level} className="ml-auto min-[60rem]:order-4 min-[60rem]:ml-0 min-[60rem]:justify-self-end" />
+              </span>
+              <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
+              <span className="font-sans text-sm text-text">{v.fr}</span>
+              <StatusTag status={statusOf("vocab", v.id)} />
+            </button>
           </li>
         ))}
       </List>

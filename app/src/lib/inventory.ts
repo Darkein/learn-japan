@@ -72,6 +72,36 @@ export function resolveVocab(id: string): VocabEntry {
   };
 }
 
+// ---- Détail d'un kanji (fiche kanji, décomposition d'un mot) ---------------
+
+export interface KanjiDetail {
+  /** Le caractère lui-même (= id dans kanji.json). */
+  id: string;
+  ja: string;
+  fr: string;
+  meanings: string[];
+  on: string[];
+  kun: string[];
+  strokes?: number;
+  level: number;
+}
+
+/** Détail d'un kanji de l'inventaire (KANJIDIC), ou null s'il n'y figure pas. */
+export function kanjiDetail(ch: string): KanjiDetail | null {
+  const k = kanjiById.get(ch);
+  if (!k) return null;
+  return {
+    id: k.id,
+    ja: k.id,
+    fr: k.fr ?? k.meanings[0] ?? k.id,
+    meanings: k.meanings,
+    on: k.on ?? [],
+    kun: k.kun ?? [],
+    strokes: k.strokes,
+    level: k.level,
+  };
+}
+
 /** Résout un id de grammaire en libellé « nom — règle » pour l'UI. */
 export function resolveGrammar(id: string): string {
   const g = grammarById.get(id);
