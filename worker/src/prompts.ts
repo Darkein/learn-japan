@@ -426,47 +426,80 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
  * le client. Toute image d'histoire hérite exactement de cette description.
  */
 export const IMAGE_STYLE = [
-  "Style : estampe japonaise traditionnelle (ukiyo-e), comme une gravure sur bois du",
-  "période Edo. Aplats de couleurs mates, palette limitée et harmonieuse (indigo, ocre,",
-  "rouge vermillon, vert doux), contours nets à l'encre, absence d'ombres réalistes,",
-  "perspective plate et composition équilibrée, léger grain de papier washi texturé.",
-  "Toujours le même illustrateur : garde ce style rigoureusement identique d'une image à",
-  "l'autre.",
+  "Traditional Japanese ukiyo-e woodblock print in the Edo-period style:",
+  "flat matte color fields, a limited harmonious palette (indigo, ochre, vermilion red,",
+  "soft green), crisp black ink outlines, no realistic shadows, flat perspective, balanced",
+  "composition, subtle textured washi paper grain. Always the same illustrator: keep this",
+  "exact style identical from one image to the next.",
 ].join(" ");
 
 /**
- * Prompt NÉGATIF : cible les artefacts fréquents des modèles distillés (branches parasites,
- * architecture déformée, anatomie incorrecte). Utilisé par les modèles qui le supportent
- * (FLUX.2, Qwen, Seedream…) ; ignoré par FLUX.1-schnell.
+ * Prompt NÉGATIF : cible les artefacts fréquents (branches parasites, architecture déformée,
+ * anatomie incorrecte). Utilisé par les modèles qui le supportent (FLUX.2, Qwen, Seedream…) ;
+ * ignoré par FLUX.1-schnell. En anglais : meilleure prise en compte par les encodeurs.
  */
 export const IMAGE_NEGATIVE = [
-  "branches parasites ou flottantes, éléments déconnectés, architecture déformée,",
-  "toit ou perspective impossible, membres ou doigts en trop, mains malformées,",
-  "ombres photoréalistes, rendu 3D, texte, lettres, filigrane, signature, flou, image chargée",
-].join(" ");
+  "extra or floating branches",
+  "disconnected or overlapping elements",
+  "deformed or impossible architecture",
+  "warped roof",
+  "broken or inconsistent perspective",
+  "extra limbs",
+  "extra fingers",
+  "malformed hands or faces",
+  "fused bodies",
+  "duplicated subjects",
+  "photorealistic shading",
+  "3D render",
+  "glossy highlights",
+  "text, letters, words, numbers, kanji, kana",
+  "watermark, signature",
+  "blurry",
+  "cluttered chaotic composition",
+].join(", ");
 
 /**
- * Prompt d'illustration d'une histoire : STYLE figé (ukiyo-e) + une scène dérivée du texte
- * japonais déjà généré et du titre français. Le texte est assaini/borné comme toute entrée.
- * Contraintes fixes : une seule illustration, une scène unique fidèle au récit, et AUCUN
- * texte/lettre/caractère dans l'image (une estampe illustrative, pas une page écrite).
+ * Prompt de DISTILLATION : demande au modèle de texte de résumer l'histoire japonaise en une
+ * brève description VISUELLE concrète (anglais), à donner ensuite au modèle d'image. Évite de
+ * jeter tout un récit au générateur d'image (source d'hallucinations : branches/archi incohérentes).
  */
-export function buildStoryIllustrationPrompt(text: string, titleFr?: string, level?: number): string {
-  const scene = clean(text, LIMITS.illustrationText);
+export function buildSceneBriefPrompt(storyText: string): string {
+  const s = clean(storyText, LIMITS.illustrationText);
+  return [
+    "Tu es directeur artistique. À partir de cette courte histoire japonaise, écris en ANGLAIS",
+    "UNE seule description visuelle concrète (1 à 2 phrases, 40 mots maximum) d'un instant clé à",
+    "illustrer : sujet principal, lieu, action, saison ou moment de la journée, ambiance.",
+    "Ne décris QUE ce qui est visible — pas de narration, pas de dialogue, pas de texte à l'écran.",
+    "Reste fidèle à l'histoire et physiquement plausible (une seule scène cohérente).",
+    "",
+    `Histoire : ${s}`,
+    "",
+    "Réponds uniquement par la description, sans préambule ni guillemets.",
+  ].join("\n");
+}
+
+/**
+ * Prompt d'illustration : STYLE figé (ukiyo-e) + une scène (idéalement un brief visuel distillé,
+ * sinon le texte de l'histoire en repli). Contraintes fixes : une seule scène cohérente,
+ * plausibilité physique/anatomique/architecturale, et AUCUN texte dans l'image.
+ */
+export function buildStoryIllustrationPrompt(scene: string, titleFr?: string, level?: number): string {
+  const s = clean(scene, LIMITS.illustrationText);
   const title = clean(titleFr, LIMITS.title);
   const lvl = cleanLevel(level);
   return [
     IMAGE_STYLE,
     "",
-    "Illustre en une seule image la scène de cette courte histoire japonaise",
-    `(niveau d'apprentissage JLPT N${lvl}) :`,
-    title ? `Titre : « ${title} ».` : "",
-    `Histoire : ${scene}`,
+    `Depict a SINGLE coherent scene for a short Japanese learner story (JLPT N${lvl}).`,
+    title ? `Title: "${title}".` : "",
+    `Scene to illustrate: ${s}`,
     "",
-    "Représente le moment ou l'ambiance la plus marquante du récit (personnages, lieu,",
-    "action), fidèlement à ce qui est raconté. Une seule scène, cadrage clair.",
-    "N'inscris AUCUN texte, lettre, mot, chiffre, kanji, kana ni logo dans l'image :",
-    "uniquement le dessin.",
+    "Show one clear focal moment (characters, place, action), faithful to the scene.",
+    "Everything must be physically plausible and structurally coherent: correct human and",
+    "animal anatomy; buildings, roofs and bridges with consistent, believable architecture;",
+    "trees with branches attached naturally to the trunk (never floating or stray); a single",
+    "uncluttered composition with one clear focal point.",
+    "Do not draw any text, letters, words, numbers, kanji, kana or logos — illustration only.",
   ]
     .filter(Boolean)
     .join("\n");

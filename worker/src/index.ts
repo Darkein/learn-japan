@@ -17,7 +17,7 @@
 // des gabarits fixes (voir prompts.ts). Aucune instruction libre ne transite → l'endpoint
 // ne peut pas être détourné en proxy LLM générique « hors japonais ».
 
-import { buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, IMAGE_NEGATIVE, type GenerateRequest } from "./prompts";
+import { buildSceneBriefPrompt, buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, IMAGE_NEGATIVE, type GenerateRequest } from "./prompts";
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 import { handleProgressPull, handleProgressPush } from "./progress";
 
@@ -327,13 +327,18 @@ async function generateImage(env: Env, prompt: string): Promise<GeneratedImage |
   // Seedream…) ont un défaut bien plus élevé → on laisse le défaut du modèle (ne pas forcer 4,
   // sinon rendu dégradé). Le negative prompt cible les artefacts (branches parasites,
   // architecture déformée) ; ignoré par les modèles qui ne le supportent pas.
+  const isSchnell = model.includes("schnell");
   const body = JSON.stringify({
     model,
     prompt,
     negative_prompt: IMAGE_NEGATIVE,
     width: 1024,
     height: 768,
-    ...(model.includes("schnell") ? { steps: 4 } : {}),
+    // schnell distillé = 4 pas et guidance ignorée ; sinon on monte un peu les pas (défaut API
+    // 20) et la guidance (défaut 3,5) pour plus de cohérence structurelle. Coût ~×1,6.
+    steps: isSchnell ? 4 : 32,
+    ...(isSchnell ? {} : { guidance_scale: 4 }),
+    response_format: "base64",
     n: 1,
   });
   try {
@@ -362,6 +367,27 @@ async function generateImage(env: Env, prompt: string): Promise<GeneratedImage |
     console.warn(`Image: ${String(e)}`);
   }
   return null;
+}
+
+/**
+ * Distille l'histoire japonaise en un bref visuel concret (anglais) via le modèle de texte.
+ * Donner ce brief au modèle d'image plutôt que le récit entier réduit fortement les
+ * incohérences (branches parasites, architecture déformée). Repli sur `null` (→ texte brut).
+ */
+async function distillScene(env: Env, storyText: string): Promise<string | null> {
+  try {
+    const brief = (await generate(env, buildSceneBriefPrompt(storyText))).trim();
+    if (!brief || brief.startsWith("【stub】")) return null; // clé absente / réponse vide
+    return brief.replace(/^["'«»\s]+|["'«»\s]+$/g, "").slice(0, 400);
+  } catch {
+    return null;
+  }
+}
+
+/** Prompt d'illustration à partir d'une histoire : brief distillé si possible, sinon texte brut. */
+async function illustrationPromptFor(env: Env, storyText: string, level?: number): Promise<string> {
+  const brief = await distillScene(env, storyText);
+  return buildStoryIllustrationPrompt(brief ?? storyText, undefined, level);
 }
 
 // ---------- TTS (Google Cloud Text-to-Speech) -------------------------------
@@ -515,7 +541,7 @@ export default {
           // free tier (quota 0 → 429), on ne ralentit pas chaque hit avec des retries.
           if (isStory && !hit.image && body.backfillImage === true && hasAnyKey(env)) {
             try {
-              const img = await generateImage(env, buildStoryIllustrationPrompt(hit.text, undefined, body.level));
+              const img = await generateImage(env, await illustrationPromptFor(env, hit.text, body.level));
               if (img) {
                 hit.image = img.data;
                 hit.mime = img.mime;
@@ -539,7 +565,7 @@ export default {
         let image: GeneratedImage | null = null;
         if (keyed && isStory) {
           try {
-            image = await generateImage(env, buildStoryIllustrationPrompt(text, undefined, body.level));
+            image = await generateImage(env, await illustrationPromptFor(env, text, body.level));
           } catch {
             image = null;
           }

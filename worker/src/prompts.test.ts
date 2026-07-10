@@ -158,7 +158,7 @@ describe("buildStoryIllustrationPrompt", () => {
     const prompt = buildStoryIllustrationPrompt(text, "La journée du chat", 5);
     expect(prompt).toContain(IMAGE_STYLE);
     expect(prompt).toContain("ukiyo-e");
-    expect(prompt).toContain("Toujours le même illustrateur");
+    expect(prompt).toContain("Always the same illustrator");
   });
 
   it("reprend le titre FR et le texte de l'histoire comme contexte de scène", () => {
@@ -170,8 +170,8 @@ describe("buildStoryIllustrationPrompt", () => {
 
   it("interdit tout texte/lettre dans l'image", () => {
     const prompt = buildStoryIllustrationPrompt(text);
-    expect(prompt).toContain("AUCUN texte");
-    expect(prompt).toContain("uniquement le dessin");
+    expect(prompt).toContain("Do not draw any text");
+    expect(prompt).toContain("illustration only");
   });
 
   it("assainit le texte (injection multiligne aplatie) et borne sa longueur", () => {
