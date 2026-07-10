@@ -228,6 +228,7 @@ function AppShell() {
       <div className={SHELL} style={subpagePadding}>
         <SwipeNavigator
           labels={{ prev: "Histoire précédente", next: "Histoire suivante" }}
+          bottomOffset={podcast.active ? "calc(var(--safe-b) + 9.5rem)" : undefined}
           onPrev={storyNeighbors.prevId ? () => goToStory(storyNeighbors.prevId!) : undefined}
           onNext={storyNeighbors.nextId ? () => goToStory(storyNeighbors.nextId!) : undefined}
         >
@@ -252,6 +253,7 @@ function AppShell() {
       <div className={SHELL} style={subpagePadding}>
         <SwipeNavigator
           labels={{ prev: "Leçon précédente", next: "Leçon suivante" }}
+          bottomOffset={podcast.active ? "calc(var(--safe-b) + 9.5rem)" : undefined}
           onPrev={courseNeighbors.prevId ? () => goToLesson(courseNeighbors.prevId!) : undefined}
           onNext={courseNeighbors.nextId ? () => goToLesson(courseNeighbors.nextId!) : undefined}
         >

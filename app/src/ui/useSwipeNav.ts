@@ -1,15 +1,18 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 
 // Détection de balayage horizontal (swipe) pour naviguer vers la page voisine. Pointer Events
-// natifs, comme le reste du codebase (cf. TokaidoStrip.tsx). Volontairement SANS
-// setPointerCapture ni touch-action restrictif : le contenu doit garder son défilement
-// vertical natif ; on n'agit qu'au relâché, et seulement si le geste est franchement
-// horizontal (sinon c'est un scroll vertical ou un simple tap).
+// natifs, comme le reste du codebase (cf. TokaidoStrip.tsx).
+//
+// Le conteneur porte `touch-action: pan-y` (classe Tailwind `touch-pan-y`, ajoutée par
+// SwipeNavigator) : le défilement vertical reste natif, mais les gestes horizontaux nous sont
+// livrés sans que le navigateur ne les « vole » pour scroller — sinon, sur tactile, un swipe
+// horizontal se termine par un `pointercancel` et jamais un `pointerup`. On confirme donc sur
+// `pointerup` ET `pointercancel`, à partir de la dernière position suivie via `pointermove`.
 
 /** Distance horizontale minimale (px) pour valider un swipe. */
-const THRESHOLD = 60;
-/** Le geste doit être nettement plus horizontal que vertical (rejette le scroll). */
-const DOMINANCE = 1.5;
+const THRESHOLD = 50;
+/** Le geste doit être plus horizontal que vertical (rejette le scroll). */
+const DOMINANCE = 1.2;
 
 interface Options {
   onPrev?: () => void;
@@ -18,30 +21,41 @@ interface Options {
 
 interface Handlers {
   onPointerDown: (e: ReactPointerEvent) => void;
-  onPointerUp: (e: ReactPointerEvent) => void;
+  onPointerMove: (e: ReactPointerEvent) => void;
+  onPointerUp: () => void;
   onPointerCancel: () => void;
 }
 
 export function useSwipeNav({ onPrev, onNext }: Options): Handlers {
-  const from = useRef<{ x: number; y: number } | null>(null);
+  const g = useRef<{ x: number; y: number; lastX: number; lastY: number } | null>(null);
+
+  function commit() {
+    const s = g.current;
+    g.current = null;
+    if (!s) return;
+    const dx = s.lastX - s.x;
+    const dy = s.lastY - s.y;
+    if (Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy) * DOMINANCE) return;
+    // Balayage vers la gauche (dx < 0) = page suivante ; vers la droite = précédente.
+    if (dx < 0) onNext?.();
+    else onPrev?.();
+  }
 
   return {
     onPointerDown(e) {
-      from.current = { x: e.clientX, y: e.clientY };
+      g.current = { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY };
     },
-    onPointerUp(e) {
-      const start = from.current;
-      from.current = null;
-      if (!start) return;
-      const dx = e.clientX - start.x;
-      const dy = e.clientY - start.y;
-      if (Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy) * DOMINANCE) return;
-      // Balayage vers la gauche (dx < 0) = page suivante ; vers la droite = précédente.
-      if (dx < 0) onNext?.();
-      else onPrev?.();
+    onPointerMove(e) {
+      if (g.current) {
+        g.current.lastX = e.clientX;
+        g.current.lastY = e.clientY;
+      }
+    },
+    onPointerUp() {
+      commit();
     },
     onPointerCancel() {
-      from.current = null;
+      commit();
     },
   };
 }
