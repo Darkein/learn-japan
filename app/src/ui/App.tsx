@@ -17,6 +17,7 @@ import { SlideStack } from "./SlideStack";
 import { useStoryNeighbors } from "./useStoryNeighbors";
 import { useLessonNeighbors } from "./useLessonNeighbors";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
+import { analyze } from "../lib/analyze";
 import { useMediaQuery } from "./useMediaQuery";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
@@ -139,6 +140,9 @@ function AppShell() {
     };
     void Promise.all([load(storyNeighbors.prevId), load(storyNeighbors.nextId)]).then(([prev, next]) => {
       if (!cancelled) setNbStories({ prev, next });
+      // Préchauffe l'analyse (tokenizer + furigana) des textes voisins au repos, pour que
+      // l'aperçu du carrousel s'affiche déjà rendu — pas de « Chargement du tokenizer… ».
+      for (const s of [prev, next]) if (s?.text) void analyze(s.text);
     });
     return () => {
       cancelled = true;
