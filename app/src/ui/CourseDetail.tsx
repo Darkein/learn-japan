@@ -21,9 +21,12 @@ interface Props {
   lesson: Lesson;
   onOpenStory: (story: StoryRecord) => void;
   onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
+  /** Rendu en aperçu (couche voisine du carrousel) : neutralise les effets de bord au montage
+   * (pas de génération auto du cours ni de `markLessonStarted`) et masque les actions d'en-tête. */
+  preview?: boolean;
 }
 
-export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
+export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = false }: Props) {
   const stories = lesson.stories;
   const { job, busy, error, start, addStory, regenerateCourse, progress, label, retry, dismiss } =
     useLessonGen(lesson);
@@ -37,7 +40,9 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
   useEffect(() => {
     // Cours absent OU périmé (curriculum changé sous cet id) : (re)génération auto.
     // L'ancien cours reste affiché pendant la régénération ; conservé si elle échoue.
-    if ((!lesson.framing || lesson.framingStale) && !error) void start();
+    // En aperçu (couche voisine du carrousel), on ne génère pas (effet de bord + markStarted) :
+    // la génération réelle se fera au montage actif, après validation du geste.
+    if (!preview && (!lesson.framing || lesson.framingStale) && !error) void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
 
@@ -85,9 +90,10 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview }: Props) {
 
   return (
     <>
-      {headerSlot && createPortal(actionButtons, headerSlot)}
+      {/* En aperçu, pas d'actions d'en-tête (non interactif, évite un portail parasite). */}
+      {!preview && headerSlot && createPortal(actionButtons, headerSlot)}
 
-      {!headerSlot && (
+      {!preview && !headerSlot && (
         <div className="flex flex-wrap items-center gap-2 py-3">{actionButtons}</div>
       )}
 
