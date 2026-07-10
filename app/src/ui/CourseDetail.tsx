@@ -71,8 +71,14 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
     <>
       <Button
         variant="primary"
-        onClick={() => podcast.startLesson(lesson.id)}
+        // En aperçu (couche voisine du carrousel), le bouton est rendu à l'identique pour la
+        // mise en page (sinon il apparaîtrait au commit et décalerait le contenu), mais inerte :
+        // non-cliquable et hors tabulation, pour éviter de lancer le podcast de la voisine.
+        onClick={preview ? undefined : () => podcast.startLesson(lesson.id)}
         disabled={podcastBusy}
+        aria-hidden={preview || undefined}
+        tabIndex={preview ? -1 : undefined}
+        className={preview ? "pointer-events-none" : ""}
         title="Cadrage parlé, quiz audio, puis l'histoire en écoute bilingue"
       >
         {podcastBusy ? (
@@ -90,10 +96,9 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
 
   return (
     <>
-      {/* En aperçu, pas d'actions d'en-tête (non interactif, évite un portail parasite). */}
-      {!preview && headerSlot && createPortal(actionButtons, headerSlot)}
+      {headerSlot && createPortal(actionButtons, headerSlot)}
 
-      {!preview && !headerSlot && (
+      {!headerSlot && (
         <div className="flex flex-wrap items-center gap-2 py-3">{actionButtons}</div>
       )}
 
