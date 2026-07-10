@@ -88,6 +88,11 @@ export function configureJobs(hooks: {
   onDataChange = hooks.onDataChange ?? null;
 }
 
+/** Signale un contenu changé hors génération (ex. téléchargement hors-ligne d'une leçon). */
+export function notifyDataChanged(): void {
+  onDataChange?.();
+}
+
 async function persist(job: GenJobRecord): Promise<void> {
   job.updatedAt = Date.now();
   jobs.set(job.lessonId, job);

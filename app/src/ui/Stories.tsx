@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { allStories, deleteStory, type StoryRecord } from "../lib/db";
 import { getCurriculum, lessonsForGrammar } from "../lib/curriculum";
+import { DownloadButton } from "./DownloadButton";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
@@ -106,6 +107,7 @@ export function Stories({ onOpen }: Props) {
                   >
                     <IconClose size={16} />
                   </Button>
+                  <DownloadButton target={{ kind: "story", storyId: s.id }} size={16} />
                   <span className="text-muted">
                     <IconArrowRight size={16} />
                   </span>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { analyze, type AnalyzedSentence } from "../lib/analyze";
 import { recordEncounters, type ReEncounter } from "../lib/encounters";
 import { getStory, type ItemStatus, type StoryRecord } from "../lib/db";
@@ -10,6 +11,8 @@ import type { StoryParams } from "../lib/stories";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
+import { DownloadButton } from "./DownloadButton";
+import { ReaderHeaderSlot } from "./ReaderPage";
 import { IconChevronDown, IconPause, IconPlay } from "./kit/Icon";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { SectionLabel } from "./kit/SectionLabel";
@@ -93,6 +96,7 @@ export function Reader({ incoming }: Props) {
 
   const lessonCtx = incoming.lessonContext ?? null;
   const { regenerateStory } = useGenJobs();
+  const headerSlot = useContext(ReaderHeaderSlot);
 
   const podcast = usePodcastPlayer();
   const isActiveStory = !!incoming.id && podcast.activeStoryId === incoming.id;
@@ -151,6 +155,14 @@ export function Reader({ incoming }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Bouton de téléchargement hors-ligne dans l'en-tête de la page de lecture.
+          Histoire non enregistrée (lecteur libre) : rien à télécharger. */}
+      {headerSlot &&
+        incoming.id &&
+        createPortal(
+          <DownloadButton target={{ kind: "story", storyId: incoming.id }} />,
+          headerSlot,
+        )}
       {lessonCtx && (
         <Card accentFlag className="flex flex-col gap-2 px-4 py-3">
           <div className="flex flex-wrap items-baseline gap-3">

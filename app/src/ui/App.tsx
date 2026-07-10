@@ -15,6 +15,7 @@ import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { useMediaQuery } from "./useMediaQuery";
+import { DownloadsProvider } from "./useDownloads";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
 import {
@@ -83,10 +84,12 @@ export function App() {
     <SettingsProvider>
       <NotificationProvider>
         <GenJobsProvider>
-          <PodcastProvider>
-            <AppShell />
-            <PodcastPlayer />
-          </PodcastProvider>
+          <DownloadsProvider>
+            <PodcastProvider>
+              <AppShell />
+              <PodcastPlayer />
+            </PodcastProvider>
+          </DownloadsProvider>
         </GenJobsProvider>
         <NotificationBanner />
       </NotificationProvider>

@@ -4,6 +4,7 @@ import { markLessonStarted } from "../lib/lessons";
 import { SRS } from "../lib/config";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
+import { DownloadButton } from "./DownloadButton";
 import { Badge } from "./kit/Badge";
 import { IconArrowRight, IconLock } from "./kit/Icon";
 import { ProgressBar } from "./kit/ProgressBar";
@@ -48,8 +49,9 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
       className="flex flex-col gap-2 border-t border-hairline py-4 last:border-b"
       aria-selected={selected}
     >
+      <div className="flex items-start gap-1">
       <button
-        className={`group flex w-full flex-col gap-2 text-left ${lesson.locked ? "cursor-default" : "cursor-pointer"}`}
+        className={`group flex min-w-0 flex-1 flex-col gap-2 text-left ${lesson.locked ? "cursor-default" : "cursor-pointer"}`}
         onClick={() => { if (!lesson.locked) onOpen(lesson); }}
         disabled={lesson.locked}
       >
@@ -122,6 +124,10 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
           </span>
         )}
       </button>
+      {/* Hors du <button> de la carte (bouton imbriqué invalide). Présent même verrouillée :
+          télécharger ne débloque pas. */}
+      <DownloadButton target={{ kind: "lesson", lesson }} size={16} />
+      </div>
 
       {lesson.locked && (
         <button
