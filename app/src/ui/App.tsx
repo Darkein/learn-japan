@@ -121,8 +121,11 @@ function AppShell() {
 
   const tab = tabForRoute(route);
   // Voisins pour la navigation adjacente (swipe / flèches). Hooks appelés inconditionnellement.
-  const storyNeighbors = useStoryNeighbors(route.kind === "reader" ? reader?.id : undefined);
-  const courseNeighbors = useLessonNeighbors(route.kind === "course" ? course?.id : undefined);
+  // Voisins calculés depuis l'id de la ROUTE (déjà correct dès la navigation), pas depuis les
+  // états `reader`/`course` résolus de façon asynchrone — sinon les flèches refléteraient un
+  // instant la leçon/histoire précédente.
+  const storyNeighbors = useStoryNeighbors(route.kind === "reader" ? route.id : undefined);
+  const courseNeighbors = useLessonNeighbors(route.kind === "course" ? route.id : undefined);
 
   // Quand une génération aboutit (dataVersion), on rafraîchit l'onglet courant et on
   // recharge le cours ouvert (le cours devient lisible, une nouvelle histoire apparaît).
