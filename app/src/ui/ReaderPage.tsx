@@ -14,21 +14,27 @@ interface Props {
 /** Slot DOM dans lequel les enfants peuvent porter des actions via createPortal. */
 export const ReaderHeaderSlot = createContext<HTMLDivElement | null>(null);
 
+/** Slot DOM dans la barre sticky, à gauche de la roue des paramètres (icônes seules). */
+export const ReaderBarSlot = createContext<HTMLDivElement | null>(null);
+
 /**
  * Page dédiée vers laquelle on navigue (lecture, révision) : remplace le shell à
- * onglets par une vue épurée. La barre sticky ne porte que la navigation (retour,
- * paramètres) ; le titre s'affiche en pleine largeur dessous (sans troncature), et
- * les actions contextuelles injectées via `ReaderHeaderSlot` se placent sous le
- * titre, à côté du contenu qu'elles concernent (cf. DESIGN.md — hiérarchie par la
- * typographie, un seul accent).
+ * onglets par une vue épurée. La barre sticky porte la navigation (retour, paramètres)
+ * et les icônes injectées via `ReaderBarSlot` (ex. téléchargement hors-ligne) ; le
+ * titre s'affiche en pleine largeur dessous (sans troncature), et les actions
+ * contextuelles injectées via `ReaderHeaderSlot` se placent sous le titre, à côté du
+ * contenu qu'elles concernent (cf. DESIGN.md — hiérarchie par la typographie, un
+ * seul accent).
  */
 export function ReaderPage({ title, onBack, children }: Props) {
   const { openPanel } = useSettings();
   const route = useHashRoute();
   const showGear = route.kind !== "settings";
   const [slotEl, setSlotEl] = useState<HTMLDivElement | null>(null);
+  const [barEl, setBarEl] = useState<HTMLDivElement | null>(null);
   return (
     <ReaderHeaderSlot.Provider value={slotEl}>
+    <ReaderBarSlot.Provider value={barEl}>
       <div
         className="sticky top-0 z-20 -mx-4 flex items-center justify-between gap-4 border-b border-hairline bg-bg px-4 py-1"
         style={{ paddingTop: "calc(var(--safe-t) + 0.25rem)" }}
@@ -40,11 +46,14 @@ export function ReaderPage({ title, onBack, children }: Props) {
           <IconArrowLeft size={18} />
           Retour
         </button>
-        {showGear && (
-          <Button size="icon" variant="quiet" onClick={openPanel} aria-label="Paramètres">
-            <IconGear />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          <div ref={setBarEl} className="flex items-center gap-1 empty:hidden" />
+          {showGear && (
+            <Button size="icon" variant="quiet" onClick={openPanel} aria-label="Paramètres">
+              <IconGear />
+            </Button>
+          )}
+        </div>
       </div>
       {title && (
         <h1 className="mt-4 font-serif text-xl text-text sm:text-2xl">{title}</h1>
@@ -54,6 +63,7 @@ export function ReaderPage({ title, onBack, children }: Props) {
         className={`flex flex-wrap items-center gap-2 empty:hidden ${title ? "mt-3" : "mt-4"}`}
       />
       <div className="mt-6 flex flex-col">{children}</div>
+    </ReaderBarSlot.Provider>
     </ReaderHeaderSlot.Provider>
   );
 }

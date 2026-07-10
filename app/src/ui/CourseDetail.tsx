@@ -6,7 +6,7 @@ import { markLessonStarted, type Lesson } from "../lib/lessons";
 import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
 import { usePodcastPlayer } from "./usePodcastPlayer";
-import { ReaderHeaderSlot } from "./ReaderPage";
+import { ReaderBarSlot, ReaderHeaderSlot } from "./ReaderPage";
 import { useLessonGen } from "./useLessonGen";
 import { useSettings } from "./useSettings";
 import { Markdown } from "./LessonMarkdown";
@@ -66,7 +66,9 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
   }, [stories, pendingVariant]);
 
   const headerSlot = useContext(ReaderHeaderSlot);
+  const barSlot = useContext(ReaderBarSlot);
 
+  const downloadButton = <DownloadButton target={{ kind: "lesson", lesson }} />;
   const actionButtons = (
     <>
       <Button
@@ -90,16 +92,20 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
           </>
         )}
       </Button>
-      <DownloadButton target={{ kind: "lesson", lesson }} />
     </>
   );
 
   return (
     <>
       {headerSlot && createPortal(actionButtons, headerSlot)}
+      {/* Téléchargement hors-ligne dans la barre sticky, à côté de la roue des paramètres. */}
+      {barSlot && createPortal(downloadButton, barSlot)}
 
       {!headerSlot && (
-        <div className="flex flex-wrap items-center gap-2 py-3">{actionButtons}</div>
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          {actionButtons}
+          {!barSlot && downloadButton}
+        </div>
       )}
 
       <div className="flex flex-col gap-4 pt-4">
