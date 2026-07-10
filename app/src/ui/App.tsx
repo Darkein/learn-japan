@@ -13,6 +13,9 @@ import { Home } from "./Home";
 import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
+import { SwipeNavigator } from "./SwipeNavigator";
+import { useStoryNeighbors } from "./useStoryNeighbors";
+import { lessonNeighbors } from "../lib/curriculum";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { useMediaQuery } from "./useMediaQuery";
 import { GenJobsProvider, useGenJobs } from "./useGenJobs";
@@ -117,6 +120,10 @@ function AppShell() {
   const { dataVersion } = useGenJobs();
 
   const tab = tabForRoute(route);
+  // Voisins pour la navigation adjacente (swipe / flèches). Hooks appelés inconditionnellement.
+  const storyNeighbors = useStoryNeighbors(route.kind === "reader" ? reader?.id : undefined);
+  const courseNeighbors =
+    route.kind === "course" && course ? lessonNeighbors(course.id) : {};
 
   // Quand une génération aboutit (dataVersion), on rafraîchit l'onglet courant et on
   // recharge le cours ouvert (le cours devient lisible, une nouvelle histoire apparaît).
@@ -177,6 +184,26 @@ function AppShell() {
     navigate(`/cours/${encodeURIComponent(lesson.id)}?from=${encodeURIComponent(currentLocation())}`);
   }
 
+  // Navigation adjacente (swipe / flèches) : on saute directement à l'id voisin en préservant
+  // le `from` courant, pour que « Retour » ramène toujours à la liste d'origine (pas d'empilement
+  // A→B→liste). L'objet complet est re-résolu par l'effet clé [route.kind, route.id] ci-dessus.
+  async function goToStory(id: string) {
+    // Parité avec openStory : enrôle le vocabulaire de l'histoire cible dans le SRS et
+    // pré-remplit l'état pour éviter un flash de chargement.
+    const story = await getStory(id);
+    if (story) {
+      void enrollStory(story);
+      setReader({ id: story.id, incoming: incomingFromStory(story) });
+    }
+    const from = "from" in route ? route.from : "/";
+    navigate(`/lecture/${encodeURIComponent(id)}?from=${encodeURIComponent(from)}`);
+  }
+
+  function goToLesson(id: string) {
+    const from = "from" in route ? route.from : "/";
+    navigate(`/cours/${encodeURIComponent(id)}?from=${encodeURIComponent(from)}`);
+  }
+
   function startReview(opts?: { lessonId?: string; scope?: "due" | "all" }) {
     setReviewOpts(opts ?? {});
     navigate(`/revision?from=${encodeURIComponent(currentLocation())}`);
@@ -196,9 +223,15 @@ function AppShell() {
   if (route.kind === "reader" && reader) {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
-          <Reader incoming={reader.incoming} />
-        </ReaderPage>
+        <SwipeNavigator
+          labels={{ prev: "Histoire précédente", next: "Histoire suivante" }}
+          onPrev={storyNeighbors.prevId ? () => goToStory(storyNeighbors.prevId!) : undefined}
+          onNext={storyNeighbors.nextId ? () => goToStory(storyNeighbors.nextId!) : undefined}
+        >
+          <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
+            <Reader incoming={reader.incoming} />
+          </ReaderPage>
+        </SwipeNavigator>
       </div>
     );
   }
@@ -214,9 +247,15 @@ function AppShell() {
   if (route.kind === "course" && course) {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <ReaderPage title={course.title} onBack={back}>
-          <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
-        </ReaderPage>
+        <SwipeNavigator
+          labels={{ prev: "Leçon précédente", next: "Leçon suivante" }}
+          onPrev={courseNeighbors.prevId ? () => goToLesson(courseNeighbors.prevId!) : undefined}
+          onNext={courseNeighbors.nextId ? () => goToLesson(courseNeighbors.nextId!) : undefined}
+        >
+          <ReaderPage title={course.title} onBack={back}>
+            <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
+          </ReaderPage>
+        </SwipeNavigator>
       </div>
     );
   }
