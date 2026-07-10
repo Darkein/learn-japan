@@ -34,6 +34,8 @@ export function SettingsPanel() {
         >
           Tous les paramètres →
         </Button>
+        {/* Identifiant de build : confirme quelle version est réellement servie (cache PWA). */}
+        <p className="mt-1 font-sans text-xs text-muted">version {__BUILD_ID__}</p>
       </div>
     </Sheet>
   );

@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { readFile } from "node:fs/promises";
+import { execSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +12,19 @@ import { fileURLToPath } from "node:url";
 const BASE = "/learn-japan/";
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+// Identifiant de build affiché en bas des réglages : permet de vérifier d'un coup d'œil
+// quelle version est réellement servie (utile avec le cache du service worker PWA).
+const BUILD_ID = (() => {
+  let sha = "";
+  try {
+    sha = execSync("git rev-parse --short HEAD", { cwd: here }).toString().trim();
+  } catch {
+    // hors dépôt git (archive, CI minimal) : on se contente de la date.
+  }
+  const date = new Date().toISOString().slice(0, 16).replace("T", " ");
+  return sha ? `${sha} · ${date} UTC` : `${date} UTC`;
+})();
 
 /**
  * Sert les assets `*.gz` (dictionnaire JMdict, dict kuromoji) en OCTETS BRUTS, sans
@@ -53,6 +67,9 @@ function rawGzipAssets(): PluginOption {
 
 export default defineConfig({
   base: BASE,
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     rawGzipAssets(),
     react(),
