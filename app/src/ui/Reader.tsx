@@ -76,10 +76,13 @@ function underlineColor(tok: AnnotatedToken, statuses: Map<string, ItemStatus>):
 
 interface Props {
   incoming: IncomingStory;
+  /** Rendu en aperçu (couche voisine du carrousel) : neutralise les effets de bord au montage
+   * (pas d'enregistrement de rencontres SRS). Le contenu reste rendu à l'identique. */
+  preview?: boolean;
 }
 
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
-export function Reader({ incoming }: Props) {
+export function Reader({ incoming, preview = false }: Props) {
   const { settings } = useSettings();
   const [result, setResult] = useState<AnalyzedSentence | null>(null);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus>>(new Map());
@@ -130,7 +133,9 @@ export function Reader({ incoming }: Props) {
       setResult(analyzed);
       const ids = analyzed.tokens.filter((x) => isContent(x.token)).map((x) => itemIdFor(x.token));
       setStatuses(await statusesFor(ids));
-      setReEncounters(await recordEncounters(incoming.id, ids));
+      // En aperçu (couche voisine du carrousel), ne pas enregistrer de rencontre SRS : le geste
+      // peut être annulé, et l'enregistrement se fera au montage réel après validation.
+      if (!preview) setReEncounters(await recordEncounters(incoming.id, ids));
     } catch (e) {
       setError(
         "Tokenizer indisponible — vérifie que le dictionnaire kuromoji est servi sous /dict/. " +

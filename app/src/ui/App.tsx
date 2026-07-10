@@ -13,7 +13,7 @@ import { Home } from "./Home";
 import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderPage } from "./ReaderPage";
-import { SwipeNavigator } from "./SwipeNavigator";
+import { SlideStack } from "./SlideStack";
 import { useStoryNeighbors } from "./useStoryNeighbors";
 import { useLessonNeighbors } from "./useLessonNeighbors";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
@@ -127,6 +127,36 @@ function AppShell() {
   const storyNeighbors = useStoryNeighbors(route.kind === "reader" ? route.id : undefined);
   const courseNeighbors = useLessonNeighbors(route.kind === "course" ? route.id : undefined);
 
+  // Préchargement des pages voisines (objets complets) pour les afficher instantanément en
+  // aperçu pendant le carrousel de glissement. Lectures IndexedDB peu coûteuses, au repos.
+  const [nbStories, setNbStories] = useState<{ prev?: IncomingStory; next?: IncomingStory }>({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (id?: string) => {
+      if (!id) return undefined;
+      const s = await getStory(id);
+      return s ? incomingFromStory(s) : undefined;
+    };
+    void Promise.all([load(storyNeighbors.prevId), load(storyNeighbors.nextId)]).then(([prev, next]) => {
+      if (!cancelled) setNbStories({ prev, next });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [storyNeighbors.prevId, storyNeighbors.nextId]);
+
+  const [nbLessons, setNbLessons] = useState<{ prev?: Lesson; next?: Lesson }>({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = (id?: string) => (id ? getLesson(id) : Promise.resolve(undefined));
+    void Promise.all([load(courseNeighbors.prevId), load(courseNeighbors.nextId)]).then(([prev, next]) => {
+      if (!cancelled) setNbLessons({ prev: prev ?? undefined, next: next ?? undefined });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseNeighbors.prevId, courseNeighbors.nextId]);
+
   // Quand une génération aboutit (dataVersion), on rafraîchit l'onglet courant et on
   // recharge le cours ouvert (le cours devient lisible, une nouvelle histoire apparaît).
   const courseIdRef = useRef<string | null>(null);
@@ -225,16 +255,36 @@ function AppShell() {
   if (route.kind === "reader" && reader) {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <SwipeNavigator
+        <SlideStack
+          currentKey={reader.id}
           labels={{ prev: "Histoire précédente", next: "Histoire suivante" }}
           bottomOffset={podcast.active ? "calc(var(--safe-b) + 9.5rem)" : undefined}
           onPrev={storyNeighbors.prevId ? () => goToStory(storyNeighbors.prevId!) : undefined}
           onNext={storyNeighbors.nextId ? () => goToStory(storyNeighbors.nextId!) : undefined}
-        >
-          <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
-            <Reader incoming={reader.incoming} />
-          </ReaderPage>
-        </SwipeNavigator>
+          renderPrev={
+            nbStories.prev
+              ? () => (
+                  <ReaderPage title={nbStories.prev!.title ?? "Lecture"} onBack={back}>
+                    <Reader incoming={nbStories.prev!} preview />
+                  </ReaderPage>
+                )
+              : undefined
+          }
+          renderNext={
+            nbStories.next
+              ? () => (
+                  <ReaderPage title={nbStories.next!.title ?? "Lecture"} onBack={back}>
+                    <Reader incoming={nbStories.next!} preview />
+                  </ReaderPage>
+                )
+              : undefined
+          }
+          current={
+            <ReaderPage title={reader.incoming.title ?? "Lecture"} onBack={back}>
+              <Reader incoming={reader.incoming} />
+            </ReaderPage>
+          }
+        />
       </div>
     );
   }
@@ -250,16 +300,36 @@ function AppShell() {
   if (route.kind === "course" && course) {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <SwipeNavigator
+        <SlideStack
+          currentKey={course.id}
           labels={{ prev: "Leçon précédente", next: "Leçon suivante" }}
           bottomOffset={podcast.active ? "calc(var(--safe-b) + 9.5rem)" : undefined}
           onPrev={courseNeighbors.prevId ? () => goToLesson(courseNeighbors.prevId!) : undefined}
           onNext={courseNeighbors.nextId ? () => goToLesson(courseNeighbors.nextId!) : undefined}
-        >
-          <ReaderPage title={course.title} onBack={back}>
-            <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
-          </ReaderPage>
-        </SwipeNavigator>
+          renderPrev={
+            nbLessons.prev
+              ? () => (
+                  <ReaderPage title={nbLessons.prev!.title} onBack={back}>
+                    <CourseDetail lesson={nbLessons.prev!} onOpenStory={openStory} onStartReview={startReview} preview />
+                  </ReaderPage>
+                )
+              : undefined
+          }
+          renderNext={
+            nbLessons.next
+              ? () => (
+                  <ReaderPage title={nbLessons.next!.title} onBack={back}>
+                    <CourseDetail lesson={nbLessons.next!} onOpenStory={openStory} onStartReview={startReview} preview />
+                  </ReaderPage>
+                )
+              : undefined
+          }
+          current={
+            <ReaderPage title={course.title} onBack={back}>
+              <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
+            </ReaderPage>
+          }
+        />
       </div>
     );
   }
