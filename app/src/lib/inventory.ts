@@ -7,6 +7,7 @@ import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import examplesInv from "../data/inventory/examples.json";
+import { kataToHira, splitEntryForms } from "./kana";
 import type { VocabEntry } from "./curriculum";
 
 interface KanjiInvEntry {
@@ -45,30 +46,68 @@ const vocabFr = vocabFrOverlay as Record<string, string>;
 const examplesById = examplesInv as Record<string, { ja: string; fr?: string }>;
 
 /**
+ * Index secondaire : id « propre » d'un token (`basic_form|lecture`, une seule forme)
+ * → id canonique de l'inventaire, quand celui-ci regroupe plusieurs formes sous une clé
+ * composée (« いい; よい|いい; よい »). Le tokenizer ne produit jamais la forme composée ;
+ * sans cet alias, sa définition/son exemple/sa fiche restent introuvables.
+ * On développe surface × lecture : la surface garde sa casse (kanji/katakana, pour
+ * matcher `basic_form`), la lecture est ramenée en hiragana (comme `itemIdFor`).
+ * Les vraies entrées (et le premier alias) gagnent : on n'écrase jamais un id existant.
+ */
+const vocabAlias = ((): Map<string, string> => {
+  const alias = new Map<string, string>();
+  for (const v of vocabInv as VocabInvEntry[]) {
+    const [surfacePart, readingPart] = v.id.split("|");
+    const surfaces = splitEntryForms(surfacePart);
+    const readings = splitEntryForms(readingPart).map(kataToHira);
+    for (const s of surfaces) {
+      for (const r of readings) {
+        const key = `${s}|${r}`;
+        if (key !== v.id && !vocabById.has(key) && !alias.has(key)) {
+          alias.set(key, v.id);
+        }
+      }
+    }
+  }
+  return alias;
+})();
+
+/**
+ * Ramène un id de token (forme unique) vers l'id canonique de l'inventaire lorsque
+ * celui-ci regroupe plusieurs formes (« いい|いい » → « いい; よい|いい; よい »). Sans effet
+ * pour un id déjà canonique ou inconnu (renvoyé tel quel).
+ */
+export function canonicalVocabId(id: string): string {
+  if (vocabById.has(id)) return id;
+  return vocabAlias.get(id) ?? id;
+}
+
+/**
  * Phrase d'exemple du corpus statique (scripts/build-examples.ts) pour un id de
  * vocabulaire, ou null. Fallback quand le mot n'a pas encore d'exemple issu d'une
  * histoire lue (voir effectiveExample, lib/vocab.ts).
  */
 export function staticExample(id: string): { ja: string; fr?: string } | null {
-  return examplesById[id] ?? null;
+  return examplesById[canonicalVocabId(id)] ?? null;
 }
 
 /** Résout un id de vocabulaire `surface|reading` en entrée affichable. */
 export function resolveVocab(id: string): VocabEntry {
-  const v = vocabById.get(id);
+  const cid = canonicalVocabId(id);
+  const v = vocabById.get(cid);
   if (v) {
     return {
       ja: v.surface,
       yomi: v.reading && v.reading !== v.surface ? v.reading : undefined,
-      fr: v.fr ?? vocabFr[id] ?? v.meanings[0] ?? "",
+      fr: v.fr ?? vocabFr[cid] ?? v.meanings[0] ?? "",
     };
   }
   // Mot non présent dans le pool N5 (ex. composé non listé) : on dérive de l'id.
-  const [surface, reading] = id.split("|");
+  const [surface, reading] = cid.split("|");
   return {
     ja: surface,
     yomi: reading && reading !== surface ? reading : undefined,
-    fr: vocabFr[id] ?? "",
+    fr: vocabFr[cid] ?? "",
   };
 }
 

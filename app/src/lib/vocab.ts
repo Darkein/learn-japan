@@ -10,7 +10,7 @@ import {
   type ItemStatus,
   type VocabItem,
 } from "./db";
-import { staticExample, type InvVocab } from "./inventory";
+import { resolveVocab, staticExample, type InvVocab } from "./inventory";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -27,10 +27,17 @@ export function itemIdFor(token: KuromojiToken): string {
   return `${token.basic_form || token.surface_form}|${reading}`;
 }
 
-/** Sens français connu (JMdict-FR) ou tiret si absent. */
+/**
+ * Sens français d'un token : JMdict-FR en priorité (forme de base puis surface) ;
+ * à défaut, repli sur l'inventaire curé (via `resolveVocab`, qui résout les formes
+ * composées « いい; よい » que le tokenizer ne produit jamais). Tiret si rien.
+ */
 export function meaningFor(token: KuromojiToken): string {
   const dict = contentDictSnapshot();
-  return dict[token.basic_form] ?? dict[token.surface_form] ?? "—";
+  const fromDict = dict[token.basic_form] ?? dict[token.surface_form];
+  if (fromDict) return fromDict;
+  const fromInventory = resolveVocab(itemIdFor(token)).fr;
+  return fromInventory || "—";
 }
 
 /**
