@@ -58,7 +58,14 @@ function extractJsonFromTar(tar: Buffer): Buffer {
 }
 
 async function fetchBuffer(url: string): Promise<Buffer> {
-  const res = await fetch(url, { headers: { "User-Agent": "learn-japan-build" } });
+  const headers: Record<string, string> = { "User-Agent": "learn-japan-build" };
+  // Jeton optionnel (CI, workflow update-jmdict) : la limite anonyme de l'API GitHub
+  // (60 req/h par IP) peut être épuisée sur un runner partagé. API seulement — le
+  // téléchargement de l'asset redirige hors api.github.com et n'en a pas besoin.
+  if (process.env.GITHUB_TOKEN && new URL(url).hostname === "api.github.com") {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+  const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`HTTP ${res.status} pour ${url}`);
   return Buffer.from(await res.arrayBuffer());
 }
