@@ -157,6 +157,8 @@ async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): 
   let ttsOk = true;
   for (let i = 0; i < segments.length; i++) {
     onProgress({ fraction: 0.4 + 0.6 * (i / segments.length), label: `Audio ${i + 1}/${segments.length}…` });
+    // Échec ponctuel (timeout, 5xx) retenté une fois : sur des dizaines de phrases en réseau
+    // mobile, un unique raté ne doit pas faire échouer tout le téléchargement.
     try {
       await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
     } catch (e) {
@@ -164,7 +166,15 @@ async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): 
         ttsOk = false;
         break;
       }
-      throw e;
+      try {
+        await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
+      } catch (e2) {
+        if (e2 instanceof TtsUnconfiguredError) {
+          ttsOk = false;
+          break;
+        }
+        throw e2;
+      }
     }
   }
   return { ttsOk };

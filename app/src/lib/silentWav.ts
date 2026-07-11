@@ -1,0 +1,47 @@
+// Génération de WAV silencieux (PCM mono 4 kHz 8 bits) de durée arbitraire. Sert :
+//  - au « keeper » de focus audio (audioFocus.ts) — WAV ≥ 5 s pour un focus persistant ;
+//  - au moteur podcast (segmentPlayer.ts) — blancs de quiz et silence de maintien joués
+//    dans le MÊME <audio> que les segments, pour que l'OS voie un flux continu et ne
+//    suspende pas la page écran éteint (les setTimeout y sont throttlés/gelés).
+
+/** WAV PCM mono 4 kHz 8 bits de `durationMs` millisecondes de silence. */
+export function buildSilentWavBlob(durationMs: number): Blob {
+  const sampleRate = 4000;
+  const numSamples = Math.max(1, Math.round((sampleRate * durationMs) / 1000));
+  const headerSize = 44;
+  const bytes = new Uint8Array(headerSize + numSamples);
+  const view = new DataView(bytes.buffer);
+  const writeStr = (offset: number, s: string) => {
+    for (let i = 0; i < s.length; i++) bytes[offset + i] = s.charCodeAt(i);
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + numSamples, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true); // byte rate (8 bits/échantillon, mono)
+  view.setUint16(32, 1, true); // block align
+  view.setUint16(34, 8, true); // bits par échantillon
+  writeStr(36, "data");
+  view.setUint32(40, numSamples, true);
+  bytes.fill(128, headerSize); // silence (point milieu d'un PCM 8 bits non signé)
+  return new Blob([bytes], { type: "audio/wav" });
+}
+
+// Object URLs mémoïsées par durée : le moteur ne manipule que 3-4 durées distinctes
+// (blancs de quiz + silence de maintien), jamais révoquées. Création paresseuse pour
+// rester importable en environnement node (vitest) sans URL.createObjectURL.
+const urls = new Map<number, string>();
+
+/** Object URL (mémoïsée) d'un WAV silencieux de `durationMs` millisecondes. */
+export function silentWavUrl(durationMs: number): string {
+  let u = urls.get(durationMs);
+  if (!u) {
+    u = URL.createObjectURL(buildSilentWavBlob(durationMs));
+    urls.set(durationMs, u);
+  }
+  return u;
+}

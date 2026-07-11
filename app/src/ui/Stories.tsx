@@ -8,6 +8,7 @@ import { Button } from "./kit/Button";
 import { IconArrowRight, IconClose } from "./kit/Icon";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import { StoryIllustration } from "./StoryIllustration";
+import { useGenJobs } from "./useGenJobs";
 
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
@@ -25,6 +26,7 @@ interface Props {
 /** Onglet Histoires : liste seule des histoires enregistrées + panneau de génération. */
 export function Stories({ onOpen }: Props) {
   const [stories, setStories] = useState<StoryRecord[] | null>(null);
+  const { dataVersion } = useGenJobs();
   const lessonTitles = useMemo(() => {
     const m = new Map<string, { order: number; title: string }>();
     for (const c of getCurriculum()) m.set(c.id, { order: c.order, title: c.title });
@@ -34,9 +36,12 @@ export function Stories({ onOpen }: Props) {
   async function refresh() {
     setStories(await allStories());
   }
+  // Se recharge au montage et dès qu'un contenu change (génération, téléchargement) —
+  // même mécanique que Catalogue/Home, sans remount de la vue.
   useEffect(() => {
     void refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataVersion]);
 
   async function remove(id: string) {
     await deleteStory(id);

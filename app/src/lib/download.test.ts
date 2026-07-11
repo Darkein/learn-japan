@@ -162,9 +162,19 @@ describe("downloadStory", () => {
     expect(await isStoryDownloaded("s4")).toBe(true);
   });
 
-  it("autre erreur TTS : propagée, pas de flag", async () => {
-    await putStory(fakeStory("s5"));
+  it("erreur TTS ponctuelle : retentée, le téléchargement aboutit", async () => {
+    await putStory(fakeStory("s5b"));
     synthesizeSentence.mockRejectedValueOnce(new Error("HTTP 500"));
+    const res = await downloadStory("s5b");
+    expect(res).toEqual({ ttsOk: true });
+    expect(await isStoryDownloaded("s5b")).toBe(true);
+    // 2 phrases + 1 nouvelle tentative sur la première.
+    expect(synthesizeSentence).toHaveBeenCalledTimes(3);
+  });
+
+  it("erreur TTS persistante (2 échecs) : propagée, pas de flag", async () => {
+    await putStory(fakeStory("s5"));
+    synthesizeSentence.mockRejectedValueOnce(new Error("HTTP 500")).mockRejectedValueOnce(new Error("HTTP 500"));
     await expect(downloadStory("s5")).rejects.toThrow("HTTP 500");
     expect(await isStoryDownloaded("s5")).toBe(false);
   });
@@ -351,7 +361,9 @@ describe("file de téléchargement", () => {
 
   it("erreur → entrée en état error, relançable via enqueue", async () => {
     await putStory(fakeStory("q5"));
-    synthesizeSentence.mockRejectedValueOnce(new Error("réseau"));
+    // Deux échecs consécutifs : l'échec ponctuel étant retenté, seul un échec persistant
+    // fait passer l'entrée en erreur.
+    synthesizeSentence.mockRejectedValueOnce(new Error("réseau")).mockRejectedValueOnce(new Error("réseau"));
 
     const errored = new Promise<void>((resolve) => {
       const unsub = subscribeDownloads(() => {

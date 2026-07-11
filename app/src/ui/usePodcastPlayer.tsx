@@ -122,12 +122,26 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
 
   const patch = useCallback((p: Partial<PodcastState>) => setState((s) => ({ ...s, ...p })), []);
 
+  // Pousse la position piste vers la MediaSession (recalculée à chaque rendu, cf. effet
+  // MediaSession plus bas) ; appelée aussi, throttlée, depuis onProgress du moteur.
+  const pushPosRef = useRef<() => void>(() => undefined);
+  const lastPosPushRef = useRef(0);
+
   // Moteur de lecture (créé une fois ; ses callbacks ne lisent que des refs et `patch`, stables).
   const playerRef = useRef<SegmentPlayer | null>(null);
   if (!playerRef.current) {
     playerRef.current = createSegmentPlayer({
       onSegmentStart: (i) => patch({ index: i, segProgress: 0, currentTokenIndex: null }),
-      onProgress: (p) => patch({ segProgress: p }),
+      onProgress: (p) => {
+        patch({ segProgress: p });
+        // Recale la barre de l'écran verrouillé en cours de segment (le débit réel du
+        // segment n'est connu qu'une fois ses métadonnées chargées).
+        const now = Date.now();
+        if (now - lastPosPushRef.current > 3000) {
+          lastPosPushRef.current = now;
+          pushPosRef.current();
+        }
+      },
       onToken: (i) => patch({ currentTokenIndex: i }),
       onError: (message) => patch({ error: message, playing: false }),
       onEnded: () => endedRef.current(),
@@ -151,7 +165,11 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       const startIndex = opts?.resumeIndex ?? 0;
       // Suivi auto : on bascule vers la page de la piste (jamais lors d'une reprise silencieuse).
       if (autoplay && autoNavRef.current) navigate(pageForItem(item));
-      player.halt();
+      // En lecture : silence de maintien pendant la génération/analyse (la session audio OS
+      // survit au changement de piste, même écran éteint). Restauration au montage : halt()
+      // (aucun geste → un play() serait refusé de toute façon).
+      if (autoplay) player.standby();
+      else player.halt();
       const token = ++loadTokenRef.current;
       player.resetMode();
       player.setIndex(startIndex);
@@ -173,12 +191,20 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
           const idx = order.findIndex((c) => c.id === item.lessonId);
           const nextEntry = idx >= 0 ? order[idx + 1] : undefined;
           const existing = await getPodcast(item.lessonId);
+          // prewarmAudio: false — le lecteur démarre dès que le script est prêt ; le moteur
+          // synthétise chaque segment à la demande (et précharge le suivant). Le préchauffage
+          // complet reste l'affaire du téléchargement hors-ligne (download.ts).
           const pack =
             existing && existing.version === PACK_VERSION
               ? existing
-              : await generatePodcastPack(item.lessonId, { nextLessonTitle: nextEntry?.title }, (msg) => {
-                  if (token === loadTokenRef.current) patch({ preparing: msg });
-                });
+              : await generatePodcastPack(
+                  item.lessonId,
+                  { nextLessonTitle: nextEntry?.title },
+                  (msg) => {
+                    if (token === loadTokenRef.current) patch({ preparing: msg });
+                  },
+                  { prewarmAudio: false },
+                );
           if (token !== loadTokenRef.current) return;
           await markLessonStarted(item.lessonId);
           player.setSegments(pack.segments);
@@ -214,6 +240,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         }
       } catch (e) {
         if (token === loadTokenRef.current) {
+          player.halt(); // coupe le silence de maintien du standby()
           if (typeof window !== "undefined") localStorage.removeItem(RESUME_KEY);
           patch({ preparing: null, playing: false, error: String(e instanceof Error ? e.message : e) });
         }
@@ -226,11 +253,12 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     (i: number) => {
       const q = queueRef.current;
       if (i < 0 || i >= q.length) return;
+      player.prime(); // synchrone, pendant l'éventuel geste (verrou d'autoplay + session audio)
       qIndexRef.current = i;
       patch({ queueIndex: i });
       void loadItem(q[i], { autoplay: true });
     },
-    [loadItem, patch],
+    [loadItem, patch, player],
   );
 
   const setQueue = useCallback(
@@ -266,6 +294,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     // Fin terminale (rien à enchaîner) : on rembobine la piste courante pour que « Lecture »
     // reparte du début plutôt que de rejouer la dernière phrase.
     const rewind = () => {
+      player.halt(); // coupe le silence de maintien de fin de pack (vraie fin de lecture)
       player.setIndex(0);
       patch({ playing: false, index: 0, segProgress: 0, currentTokenIndex: null });
     };
@@ -283,6 +312,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
 
   const startLesson = useCallback(
     (lessonId: string) => {
+      player.prime(); // synchrone, pendant le geste (le then() ci-dessous en sort déjà)
       void getLesson(lessonId).then((lesson) => {
         const qi: QueueItem = { kind: "lesson", lessonId, title: lesson?.title ?? lessonId };
         setQueue([qi]);
@@ -291,18 +321,19 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         void loadItem(qi, { autoplay: true });
       });
     },
-    [loadItem, patch, setQueue],
+    [loadItem, patch, player, setQueue],
   );
 
   const playStory = useCallback(
     (item: StoryRef) => {
+      player.prime(); // synchrone, pendant le geste
       const qi: QueueItem = { kind: "story", storyId: item.storyId, title: item.title };
       setQueue([qi]);
       qIndexRef.current = 0;
       patch({ queueIndex: 0 });
       void loadItem(qi, { autoplay: true });
     },
-    [loadItem, patch, setQueue],
+    [loadItem, patch, player, setQueue],
   );
 
   const enqueueStory = useCallback(
@@ -349,12 +380,15 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     if (!player.hasSegments()) return;
     if (playingRef.current) {
-      player.halt();
+      // Pause en place (l'élément reste chargé) : la notification média persiste et la
+      // reprise repart au même endroit de la phrase, pas à son début.
+      player.pause();
       patch({ playing: false });
     } else {
-      startAt(player.index());
+      patch({ playing: true, error: null });
+      player.resume();
     }
-  }, [patch, player, startAt]);
+  }, [patch, player]);
 
   // Change de segment DANS la piste courante sans relancer si en pause (seul `toggle` démarre).
   const seek = useCallback(
@@ -421,6 +455,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       navigator.mediaSession.playbackState = "none";
       try {
         navigator.mediaSession.metadata = null;
+        navigator.mediaSession.setPositionState?.();
       } catch {
         /* ignore */
       }
@@ -502,14 +537,49 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     };
   }, [state.active]);
 
+  // Position piste pour la MediaSession, en UNITÉS-SEGMENTS (1 segment = 1 unité, comme le
+  // scrub de seekFraction) : les durées réelles des segments ne sont connues qu'au fil de
+  // la synthèse. La barre de l'écran verrouillé est donc fluide et le seek fonctionne, mais
+  // les temps affichés ne sont pas des secondes horaires. `playbackRate` = débit réel du
+  // segment courant (unités/s) pour que l'interpolation OS entre deux mises à jour colle.
+  pushPosRef.current = () => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    if (typeof ms.setPositionState !== "function") return;
+    const n = state.segments.length;
+    if (!state.active || !n) return;
+    const pos = player.getPosition();
+    const rate = pos && pos.duration > 0 ? 1 / pos.duration : 0.25;
+    try {
+      ms.setPositionState({
+        duration: n,
+        position: Math.min(n, state.index + Math.min(Math.max(state.segProgress, 0), 1)),
+        playbackRate: rate,
+      });
+    } catch {
+      /* valeurs hors spec (durée inconnue) */
+    }
+  };
+
   // MediaSession : contrôles média OS / Bluetooth / volant (SPEC §11). Seulement quand le
-  // lecteur est ACTIF.
+  // lecteur est ACTIF. next/prev = phrase suivante/précédente (adapté aux commandes au
+  // volant) ; ne PAS déclarer seekbackward/seekforward, qui remplacent next/prev sur
+  // certaines UI Android.
   useEffect(() => {
     if (!state.active) return;
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
     const ms = navigator.mediaSession;
+    const base = import.meta.env.BASE_URL;
     try {
-      ms.metadata = new MediaMetadata({ title: state.title || "Lecture", artist: "Learn Japan" });
+      ms.metadata = new MediaMetadata({
+        title: state.title || "Lecture",
+        artist: "Learn Japan",
+        // PNG raster requis (le SVG est ignoré par les notifications média Android).
+        artwork: [
+          { src: `${base}icon-192.png`, sizes: "192x192", type: "image/png" },
+          { src: `${base}icon-512.png`, sizes: "512x512", type: "image/png" },
+        ],
+      });
     } catch {
       /* MediaMetadata indisponible */
     }
@@ -517,9 +587,23 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     ms.setActionHandler("pause", () => toggle());
     ms.setActionHandler("nexttrack", () => next());
     ms.setActionHandler("previoustrack", () => prev());
+    const n = state.segments.length;
+    try {
+      ms.setActionHandler("seekto", (d) => {
+        if (d.seekTime != null && n > 0) seekFraction(d.seekTime / n);
+      });
+    } catch {
+      /* action non supportée */
+    }
+    try {
+      ms.setActionHandler("stop", () => close());
+    } catch {
+      /* action non supportée */
+    }
     ms.playbackState = state.playing ? "playing" : "paused";
+    pushPosRef.current();
     return () => {
-      for (const a of ["play", "pause", "nexttrack", "previoustrack"] as const) {
+      for (const a of ["play", "pause", "nexttrack", "previoustrack", "seekto", "stop"] as const) {
         try {
           ms.setActionHandler(a, null);
         } catch {
@@ -527,7 +611,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-  }, [state.active, state.playing, state.title, toggle, next, prev]);
+  }, [state.active, state.playing, state.title, state.index, state.segments.length, toggle, next, prev, seekFraction, close]);
 
   const api = useMemo<PodcastApi>(
     () => ({

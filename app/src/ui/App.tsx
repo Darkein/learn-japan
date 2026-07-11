@@ -164,13 +164,16 @@ function AppShell() {
     };
   }, [courseNeighbors.prevId, courseNeighbors.nextId]);
 
-  // Quand une génération aboutit (dataVersion), on rafraîchit l'onglet courant et on
-  // recharge le cours ouvert (le cours devient lisible, une nouvelle histoire apparaît).
+  // Quand une génération ou un téléchargement aboutit (dataVersion), on recharge le cours
+  // ouvert (le cours devient lisible, une nouvelle histoire apparaît). PAS de remount en
+  // place de l'onglet courant : Home, Catalogue et Stories rechargent eux-mêmes leurs
+  // données sur dataVersion — le remount (`refreshKey`) se percevait comme un
+  // « rechargement de la page » (scroll perdu, flash de chargement) à la fin d'un
+  // téléchargement de leçon.
   const courseIdRef = useRef<string | null>(null);
   courseIdRef.current = course?.id ?? null;
   useEffect(() => {
     if (dataVersion === 0) return; // pas de rechargement au montage initial
-    setRefreshKey((n) => n + 1);
     const id = courseIdRef.current;
     if (id) getLesson(id).then((l) => l && setCourse(l));
   }, [dataVersion]);
