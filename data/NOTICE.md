@@ -9,6 +9,7 @@ Les données linguistiques proviennent de bases libres. Attribution requise.
 | Décomposition / radicaux | KRADFILE (EDRDG) | CC BY-SA 4.0 |
 | Tracés / ordre des traits | KanjiVG | CC BY-SA 3.0 |
 | Vocabulaire (gloss littéral FR/EN) | JMdict (EDRDG) | CC BY-SA 4.0 |
+| Priorités de fréquence (`data/jmdict-pri.json.gz` : scores nfXX/ichi/spec/news/gai par entrée et par forme kana, consommés par `scripts/build-jmdict.ts`) | JMdict (EDRDG), extrait one-off via la base SQLite du paquet PyPI [jamdict-data](https://pypi.org/project/jamdict-data/) — les tags de priorité JMdict évoluent très peu | CC BY-SA 4.0 |
 | Noms propres | JMnedict (EDRDG) | CC BY-SA 4.0 |
 | Tokenisation (dictionnaire) | IPADIC via @sglkc/kuromoji | voir licence kuromoji/IPADIC |
 

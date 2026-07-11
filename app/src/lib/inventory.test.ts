@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalVocabId, resolveVocab } from "./inventory";
+import { canonicalVocabId, kanaGlossOverlay, resolveVocab } from "./inventory";
 
 // Ces tests s'appuient sur les entrées réelles de app/src/data/inventory/vocab.json
 // qui regroupent plusieurs formes sous une clé composée (séparateur « ; »).
@@ -20,6 +20,27 @@ describe("canonicalVocabId — formes composées de l'inventaire", () => {
 
   it("renvoie un id inconnu tel quel", () => {
     expect(canonicalVocabId("存在しない|そんざいしない")).toBe("存在しない|そんざいしない");
+  });
+});
+
+describe("kanaGlossOverlay — glosses curés par lecture kana", () => {
+  it("attribue les lectures ambiguës au mot du curriculum (N5 d'abord)", () => {
+    const o = kanaGlossOverlay();
+    // いる : 居る (N5) doit gagner sur 要る et sur tout homophone JMdict (射る…)
+    expect(o["いる"]).toBe("être, se trouver (être animé)");
+    // ない : la négation, jamais 亡い « décédé »
+    expect(o["ない"]).toBe("ne pas être, ne pas avoir");
+    expect(o["きく"]).toBe("écouter, entendre");
+    expect(o["かく"]).toBe("écrire");
+    expect(o["ねこ"]).toBe("chat");
+  });
+
+  it("ignore les lectures annotées (non purement kana)", () => {
+    const o = kanaGlossOverlay();
+    // « ～円|～えん » et « 十|(〜を) とお » ne produisent pas de clé
+    for (const k of Object.keys(o)) {
+      expect(k).toMatch(/^[ぁ-ヿ〜]+$/);
+    }
   });
 });
 

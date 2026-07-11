@@ -3,11 +3,16 @@
 //   produit par `npm run data:jmdict`), chargé à la demande, décompressé, puis mis en cache
 //   (IndexedDB). Hors bundle JS, offline après le premier chargement.
 
-import { getDictCache, putDictCache } from "./db";
+import { deleteDictCache, getDictCache, putDictCache } from "./db";
+import { kanaGlossOverlay } from "./inventory";
 import type { ContentDict } from "./gloss";
 
 // --- Dictionnaire de contenu (forme → gloss français) pour le gloss littéral ---------
-const DICT_ID = "jmdict-fr";
+// v2 : clés kana réattribuées au mot le plus fréquent (un « premier arrivé gagne » naïf
+// donnait いる → « abattre, tirer », ない → « décédé, mort »). Changer l'ID invalide le
+// cache IndexedDB des clients et déclenche la re-dérivation des sens stockés.
+const DICT_ID = "jmdict-fr-v2";
+const LEGACY_DICT_IDS = ["jmdict-fr"];
 
 function assetUrl(): string {
   const base =
@@ -44,22 +49,38 @@ export function contentDictSnapshot(): ContentDict {
 }
 
 /**
+ * Superpose les glosses curés de l'inventaire aux clés kana du JMdict : pour une
+ * forme kana ambiguë (いる, ない…), le mot du curriculum doit gagner sur l'homophone
+ * choisi par le dictionnaire. Appliqué à chaque chargement (le cache stocke la map brute).
+ */
+function withInventoryOverlay(map: ContentDict): ContentDict {
+  return { ...map, ...kanaGlossOverlay() };
+}
+
+/**
  * Charge (une seule fois) le dictionnaire de contenu : cache IndexedDB d'abord, sinon
  * asset statique gzippé → décompression → parse → mise en cache. Si tout échoue, renvoie
- * un dictionnaire vide (les mots retombent alors sur leur forme de base, jamais d'erreur).
+ * le seul overlay inventaire (les autres mots retombent sur leur forme de base, jamais d'erreur).
  */
 export function loadContentDict(): Promise<ContentDict> {
   if (!dictPromise) {
     dictPromise = (async () => {
       try {
         const cached = await getDictCache(DICT_ID);
-        if (cached) return (loaded = cached);
+        if (cached) return (loaded = withInventoryOverlay(cached));
         const map = await fetchAndDecompress(assetUrl());
         await putDictCache(DICT_ID, map);
-        return (loaded = map);
+        for (const id of LEGACY_DICT_IDS) await deleteDictCache(id);
+        loaded = withInventoryOverlay(map);
+        // Première ouverture avec cette version du dico : les items de révision créés
+        // avec l'ancienne version portent des sens figés potentiellement faux → re-dérive.
+        void import("./vocab")
+          .then((m) => m.refreshStoredMeanings(loaded))
+          .catch((e) => console.warn("[dict] re-dérivation des sens échouée :", e));
+        return loaded;
       } catch (e) {
         console.warn("[dict] chargement JMdict-FR échoué :", e);
-        return {};
+        return (loaded = withInventoryOverlay({}));
       }
     })();
   }

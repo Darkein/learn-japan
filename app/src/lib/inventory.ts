@@ -83,6 +83,31 @@ export function canonicalVocabId(id: string): string {
 }
 
 /**
+ * Gloss FR des mots de l'inventaire indexés par leur lecture kana, superposé au
+ * dictionnaire JMdict (voir loadContentDict, lib/data.ts). Une forme kana est
+ * partagée par de nombreux homophones (いる : 居る/要る/射る…) et le JMdict seul
+ * peut attribuer la clé au mauvais mot ; pour les mots du curriculum, c'est le
+ * gloss curé qui doit gagner (« ねこがいます » → « être », jamais « abattre »).
+ * N5 d'abord puis ordre du fichier ; on n'écrase pas une lecture déjà attribuée.
+ */
+export function kanaGlossOverlay(): Record<string, string> {
+  if (kanaOverlayCache) return kanaOverlayCache;
+  const out: Record<string, string> = {};
+  const byLevel = [...(vocabInv as VocabInvEntry[])].sort((a, b) => b.level - a.level);
+  for (const v of byLevel) {
+    const fr = v.fr ?? vocabFr[v.id];
+    if (!fr) continue;
+    for (const r of splitEntryForms(v.id.split("|")[1] ?? "").map(kataToHira)) {
+      if (KANA_ONLY.test(r) && !(r in out)) out[r] = fr;
+    }
+  }
+  return (kanaOverlayCache = out);
+}
+let kanaOverlayCache: Record<string, string> | null = null;
+/** Hiragana/katakana uniquement (avec ー et 〜) : lectures « pures », sans annotation. */
+const KANA_ONLY = /^[ぁ-ヿ〜]+$/;
+
+/**
  * Phrase d'exemple du corpus statique (scripts/build-examples.ts) pour un id de
  * vocabulaire, ou null. Fallback quand le mot n'a pas encore d'exemple issu d'une
  * histoire lue (voir effectiveExample, lib/vocab.ts).

@@ -48,9 +48,10 @@ export function glossToken(token: KuromojiToken, dict: ContentDict): GlossSegmen
     case "記号":
       return g(surface, true);
     case "形容詞": {
-      // i-adjectif : gloss prédicatif « être-X » (cf. exemple atsui → être-chaud).
+      // i-adjectif : gloss prédicatif « être-X » (cf. exemple atsui → être-chaud),
+      // sauf si le gloss est déjà verbal (ない → « ne pas être… », pas « être-ne pas… »).
       const base = dict[token.basic_form] ?? token.basic_form;
-      return g(`être-${base}`);
+      return g(base.startsWith("ne pas") ? base : `être-${base}`);
     }
     case "動詞": {
       // verbe support non autonome (ている, てしまう…)

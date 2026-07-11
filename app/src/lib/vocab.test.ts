@@ -7,6 +7,7 @@ import {
   effectiveExample,
   itemIdFor,
   meaningFor,
+  refreshStoredMeanings,
 } from "./vocab";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -88,6 +89,26 @@ describe("meaningFor", () => {
   it("tiret quand ni JMdict-FR ni inventaire ne connaissent le mot", () => {
     const x = tok({ surface_form: "架空語", pos: "名詞", basic_form: "架空語", reading: "カクウゴ" });
     expect(meaningFor(x)).toBe("—");
+  });
+});
+
+describe("refreshStoredMeanings", () => {
+  it("re-dérive les sens figés avec un dico défectueux et compte les corrections", async () => {
+    // Item créé avec l'ancien dico : いる avait hérité du gloss de 射る.
+    const iru = tok({ surface_form: "い", pos: "動詞", basic_form: "いる", reading: "イ" });
+    const item = await applyStatus(iru, "review");
+    expect(item.meaning).not.toBe("être (êtres animés), exister"); // snapshot vide en test
+
+    const updated = await refreshStoredMeanings({ いる: "être (êtres animés), exister" });
+    expect(updated).toBeGreaterThanOrEqual(1);
+    expect((await getVocab(itemIdFor(iru)))?.meaning).toBe("être (êtres animés), exister");
+  });
+
+  it("laisse intact un item dont le sens re-dérivé est identique", async () => {
+    const neko2 = tok({ surface_form: "猫", pos: "名詞", basic_form: "猫", reading: "ネコ" });
+    await applyStatus(neko2, "review");
+    await refreshStoredMeanings({ 猫: "chat" });
+    expect((await getVocab(itemIdFor(neko2)))?.meaning).toBe("chat");
   });
 });
 
