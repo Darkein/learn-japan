@@ -191,12 +191,20 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
           const idx = order.findIndex((c) => c.id === item.lessonId);
           const nextEntry = idx >= 0 ? order[idx + 1] : undefined;
           const existing = await getPodcast(item.lessonId);
+          // prewarmAudio: false — le lecteur démarre dès que le script est prêt ; le moteur
+          // synthétise chaque segment à la demande (et précharge le suivant). Le préchauffage
+          // complet reste l'affaire du téléchargement hors-ligne (download.ts).
           const pack =
             existing && existing.version === PACK_VERSION
               ? existing
-              : await generatePodcastPack(item.lessonId, { nextLessonTitle: nextEntry?.title }, (msg) => {
-                  if (token === loadTokenRef.current) patch({ preparing: msg });
-                });
+              : await generatePodcastPack(
+                  item.lessonId,
+                  { nextLessonTitle: nextEntry?.title },
+                  (msg) => {
+                    if (token === loadTokenRef.current) patch({ preparing: msg });
+                  },
+                  { prewarmAudio: false },
+                );
           if (token !== loadTokenRef.current) return;
           await markLessonStarted(item.lessonId);
           player.setSegments(pack.segments);
