@@ -1,0 +1,67 @@
+name: Update JMdict
+
+# Régénère le dictionnaire de gloss FR (app/public/jmdict-fr.json.gz) depuis la
+# dernière release de jmdict-simplified (scripts/build-jmdict.ts, qui consomme le
+# snapshot de priorités data/jmdict-pri.json.gz committé), puis committe le résultat
+# sur la branche de dispatch si le fichier a changé. Manuel uniquement.
+#
+# IMPORTANT : après merge, penser à bumper DICT_ID (app/src/lib/data.ts) — le cache
+# IndexedDB des clients n'est invalidé que par un changement de version du dico.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Un seul run à la fois : deux régénérations concurrentes pousseraient des commits en conflit.
+concurrency:
+  group: update-jmdict
+  cancel-in-progress: false
+
+jobs:
+  update-jmdict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Régénérer le dictionnaire
+        run: npm run data:jmdict
+        env:
+          # Évite la limite anonyme de l'API GitHub (60 req/h par IP de runner partagé).
+          GITHUB_TOKEN: ${{ github.token }}
+      # Anti-régression : l'attribution des clés kana ambiguës ne doit jamais retomber
+      # sur un homophone rare (cf. commit « fix(dict): les clés kana du JMdict glosent
+      # le mot fréquent »), même si les données amont évoluent.
+      - name: Contrôler les clés kana ambiguës
+        run: |
+          node -e '
+            const zlib = require("node:zlib"), fs = require("node:fs");
+            const m = JSON.parse(zlib.gunzipSync(fs.readFileSync("app/public/jmdict-fr.json.gz")));
+            const bad = [];
+            if (/abattre|tirer/.test(m["いる"] ?? "")) bad.push(`いる → ${m["いる"]}`);
+            if (/décédé|mort|séisme/.test(m["ない"] ?? "")) bad.push(`ない → ${m["ない"]}`);
+            if (/salon/.test(m["いま"] ?? "")) bad.push(`いま → ${m["いま"]}`);
+            if (bad.length) { console.error("Clés kana mal attribuées :\n" + bad.join("\n")); process.exit(1); }
+            console.log("OK :", ["いる","ない","いま"].map((k) => `${k} → ${m[k]}`).join(" ; "));
+          '
+      # Garde-fou : un push du bot (GITHUB_TOKEN) ne déclenche pas la CI — on vérifie donc
+      # ICI que le nouveau dico ne casse aucun test avant de le committer sur la branche.
+      - name: Tester avec le dico regénéré
+        run: npm test
+      - name: Committer le dico regénéré
+        run: |
+          if git diff --quiet app/public/jmdict-fr.json.gz; then
+            echo "Dictionnaire inchangé — rien à committer."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/public/jmdict-fr.json.gz
+          git commit -m "data: régénération du dictionnaire JMdict-FR (workflow update-jmdict)"
+          git push
