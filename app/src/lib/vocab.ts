@@ -2,8 +2,10 @@
 // un changement de statut (connu / à revoir / oublié) en planifiant via FSRS.
 
 import { contentDictSnapshot } from "./data";
+import type { ContentDict } from "./gloss";
 import { kataToHira } from "./kana";
 import {
+  allVocab,
   getVocab,
   logReview,
   putVocab,
@@ -38,6 +40,29 @@ export function meaningFor(token: KuromojiToken): string {
   if (fromDict) return fromDict;
   const fromInventory = resolveVocab(itemIdFor(token)).fr;
   return fromInventory || "—";
+}
+
+/**
+ * Re-dérive le sens figé de tous les items stockés à partir du dictionnaire donné
+ * (même chaîne de résolution que `meaningFor`). Appelé une seule fois au premier
+ * chargement d'une nouvelle version du dico (voir loadContentDict, lib/data.ts) :
+ * les items créés avec une version défectueuse gardaient sinon leur sens erroné
+ * (いる → « abattre, tirer ») dans les révisions. Renvoie le nombre d'items corrigés.
+ */
+export async function refreshStoredMeanings(dict: ContentDict): Promise<number> {
+  const items = await allVocab();
+  let updated = 0;
+  for (const item of items) {
+    const [base] = item.id.split("|");
+    const fresh =
+      dict[base] ?? dict[item.surface] ?? (resolveVocab(item.id).fr || "—");
+    if (fresh !== item.meaning) {
+      item.meaning = fresh;
+      await putVocab(item);
+      updated++;
+    }
+  }
+  return updated;
 }
 
 /**

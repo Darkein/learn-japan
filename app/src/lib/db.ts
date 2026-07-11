@@ -463,6 +463,10 @@ export async function getDictCache(id: string): Promise<Record<string, string> |
 export async function putDictCache(id: string, map: Record<string, string>): Promise<void> {
   await (await getDB()).put("dict", { id, map, createdAt: Date.now() });
 }
+/** Purge un cache de dictionnaire (versions obsolètes, cf. lib/data.ts). */
+export async function deleteDictCache(id: string): Promise<void> {
+  await (await getDB()).delete("dict", id);
+}
 
 // Cache audio TTS ------------------------------------------------------------
 export interface TtsCache {
