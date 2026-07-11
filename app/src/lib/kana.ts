@@ -60,24 +60,38 @@ export function normalizeReading(s: string): string {
 const AFFIX_MARK = /[～〜~]/g;
 
 /**
- * Développe une entrée du dico (surface ou lecture) en toutes les réponses acceptables
- * pour un exercice de saisie. Les entrées portent des conventions d'affichage — utiles à
- * la lecture, mais qu'on ne peut pas taper telles quelles :
- *   - alternatives séparées par `;` (« いい; よい », « 足; 脚 ») → chaque variante compte ;
- *   - partie optionnelle entre parenthèses (« べんきょう (する) ») → avec ET sans le suffixe ;
- *   - marqueur d'affixe `～` (« ～円 », « ～えん ») → retiré.
- * Chaque variante est passée à `normalizeReading` ; le résultat est dédoublonné, sans vide.
+ * Développe une entrée du dico (surface ou lecture) en ses formes alternatives, en
+ * retirant les conventions d'affichage qu'on ne peut pas exploiter telles quelles :
+ *   - alternatives séparées par `;` (« いい; よい », « 足; 脚 ») → chaque variante ;
+ *   - partie optionnelle entre parenthèses (« べんきょう (する) ») → avec ET sans ;
+ *   - marqueur d'affixe `～` (« ～円 », « ～えん ») → retiré ; espaces retirés.
+ * Ne touche PAS à la casse kana (katakana laissé intact) : sert à faire correspondre
+ * une forme de surface brute (kanji ou katakana). Résultat dédoublonné, sans vide.
+ */
+export function splitEntryForms(entry: string): string[] {
+  const out = new Set<string>();
+  for (const alt of entry.split(/[;；]/)) {
+    const dropped = alt.replace(/[（(][^）)]*[）)]/g, ""); // suffixe optionnel omis
+    const kept = alt.replace(/[（()）]/g, ""); // suffixe optionnel conservé
+    for (const v of [dropped, kept]) {
+      const form = v.replace(AFFIX_MARK, "").replace(/\s+/g, "").trim();
+      if (form) out.add(form);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Développe une entrée du dico en toutes les réponses acceptables pour un exercice de
+ * saisie : mêmes découpages que `splitEntryForms`, mais chaque forme est passée à
+ * `normalizeReading` (katakana → hiragana) pour comparer une saisie de l'apprenant.
  */
 export function answerVariants(...entries: string[]): string[] {
   const out = new Set<string>();
   for (const entry of entries) {
-    for (const alt of entry.split(/[;；]/)) {
-      const dropped = alt.replace(/[（(][^）)]*[）)]/g, ""); // suffixe optionnel omis
-      const kept = alt.replace(/[（()）]/g, ""); // suffixe optionnel conservé
-      for (const v of [dropped, kept]) {
-        const norm = normalizeReading(v.replace(AFFIX_MARK, ""));
-        if (norm) out.add(norm);
-      }
+    for (const form of splitEntryForms(entry)) {
+      const norm = normalizeReading(form);
+      if (norm) out.add(norm);
     }
   }
   return [...out];

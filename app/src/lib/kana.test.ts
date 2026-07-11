@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerVariants, hasKanji, isKanji, kataToHira } from "./kana";
+import { answerVariants, hasKanji, isKanji, kataToHira, splitEntryForms } from "./kana";
 
 describe("kana", () => {
   it("convertit katakana → hiragana", () => {
@@ -17,6 +17,28 @@ describe("kana", () => {
     expect(isKanji("い")).toBe(false);
     expect(hasKanji("暑い")).toBe(true);
     expect(hasKanji("です")).toBe(false);
+  });
+
+  describe("splitEntryForms", () => {
+    it("développe les alternatives séparées par ; sans toucher à la casse kana", () => {
+      expect(splitEntryForms("いい; よい")).toEqual(["いい", "よい"]);
+      expect(splitEntryForms("足; 脚")).toEqual(["足", "脚"]);
+      // katakana laissé intact (contrairement à answerVariants)
+      expect(splitEntryForms("コンピュータ; コンピューター")).toEqual([
+        "コンピュータ",
+        "コンピューター",
+      ]);
+    });
+
+    it("développe le suffixe optionnel et retire l'affixe ～", () => {
+      expect(splitEntryForms("べんきょう (する)")).toEqual(["べんきょう", "べんきょうする"]);
+      expect(splitEntryForms("～円")).toEqual(["円"]);
+    });
+
+    it("dédoublonne et ignore les vides", () => {
+      expect(splitEntryForms("")).toEqual([]);
+      expect(splitEntryForms("猫; 猫")).toEqual(["猫"]);
+    });
   });
 
   describe("answerVariants", () => {

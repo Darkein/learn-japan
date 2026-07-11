@@ -1,7 +1,13 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
 import { getVocab, type VocabItem } from "./db";
-import { addInventoryWordToReview, applyStatus, effectiveExample, itemIdFor } from "./vocab";
+import {
+  addInventoryWordToReview,
+  applyStatus,
+  effectiveExample,
+  itemIdFor,
+  meaningFor,
+} from "./vocab";
 import type { KuromojiToken } from "./tokenizer";
 
 vi.mock("./inventory", async (importOriginal) => ({
@@ -68,6 +74,20 @@ describe("addInventoryWordToReview", () => {
     const item = await addInventoryWordToReview({ id, ja: "水", yomi: "みず", fr: "eau", level: 5 });
     expect(item.status).toBe("known");
     expect((await getVocab(id))?.status).toBe("known");
+  });
+});
+
+describe("meaningFor", () => {
+  // JMdict-FR n'est pas chargé en test (snapshot vide) : on valide le repli inventaire,
+  // qui résout aussi les mots stockés en forme composée (« いい; よい »).
+  it("retombe sur l'inventaire pour un mot en forme composée", () => {
+    const ii = tok({ surface_form: "いい", pos: "形容詞", basic_form: "いい", reading: "イイ" });
+    expect(meaningFor(ii)).toBe("bon, bien");
+  });
+
+  it("tiret quand ni JMdict-FR ni inventaire ne connaissent le mot", () => {
+    const x = tok({ surface_form: "架空語", pos: "名詞", basic_form: "架空語", reading: "カクウゴ" });
+    expect(meaningFor(x)).toBe("—");
   });
 });
 
