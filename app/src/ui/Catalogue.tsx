@@ -9,12 +9,15 @@ import {
   allGrammarInv,
   allKanjiInv,
   allVocabInv,
+  type InvVocab,
 } from "../lib/inventory";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { InventoryRows } from "./CatalogueInventory";
+import { KanjiSheet } from "./KanjiSheet";
 import { LessonList } from "./LessonList";
 import { useGenJobs } from "./useGenJobs";
+import { VocabPeekSheet } from "./VocabPeekSheet";
 
 type Section = "lessons" | "kanji" | "vocab" | "grammar";
 
@@ -51,6 +54,8 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
   const { dataVersion } = useGenJobs();
 
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
+  const [kanjiOpen, setKanjiOpen] = useState<string | null>(null);
+  const [vocabOpen, setVocabOpen] = useState<InvVocab | null>(null);
   const [statusMaps, setStatusMaps] = useState<{
     vocab: Map<string, ItemStatus>;
     grammar: Map<string, ItemStatus>;
@@ -136,9 +141,32 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
               inventory={inventory}
               matches={matches}
               statusOf={statusOf}
+              onOpenKanji={setKanjiOpen}
+              onOpenVocab={setVocabOpen}
             />
           )}
         </>
+      )}
+
+      {vocabOpen && (
+        <VocabPeekSheet
+          v={vocabOpen}
+          status={statusOf("vocab", vocabOpen.id)}
+          onOpenKanji={setKanjiOpen}
+          onClose={() => setVocabOpen(null)}
+        />
+      )}
+      {/* Fiche kanji rendue après la fiche mot → empilée au-dessus (même z-50).
+          À la fermeture, refresh() : des mots ont pu être ajoutés « à revoir ». */}
+      {kanjiOpen && (
+        <KanjiSheet
+          ch={kanjiOpen}
+          excludeVocabId={vocabOpen?.id}
+          onClose={() => {
+            setKanjiOpen(null);
+            void refresh();
+          }}
+        />
       )}
     </div>
   );

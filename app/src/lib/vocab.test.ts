@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
 import { getVocab, type VocabItem } from "./db";
-import { applyStatus, effectiveExample, itemIdFor } from "./vocab";
+import { addInventoryWordToReview, applyStatus, effectiveExample, itemIdFor } from "./vocab";
 import type { KuromojiToken } from "./tokenizer";
 
 vi.mock("./inventory", async (importOriginal) => ({
@@ -42,6 +42,32 @@ describe("vocab ↔ SRS (IndexedDB)", () => {
     const item = await applyStatus(inu, "known");
     expect(item.status).toBe("known");
     expect((await getVocab(itemIdFor(inu)))?.status).toBe("known");
+  });
+});
+
+describe("addInventoryWordToReview", () => {
+  const inv = { id: "毎日|まいにち", ja: "毎日", yomi: "まいにち", fr: "tous les jours", level: 5 };
+
+  it("crée l'item en « à revoir » avec la carte écrite planifiée et journalise", async () => {
+    const item = await addInventoryWordToReview(inv, new Date("2026-06-23T08:00:00Z"));
+    expect(item.status).toBe("review");
+    expect(item.cards.written?.due).toBeInstanceOf(Date);
+
+    const reloaded = await getVocab(inv.id);
+    expect(reloaded?.surface).toBe("毎日");
+    expect(reloaded?.reading).toBe("まいにち");
+    expect(reloaded?.meaning).toBe("tous les jours");
+    expect(reloaded?.status).toBe("review");
+  });
+
+  it("n'écrase pas un item déjà en base", async () => {
+    const existing = tok({ surface_form: "水", pos: "名詞", basic_form: "水", reading: "ミズ" });
+    await applyStatus(existing, "known");
+    const id = itemIdFor(existing);
+
+    const item = await addInventoryWordToReview({ id, ja: "水", yomi: "みず", fr: "eau", level: 5 });
+    expect(item.status).toBe("known");
+    expect((await getVocab(id))?.status).toBe("known");
   });
 });
 

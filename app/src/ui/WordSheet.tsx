@@ -6,6 +6,8 @@ import { formatDaysAgo } from "../lib/time";
 import { speakWord, stopSentence } from "../lib/tts";
 import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
 import type { KuromojiToken } from "../lib/tokenizer";
+import { KanjiBreakdown } from "./KanjiBreakdown";
+import { KanjiSheet } from "./KanjiSheet";
 import { Sheet } from "./kit/Sheet";
 
 const POS_FR: Record<string, string> = {
@@ -49,6 +51,7 @@ export function WordSheet({
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
   const [encounter, setEncounter] = useState<ReEncounter | null>(null);
+  const [kanjiOpen, setKanjiOpen] = useState<string | null>(null);
 
   // Fermeture de la fiche : coupe la synthèse vocale en cours (sinon l'utterance
   // orpheline peut laisser le focus audio OS actif et le ducking du volume système).
@@ -67,6 +70,7 @@ export function WordSheet({
   }, [token, content]);
 
   return (
+    <>
     <Sheet open onClose={onClose} className="gap-3 px-4 pt-6">
       <div className="flex items-baseline gap-3">
         <span className="font-jp text-2xl">{token.surface_form}</span>
@@ -95,6 +99,11 @@ export function WordSheet({
         </div>
       )}
 
+      <KanjiBreakdown
+        surface={token.basic_form || token.surface_form}
+        onOpenKanji={setKanjiOpen}
+      />
+
       {content ? (
         <div className="mt-2 flex flex-wrap gap-3">
           {ACTIONS.map((a) => (
@@ -113,5 +122,15 @@ export function WordSheet({
         </p>
       )}
     </Sheet>
+
+    {/* Fiche kanji empilée : rendue après le Sheet parent → au-dessus (même z-50). */}
+    {kanjiOpen && (
+      <KanjiSheet
+        ch={kanjiOpen}
+        excludeVocabId={itemIdFor(token)}
+        onClose={() => setKanjiOpen(null)}
+      />
+    )}
+    </>
   );
 }
