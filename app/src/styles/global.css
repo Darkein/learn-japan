@@ -133,6 +133,52 @@
   animation: ink-reveal 320ms cubic-bezier(0.2, 0, 0.2, 1) 120ms forwards;
 }
 
+/* Écran de chargement (LoadingScreen) : un ensō (円相) peint d'un coup de pinceau. La forme
+   est une bande à épaisseur variable (attaque fine, ventre épais, levée effilée en pointe) ;
+   un masque qui balaie la ligne centrale la révèle progressivement, comme le pinceau qui
+   court. Un filtre de turbulence donne le grain du pinceau sec. Dans le prolongement du
+   trait d'encre (ink-reveal). Le tracé se révèle une fois puis reste ; léger balancement. */
+@keyframes enso-reveal {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.enso-reveal {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0; /* défaut : révélé (visible sous prefers-reduced-motion) */
+  animation: enso-reveal 0.85s cubic-bezier(0.33, 0, 0.15, 1) forwards;
+}
+/* Apparition en fondu : évite le flash quand la donnée arrive presque tout de suite. */
+@keyframes enso-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.enso-appear {
+  animation: enso-appear 0.55s ease-out both;
+}
+/* Léger balancement : l'encre « respire » une fois peinte, sans jamais disparaître. */
+@keyframes enso-sway {
+  0%,
+  100% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+}
+.enso-sway {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: enso-sway 5s ease-in-out infinite;
+}
+
 /* Voyage (TokaidoStrip) : le train roule SUR PLACE — le nez reste pile sur l'avancement.
    Ce sont les traverses qui défilent (vitesse + sol) et des lignes de vitesse sur deux
    plans (parallaxe = profondeur) ; la caisse tangue doucement, façon locomotive au ralenti. */

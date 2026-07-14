@@ -5,6 +5,7 @@ import type { SrsGrade } from "../lib/srs";
 import { buildSession, gradeCard, sessionStats, type SessionOpts } from "../lib/reviewSession";
 import { ExerciseCard } from "./exercise/ExerciseCard";
 import { SessionSummary } from "./SessionSummary";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { useSettings } from "./useSettings";
 
 interface Props {
@@ -35,7 +36,7 @@ export function ReviewSession({ opts, onExit }: Props) {
 
   const card = cards && i < cards.length ? cards[i] : null;
 
-  if (!cards) return <p className="text-muted">Chargement…</p>;
+  if (!cards) return <LoadingScreen />;
   if (cards.length === 0)
     return (
       <p className="text-muted">

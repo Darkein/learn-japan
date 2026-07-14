@@ -12,6 +12,7 @@ import {
   type InvVocab,
 } from "../lib/inventory";
 import { listLessons, type Lesson } from "../lib/lessons";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { InventoryRows } from "./CatalogueInventory";
 import { KanjiSheet } from "./KanjiSheet";
@@ -107,7 +108,7 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
 
       {section === "lessons" ? (
         lessons === null ? (
-          <p className="text-muted">Chargement…</p>
+          <LoadingScreen className="min-h-[50dvh]" />
         ) : (
           <LessonList
             lessons={lessons}
@@ -134,7 +135,7 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
           </div>
 
           {statusMaps === null ? (
-            <p className="text-muted">Chargement…</p>
+            <LoadingScreen className="min-h-[50dvh]" />
           ) : (
             <InventoryRows
               section={section}

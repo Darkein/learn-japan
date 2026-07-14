@@ -6,6 +6,7 @@ import { getLesson, type Lesson } from "../lib/lessons";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { Button } from "./kit/Button";
 import { IconGear } from "./kit/Icon";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
 import { Stories } from "./Stories";
@@ -383,7 +384,9 @@ function AppShell() {
   if (route.kind === "reader" || route.kind === "course") {
     return (
       <div className={SHELL} style={subpagePadding}>
-        <ReaderPage title="Chargement…" onBack={back} />
+        <ReaderPage onBack={back}>
+          <LoadingScreen />
+        </ReaderPage>
       </div>
     );
   }

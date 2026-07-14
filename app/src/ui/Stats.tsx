@@ -30,6 +30,7 @@ import {
 } from "../lib/stats";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
 
 const RETENTION_WINDOW_DAYS = 30;
@@ -169,7 +170,7 @@ export function Stats() {
     void refresh();
   }
 
-  if (!data) return <p className="text-muted">Chargement…</p>;
+  if (!data) return <LoadingScreen />;
 
   const now = new Date();
   const acc = perItemAccuracy(data.reviews);
