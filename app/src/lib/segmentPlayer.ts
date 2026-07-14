@@ -363,18 +363,20 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       }
     } catch (e) {
       if (r !== run) return;
-      // TTS non configuré (503) OU Worker injoignable (hors-ligne, timeout) : dans les DEUX
-      // cas on bascule le pack sur la Web Speech API, seule option sans réseau. Hors-ligne on
-      // ne peut pas obtenir le 503, donc sans ce second cas la lecture partait en impasse
-      // d'erreur au lieu de parler. On garde le silence de maintien (pas de stopHold) : il
-      // porte la session média OS pour la Web Speech (écran éteint, notification).
-      if (e instanceof TtsUnconfiguredError || e instanceof TtsUnreachableError) {
-        mode = "speech";
-        speakSegment(i, r);
-        return;
+      // Repli UNIVERSEL sur la Web Speech API dès qu'un segment Cloud TTS échoue, quelle que
+      // soit la cause : non configuré (503), Worker injoignable (hors-ligne, timeout), OU
+      // panne amont Google sur une langue/voix précise (typiquement le japonais qui échoue
+      // alors que le français passe → le lecteur média OS « disparaît au 1er mot japonais »).
+      // La Web Speech est le filet « marche partout » : mieux vaut une voix dégradée que le
+      // silence ou une impasse d'erreur. On NE coupe PAS le silence de maintien : il porte la
+      // session média OS pendant la Web Speech (notification affichée, survie écran éteint).
+      // On n'appelle PAS cb.onError (qui figerait l'UI en « arrêté ») : le repli EST le
+      // traitement ; on trace seulement la cause inattendue pour le diagnostic.
+      if (!(e instanceof TtsUnconfiguredError) && !(e instanceof TtsUnreachableError)) {
+        console.warn("Cloud TTS indisponible, repli Web Speech :", e);
       }
-      stopHold();
-      cb.onError(String(e instanceof Error ? e.message : e));
+      mode = "speech";
+      speakSegment(i, r);
       return;
     }
     if (r !== run) return;
