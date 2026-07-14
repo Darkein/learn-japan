@@ -12,6 +12,7 @@ import { StationArrival } from "./StationArrival";
 import { TokaidoStrip } from "./TokaidoStrip";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { ProgressBar } from "./kit/ProgressBar";
 import { SectionLabel } from "./kit/SectionLabel";
 import { useGenJobs } from "./useGenJobs";
@@ -83,7 +84,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
     void refresh();
   }
 
-  if (!lessons) return <p className="text-muted">Chargement…</p>;
+  if (!lessons) return <LoadingScreen />;
 
   const inProgress = lessons.filter((l) => l.startedAt && !l.completedAt);
   const next = lessons.find((l) => !l.startedAt && !l.completedAt);

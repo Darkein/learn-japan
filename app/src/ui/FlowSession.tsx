@@ -15,6 +15,7 @@ import { StationArrival } from "./StationArrival";
 import { Markdown } from "./LessonMarkdown";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
 import { useFlowClock } from "./useFlowClock";
 import { useSettings } from "./useSettings";
@@ -207,7 +208,7 @@ function StoryBlock({ storyId, onDone }: { storyId?: string; onDone: () => void 
   }, [storyId]);
 
   if (!storyId) return null;
-  if (!incoming) return <p className="text-muted">Chargement…</p>;
+  if (!incoming) return <LoadingScreen />;
   return (
     <div className="flex flex-col gap-6">
       {incoming.title && (
@@ -240,7 +241,7 @@ function LessonBlock({
   }, [lessonId]);
 
   if (!lessonId) return null;
-  if (!lesson) return <p className="text-muted">Chargement…</p>;
+  if (!lesson) return <LoadingScreen />;
 
   async function finish() {
     await markLessonStarted(lessonId!);

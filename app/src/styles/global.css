@@ -133,6 +133,55 @@
   animation: ink-reveal 320ms cubic-bezier(0.2, 0, 0.2, 1) 120ms forwards;
 }
 
+/* Écran de chargement (LoadingScreen) : un ensō (円相) se peint au pinceau, se tient un
+   instant, puis s'efface et se repeint — méditatif, dans le prolongement du trait d'encre
+   (ink-reveal). Round linecaps → extrémités de pinceau ; le pathLength=1 normalise le tracé.
+   L'ouverture de l'ensō (dashoffset final 0.04) reste, signature du cercle non fermé. */
+@keyframes enso-brush {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  55% {
+    stroke-dashoffset: 0.04;
+    opacity: 1;
+  }
+  74% {
+    stroke-dashoffset: 0.04;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0.04;
+    opacity: 0;
+  }
+}
+.enso-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0; /* défaut : tracé complet (visible sous prefers-reduced-motion) */
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(132deg); /* ouverture du cercle placée en bas à gauche, façon ensō */
+  animation: enso-brush 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+/* Léger balancement du pinceau : le cercle « respire » pendant qu'il se peint. */
+@keyframes enso-sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+.enso-sway {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: enso-sway 4s ease-in-out infinite;
+}
+
 /* Voyage (TokaidoStrip) : le train roule SUR PLACE — le nez reste pile sur l'avancement.
    Ce sont les traverses qui défilent (vitesse + sol) et des lignes de vitesse sur deux
    plans (parallaxe = profondeur) ; la caisse tangue doucement, façon locomotive au ralenti. */

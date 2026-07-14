@@ -8,6 +8,7 @@ import {
   type TokaidoStatus,
 } from "../lib/tokaido";
 import { formatDaysAgo } from "../lib/time";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { ProgressBar } from "./kit/ProgressBar";
 import { SectionLabel } from "./kit/SectionLabel";
 
@@ -44,7 +45,7 @@ export function Voyage() {
     })();
   }, []);
 
-  if (!status) return <p className="text-muted">Chargement…</p>;
+  if (!status) return <LoadingScreen />;
 
   const { pos, levels } = status;
   const route = pos.route;

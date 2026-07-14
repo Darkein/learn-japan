@@ -6,6 +6,7 @@ import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
 import { IconArrowRight, IconClose } from "./kit/Icon";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import { StoryIllustration } from "./StoryIllustration";
 import { useGenJobs } from "./useGenJobs";
@@ -51,7 +52,7 @@ export function Stories({ onOpen }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {stories === null ? (
-        <p className="text-muted">Chargement…</p>
+        <LoadingScreen />
       ) : stories.length === 0 ? (
         <p className="text-muted">
           Pas encore d'histoire — démarre une leçon dans <strong>Apprendre</strong>, ou génère-en une
