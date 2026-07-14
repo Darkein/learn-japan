@@ -234,7 +234,6 @@ export function Reader({ incoming, preview = false }: Props) {
       {result && !loading && (
         <>
           <StoryIllustration storyId={incoming.id} />
-          <p className="text-sm text-muted">Tape un mot pour ouvrir lecture, sens et suivi de révision.</p>
           <div className={`flex flex-wrap items-baseline gap-x-1.5 ${settings.furiganaDefault ? "gap-y-1" : "gap-y-3"}`}>
             {result.tokens.map((tok, i) => {
               const g = result.gloss[i];
