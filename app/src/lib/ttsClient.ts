@@ -14,6 +14,19 @@ export class TtsUnconfiguredError extends Error {
   }
 }
 
+/**
+ * Erreur dédiée : le Worker est injoignable (hors-ligne, timeout, DNS). Distincte d'une
+ * erreur applicative : hors-ligne, on ne peut pas obtenir le 503 « non configuré », donc
+ * l'appelant traite ce cas comme lui — repli sur la Web Speech API (qui marche sans réseau)
+ * plutôt qu'une impasse d'erreur.
+ */
+export class TtsUnreachableError extends Error {
+  constructor(cause: unknown) {
+    super(`Worker injoignable (TTS) : ${String(cause)}`);
+    this.name = "TtsUnreachableError";
+  }
+}
+
 export interface SentenceAudio {
   audio: Blob;
   /** Timepoints par token : i = index (global) du token, t = secondes dans l'audio. */
@@ -50,7 +63,8 @@ async function postTts(body: Record<string, unknown>, timeoutMs: number): Promis
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {
-    throw new Error(`Worker injoignable (TTS) : ${String(e)}`);
+    // Réseau coupé (TypeError « Failed to fetch ») ou timeout (AbortError) : injoignable.
+    throw new TtsUnreachableError(e);
   }
 
   if (res.status === 503) throw new TtsUnconfiguredError();

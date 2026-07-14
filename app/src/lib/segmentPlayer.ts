@@ -15,7 +15,7 @@
 import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { PodcastSegment } from "./podcastScript";
 import { silentWavUrl } from "./silentWav";
-import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
+import { synthesizeSentence, synthesizeText, TtsUnconfiguredError, TtsUnreachableError } from "./ttsClient";
 
 const LANG_TAG: Record<PodcastSegment["lang"], string> = { fr: "fr-FR", ja: "ja-JP" };
 
@@ -36,6 +36,38 @@ function pickVoice(lang: PodcastSegment["lang"]): SpeechSynthesisVoice | null {
   if (!speechSupported()) return null;
   const pref = lang === "fr" ? "fr" : "ja";
   return window.speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith(pref)) ?? null;
+}
+
+// Sur Android, `getVoices()` renvoie [] au premier appel : la liste se peuple de façon
+// ASYNCHRONE (event `voiceschanged`), et une toute première `speak()` émise avant ce
+// chargement est souvent avalée en silence — d'où des segments qui « défilent » sans son
+// au démarrage à froid, écran éteint compris. On amorce donc le chargement tôt (pendant le
+// geste) et on offre une attente courte avant de parler.
+function warmVoices(): void {
+  if (!speechSupported()) return;
+  try {
+    window.speechSynthesis.getVoices(); // déclenche le peuplement asynchrone
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Résout dès que des voix sont disponibles (ou après `timeoutMs`, pour ne jamais bloquer). */
+function voicesReady(timeoutMs = 1500): Promise<void> {
+  if (!speechSupported()) return Promise.resolve();
+  if (window.speechSynthesis.getVoices().length > 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.speechSynthesis.removeEventListener?.("voiceschanged", finish);
+      resolve();
+    };
+    window.speechSynthesis.addEventListener?.("voiceschanged", finish);
+    window.speechSynthesis.getVoices();
+    setTimeout(finish, timeoutMs);
+  });
 }
 
 export interface SegmentPlayerCallbacks {
@@ -137,6 +169,18 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     });
   }
 
+  /**
+   * Garde un <audio> silencieux en boucle PENDANT la Web Speech : sans média « en lecture »,
+   * l'OS ne montre pas de notification média et suspend la page écran éteint (la synthèse
+   * vocale y est alors gelée). Ce silence, joué sur l'élément persistant amorcé par un geste,
+   * maintient la session audio OS active → notification affichée et lecture qui survit à
+   * l'écran éteint. Idempotent : ne relance pas le silence s'il tourne déjà (pas de trou).
+   */
+  function keepSpeechSession(): void {
+    const el = ensureAudio();
+    if (clipKind !== "hold" || el.paused) holdSilence();
+  }
+
   /** Coupe le silence de maintien (bascule Web Speech, erreur) sans toucher au reste. */
   function stopHold(): void {
     if (!audio || clipKind !== "hold") return;
@@ -227,45 +271,58 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       afterSegment(i, r); // pas de parole dispo → on enchaîne (au moins les pauses)
       return;
     }
-    const u = new SpeechSynthesisUtterance(seg.text);
-    u.lang = LANG_TAG[seg.lang];
-    const v = pickVoice(seg.lang);
-    if (v) u.voice = v;
-    if (seg.tokens) {
-      const offsets: number[] = [];
-      let acc = 0;
-      for (const t of seg.tokens) {
-        offsets.push(acc);
-        acc += t.length;
+    // Silence de maintien actif pendant toute la Web Speech : notification média + survie
+    // écran éteint (cf. keepSpeechSession). Couvre aussi l'éventuelle attente des voix.
+    keepSpeechSession();
+
+    const emit = () => {
+      if (r !== run) return; // annulé pendant l'attente des voix
+      const u = new SpeechSynthesisUtterance(seg.text);
+      u.lang = LANG_TAG[seg.lang];
+      const v = pickVoice(seg.lang);
+      if (v) u.voice = v;
+      if (seg.tokens) {
+        const offsets: number[] = [];
+        let acc = 0;
+        for (const t of seg.tokens) {
+          offsets.push(acc);
+          acc += t.length;
+        }
+        const base = seg.baseTokenIndex ?? 0;
+        u.onboundary = (e) => {
+          if (r !== run) return;
+          let local = 0;
+          for (let k = 0; k < offsets.length; k++) if (e.charIndex >= offsets[k]) local = k;
+          cb.onToken(base + local);
+        };
       }
-      const base = seg.baseTokenIndex ?? 0;
-      u.onboundary = (e) => {
+      // Pas d'événement de progression natif en Web Speech : estimation par durée/débit de lecture.
+      const estMs = Math.max(400, (seg.text.length / 5) * 1000);
+      const startedAt = Date.now();
+      if (speechTimer) clearInterval(speechTimer);
+      speechTimer = setInterval(() => {
         if (r !== run) return;
-        let local = 0;
-        for (let k = 0; k < offsets.length; k++) if (e.charIndex >= offsets[k]) local = k;
-        cb.onToken(base + local);
+        cb.onProgress(Math.min(1, (Date.now() - startedAt) / estMs));
+      }, 150);
+      const done = () => {
+        if (speechTimer) {
+          clearInterval(speechTimer);
+          speechTimer = null;
+        }
+        afterSegment(i, r);
       };
-    }
-    // Pas d'événement de progression natif en Web Speech : estimation par durée/débit de lecture.
-    const estMs = Math.max(400, (seg.text.length / 5) * 1000);
-    const startedAt = Date.now();
-    if (speechTimer) clearInterval(speechTimer);
-    speechTimer = setInterval(() => {
-      if (r !== run) return;
-      cb.onProgress(Math.min(1, (Date.now() - startedAt) / estMs));
-    }, 150);
-    const done = () => {
-      if (speechTimer) {
-        clearInterval(speechTimer);
-        speechTimer = null;
-      }
-      afterSegment(i, r);
+      u.onend = done;
+      // Utterance en échec (moteur TTS indisponible, interruption) : sans ce handler la
+      // chaîne s'arrête net et le timer de progression fuit.
+      u.onerror = done;
+      window.speechSynthesis.speak(u);
     };
-    u.onend = done;
-    // Utterance en échec (moteur TTS indisponible, interruption) : sans ce handler la
-    // chaîne s'arrête net et le timer de progression fuit.
-    u.onerror = done;
-    window.speechSynthesis.speak(u);
+
+    // Démarrage à froid (Android) : `getVoices()` peut être vide au premier segment et une
+    // toute première `speak()` émise avant le chargement des voix est souvent avalée sans
+    // son (segments qui défilent muets). On attend alors brièvement leur disponibilité.
+    if (window.speechSynthesis.getVoices().length === 0) void voicesReady().then(emit);
+    else emit();
   }
 
   // Pré-synthèse du segment suivant, résultat ignoré : l'effet utile est de réchauffer le
@@ -306,12 +363,17 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       }
     } catch (e) {
       if (r !== run) return;
-      stopHold();
-      if (e instanceof TtsUnconfiguredError) {
-        mode = "speech"; // bascule tout le pack sur la Web Speech API
+      // TTS non configuré (503) OU Worker injoignable (hors-ligne, timeout) : dans les DEUX
+      // cas on bascule le pack sur la Web Speech API, seule option sans réseau. Hors-ligne on
+      // ne peut pas obtenir le 503, donc sans ce second cas la lecture partait en impasse
+      // d'erreur au lieu de parler. On garde le silence de maintien (pas de stopHold) : il
+      // porte la session média OS pour la Web Speech (écran éteint, notification).
+      if (e instanceof TtsUnconfiguredError || e instanceof TtsUnreachableError) {
+        mode = "speech";
         speakSegment(i, r);
         return;
       }
+      stopHold();
       cb.onError(String(e instanceof Error ? e.message : e));
       return;
     }
@@ -361,12 +423,10 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     if (r !== run) return;
     if (i >= segments.length) {
       // Dernier segment terminé : silence de maintien pendant que l'appelant décide de la
-      // suite (piste suivante → standby prend le relais ; stop → halt() coupe tout).
-      if (mode === "speech") {
-        if (speechSupported()) nudgeAudioFocusRelease();
-      } else {
-        holdSilence();
-      }
+      // suite (piste suivante → standby prend le relais ; stop → halt() coupe tout). En mode
+      // speech aussi on garde ce silence : la session média OS survit au passage à la piste
+      // suivante (écran éteint). Le vrai relâchement du focus se fait dans halt() (cancelSpeech).
+      holdSilence();
       cb.onEnded();
       return;
     }
@@ -400,11 +460,13 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       pausedInPlace = false;
       clearTimers();
       primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
+      warmVoices(); // amorce le chargement des voix (repli Web Speech hors-ligne)
       const el = ensureAudio();
       if (el.paused) holdSilence(); // couvre la synthèse du premier segment
       playFrom(fromIndex, ++run);
     },
     prime: () => {
+      warmVoices(); // pendant le geste : voix prêtes si repli Web Speech (hors-ligne)
       if (pausedInPlace) return; // ne pas écraser une pause en place (reprise via resume())
       const el = ensureAudio();
       if (el.paused) holdSilence();
@@ -446,6 +508,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       }
       pausedInPlace = false;
       primeAudioFocus();
+      warmVoices();
       const el = ensureAudio();
       if (el.paused) holdSilence();
       playFrom(index, ++run);
