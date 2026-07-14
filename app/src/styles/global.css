@@ -149,7 +149,7 @@
 .enso-reveal {
   stroke-dasharray: 1;
   stroke-dashoffset: 0; /* défaut : révélé (visible sous prefers-reduced-motion) */
-  animation: enso-reveal 1.5s cubic-bezier(0.33, 0, 0.15, 1) forwards;
+  animation: enso-reveal 0.85s cubic-bezier(0.33, 0, 0.15, 1) forwards;
 }
 /* Apparition en fondu : évite le flash quand la donnée arrive presque tout de suite. */
 @keyframes enso-appear {
