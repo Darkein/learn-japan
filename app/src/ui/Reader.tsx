@@ -13,7 +13,7 @@ import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { DownloadButton } from "./DownloadButton";
 import { ReaderBarSlot } from "./ReaderPage";
-import { IconChevronDown, IconPause, IconPlay } from "./kit/Icon";
+import { IconArrowRight, IconChevronDown, IconPause, IconPlay } from "./kit/Icon";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReaderExercises } from "./ReaderExercises";
@@ -22,7 +22,7 @@ import { StoryIllustration } from "./StoryIllustration";
 import { useSettings } from "./useSettings";
 import { StoryTranslation } from "./StoryTranslation";
 import { useGenJobs } from "./useGenJobs";
-import { navigate } from "./useHashRoute";
+import { currentLocation, navigate } from "./useHashRoute";
 import { WordSheet } from "./WordSheet";
 
 export interface LessonContext {
@@ -119,6 +119,13 @@ export function Reader({ incoming, preview = false }: Props) {
     navigate(`/cours/${encodeURIComponent(lesson.id)}`);
   }
 
+  // Ouvre la leçon rattachée depuis l'encart. On conserve l'origine (`from` = la lecture
+  // courante) pour que « Retour » depuis la leçon ramène à l'histoire.
+  function openLesson() {
+    if (!lessonCtx?.lessonId) return;
+    navigate(`/cours/${encodeURIComponent(lessonCtx.lessonId)}?from=${encodeURIComponent(currentLocation())}`);
+  }
+
   // (Ré)analyse à chaque ouverture d'une histoire/leçon.
   useEffect(() => {
     void run(incoming.text);
@@ -176,24 +183,50 @@ export function Reader({ incoming, preview = false }: Props) {
           barSlot,
         )}
       {lessonCtx && (
-        <Card accentFlag className="flex flex-col gap-2 px-4 py-3">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <SectionLabel>Leçon{lessonCtx.level ? ` · N${lessonCtx.level}` : ""}</SectionLabel>
-            {lessonCtx.title && (
-              <span className="font-serif text-lg text-text">{lessonCtx.title}</span>
+        // Encart « leçon liée » cliquable : ouvre la leçon rattachée. En aperçu (couche voisine
+        // du carrousel) on n'attache pas la navigation — la couche n'est pas la page active.
+        <Card
+          accentFlag
+          role={preview ? undefined : "button"}
+          tabIndex={preview ? undefined : 0}
+          aria-label={preview ? undefined : "Ouvrir la leçon"}
+          className={`flex items-center gap-3 px-4 py-3 ${preview ? "" : "cursor-pointer"}`}
+          onClick={preview ? undefined : openLesson}
+          onKeyDown={
+            preview
+              ? undefined
+              : (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openLesson();
+                  }
+                }
+          }
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <SectionLabel>Leçon{lessonCtx.level ? ` · N${lessonCtx.level}` : ""}</SectionLabel>
+              {lessonCtx.title && (
+                <span className="font-serif text-lg text-text">{lessonCtx.title}</span>
+              )}
+            </div>
+            {lessonCtx.objectives && lessonCtx.objectives.vocab.length > 0 && (
+              <p className="m-0 text-sm text-muted">
+                cible :{" "}
+                {lessonCtx.objectives.vocab.slice(0, 4).map((v, i, arr) => (
+                  <span key={`${v.ja}-${i}`}>
+                    <span className="font-jp text-text">{v.ja}</span>
+                    <span className="text-muted"> ({v.fr})</span>
+                    {i < arr.length - 1 ? " · " : ""}
+                  </span>
+                ))}
+              </p>
             )}
           </div>
-          {lessonCtx.objectives && lessonCtx.objectives.vocab.length > 0 && (
-            <p className="m-0 text-sm text-muted">
-              cible :{" "}
-              {lessonCtx.objectives.vocab.slice(0, 4).map((v, i, arr) => (
-                <span key={`${v.ja}-${i}`}>
-                  <span className="font-jp text-text">{v.ja}</span>
-                  <span className="text-muted"> ({v.fr})</span>
-                  {i < arr.length - 1 ? " · " : ""}
-                </span>
-              ))}
-            </p>
+          {!preview && (
+            <span className="shrink-0 text-muted">
+              <IconArrowRight size={16} />
+            </span>
           )}
         </Card>
       )}
