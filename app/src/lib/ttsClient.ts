@@ -1,17 +1,24 @@
-// Client TTS : synthèse d'une phrase via le Worker (Cloud TTS), avec cache local.
+// Client TTS : synthèse d'un énoncé via le Worker (Cloud TTS), avec cache local.
 // Le Worker (et lui seul) détient la clé Google → rien à voler côté client. L'audio
-// et les timepoints sont mis en cache dans IndexedDB (par phrase) : une phrase déjà
-// écoutée n'est jamais re-synthétisée (quota) et reste disponible hors-ligne.
+// et les timepoints sont mis en cache dans IndexedDB (par énoncé) : un énoncé déjà
+// écouté n'est jamais re-synthétisé (quota) et reste disponible hors-ligne.
+//
+// Deux modes, alignés sur POST /tts du Worker :
+//  - synthesizeSentence : phrase tokenisée → audio + timepoints par mot (surlignage) ;
+//  - synthesizeParts : fragments multi-voix (FR/JA) lus en UN énoncé SSML <voice>,
+//    sans timepoints — segments podcast, un segment monolingue = un seul fragment.
+//
+// Les clés de cache (ttsSentenceCacheId / ttsPartsCacheId) sont exportées : le
+// téléchargement hors-ligne (lib/download.ts) les relit pour GARANTIR que tout
+// l'audio d'un élément « téléchargé » est bien présent en cache.
 
 import { TTS_VOICES, WORKER_URL, type TtsLang } from "./config";
 import { getTtsCache, putTtsCache } from "./db";
 
-/** Erreur dédiée : le Worker n'a pas de clé TTS → l'appelant bascule sur Web Speech. */
-export class TtsUnconfiguredError extends Error {
-  constructor() {
-    super("tts_unconfigured");
-    this.name = "TtsUnconfiguredError";
-  }
+/** Fragment voicé d'un énoncé multi-voix (prose FR avec japonais inline, paire JA+FR). */
+export interface TtsPart {
+  lang: TtsLang;
+  text: string;
 }
 
 export interface SentenceAudio {
@@ -22,6 +29,9 @@ export interface SentenceAudio {
 
 const VOICE = TTS_VOICES.ja.voice;
 const RATE = 1.0;
+
+/** Worker sans clé TTS (503) : lecture audio et téléchargement hors-ligne impossibles. */
+const TTS_UNCONFIGURED_MESSAGE = "Synthèse vocale non configurée côté serveur.";
 
 /** base64 → Blob MP3 (sans passer par fetch(dataURL), plus rapide et sûr). */
 function base64ToBlob(b64: string, type = "audio/mpeg"): Blob {
@@ -36,10 +46,7 @@ interface TtsResponse {
   marks: { i: number; t: number }[];
 }
 
-/**
- * Poste une requête au Worker /tts et renvoie l'audio décodé (+ timepoints éventuels).
- * @throws TtsUnconfiguredError si le Worker n'a pas de clé TTS (HTTP 503).
- */
+/** Poste une requête au Worker /tts et renvoie l'audio décodé (+ timepoints éventuels). */
 async function postTts(body: Record<string, unknown>, timeoutMs: number): Promise<TtsResponse> {
   let res: Response;
   try {
@@ -53,36 +60,37 @@ async function postTts(body: Record<string, unknown>, timeoutMs: number): Promis
     throw new Error(`Worker injoignable (TTS) : ${String(e)}`);
   }
 
-  if (res.status === 503) throw new TtsUnconfiguredError();
+  if (res.status === 503) throw new Error(TTS_UNCONFIGURED_MESSAGE);
 
   const data = (await res.json().catch(() => ({}))) as {
     audio?: string;
     marks?: { i: number; t: number }[];
     error?: string;
   };
-  if (!res.ok || data.error) {
-    if (data.error === "tts_unconfigured") throw new TtsUnconfiguredError();
-    throw new Error(data.error ?? `tts HTTP ${res.status}`);
-  }
+  if (!res.ok || data.error) throw new Error(data.error ?? `tts HTTP ${res.status}`);
   if (!data.audio) throw new Error("Réponse TTS vide");
 
   return { audio: base64ToBlob(data.audio), marks: data.marks ?? [] };
+}
+
+// ---------- Phrase tokenisée (timepoints, surlignage) -------------------------
+
+/** Clé de cache IndexedDB d'une phrase tokenisée (voix japonaise du lecteur). */
+export function ttsSentenceCacheId(segments: string[]): string {
+  return `${VOICE}|${RATE}|${segments.join("")}`;
 }
 
 /**
  * Synthétise une phrase (suite de surfaces de tokens) → audio + timepoints.
  * `marks[].i` est ré-indexé sur l'index GLOBAL du premier token via `baseIndex`,
  * pour que le surlignage cible directement la bonne cellule de mot du lecteur.
- *
- * @throws TtsUnconfiguredError si le Worker n'a pas de clé TTS (HTTP 503).
  */
 export async function synthesizeSentence(
   segments: string[],
   baseIndex = 0,
   opts: { timeoutMs?: number } = {},
 ): Promise<SentenceAudio> {
-  const text = segments.join("");
-  const cacheId = `${VOICE}|${RATE}|${text}`;
+  const cacheId = ttsSentenceCacheId(segments);
 
   const cached = await getTtsCache(cacheId);
   if (cached) return shift(cached, baseIndex);
@@ -101,32 +109,27 @@ function shift(a: SentenceAudio, baseIndex: number): SentenceAudio {
   return { audio: a.audio, marks: a.marks.map((m) => ({ i: m.i + baseIndex, t: m.t })) };
 }
 
-/** Clé de cache d'un segment podcast (texte entier, voix selon la langue). */
-function ttsTextCacheId(text: string, lang: TtsLang): string {
-  return `${TTS_VOICES[lang].voice}|${RATE}|${text.trim()}`;
+// ---------- Énoncé multi-voix (segments podcast) ------------------------------
+
+/** Clé de cache IndexedDB d'un énoncé multi-voix : débit + (voix, texte) de chaque fragment. */
+export function ttsPartsCacheId(parts: TtsPart[]): string {
+  return `parts|${RATE}|${parts.map((p) => `${TTS_VOICES[p.lang].voice}:${p.text.trim()}`).join("\u001f")}`;
 }
 
 /**
- * Synthétise un TEXTE entier (sans timepoints) dans la langue donnée → Blob MP3, mis en
- * cache (mêmes invariants que `synthesizeSentence` : zéro re-synthèse, offline). Sert au
- * mode podcast (cadrage, transitions, quiz, phrases FR) qui n'a pas besoin de surlignage.
- *
- * @throws TtsUnconfiguredError si le Worker n'a pas de clé TTS (HTTP 503).
+ * Synthétise un énoncé multi-voix (fragments FR/JA lus d'une traite) → Blob MP3, mis en
+ * cache (mêmes invariants que `synthesizeSentence` : zéro re-synthèse, offline). Les
+ * fragments partent bruts (leur espacement compte dans le SSML) ; seul l'id de cache
+ * est normalisé.
  */
-export async function synthesizeText(
-  text: string,
-  lang: TtsLang,
-  opts: { timeoutMs?: number } = {},
-): Promise<Blob> {
-  const clean = text.trim();
-  const { voice, languageCode } = TTS_VOICES[lang];
-  const cacheId = ttsTextCacheId(clean, lang);
+export async function synthesizeParts(parts: TtsPart[], opts: { timeoutMs?: number } = {}): Promise<Blob> {
+  const cacheId = ttsPartsCacheId(parts);
 
   const cached = await getTtsCache(cacheId);
   if (cached) return cached.audio;
 
   const { audio } = await postTts(
-    { text: clean, voice, languageCode, rate: RATE },
+    { parts: parts.map((p) => ({ text: p.text, ...TTS_VOICES[p.lang] })), rate: RATE },
     opts.timeoutMs ?? 30_000,
   );
   await putTtsCache(cacheId, audio, []);

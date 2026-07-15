@@ -9,6 +9,7 @@ import {
   COMP_PAUSE_MS,
   containsJa,
   QUIZ_PAUSE_MS,
+  segmentParts,
   stripFurigana,
   titleSegment,
 } from "./podcastScript";
@@ -41,13 +42,24 @@ describe("buildVocabQuizzes", () => {
     expect(segs[0].text).toContain("chat");
   });
 
-  it("amorce la compréhension par une phrase FR avant le mot japonais", () => {
-    // mot 1 (compréhension) : amorce FR + mot JA (avec le blanc) + réponse FR.
-    const carrier = segs.find((s) => s.text === "Que veut dire ce mot ?");
+  it("fusionne l'amorce FR et le mot japonais en un énoncé multi-voix, blanc après le mot", () => {
+    // mot 1 (compréhension) : amorce FR + mot JA lus d'une traite, puis réponse FR.
+    const carrier = segs.find((s) => s.text === "Que veut dire ce mot ? みず");
     expect(carrier).toBeDefined();
-    expect(carrier!.lang).toBe("fr");
-    const word = segs.find((s) => s.lang === "ja" && s.text === "みず");
-    expect(word!.pauseAfterMs).toBe(QUIZ_PAUSE_MS); // le blanc suit le mot à traduire
+    expect(carrier!.parts).toEqual([
+      { lang: "fr", text: "Que veut dire ce mot ? " },
+      { lang: "ja", text: "みず" },
+    ]);
+    expect(carrier!.pauseAfterMs).toBe(QUIZ_PAUSE_MS); // le blanc suit toujours le mot à traduire
+    expect(segs.some((s) => s.text === "Cela signifie « eau ».")).toBe(true);
+  });
+
+  it("ne fusionne PAS la production FR→JP : le blanc sépare question et réponse", () => {
+    // mot 0 : question FR avec blanc, PUIS réponse JA en segment distinct.
+    const question = segs.find((s) => s.text.includes("« chat »"));
+    expect(question!.parts).toBeUndefined();
+    expect(question!.pauseAfterMs).toBe(QUIZ_PAUSE_MS);
+    expect(segs.some((s) => s.lang === "ja" && s.text === "ねこ")).toBe(true);
   });
 
   it("insère un blanc de réponse après chaque question (un par mot)", () => {
@@ -57,8 +69,8 @@ describe("buildVocabQuizzes", () => {
   });
 
   it("prononce toujours le yomi (jamais un kanji brut) côté japonais", () => {
-    const ja = segs.filter((s) => s.lang === "ja");
-    expect(ja.map((s) => s.text)).toEqual(expect.arrayContaining(["ねこ", "みず", "いぬ"]));
+    const ja = segs.flatMap((s) => segmentParts(s)).filter((p) => p.lang === "ja");
+    expect(ja.map((p) => p.text)).toEqual(expect.arrayContaining(["ねこ", "みず", "いぬ"]));
   });
 });
 
@@ -93,18 +105,20 @@ describe("buildPodcastScript", () => {
     ],
   });
 
-  it("enchaîne cours → quiz → histoire avec alternance JP/FR", () => {
+  it("enchaîne cours → quiz → histoire, paires JA+FR fusionnées", () => {
     const script = buildPodcastScript(base, { nextLessonTitle: "Suivante" });
     const chapters = script.map((s) => s.chapter);
     expect(chapters.indexOf("cours")).toBeLessThan(chapters.indexOf("quiz"));
     expect(chapters.indexOf("quiz")).toBeLessThan(chapters.indexOf("histoire"));
 
-    // Dans l'histoire : phrase JA suivie de sa traduction FR.
+    // Dans l'histoire : la phrase JA et sa traduction FR forment UN énoncé multi-voix.
     const story = script.filter((s) => s.chapter === "histoire");
-    const jaIdx = story.findIndex((s) => s.text === "猫がいる。");
-    expect(story[jaIdx].lang).toBe("ja");
-    expect(story[jaIdx + 1].lang).toBe("fr");
-    expect(story[jaIdx + 1].text).toBe("Il y a un chat.");
+    const pair = story.find((s) => s.text === "猫がいる。 Il y a un chat.");
+    expect(pair).toBeDefined();
+    expect(pair!.parts).toEqual([
+      { lang: "ja", text: "猫がいる。" },
+      { lang: "fr", text: "Il y a un chat." },
+    ]);
   });
 
   it("dans un bloc :::example, parle la phrase JP en voix japonaise puis sa traduction FR", () => {
@@ -130,17 +144,52 @@ describe("buildPodcastScript", () => {
     expect(cours.some((s) => s.text === "Point clé.")).toBe(true);
   });
 
-  it("route les mots japonais inline d'une prose française vers la voix japonaise", () => {
+  it("fusionne une prose française à mots japonais inline en un seul énoncé multi-voix", () => {
     const withInline = lesson({
       ...base,
       framing: "La particule は marque le thème.",
     });
     const cours = buildPodcastScript(withInline, {}).filter((s) => s.chapter === "cours");
     expect(cours).toEqual([
-      { id: expect.any(String), chapter: "cours", lang: "fr", text: "La particule", label: "Cours" },
-      { id: expect.any(String), chapter: "cours", lang: "ja", text: "は", label: "Cours" },
-      { id: expect.any(String), chapter: "cours", lang: "fr", text: "marque le thème.", label: "Cours" },
+      {
+        id: expect.any(String),
+        chapter: "cours",
+        lang: "fr",
+        text: "La particule は marque le thème.",
+        parts: [
+          { lang: "fr", text: "La particule " },
+          { lang: "ja", text: "は " },
+          { lang: "fr", text: "marque le thème." },
+        ],
+        label: "Cours",
+      },
     ]);
+  });
+
+  it("prose 100 % française → segment simple, sans parts", () => {
+    const pureFr = lesson({ ...base, framing: "Une phrase entièrement en français.", stories: [] });
+    const cours = buildPodcastScript(pureFr, {}).filter((s) => s.chapter === "cours");
+    expect(cours).toHaveLength(1);
+    expect(cours[0].parts).toBeUndefined();
+    expect(cours[0].text).toBe("Une phrase entièrement en français.");
+  });
+
+  it("scinde un énoncé mixte trop long aux frontières de fragments (budget SSML)", () => {
+    // Chaque « phrase » FR pèse ~1 200 octets ; entrecoupée de は, l'ensemble dépasse
+    // largement le budget de 4 000 octets → plusieurs segments, jamais un fragment coupé.
+    const longFr = "mot ".repeat(300).trim();
+    const framing = Array.from({ length: 4 }, () => `${longFr} は`).join(" ") + " fin.";
+    const cours = buildPodcastScript(lesson({ ...base, framing, stories: [] }), {}).filter((s) => s.chapter === "cours");
+    expect(cours.length).toBeGreaterThan(1);
+    // Chaque fragment JA reste entier dans son segment.
+    for (const seg of cours) {
+      for (const part of segmentParts(seg)) {
+        expect(part.text.trim() === "" || part.text.includes("mot") || part.text.trim() === "は" || part.text.trim() === "fin.").toBe(true);
+      }
+    }
+    // La concaténation des segments reconstitue tout le texte (aucune perte à la scission).
+    const joined = cours.map((s) => s.text).join(" ");
+    expect(joined.match(/は/g)).toHaveLength(4);
   });
 
   it("retire le furigana entre parenthèses des exemples japonais", () => {
@@ -226,15 +275,18 @@ describe("buildPodcastScript — déroulé avec QCM de compréhension", () => {
     const lastComp = script.map((s) => s.chapter).lastIndexOf("comprehension");
     expect(firstComp).toBeGreaterThan(-1);
 
-    // Avant le QCM : aucune traduction FR de l'histoire (passe japonais seul).
+    // Avant le QCM : aucune traduction FR de l'histoire (passe japonais seul, segments purs).
     const before = script.slice(0, firstComp).filter((s) => s.chapter === "histoire");
-    expect(before.some((s) => s.text === "Il y a un chat.")).toBe(false);
-    expect(before.some((s) => s.lang === "ja" && s.text === "猫がいる。")).toBe(true);
+    expect(before.some((s) => s.text.includes("Il y a un chat."))).toBe(false);
+    expect(before.some((s) => s.lang === "ja" && s.text === "猫がいる。" && !s.parts)).toBe(true);
 
-    // Après le QCM : la passe bilingue ré-alterne JP puis FR.
+    // Après le QCM : la passe bilingue fusionne chaque paire JA+FR.
     const after = script.slice(lastComp + 1).filter((s) => s.chapter === "histoire");
-    const jaIdx = after.findIndex((s) => s.text === "猫がいる。");
-    expect(after[jaIdx + 1]).toMatchObject({ lang: "fr", text: "Il y a un chat." });
+    const pair = after.find((s) => s.text === "猫がいる。 Il y a un chat.");
+    expect(pair!.parts).toEqual([
+      { lang: "ja", text: "猫がいる。" },
+      { lang: "fr", text: "Il y a un chat." },
+    ]);
   });
 
   it("repli sans QCM : lecture bilingue unique (pas de chapitre compréhension)", () => {
@@ -244,8 +296,15 @@ describe("buildPodcastScript — déroulé avec QCM de compréhension", () => {
     const script = buildPodcastScript(noQcm, {});
     expect(script.some((s) => s.chapter === "comprehension")).toBe(false);
     const story = script.filter((s) => s.chapter === "histoire");
-    const jaIdx = story.findIndex((s) => s.text === "猫がいる。");
-    expect(story[jaIdx + 1]).toMatchObject({ lang: "fr", text: "Il y a un chat." });
+    expect(story.some((s) => s.text === "猫がいる。 Il y a un chat." && s.parts?.length === 2)).toBe(true);
+  });
+});
+
+describe("segmentParts", () => {
+  it("renvoie les parts d'un segment mixte, ou le texte entier sinon", () => {
+    const mixte = { lang: "fr" as const, text: "chat 猫", parts: [{ lang: "fr" as const, text: "chat " }, { lang: "ja" as const, text: "猫" }] };
+    expect(segmentParts(mixte)).toBe(mixte.parts);
+    expect(segmentParts({ lang: "ja", text: "猫がいる。" })).toEqual([{ lang: "ja", text: "猫がいる。" }]);
   });
 });
 

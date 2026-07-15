@@ -5,9 +5,6 @@ import { _resetDbForTests, getPodcast, putStory, type StoryRecord } from "./db";
 import type { Lesson } from "./lessons";
 import { PACK_VERSION, type PodcastSegment } from "./podcastScript";
 
-// Ordre des effets observé via `calls` : le pack doit être ENREGISTRÉ avant la synthèse.
-const calls: string[] = [];
-
 const SEGMENTS: PodcastSegment[] = [
   { id: "s0", chapter: "cours", lang: "fr", text: "Bienvenue." },
   { id: "s1", chapter: "quiz", lang: "ja", text: "ねこ", pauseAfterMs: 5000 },
@@ -36,21 +33,8 @@ vi.mock("./ttsClient", async (orig) => {
   const actual = (await orig()) as typeof import("./ttsClient");
   return {
     ...actual,
-    synthesizeText: vi.fn(async () => {
-      calls.push("tts");
-      return new Blob();
-    }),
-  };
-});
-
-vi.mock("./db", async (orig) => {
-  const actual = (await orig()) as typeof import("./db");
-  return {
-    ...actual,
-    putPodcast: vi.fn(async (rec: unknown) => {
-      calls.push("putPodcast");
-      return actual.putPodcast(rec as Parameters<typeof actual.putPodcast>[0]);
-    }),
+    synthesizeParts: vi.fn(async () => new Blob()),
+    synthesizeSentence: vi.fn(async () => ({ audio: new Blob(), marks: [] })),
   };
 });
 
@@ -59,7 +43,8 @@ import * as lessonsMod from "./lessons";
 import * as ttsMod from "./ttsClient";
 
 const getLesson = vi.mocked(lessonsMod.getLesson);
-const synthesizeText = vi.mocked(ttsMod.synthesizeText);
+const synthesizeParts = vi.mocked(ttsMod.synthesizeParts);
+const synthesizeSentence = vi.mocked(ttsMod.synthesizeSentence);
 
 // Histoire à traduction propre : ensureStoryTranslation ne déclenche pas le LLM.
 function cleanStory(): StoryRecord {
@@ -99,46 +84,29 @@ function fakeLesson(): Lesson {
 beforeEach(async () => {
   (globalThis as unknown as { indexedDB: IDBFactory }).indexedDB = new IDBFactory();
   _resetDbForTests();
-  calls.length = 0;
   vi.clearAllMocks();
   getLesson.mockResolvedValue(fakeLesson());
   await putStory(cleanStory());
 });
 
 describe("generatePodcastPack", () => {
-  it("enregistre le pack AVANT le préchauffage audio (préchauffage interrompu → pack jouable)", async () => {
+  it("assemble et enregistre le pack, à la version courante", async () => {
     const rec = await generatePodcastPack("l1");
     expect(rec.version).toBe(PACK_VERSION);
-    expect(calls.indexOf("putPodcast")).toBeLessThan(calls.indexOf("tts"));
-    expect(await getPodcast("l1")).toMatchObject({ id: "l1", version: PACK_VERSION });
-  });
-
-  it("prewarmAudio: false (lecteur) : aucun appel TTS, pack enregistré", async () => {
-    await generatePodcastPack("l1", {}, undefined, { prewarmAudio: false });
-    expect(synthesizeText).not.toHaveBeenCalled();
-    expect(await getPodcast("l1")).toMatchObject({ id: "l1", version: PACK_VERSION });
-  });
-
-  it("échec de synthèse ponctuel : retenté, le préchauffage continue", async () => {
-    synthesizeText.mockRejectedValueOnce(new Error("HTTP 500"));
-    await generatePodcastPack("l1");
-    // 2 segments + 1 nouvelle tentative sur le premier.
-    expect(synthesizeText).toHaveBeenCalledTimes(3);
-  });
-
-  it("échec persistant : propagé, mais le pack est déjà enregistré", async () => {
-    synthesizeText
-      .mockRejectedValueOnce(new Error("HTTP 500"))
-      .mockRejectedValueOnce(new Error("HTTP 500"));
-    await expect(generatePodcastPack("l1")).rejects.toThrow("HTTP 500");
-    expect(await getPodcast("l1")).toMatchObject({ id: "l1", version: PACK_VERSION });
-  });
-
-  it("TTS non configuré : préchauffage abandonné proprement, pack enregistré", async () => {
-    synthesizeText.mockRejectedValue(new ttsMod.TtsUnconfiguredError());
-    const rec = await generatePodcastPack("l1");
     expect(rec.segments).toHaveLength(2);
-    expect(synthesizeText).toHaveBeenCalledTimes(1);
-    expect(await getPodcast("l1")).toMatchObject({ id: "l1" });
+    expect(await getPodcast("l1")).toMatchObject({ id: "l1", version: PACK_VERSION });
+  });
+
+  it("ne synthétise AUCUN audio : la matérialisation est l'affaire du téléchargement", async () => {
+    await generatePodcastPack("l1");
+    expect(synthesizeParts).not.toHaveBeenCalled();
+    expect(synthesizeSentence).not.toHaveBeenCalled();
+  });
+
+  it("génère une histoire quand la leçon n'en a aucune", async () => {
+    const empty = { ...fakeLesson(), stories: [] as StoryRecord[] } as unknown as Lesson;
+    getLesson.mockResolvedValueOnce(empty).mockResolvedValue(fakeLesson());
+    await generatePodcastPack("l1");
+    expect(lessonsMod.addLessonStory).toHaveBeenCalledWith(empty, 1);
   });
 });

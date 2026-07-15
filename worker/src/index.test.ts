@@ -100,3 +100,126 @@ describe("/generate via Together", () => {
     expect(new Set(textModels).size).toBe(1);
   });
 });
+
+// ---------- POST /tts ---------------------------------------------------------
+
+const ttsEnv = { ...(env as Record<string, unknown>), GOOGLE_TTS_API_KEY: "gk" } as never;
+
+function ttsReq(body: unknown) {
+  return new Request("https://worker.test/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+const googleOk = () => new Response(JSON.stringify({ audioContent: "bXAz" }), { status: 200 });
+
+/** Corps JSON envoyé à Google lors du premier appel TTS mocké. */
+function googlePayload(fetchMock: ReturnType<typeof vi.fn>): Record<string, unknown> {
+  const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+  return JSON.parse(String(init.body)) as Record<string, unknown>;
+}
+
+describe("/tts en mode parts (SSML multi-voix)", () => {
+  it("enveloppe les fragments d'une autre voix dans <voice>, sans timepoints", async () => {
+    const fetchMock = vi.fn(async () => googleOk());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await worker.fetch(
+      ttsReq({
+        parts: [
+          { text: "La particule ", voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
+          { text: "は", voice: "ja-JP-Neural2-B", languageCode: "ja-JP" },
+          { text: " marque le thème.", voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
+        ],
+      }),
+      ttsEnv,
+    );
+    const body = (await res.json()) as { audio?: string; marks?: unknown[] };
+
+    expect(res.status).toBe(200);
+    expect(body.audio).toBe("bXAz");
+    expect(body.marks).toEqual([]);
+
+    const payload = googlePayload(fetchMock);
+    expect((payload.input as { ssml: string }).ssml).toBe(
+      '<speak>La particule <voice name="ja-JP-Neural2-B">は</voice> marque le thème.</speak>',
+    );
+    // Voix requête = celle du PREMIER fragment ; pas de timepoints en mode parts.
+    expect(payload.voice).toEqual({ languageCode: "fr-FR", name: "fr-FR-Neural2-A" });
+    expect(payload.enableTimePointing).toBeUndefined();
+  });
+
+  it("échappe le XML des fragments", async () => {
+    const fetchMock = vi.fn(async () => googleOk());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await worker.fetch(
+      ttsReq({ parts: [{ text: "a < b & c", voice: "fr-FR-Neural2-A", languageCode: "fr-FR" }] }),
+      ttsEnv,
+    );
+
+    expect((googlePayload(fetchMock).input as { ssml: string }).ssml).toBe("<speak>a &lt; b &amp; c</speak>");
+  });
+
+  it("un seul fragment = SSML sans balise <voice> (voix requête suffit)", async () => {
+    const fetchMock = vi.fn(async () => googleOk());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await worker.fetch(ttsReq({ parts: [{ text: "こんにちは" }] }), ttsEnv);
+
+    const payload = googlePayload(fetchMock);
+    expect((payload.input as { ssml: string }).ssml).toBe("<speak>こんにちは</speak>");
+    // Fragment sans voix ni langue → défauts japonais.
+    expect(payload.voice).toEqual({ languageCode: "ja-JP", name: "ja-JP-Neural2-B" });
+  });
+
+  it("fragments tous vides → 502 « texte vide »", async () => {
+    const fetchMock = vi.fn(async () => googleOk());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await worker.fetch(ttsReq({ parts: [{ text: "  " }] }), ttsEnv);
+
+    expect(res.status).toBe(502);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("clé TTS absente → 503 tts_unconfigured", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => googleOk()));
+
+    const res = await worker.fetch(ttsReq({ parts: [{ text: "猫" }] }), env);
+    const body = (await res.json()) as { error?: string };
+
+    expect(res.status).toBe(503);
+    expect(body.error).toBe("tts_unconfigured");
+  });
+});
+
+describe("/tts en mode segments (timepoints)", () => {
+  it("insère un <mark> par token et active enableTimePointing", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ audioContent: "bXAz", timepoints: [{ markName: "t1", timeSeconds: 0.5 }, { markName: "t0", timeSeconds: 0 }] }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await worker.fetch(ttsReq({ segments: ["猫", "が", "いる"] }), ttsEnv);
+    const body = (await res.json()) as { marks?: { i: number; t: number }[] };
+
+    expect(res.status).toBe(200);
+    // Marks triés par temps, index de token décodés depuis les noms de repère.
+    expect(body.marks).toEqual([
+      { i: 0, t: 0 },
+      { i: 1, t: 0.5 },
+    ]);
+
+    const payload = googlePayload(fetchMock);
+    expect((payload.input as { ssml: string }).ssml).toBe(
+      '<speak><mark name="t0"/>猫<mark name="t1"/>が<mark name="t2"/>いる</speak>',
+    );
+    expect(payload.enableTimePointing).toEqual(["SSML_MARK"]);
+  });
+});

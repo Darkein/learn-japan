@@ -26,7 +26,6 @@ import {
   vocabListenMeaningExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
-import { synthesizeText } from "./ttsClient";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
 import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
 import { normalizeReading } from "./kana";
@@ -283,9 +282,6 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       v.cards.oral = card;
       await putVocab(v);
       out.push(vocabTypeExercise(v, card.due.getTime(), { listen: true }));
-      // Amorçage = on est en session (plausiblement en ligne) : pré-chauffe le cache TTS
-      // de la phrase pour que les prochaines écoutes marchent aussi hors-ligne.
-      if (typeof window !== "undefined") synthesizeText(example.ja, "ja").catch(() => {});
       listenCount++;
       listenSeeds++;
       room--;

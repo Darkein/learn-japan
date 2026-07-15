@@ -1,6 +1,6 @@
 // Moteur de lecture des segments podcast (sans React) : joue une suite de PodcastSegment
-// en continu — audio Cloud TTS (mis en cache par ttsClient) avec repli Web Speech, blancs
-// de réponse (`pauseAfterMs`), jeton d'exécution pour invalider les continuations annulées.
+// en continu — audio Cloud TTS (mis en cache par ttsClient), blancs de réponse
+// (`pauseAfterMs`), jeton d'exécution pour invalider les continuations annulées.
 // L'état React (contexte, reprise, MediaSession) vit dans ui/usePodcastPlayer.tsx.
 //
 // Fiabilité écran éteint (mobile) : tout passe par un UNIQUE élément <audio> persistant,
@@ -8,16 +8,16 @@
 // keeper d'audioFocus.ts). Segments MP3, blancs de quiz (WAV silencieux de la bonne durée)
 // et attentes réseau/génération (silence en boucle) s'y enchaînent via `onended` : l'OS
 // voit un flux audio continu d'un seul lecteur — pas de suspension de page, pas de rejet
-// d'autoplay à la frontière de segment, notification média stable. Les setTimeout, eux,
-// sont throttlés voire gelés écran éteint (ils ne subsistent qu'en mode Web Speech et en
-// repli dégradé).
+// d'autoplay à la frontière de segment, notification média stable. Le seul setTimeout
+// restant est le repli dégradé d'un blanc dont la lecture a été refusée.
+//
+// Toute erreur de synthèse (Worker sans clé TTS compris) remonte via `onError` et stoppe
+// la chaîne : la lecture repose exclusivement sur le TTS cloud généré.
 
-import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
-import type { PodcastSegment } from "./podcastScript";
+import { primeAudioFocus } from "./audioFocus";
+import { segmentParts, type PodcastSegment } from "./podcastScript";
 import { silentWavUrl } from "./silentWav";
-import { synthesizeSentence, synthesizeText, TtsUnconfiguredError } from "./ttsClient";
-
-const LANG_TAG: Record<PodcastSegment["lang"], string> = { fr: "fr-FR", ja: "ja-JP" };
+import { synthesizeParts, synthesizeSentence } from "./ttsClient";
 
 /** Durée du silence de maintien bouclé (fetch TTS, changement de piste). */
 const HOLD_SILENCE_MS = 8000;
@@ -28,22 +28,12 @@ export function tokenAtTime(marks: { i: number; t: number }[], t: number): numbe
   return cur;
 }
 
-function speechSupported(): boolean {
-  return typeof window !== "undefined" && "speechSynthesis" in window;
-}
-
-function pickVoice(lang: PodcastSegment["lang"]): SpeechSynthesisVoice | null {
-  if (!speechSupported()) return null;
-  const pref = lang === "fr" ? "fr" : "ja";
-  return window.speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith(pref)) ?? null;
-}
-
 export interface SegmentPlayerCallbacks {
   /** Le segment `index` démarre (mettre à jour l'UI : index courant, progression à 0). */
   onSegmentStart: (index: number) => void;
-  /** Avancement (0..1) du segment en cours (temps réel en cloud, estimé en Web Speech). */
+  /** Avancement (0..1) du segment en cours. */
   onProgress: (p: number) => void;
-  /** Erreur de synthèse (hors « TTS non configuré », qui bascule sur Web Speech). */
+  /** Erreur de synthèse : la chaîne est stoppée, l'UI affiche le message. */
   onError: (message: string) => void;
   /** Token courant surligné (index global) pour un segment histoire, null sinon. */
   onToken: (index: number | null) => void;
@@ -60,8 +50,6 @@ export interface SegmentPlayer {
   setIndex: (i: number) => void;
   /** Mémorise un décalage (0..1) DANS le prochain segment démarré (reprise après scrub en pause). */
   primeSeek: (frac: number) => void;
-  /** Repart en mode Cloud TTS (nouveau pack) après un éventuel repli Web Speech. */
-  resetMode: () => void;
   /** (Re)lance la lecture au segment donné, éventuellement à un décalage (0..1) dans ce segment. */
   start: (fromIndex: number, offset?: number) => void;
   /**
@@ -70,7 +58,7 @@ export interface SegmentPlayer {
    * le verrou d'autoplay et garder la session audio OS active pendant la préparation.
    */
   prime: () => void;
-  /** Pause EN PLACE (cloud) : l'élément reste chargé, la notification média persiste. */
+  /** Pause EN PLACE : l'élément reste chargé, la notification média persiste. */
   pause: () => void;
   /** Reprend là où `pause()` s'est arrêté, ou relance le segment courant sinon. */
   resume: () => void;
@@ -78,7 +66,7 @@ export interface SegmentPlayer {
   standby: () => void;
   /** Coupe la lecture en cours, décharge l'élément (libère le focus OS) et invalide tout. */
   halt: () => void;
-  /** Position absolue dans le segment courant (cloud uniquement, null pendant un blanc). */
+  /** Position absolue dans le segment courant (null pendant un blanc). */
   getPosition: () => { currentTime: number; duration: number } | null;
 }
 
@@ -86,12 +74,10 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   let run = 0; // jeton d'exécution : invalide les continuations annulées
   let segments: PodcastSegment[] = [];
   let index = 0;
-  let mode: "cloud" | "speech" = "cloud";
   let audio: HTMLAudioElement | null = null; // singleton persistant (jamais recréé, cf. en-tête)
   let url: string | null = null; // object URL du segment en cours (les WAV silencieux sont mémoïsés ailleurs)
   let pauseTimer: ReturnType<typeof setTimeout> | null = null;
-  let speechTimer: ReturnType<typeof setInterval> | null = null;
-  let seekOffset = 0; // décalage (0..1) à appliquer au prochain segment cloud démarré
+  let seekOffset = 0; // décalage (0..1) à appliquer au prochain segment démarré
   // Ce que l'élément joue : un segment réel, un blanc de quiz, le silence de maintien, rien.
   let clipKind: "segment" | "gap" | "hold" | "idle" = "idle";
   let pausedInPlace = false; // pause() sans teardown : resume() repart au même endroit
@@ -109,10 +95,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     if (pauseTimer) {
       clearTimeout(pauseTimer);
       pauseTimer = null;
-    }
-    if (speechTimer) {
-      clearInterval(speechTimer);
-      speechTimer = null;
     }
   }
 
@@ -137,7 +119,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     });
   }
 
-  /** Coupe le silence de maintien (bascule Web Speech, erreur) sans toucher au reste. */
+  /** Coupe le silence de maintien (erreur de synthèse) sans toucher au reste. */
   function stopHold(): void {
     if (!audio || clipKind !== "hold") return;
     audio.pause();
@@ -165,20 +147,10 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     revokeUrl();
   }
 
-  function cancelSpeech(): void {
-    if (!speechSupported()) return;
-    // Nudge seulement si une synthèse tournait vraiment : halt() est aussi appelé au
-    // démontage du provider et avant chaque chargement de leçon.
-    const speechActive = window.speechSynthesis.speaking || window.speechSynthesis.pending;
-    window.speechSynthesis.cancel();
-    if (speechActive) nudgeAudioFocusRelease();
-  }
-
   function halt(): void {
     run++;
     pausedInPlace = false;
     unloadAudio();
-    cancelSpeech();
   }
 
   /** Comme halt(), mais garde un silence bouclé : la session audio OS survit au changement de piste. */
@@ -186,7 +158,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     run++;
     pausedInPlace = false;
     clearTimers();
-    cancelSpeech();
     holdSilence();
   }
 
@@ -201,85 +172,33 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       go();
       return;
     }
-    if (mode === "cloud" && audio) {
-      // Blanc audio-piloté : un WAV silencieux de la durée voulue joué dans le même
-      // élément — la chaîne reste tirée par `onended`, jamais par un timer throttlable.
-      const el = audio;
-      el.ontimeupdate = null;
-      el.onended = go;
-      el.loop = false;
-      clipKind = "gap";
-      el.src = silentWavUrl(seg.pauseAfterMs);
-      revokeUrl();
-      void el.play().catch(() => {
-        // Repli dégradé (lecture refusée) : timer classique, throttlable en arrière-plan.
-        pauseTimer = setTimeout(go, seg.pauseAfterMs);
-      });
-    } else {
+    // Blanc audio-piloté : un WAV silencieux de la durée voulue joué dans le même
+    // élément — la chaîne reste tirée par `onended`, jamais par un timer throttlable.
+    const el = ensureAudio();
+    el.ontimeupdate = null;
+    el.onended = go;
+    el.loop = false;
+    clipKind = "gap";
+    el.src = silentWavUrl(seg.pauseAfterMs);
+    revokeUrl();
+    void el.play().catch(() => {
+      // Repli dégradé (lecture refusée) : timer classique, throttlable en arrière-plan.
       pauseTimer = setTimeout(go, seg.pauseAfterMs);
-    }
-  }
-
-  function speakSegment(i: number, r: number): void {
-    const seg = segments[i];
-    if (!seg) return;
-    if (!speechSupported()) {
-      afterSegment(i, r); // pas de parole dispo → on enchaîne (au moins les pauses)
-      return;
-    }
-    const u = new SpeechSynthesisUtterance(seg.text);
-    u.lang = LANG_TAG[seg.lang];
-    const v = pickVoice(seg.lang);
-    if (v) u.voice = v;
-    if (seg.tokens) {
-      const offsets: number[] = [];
-      let acc = 0;
-      for (const t of seg.tokens) {
-        offsets.push(acc);
-        acc += t.length;
-      }
-      const base = seg.baseTokenIndex ?? 0;
-      u.onboundary = (e) => {
-        if (r !== run) return;
-        let local = 0;
-        for (let k = 0; k < offsets.length; k++) if (e.charIndex >= offsets[k]) local = k;
-        cb.onToken(base + local);
-      };
-    }
-    // Pas d'événement de progression natif en Web Speech : estimation par durée/débit de lecture.
-    const estMs = Math.max(400, (seg.text.length / 5) * 1000);
-    const startedAt = Date.now();
-    if (speechTimer) clearInterval(speechTimer);
-    speechTimer = setInterval(() => {
-      if (r !== run) return;
-      cb.onProgress(Math.min(1, (Date.now() - startedAt) / estMs));
-    }, 150);
-    const done = () => {
-      if (speechTimer) {
-        clearInterval(speechTimer);
-        speechTimer = null;
-      }
-      afterSegment(i, r);
-    };
-    u.onend = done;
-    // Utterance en échec (moteur TTS indisponible, interruption) : sans ce handler la
-    // chaîne s'arrête net et le timer de progression fuit.
-    u.onerror = done;
-    window.speechSynthesis.speak(u);
+    });
   }
 
   // Pré-synthèse du segment suivant, résultat ignoré : l'effet utile est de réchauffer le
   // cache IndexedDB de ttsClient (hit instantané au moment de jouer → pas de trou audio).
-  // Aucune interaction avec le jeton `run`, erreurs avalées (y compris TtsUnconfiguredError :
-  // c'est le playCloud du segment courant qui décide de la bascule Web Speech).
+  // Aucune interaction avec le jeton `run`, erreurs avalées : c'est le playSegment du
+  // segment courant qui fait remonter les échecs.
   function prefetch(i: number): void {
-    if (prefetching || mode !== "cloud") return;
+    if (prefetching) return;
     const seg = segments[i];
     if (!seg) return;
     prefetching = true;
     const p: Promise<unknown> = seg.tokens
       ? synthesizeSentence(seg.tokens, seg.baseTokenIndex ?? 0)
-      : synthesizeText(seg.text, seg.lang);
+      : synthesizeParts(segmentParts(seg));
     void p
       .catch(() => undefined)
       .finally(() => {
@@ -287,7 +206,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       });
   }
 
-  async function playCloud(i: number, r: number): Promise<void> {
+  async function playSegment(i: number, r: number): Promise<void> {
     const seg = segments[i];
     if (!seg) return;
     // Démarrage à froid (reprise, seek en pause) : maintenir un silence pendant la synthèse
@@ -302,16 +221,11 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
         blob = out.audio;
         marks = out.marks;
       } else {
-        blob = await synthesizeText(seg.text, seg.lang);
+        blob = await synthesizeParts(segmentParts(seg));
       }
     } catch (e) {
       if (r !== run) return;
       stopHold();
-      if (e instanceof TtsUnconfiguredError) {
-        mode = "speech"; // bascule tout le pack sur la Web Speech API
-        speakSegment(i, r);
-        return;
-      }
       cb.onError(String(e instanceof Error ? e.message : e));
       return;
     }
@@ -362,19 +276,14 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     if (i >= segments.length) {
       // Dernier segment terminé : silence de maintien pendant que l'appelant décide de la
       // suite (piste suivante → standby prend le relais ; stop → halt() coupe tout).
-      if (mode === "speech") {
-        if (speechSupported()) nudgeAudioFocusRelease();
-      } else {
-        holdSilence();
-      }
+      holdSilence();
       cb.onEnded();
       return;
     }
     index = i;
     cb.onSegmentStart(i);
     if (!segments[i]?.tokens) cb.onToken(null);
-    if (mode === "speech") speakSegment(i, r);
-    else void playCloud(i, r);
+    void playSegment(i, r);
   }
 
   return {
@@ -392,9 +301,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       seekOffset = Math.min(Math.max(frac, 0), 1);
       pausedInPlace = false;
     },
-    resetMode: () => {
-      mode = "cloud";
-    },
     start: (fromIndex, offset) => {
       if (offset != null) seekOffset = Math.min(Math.max(offset, 0), 1);
       pausedInPlace = false;
@@ -410,11 +316,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       if (el.paused) holdSilence();
     },
     pause: () => {
-      if (mode === "speech") {
-        // Pas de pause en place possible en Web Speech : arrêt complet (comportement historique).
-        halt();
-        return;
-      }
       if (pauseTimer) {
         // Blanc en repli dégradé (timer) : on fige en annulant la continuation ; la reprise
         // relancera le segment courant via start().
@@ -453,7 +354,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     standby,
     halt,
     getPosition: () => {
-      if (mode !== "cloud" || !audio || clipKind !== "segment") return null;
+      if (!audio || clipKind !== "segment") return null;
       const d = audio.duration;
       if (!d || !isFinite(d) || d <= 0) return null;
       return { currentTime: audio.currentTime, duration: d };

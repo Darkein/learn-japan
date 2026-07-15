@@ -99,19 +99,18 @@ export async function listGenerated(bucket: R2Bucket | undefined): Promise<Gener
 }
 
 /**
- * Clé R2 d'une synthèse vocale : empreinte des paramètres EFFECTIFS (texte/segments + voix
- * + débit + langue résolus). Deux requêtes qui aboutissent au même audio partagent la clé.
+ * Clé R2 d'une synthèse vocale : empreinte des paramètres EFFECTIFS (SSML + voix + débit
+ * + langue résolus). Le SSML embarque les voix des fragments multi-voix → deux configs de
+ * voix différentes donnent deux clés ; deux requêtes au même audio partagent la clé.
  */
 export async function ttsCacheKey(parts: {
-  ssml?: string;
-  text?: string;
+  ssml: string;
   voice: string;
   rate: number;
   languageCode: string;
 }): Promise<string> {
   const norm = JSON.stringify({
-    s: parts.ssml ?? "",
-    t: parts.text ?? "",
+    s: parts.ssml,
     v: parts.voice,
     r: parts.rate,
     l: parts.languageCode,

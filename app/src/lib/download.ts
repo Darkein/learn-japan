@@ -5,14 +5,15 @@
 // - Histoire : traduction FR + QCM + illustration + audio TTS phrase par phrase (mêmes clés
 //   de cache que le bouton « Écouter » du lecteur : tokens du tokenizer).
 // - Leçon : cadrage du cours + toutes les histoires (locales + variantes R2) + leurs assets
-//   + le pack podcast (dont l'audio est keyé par TEXTE, distinct des clés par tokens du
-//   lecteur → les deux préchauffages sont nécessaires).
+//   + le pack podcast, dont l'audio est matérialisé ICI segment par segment (clés par
+//   fragments voicés, distinctes des clés par tokens du lecteur d'histoire).
 //
 // File FIFO en mémoire, un téléchargement à la fois. PAS de persistance façon genJobs :
 // chaque sous-étape étant idempotente, un téléchargement interrompu (reload) se relance
 // d'un clic et avance instantanément sur tout ce qui est déjà en cache.
 //
-// L'état « téléchargé » est un flag explicite dans le store `meta`, avec une signature
+// L'état « téléchargé » est un flag explicite dans le store `meta`, posé APRÈS relecture
+// de chaque clé audio dans le cache : il GARANTIT la lecture hors-ligne. Signature
 // d'invalidation : nouvelle variante distante, curriculum ou format de pack changé →
 // l'élément redevient « à télécharger ».
 //
@@ -21,7 +22,7 @@
 
 import { analyze } from "./analyze";
 import { getCurriculum, getCurriculumEntry } from "./curriculum";
-import { getMeta, getStory, getStoryImage, putMeta, type StoryRecord } from "./db";
+import { getMeta, getStory, getStoryImage, getTtsCache, putMeta, type StoryRecord } from "./db";
 import { jobsSnapshot, notifyDataChanged, subscribeJobs } from "./genJobs";
 import { resolveGrammar } from "./inventory";
 import {
@@ -33,10 +34,10 @@ import {
   type Lesson,
 } from "./lessons";
 import { ensureStoryTranslationById, generatePodcastPack } from "./podcast";
-import { PACK_VERSION } from "./podcastScript";
+import { PACK_VERSION, segmentParts } from "./podcastScript";
 import { ensureComprehensionQuiz } from "./stories";
 import { buildStorySegments } from "./storyPodcast";
-import { synthesizeSentence, TtsUnconfiguredError } from "./ttsClient";
+import { synthesizeParts, synthesizeSentence, ttsPartsCacheId, ttsSentenceCacheId } from "./ttsClient";
 
 export type DownloadKind = "story" | "lesson";
 /** États d'une entrée du registre. « Téléchargé » n'y figure pas : c'est le flag meta. */
@@ -62,13 +63,11 @@ type OnProgress = (p: Progress) => void;
 // ---- Flags « téléchargé » (store meta) ---------------------------------------
 
 /** À incrémenter si le CONTENU d'un téléchargement change (nouvel asset requis). */
-export const DOWNLOAD_VERSION = 1;
+export const DOWNLOAD_VERSION = 2;
 
 interface StoryDlMeta {
   at: number;
   version: number;
-  /** L'audio Cloud TTS a bien été préchauffé (sinon repli Web Speech, offline aussi). */
-  ttsOk: boolean;
 }
 
 interface LessonDlMeta extends StoryDlMeta {
@@ -119,12 +118,24 @@ function grammarForStory(story: StoryRecord): { ids: string[]; labels: string[] 
 }
 
 /**
+ * Relit chaque clé attendue dans le cache TTS : toute absence fait échouer le
+ * téléchargement — le flag « téléchargé » doit GARANTIR la lecture hors-ligne.
+ */
+async function verifyTtsCached(ids: string[]): Promise<void> {
+  let missing = 0;
+  for (const id of ids) {
+    if (!(await getTtsCache(id))) missing++;
+  }
+  if (missing > 0) throw new Error(`Audio manquant en cache (${missing}/${ids.length}) — relancer le téléchargement.`);
+}
+
+/**
  * Matérialise tous les assets d'une histoire déjà enregistrée : traduction, QCM et
  * illustration en best-effort, puis l'audio phrase par phrase (clés par tokens, celles du
- * bouton « Écouter »). TTS non configuré côté Worker → on continue sans audio (`ttsOk:
- * false`, le lecteur bascule sur la Web Speech API qui marche hors-ligne).
+ * bouton « Écouter »), enfin VÉRIFIE que chaque phrase est bien en cache. Tout échec TTS
+ * persistant (Worker sans clé compris) fait échouer le téléchargement.
  */
-async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): Promise<{ ttsOk: boolean }> {
+async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): Promise<void> {
   const level = story.params.level ?? 5;
 
   onProgress({ fraction: 0, label: "Traduction…" });
@@ -154,41 +165,27 @@ async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): 
   onProgress({ fraction: 0.4, label: "Audio…" });
   const analyzed = await analyze(story.text);
   const segments = buildStorySegments(analyzed.tokens);
-  let ttsOk = true;
   for (let i = 0; i < segments.length; i++) {
     onProgress({ fraction: 0.4 + 0.6 * (i / segments.length), label: `Audio ${i + 1}/${segments.length}…` });
     // Échec ponctuel (timeout, 5xx) retenté une fois : sur des dizaines de phrases en réseau
     // mobile, un unique raté ne doit pas faire échouer tout le téléchargement.
     try {
       await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
-    } catch (e) {
-      if (e instanceof TtsUnconfiguredError) {
-        ttsOk = false;
-        break;
-      }
-      try {
-        await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
-      } catch (e2) {
-        if (e2 instanceof TtsUnconfiguredError) {
-          ttsOk = false;
-          break;
-        }
-        throw e2;
-      }
+    } catch {
+      await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
     }
   }
-  return { ttsOk };
+  await verifyTtsCached(segments.map((s) => ttsSentenceCacheId(s.tokens ?? [s.text])));
 }
 
-/** Télécharge une histoire et pose son flag. `null` si l'histoire n'existe plus (supprimée en file). */
-export async function downloadStory(storyId: string, onProgress?: OnProgress): Promise<{ ttsOk: boolean } | null> {
+/** Télécharge une histoire et pose son flag. No-op si l'histoire n'existe plus (supprimée en file). */
+export async function downloadStory(storyId: string, onProgress?: OnProgress): Promise<void> {
   const story = await getStory(storyId);
-  if (!story) return null;
-  const { ttsOk } = await downloadStoryAssets(story, onProgress ?? (() => {}));
-  const meta: StoryDlMeta = { at: Date.now(), version: DOWNLOAD_VERSION, ttsOk };
+  if (!story) return;
+  await downloadStoryAssets(story, onProgress ?? (() => {}));
+  const meta: StoryDlMeta = { at: Date.now(), version: DOWNLOAD_VERSION };
   await putMeta(storyKey(storyId), meta);
   onProgress?.({ fraction: 1, label: "Téléchargée" });
-  return { ttsOk };
 }
 
 // ---- Pipeline d'une leçon ----------------------------------------------------
@@ -210,15 +207,15 @@ async function waitForGenJobIdle(lessonId: string): Promise<void> {
 }
 
 /**
- * Télécharge une leçon complète (cours, histoires + assets, pack podcast) et pose son flag.
- * Ne démarre PAS la leçon (pas de `markLessonStarted`) : télécharger ≠ commencer — une
- * leçon verrouillée reste verrouillée. `null` si la leçon n'existe pas.
+ * Télécharge une leçon complète (cours, histoires + assets, pack podcast + son audio) et
+ * pose son flag. Ne démarre PAS la leçon (pas de `markLessonStarted`) : télécharger ≠
+ * commencer — une leçon verrouillée reste verrouillée. No-op si la leçon n'existe pas.
  */
-export async function downloadLesson(lessonId: string, onProgress?: OnProgress): Promise<{ ttsOk: boolean } | null> {
+export async function downloadLesson(lessonId: string, onProgress?: OnProgress): Promise<void> {
   const p = onProgress ?? (() => {});
   await waitForGenJobIdle(lessonId);
   let lesson = await getLesson(lessonId);
-  if (!lesson) return null;
+  if (!lesson) return;
 
   p({ fraction: 0, label: "Préparation du cours…" });
   await ensureLessonFraming(lesson);
@@ -236,18 +233,16 @@ export async function downloadLesson(lessonId: string, onProgress?: OnProgress):
   }
 
   lesson = (await getLesson(lessonId)) ?? lesson;
-  let ttsOk = true;
   const stories = lesson.stories;
   for (let i = 0; i < stories.length; i++) {
     const base = 0.25 + (0.45 * i) / Math.max(1, stories.length);
     const span = 0.45 / Math.max(1, stories.length);
     const prefix = stories.length > 1 ? `Histoire ${i + 1} — ` : "";
-    const r = await downloadStoryAssets(stories[i], ({ fraction, label }) =>
+    await downloadStoryAssets(stories[i], ({ fraction, label }) =>
       p({ fraction: base + span * fraction, label: `${prefix}${label}` }),
     );
-    if (!r.ttsOk) ttsOk = false;
     // Flag par histoire aussi : les lignes de l'onglet Histoires se montrent téléchargées.
-    const storyMeta: StoryDlMeta = { at: Date.now(), version: DOWNLOAD_VERSION, ttsOk: r.ttsOk };
+    const storyMeta: StoryDlMeta = { at: Date.now(), version: DOWNLOAD_VERSION };
     await putMeta(storyKey(stories[i].id), storyMeta);
   }
 
@@ -257,17 +252,27 @@ export async function downloadLesson(lessonId: string, onProgress?: OnProgress):
   const idx = order.findIndex((c) => c.id === lessonId);
   const nextEntry = idx >= 0 ? order[idx + 1] : undefined;
   p({ fraction: 0.7, label: "Pack podcast…" });
-  await generatePodcastPack(lessonId, { nextLessonTitle: nextEntry?.title }, (msg) => {
-    const m = msg.match(/(\d+)\s*\/\s*(\d+)/);
-    const sub = m ? Number(m[1]) / Math.max(1, Number(m[2])) : 0;
-    p({ fraction: 0.7 + 0.3 * sub, label: msg });
-  });
+  const pack = await generatePodcastPack(lessonId, { nextLessonTitle: nextEntry?.title }, (msg) =>
+    p({ fraction: 0.7, label: msg }),
+  );
+
+  // Matérialise l'audio du pack (une synthèse par segment parlé, multi-voix comprise),
+  // avec la même tolérance qu'une histoire : échec ponctuel retenté une fois.
+  const spoken = pack.segments.filter((s) => s.text.trim());
+  for (let i = 0; i < spoken.length; i++) {
+    p({ fraction: 0.72 + 0.28 * (i / Math.max(1, spoken.length)), label: `Audio du pack ${i + 1}/${spoken.length}…` });
+    try {
+      await synthesizeParts(segmentParts(spoken[i]));
+    } catch {
+      await synthesizeParts(segmentParts(spoken[i]));
+    }
+  }
+  await verifyTtsCached(spoken.map((s) => ttsPartsCacheId(segmentParts(s))));
 
   lesson = (await getLesson(lessonId)) ?? lesson;
   const meta: LessonDlMeta = {
     at: Date.now(),
     version: DOWNLOAD_VERSION,
-    ttsOk,
     variants: lesson.stories.map((s) => s.variant).filter((v): v is number => v != null),
     objectivesHash: objectivesHash(lesson),
     rev: lesson.rev,
@@ -275,7 +280,6 @@ export async function downloadLesson(lessonId: string, onProgress?: OnProgress):
   };
   await putMeta(lessonKey(lessonId), meta);
   p({ fraction: 1, label: "Téléchargée" });
-  return { ttsOk };
 }
 
 // ---- File FIFO + registre en mémoire ------------------------------------------
