@@ -4,18 +4,16 @@
 // L'état React (contexte, reprise, MediaSession) vit dans ui/usePodcastPlayer.tsx.
 //
 // Fiabilité écran éteint (mobile) : tout passe par un UNIQUE élément <audio> persistant,
-// amorcé pendant un geste utilisateur (verrou d'autoplay porté par l'instance, comme le
-// keeper d'audioFocus.ts). Segments MP3, blancs de quiz (WAV QUASI-silencieux de la bonne
-// durée — audible pour l'OS, pas pour l'oreille, cf. silentWav.ts) et attentes
-// réseau/génération (quasi-silence en boucle) s'y enchaînent via `onended` : l'OS voit un
-// flux audible continu d'un seul lecteur — pas de suspension de page, pas de rejet
-// d'autoplay à la frontière de segment, notification média stable. Le seul setTimeout
-// restant est le repli dégradé d'un blanc dont la lecture a été refusée.
+// amorcé pendant un geste utilisateur (verrou d'autoplay porté par l'instance). Segments
+// MP3, blancs de quiz (WAV silencieux de la bonne durée, au MÊME 24 kHz que les MP3 —
+// cf. silentWav.ts) et attentes réseau/génération (silence en boucle) s'y enchaînent via
+// `onended` : l'OS voit un flux continu d'un seul lecteur — pas de suspension de page,
+// pas de rejet d'autoplay à la frontière de segment, notification média stable, aucun
+// setTimeout throttlable.
 //
 // Toute erreur de synthèse (Worker sans clé TTS compris) remonte via `onError` et stoppe
 // la chaîne : la lecture repose exclusivement sur le TTS cloud généré.
 
-import { primeAudioFocus } from "./audioFocus";
 import { segmentParts, type PodcastSegment } from "./podcastScript";
 import { silentWavUrl } from "./silentWav";
 import { synthesizeParts, synthesizeSentence } from "./ttsClient";
@@ -77,7 +75,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   let index = 0;
   let audio: HTMLAudioElement | null = null; // singleton persistant (jamais recréé, cf. en-tête)
   let url: string | null = null; // object URL du segment en cours (les WAV silencieux sont mémoïsés ailleurs)
-  let pauseTimer: ReturnType<typeof setTimeout> | null = null;
   let seekOffset = 0; // décalage (0..1) à appliquer au prochain segment démarré
   // Ce que l'élément joue : un segment réel, un blanc de quiz, le silence de maintien, rien.
   let clipKind: "segment" | "gap" | "hold" | "idle" = "idle";
@@ -90,13 +87,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       audio.preload = "auto";
     }
     return audio;
-  }
-
-  function clearTimers(): void {
-    if (pauseTimer) {
-      clearTimeout(pauseTimer);
-      pauseTimer = null;
-    }
   }
 
   function revokeUrl(): void {
@@ -135,7 +125,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   // ducking du volume système — jusqu'au ramassage par le GC. On ne décharge qu'à l'arrêt
   // définitif (halt) : l'INSTANCE est conservée, elle porte le verrou geste de l'autoplay.
   function unloadAudio(): void {
-    clearTimers();
     if (audio) {
       audio.pause();
       audio.onended = null;
@@ -158,7 +147,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   function standby(): void {
     run++;
     pausedInPlace = false;
-    clearTimers();
     holdSilence();
   }
 
@@ -182,10 +170,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     clipKind = "gap";
     el.src = silentWavUrl(seg.pauseAfterMs);
     revokeUrl();
-    void el.play().catch(() => {
-      // Repli dégradé (lecture refusée) : timer classique, throttlable en arrière-plan.
-      pauseTimer = setTimeout(go, seg.pauseAfterMs);
-    });
+    void el.play().catch(go); // lecture du blanc refusée (élément jamais amorcé) : on enchaîne sans blanc
   }
 
   // Pré-synthèse du segment suivant, résultat ignoré : l'effet utile est de réchauffer le
@@ -305,10 +290,8 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     start: (fromIndex, offset) => {
       if (offset != null) seekOffset = Math.min(Math.max(offset, 0), 1);
       pausedInPlace = false;
-      clearTimers();
-      primeAudioFocus(); // pendant le geste : déverrouille le nudge de fin de lecture
       const el = ensureAudio();
-      if (el.paused) holdSilence(); // couvre la synthèse du premier segment
+      if (el.paused) holdSilence(); // pendant le geste : verrou d'autoplay + couvre la synthèse du premier segment
       playFrom(fromIndex, ++run);
     },
     prime: () => {
@@ -317,13 +300,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
       if (el.paused) holdSilence();
     },
     pause: () => {
-      if (pauseTimer) {
-        // Blanc en repli dégradé (timer) : on fige en annulant la continuation ; la reprise
-        // relancera le segment courant via start().
-        run++;
-        clearTimers();
-        return;
-      }
       const el = audio;
       if (el && (clipKind === "segment" || clipKind === "gap") && el.getAttribute("src")) {
         // Pause EN PLACE : élément chargé, jeton `run` intact (les closures onended/ontimeupdate
@@ -347,7 +323,6 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
         return;
       }
       pausedInPlace = false;
-      primeAudioFocus();
       const el = ensureAudio();
       if (el.paused) holdSilence();
       playFrom(index, ++run);

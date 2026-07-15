@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { annotateTokens, type RubySegment } from "../../lib/furigana";
 import { tokenize, type KuromojiToken } from "../../lib/tokenizer";
-import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
+import { speakWord, stopSentence } from "../../lib/tts";
 import { Button } from "../kit/Button";
 import { IconSpeaker } from "../kit/Icon";
 import { Ruby } from "../Ruby";
@@ -33,7 +33,7 @@ export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: 
     const my = ++token.current;
     setSpeaking(true);
     try {
-      if (audio.sentence) await speakSentence(audio.sentence);
+      if (audio.sentence) await speakWord(audio.sentence);
       else if (audio.word) await speakWord(audio.word);
     } finally {
       if (token.current === my) setSpeaking(false);
@@ -94,7 +94,7 @@ export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
     const my = ++speakToken.current;
     setSpeaking(true);
     try {
-      await speakSentence(text);
+      await speakWord(text);
     } finally {
       if (speakToken.current === my) setSpeaking(false);
     }

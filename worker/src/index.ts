@@ -427,11 +427,15 @@ function buildSsml(segments: string[]): string {
   return `<speak>${body}</speak>`;
 }
 
+/** Voix effective : celle demandée, sinon le défaut de la langue (env.TTS_VOICE pour le japonais). */
+function resolveVoice(env: Env, voice: string | undefined, languageCode: string): string {
+  return voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
+}
+
 /** Voix et langue effectives d'un fragment multi-voix (défauts par langue du fragment). */
 function resolvePart(env: Env, p: TtsPart): { text: string; voice: string; languageCode: string } {
   const languageCode = p.languageCode || "ja-JP";
-  const voice = p.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
-  return { text: p.text, voice, languageCode };
+  return { text: p.text, voice: resolveVoice(env, p.voice, languageCode), languageCode };
 }
 
 /**
@@ -478,7 +482,7 @@ async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
   let languageCode: string;
   if (useMarks) {
     languageCode = body.languageCode || "ja-JP";
-    voice = body.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
+    voice = resolveVoice(env, body.voice, languageCode);
     ssml = buildSsml(segments);
   } else {
     const resolved = parts.map((p) => resolvePart(env, p));

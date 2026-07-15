@@ -5,7 +5,6 @@ vi.mock("./ttsClient", () => ({
   synthesizeSentence: vi.fn(),
 }));
 vi.mock("./silentWav", () => ({ silentWavUrl: () => "data:audio/wav;silence" }));
-vi.mock("./audioFocus", () => ({ primeAudioFocus: vi.fn() }));
 
 import { createSegmentPlayer, tokenAtTime, type SegmentPlayerCallbacks } from "./segmentPlayer";
 import * as tts from "./ttsClient";

@@ -118,15 +118,27 @@ function grammarForStory(story: StoryRecord): { ids: string[]; labels: string[] 
 }
 
 /**
- * Relit chaque clé attendue dans le cache TTS : toute absence fait échouer le
- * téléchargement — le flag « téléchargé » doit GARANTIR la lecture hors-ligne.
+ * Matérialise l'audio d'une suite d'énoncés puis RELIT chaque clé dans le cache TTS :
+ * toute absence fait échouer le téléchargement — le flag « téléchargé » doit GARANTIR la
+ * lecture hors-ligne. Un échec ponctuel de synthèse (timeout, 5xx) est retenté une fois :
+ * sur des dizaines d'énoncés en réseau mobile, un unique raté ne doit pas faire échouer
+ * tout le téléchargement.
  */
-async function verifyTtsCached(ids: string[]): Promise<void> {
-  let missing = 0;
-  for (const id of ids) {
-    if (!(await getTtsCache(id))) missing++;
+async function materializeTts(
+  items: { cacheId: string; synthesize: () => Promise<unknown> }[],
+  onProgress: (done: number, total: number) => void,
+): Promise<void> {
+  for (let i = 0; i < items.length; i++) {
+    onProgress(i, items.length);
+    try {
+      await items[i].synthesize();
+    } catch {
+      await items[i].synthesize();
+    }
   }
-  if (missing > 0) throw new Error(`Audio manquant en cache (${missing}/${ids.length}) — relancer le téléchargement.`);
+  const hits = await Promise.all(items.map((it) => getTtsCache(it.cacheId)));
+  const missing = hits.filter((h) => !h).length;
+  if (missing > 0) throw new Error(`Audio manquant en cache (${missing}/${items.length}) — relancer le téléchargement.`);
 }
 
 /**
@@ -165,17 +177,13 @@ async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): 
   onProgress({ fraction: 0.4, label: "Audio…" });
   const analyzed = await analyze(story.text);
   const segments = buildStorySegments(analyzed.tokens);
-  for (let i = 0; i < segments.length; i++) {
-    onProgress({ fraction: 0.4 + 0.6 * (i / segments.length), label: `Audio ${i + 1}/${segments.length}…` });
-    // Échec ponctuel (timeout, 5xx) retenté une fois : sur des dizaines de phrases en réseau
-    // mobile, un unique raté ne doit pas faire échouer tout le téléchargement.
-    try {
-      await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
-    } catch {
-      await synthesizeSentence(segments[i].tokens ?? [segments[i].text], 0);
-    }
-  }
-  await verifyTtsCached(segments.map((s) => ttsSentenceCacheId(s.tokens ?? [s.text])));
+  await materializeTts(
+    segments.map((s) => {
+      const tokens = s.tokens ?? [s.text];
+      return { cacheId: ttsSentenceCacheId(tokens), synthesize: () => synthesizeSentence(tokens, 0) };
+    }),
+    (done, total) => onProgress({ fraction: 0.4 + 0.6 * (done / total), label: `Audio ${done + 1}/${total}…` }),
+  );
 }
 
 /** Télécharge une histoire et pose son flag. No-op si l'histoire n'existe plus (supprimée en file). */
@@ -256,18 +264,16 @@ export async function downloadLesson(lessonId: string, onProgress?: OnProgress):
     p({ fraction: 0.7, label: msg }),
   );
 
-  // Matérialise l'audio du pack (une synthèse par segment parlé, multi-voix comprise),
-  // avec la même tolérance qu'une histoire : échec ponctuel retenté une fois.
-  const spoken = pack.segments.filter((s) => s.text.trim());
-  for (let i = 0; i < spoken.length; i++) {
-    p({ fraction: 0.72 + 0.28 * (i / Math.max(1, spoken.length)), label: `Audio du pack ${i + 1}/${spoken.length}…` });
-    try {
-      await synthesizeParts(segmentParts(spoken[i]));
-    } catch {
-      await synthesizeParts(segmentParts(spoken[i]));
-    }
-  }
-  await verifyTtsCached(spoken.map((s) => ttsPartsCacheId(segmentParts(s))));
+  // Matérialise l'audio du pack (une synthèse par segment parlé, multi-voix comprise).
+  await materializeTts(
+    pack.segments
+      .filter((s) => s.text.trim())
+      .map((s) => {
+        const parts = segmentParts(s);
+        return { cacheId: ttsPartsCacheId(parts), synthesize: () => synthesizeParts(parts) };
+      }),
+    (done, total) => p({ fraction: 0.72 + 0.28 * (done / Math.max(1, total)), label: `Audio du pack ${done + 1}/${total}…` }),
+  );
 
   lesson = (await getLesson(lessonId)) ?? lesson;
   const meta: LessonDlMeta = {

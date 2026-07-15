@@ -9,6 +9,7 @@
 // Déterministe, zéro effet (pas de LLM, pas d'IndexedDB) → testable en Node. La partie
 // « effets » (traduction LLM) vit dans lib/podcast.ts.
 
+import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES } from "./config";
 import type { ComprehensionQuestion } from "./genClient";
 import { isKana, isKanji, splitJaSentences } from "./kana";
 import type { TtsPart } from "./ttsClient";
@@ -217,21 +218,16 @@ function isJapaneseLine(s: string): boolean {
   return ja > 0 && ja >= latin;
 }
 
-// Budget SSML d'une requête TTS (limite Google : 5 000 octets), avec marge pour
-// l'enrobage <speak>/<voice> — estimé à ~80 octets par fragment.
-const SSML_BUDGET_BYTES = 4000;
-const PART_WRAP_BYTES = 80;
+const utf8 = new TextEncoder();
 
-const utf8Bytes = (s: string) => new TextEncoder().encode(s).length;
-
-/** Scinde une suite de fragments en groupes tenant chacun dans le budget SSML. */
+/** Scinde une suite de fragments en groupes tenant chacun dans le budget SSML (config.ts). */
 function splitByBudget(runs: TtsPart[]): TtsPart[][] {
   const groups: TtsPart[][] = [];
   let cur: TtsPart[] = [];
   let bytes = 0;
   for (const run of runs) {
-    const cost = utf8Bytes(run.text) + PART_WRAP_BYTES;
-    if (cur.length && bytes + cost > SSML_BUDGET_BYTES) {
+    const cost = utf8.encode(run.text).length + TTS_SSML_PART_WRAP_BYTES;
+    if (cur.length && bytes + cost > TTS_SSML_BUDGET_BYTES) {
       groups.push(cur);
       cur = [];
       bytes = 0;

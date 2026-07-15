@@ -47,14 +47,14 @@ interface TtsResponse {
 }
 
 /** Poste une requête au Worker /tts et renvoie l'audio décodé (+ timepoints éventuels). */
-async function postTts(body: Record<string, unknown>, timeoutMs: number): Promise<TtsResponse> {
+async function postTts(body: Record<string, unknown>): Promise<TtsResponse> {
   let res: Response;
   try {
     res = await fetch(`${WORKER_URL}/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(30_000),
     });
   } catch (e) {
     throw new Error(`Worker injoignable (TTS) : ${String(e)}`);
@@ -85,20 +85,13 @@ export function ttsSentenceCacheId(segments: string[]): string {
  * `marks[].i` est ré-indexé sur l'index GLOBAL du premier token via `baseIndex`,
  * pour que le surlignage cible directement la bonne cellule de mot du lecteur.
  */
-export async function synthesizeSentence(
-  segments: string[],
-  baseIndex = 0,
-  opts: { timeoutMs?: number } = {},
-): Promise<SentenceAudio> {
+export async function synthesizeSentence(segments: string[], baseIndex = 0): Promise<SentenceAudio> {
   const cacheId = ttsSentenceCacheId(segments);
 
   const cached = await getTtsCache(cacheId);
   if (cached) return shift(cached, baseIndex);
 
-  const { audio, marks } = await postTts(
-    { segments, voice: VOICE, rate: RATE },
-    opts.timeoutMs ?? 30_000,
-  );
+  const { audio, marks } = await postTts({ segments, voice: VOICE, rate: RATE });
   await putTtsCache(cacheId, audio, marks); // cache avec index LOCAUX (0-based)
   return shift({ audio, marks }, baseIndex);
 }
@@ -122,16 +115,13 @@ export function ttsPartsCacheId(parts: TtsPart[]): string {
  * fragments partent bruts (leur espacement compte dans le SSML) ; seul l'id de cache
  * est normalisé.
  */
-export async function synthesizeParts(parts: TtsPart[], opts: { timeoutMs?: number } = {}): Promise<Blob> {
+export async function synthesizeParts(parts: TtsPart[]): Promise<Blob> {
   const cacheId = ttsPartsCacheId(parts);
 
   const cached = await getTtsCache(cacheId);
   if (cached) return cached.audio;
 
-  const { audio } = await postTts(
-    { parts: parts.map((p) => ({ text: p.text, ...TTS_VOICES[p.lang] })), rate: RATE },
-    opts.timeoutMs ?? 30_000,
-  );
+  const { audio } = await postTts({ parts: parts.map((p) => ({ text: p.text, ...TTS_VOICES[p.lang] })), rate: RATE });
   await putTtsCache(cacheId, audio, []);
   return audio;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../lib/exercise";
 import type { SrsGrade } from "../../lib/srs";
-import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
+import { speakWord, stopSentence } from "../../lib/tts";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
 import { IconPlay } from "../kit/Icon";
@@ -56,7 +56,7 @@ export function ExerciseCard({
     const my = ++speakToken.current;
     setSpeaking(true);
     try {
-      if (ex.audio?.sentence) await speakSentence(ex.audio.sentence);
+      if (ex.audio?.sentence) await speakWord(ex.audio.sentence);
       else if (ex.audio?.word) await speakWord(ex.audio.word);
     } finally {
       if (speakToken.current === my) setSpeaking(false);
