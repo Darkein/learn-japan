@@ -469,6 +469,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         qIndex?: number;
         index?: number;
         mode?: PlayMode;
+        packVersion?: number;
       };
       if (saved.queue?.length) {
         restoringRef.current = true;
@@ -477,7 +478,10 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         modeRef.current = saved.mode ?? "auto";
         patch({ queue: saved.queue, queueIndex: qIndexRef.current, mode: saved.mode ?? "auto" });
         void loadItem(saved.queue[qIndexRef.current], {
-          resumeIndex: saved.index ?? 0,
+          // Un index de segment n'a de sens que dans le découpage qui l'a produit : si le
+          // format de pack a changé depuis la sauvegarde, on repart du début de la piste
+          // (sinon la reprise atterrit au milieu d'un contenu re-segmenté).
+          resumeIndex: saved.packVersion === PACK_VERSION ? (saved.index ?? 0) : 0,
           autoplay: false,
         }).finally(() => {
           restoringRef.current = false;
@@ -496,7 +500,13 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     if (state.active && state.queue.length) {
       localStorage.setItem(
         RESUME_KEY,
-        JSON.stringify({ queue: state.queue, qIndex: state.queueIndex, index: state.index, mode: state.mode }),
+        JSON.stringify({
+          queue: state.queue,
+          qIndex: state.queueIndex,
+          index: state.index,
+          mode: state.mode,
+          packVersion: PACK_VERSION,
+        }),
       );
     } else {
       localStorage.removeItem(RESUME_KEY);

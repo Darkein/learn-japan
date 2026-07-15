@@ -166,6 +166,21 @@ describe("buildPodcastScript", () => {
     ]);
   });
 
+  it("coupe la prose fusionnée aux fins de phrase (première synthèse courte)", () => {
+    const withSentences = lesson({
+      ...base,
+      framing: "La particule は marque le thème. Elle suit le nom です et le verbe.",
+      stories: [],
+    });
+    const cours = buildPodcastScript(withSentences, {}).filter((s) => s.chapter === "cours");
+    expect(cours.map((s) => s.text)).toEqual([
+      "La particule は marque le thème.",
+      "Elle suit le nom です et le verbe.",
+    ]);
+    // Chaque phrase reste un énoncé multi-voix (fragments FR/JA), jamais coupée en son milieu.
+    expect(cours.every((s) => (s.parts?.length ?? 0) >= 2)).toBe(true);
+  });
+
   it("prose 100 % française → segment simple, sans parts", () => {
     const pureFr = lesson({ ...base, framing: "Une phrase entièrement en français.", stories: [] });
     const cours = buildPodcastScript(pureFr, {}).filter((s) => s.chapter === "cours");

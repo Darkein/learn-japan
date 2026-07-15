@@ -5,9 +5,10 @@
 //
 // Fiabilité écran éteint (mobile) : tout passe par un UNIQUE élément <audio> persistant,
 // amorcé pendant un geste utilisateur (verrou d'autoplay porté par l'instance, comme le
-// keeper d'audioFocus.ts). Segments MP3, blancs de quiz (WAV silencieux de la bonne durée)
-// et attentes réseau/génération (silence en boucle) s'y enchaînent via `onended` : l'OS
-// voit un flux audio continu d'un seul lecteur — pas de suspension de page, pas de rejet
+// keeper d'audioFocus.ts). Segments MP3, blancs de quiz (WAV QUASI-silencieux de la bonne
+// durée — audible pour l'OS, pas pour l'oreille, cf. silentWav.ts) et attentes
+// réseau/génération (quasi-silence en boucle) s'y enchaînent via `onended` : l'OS voit un
+// flux audible continu d'un seul lecteur — pas de suspension de page, pas de rejet
 // d'autoplay à la frontière de segment, notification média stable. Le seul setTimeout
 // restant est le repli dégradé d'un blanc dont la lecture a été refusée.
 //

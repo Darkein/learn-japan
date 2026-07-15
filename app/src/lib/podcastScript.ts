@@ -53,7 +53,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 6;
+export const PACK_VERSION = 7;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -243,36 +243,57 @@ function splitByBudget(runs: TtsPart[]): TtsPart[][] {
   return groups;
 }
 
-/**
- * Découpe une ligne de prose FRANÇAISE qui contient des mots japonais inline (ex. « La
- * particule は marque le thème ») en fragments voicés — le texte latin en voix française,
- * le japonais en voix japonaise, sinon la voix française écorche le japonais (は lu
- * « ka ») — fusionnés en UN segment `parts` lu d'une traite. Le furigana entre
- * parenthèses est d'abord retiré. L'espacement reste collé au fragment en cours, donc le
- * SSML reconstitue la phrase à l'identique.
- */
-function proseSegments(text: string, label = "Cours"): RawSegment[] {
-  const clean = stripFurigana(stripMarkdown(text));
-  if (!clean) return [];
-  const runs: TtsPart[] = [];
-  let buf = "";
-  let lang: "fr" | "ja" | null = null; // langue du fragment en cours (ponctuation = neutre)
-  const flush = () => {
-    if (buf.trim()) runs.push({ lang: lang === "ja" ? "ja" : "fr", text: buf });
-    buf = "";
-  };
-  for (const ch of clean) {
-    const cls = isKana(ch) || isKanji(ch) ? "ja" : /[A-Za-zÀ-ÿ0-9]/.test(ch) ? "fr" : null;
-    if (cls && lang && cls !== lang) flush(); // bascule de langue → nouveau fragment
-    if (cls) lang = cls;
-    buf += ch;
-  }
-  flush();
+// Ponctuation de fin de phrase de la prose (FR + JA) : frontière naturelle de segment.
+const PROSE_SENTENCE_END = new Set([".", "!", "?", "…", "。", "！", "？"]);
+
+/** Groupes de fragments → segments : fusionnés en `parts` si ≥ 2 fragments, simples sinon. */
+function runsToSegments(runs: TtsPart[], label: string): RawSegment[] {
   return splitByBudget(runs).map((group) =>
     group.length === 1
       ? { chapter: "cours" as const, lang: group[0].lang, text: group[0].text.trim(), label }
       : { chapter: "cours" as const, lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: group, label },
   );
+}
+
+/**
+ * Découpe la prose FRANÇAISE contenant des mots japonais inline (ex. « La particule は
+ * marque le thème ») en fragments voicés — le texte latin en voix française, le japonais
+ * en voix japonaise, sinon la voix française écorche le japonais (は lu « ka ») —
+ * fusionnés en UN segment `parts` PAR PHRASE, lu d'une traite. L'unité parlée reste la
+ * phrase : la première synthèse est courte (le son démarre vite), sans réintroduire de
+ * coupure au milieu d'une phrase. Le furigana entre parenthèses est d'abord retiré ;
+ * l'espacement reste collé au fragment en cours, donc le SSML reconstitue le texte à
+ * l'identique.
+ */
+function proseSegments(text: string, label = "Cours"): RawSegment[] {
+  const clean = stripFurigana(stripMarkdown(text));
+  if (!clean) return [];
+  const out: RawSegment[] = [];
+  let runs: TtsPart[] = [];
+  let buf = "";
+  let lang: "fr" | "ja" | null = null; // langue du fragment en cours (ponctuation = neutre)
+  const flushRun = () => {
+    if (buf.trim()) runs.push({ lang: lang === "ja" ? "ja" : "fr", text: buf });
+    buf = "";
+  };
+  const flushSentence = () => {
+    flushRun();
+    if (runs.length) out.push(...runsToSegments(runs, label));
+    runs = [];
+    lang = null;
+  };
+  const chars = [...clean];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const cls = isKana(ch) || isKanji(ch) ? "ja" : /[A-Za-zÀ-ÿ0-9]/.test(ch) ? "fr" : null;
+    if (cls && lang && cls !== lang) flushRun(); // bascule de langue → nouveau fragment
+    if (cls) lang = cls;
+    buf += ch;
+    // Fin de phrase (ponctuation finale suivie d'un blanc ou de la fin de ligne).
+    if (PROSE_SENTENCE_END.has(ch) && (i === chars.length - 1 || /\s/.test(chars[i + 1]))) flushSentence();
+  }
+  flushSentence();
+  return out;
 }
 
 /**
