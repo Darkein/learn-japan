@@ -1,19 +1,24 @@
-// Génération de WAV QUASI-silencieux (PCM mono 4 kHz 16 bits) de durée arbitraire :
+// Génération de WAV QUASI-silencieux (PCM mono 24 kHz 16 bits) de durée arbitraire :
 // une sinusoïde 50 Hz à ~-58 dBFS — inaudible à l'oreille (et irreproduisible par un
 // haut-parleur de téléphone), mais AU-DESSUS du seuil d'audibilité de Chrome (~-72 dBFS).
 // Un silence numérique parfait est classé « non audible » : écran éteint, la page est
-// suspendue ~10 s plus tard et la chaîne de lecture meurt. Sert :
+// suspendue ~10 s plus tard et la chaîne de lecture meurt.
+//
+// 24 kHz = la fréquence EXACTE des MP3 Cloud TTS : WAV et segments partagent le même
+// format de sortie, Android ne reconfigure jamais son pipeline audio à la frontière
+// WAV → MP3 — une reconfiguration (ex-WAV 4 kHz) laissait les premiers clips MP3
+// MUETS pendant quelques secondes au démarrage de la lecture. Sert :
 //  - au « keeper » de focus audio (audioFocus.ts) — WAV ≥ 5 s pour un focus persistant ;
 //  - au moteur podcast (segmentPlayer.ts) — blancs de quiz et silence de maintien joués
 //    dans le MÊME <audio> que les segments, pour que l'OS voie un flux audible continu
 //    et ne suspende jamais la page (les setTimeout y sont throttlés/gelés).
 
-const SAMPLE_RATE = 4000;
+const SAMPLE_RATE = 24000;
 /** Amplitude crête de la sinusoïde (16 bits signés) : 40/32768 ≈ -58 dBFS. */
 const AMPLITUDE = 40;
 const TONE_HZ = 50;
 
-/** WAV PCM mono 4 kHz 16 bits de `durationMs` millisecondes de quasi-silence. */
+/** WAV PCM mono 24 kHz 16 bits de `durationMs` millisecondes de quasi-silence. */
 export function buildSilentWavBlob(durationMs: number): Blob {
   const numSamples = Math.max(1, Math.round((SAMPLE_RATE * durationMs) / 1000));
   const headerSize = 44;
