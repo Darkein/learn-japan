@@ -41,7 +41,7 @@ interface PodcastState {
   title: string;
   segments: PodcastSegment[];
   index: number;
-  /** Avancement (0..1) du segment en cours (temps réel en mode cloud, estimé en mode speech). */
+  /** Avancement (0..1) du segment en cours. */
   segProgress: number;
   /** Position de la leçon en cours dans le programme (curriculum), -1 si inconnue / histoire. */
   lessonIndex: number;
@@ -171,7 +171,6 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       if (autoplay) player.standby();
       else player.halt();
       const token = ++loadTokenRef.current;
-      player.resetMode();
       player.setIndex(startIndex);
       patch({
         active: true,
@@ -191,20 +190,15 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
           const idx = order.findIndex((c) => c.id === item.lessonId);
           const nextEntry = idx >= 0 ? order[idx + 1] : undefined;
           const existing = await getPodcast(item.lessonId);
-          // prewarmAudio: false — le lecteur démarre dès que le script est prêt ; le moteur
-          // synthétise chaque segment à la demande (et précharge le suivant). Le préchauffage
-          // complet reste l'affaire du téléchargement hors-ligne (download.ts).
+          // Le lecteur démarre dès que le script est prêt ; le moteur synthétise chaque
+          // segment à la demande (et précharge le suivant). La matérialisation complète de
+          // l'audio reste l'affaire du téléchargement hors-ligne (download.ts).
           const pack =
             existing && existing.version === PACK_VERSION
               ? existing
-              : await generatePodcastPack(
-                  item.lessonId,
-                  { nextLessonTitle: nextEntry?.title },
-                  (msg) => {
-                    if (token === loadTokenRef.current) patch({ preparing: msg });
-                  },
-                  { prewarmAudio: false },
-                );
+              : await generatePodcastPack(item.lessonId, { nextLessonTitle: nextEntry?.title }, (msg) => {
+                  if (token === loadTokenRef.current) patch({ preparing: msg });
+                });
           if (token !== loadTokenRef.current) return;
           await markLessonStarted(item.lessonId);
           player.setSegments(pack.segments);
@@ -475,6 +469,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         qIndex?: number;
         index?: number;
         mode?: PlayMode;
+        packVersion?: number;
       };
       if (saved.queue?.length) {
         restoringRef.current = true;
@@ -483,7 +478,10 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         modeRef.current = saved.mode ?? "auto";
         patch({ queue: saved.queue, queueIndex: qIndexRef.current, mode: saved.mode ?? "auto" });
         void loadItem(saved.queue[qIndexRef.current], {
-          resumeIndex: saved.index ?? 0,
+          // Un index de segment n'a de sens que dans le découpage qui l'a produit : si le
+          // format de pack a changé depuis la sauvegarde, on repart du début de la piste
+          // (sinon la reprise atterrit au milieu d'un contenu re-segmenté).
+          resumeIndex: saved.packVersion === PACK_VERSION ? (saved.index ?? 0) : 0,
           autoplay: false,
         }).finally(() => {
           restoringRef.current = false;
@@ -502,7 +500,13 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     if (state.active && state.queue.length) {
       localStorage.setItem(
         RESUME_KEY,
-        JSON.stringify({ queue: state.queue, qIndex: state.queueIndex, index: state.index, mode: state.mode }),
+        JSON.stringify({
+          queue: state.queue,
+          qIndex: state.queueIndex,
+          index: state.index,
+          mode: state.mode,
+          packVersion: PACK_VERSION,
+        }),
       );
     } else {
       localStorage.removeItem(RESUME_KEY);

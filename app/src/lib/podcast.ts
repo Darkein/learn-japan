@@ -1,6 +1,7 @@
 // Mode podcast (SPEC §11), partie EFFETS : s'assure qu'une histoire a sa traduction FR
-// alignée (LLM, avec cache sur le StoryRecord), pré-génère le pack d'une leçon (script +
-// préchauffage de l'audio dans le store `tts`) → écoute hors-ligne.
+// alignée (LLM, avec cache sur le StoryRecord) et pré-génère le pack d'une leçon (script
+// persisté). L'audio, lui, est synthétisé à la demande par le lecteur (segmentPlayer) et
+// matérialisé en cache par le téléchargement hors-ligne (lib/download.ts).
 // L'assemblage pur du script vit dans lib/podcastScript.ts.
 
 import {
@@ -26,7 +27,6 @@ import {
   type ScriptNav,
 } from "./podcastScript";
 import { ensureComprehensionQuiz } from "./stories";
-import { synthesizeText, TtsUnconfiguredError } from "./ttsClient";
 
 // ---------- Traduction d'histoire (préalable à l'assemblage) -----------------
 
@@ -85,29 +85,16 @@ export interface PackProgress {
   (message: string): void;
 }
 
-export interface PackOptions {
-  /**
-   * Préchauffer l'audio de tous les segments (cache `tts`) — nécessaire au mode hors-ligne
-   * (téléchargements). Le LECTEUR passe `false` : il démarre dès que le script est assemblé
-   * et laisse le moteur synthétiser chaque segment à la demande (avec préchargement du
-   * suivant) — sinon un pack non téléchargé impose de longues minutes de silence
-   * (« Synthèse audio 12/87… ») avant la première parole.
-   */
-  prewarmAudio?: boolean;
-}
-
 /**
  * Pré-génère le pack podcast d'une leçon : s'assure que le cadrage + au moins une histoire
- * (traduite) existent, assemble le script, l'ENREGISTRE, puis préchauffe l'audio (cache
- * `tts`). L'enregistrement précède le préchauffage : un préchauffage interrompu (réseau)
- * laisse un pack complet et jouable — seule la synthèse reprendra. Si le Worker n'a pas de
- * clé TTS, le script reste utilisable (le lecteur bascule sur la Web Speech API).
+ * (traduite) existent, assemble le script et l'ENREGISTRE. Aucune synthèse audio ici : le
+ * lecteur synthétise segment par segment (avec préchargement du suivant), et le
+ * téléchargement hors-ligne (download.ts) matérialise l'audio du pack en cache.
  */
 export async function generatePodcastPack(
   lessonId: string,
   nav: ScriptNav = {},
   onProgress?: PackProgress,
-  opts: PackOptions = {},
 ): Promise<PodcastRecord> {
   let lesson = await getLesson(lessonId);
   if (!lesson) throw new Error(`Leçon introuvable : ${lessonId}`);
@@ -144,29 +131,6 @@ export async function generatePodcastPack(
 
   const segments = buildPodcastScript(lesson, nav);
   const rec: PodcastRecord = { id: lessonId, segments, createdAt: Date.now(), version: PACK_VERSION };
-  await putPodcast(rec); // AVANT le préchauffage (cf. docstring)
-
-  if (opts.prewarmAudio ?? true) {
-    // Préchauffe l'audio segment par segment (mise en cache). On s'arrête proprement si le
-    // TTS n'est pas configuré : le script reste utilisable via la Web Speech API. Un échec
-    // ponctuel (timeout, 5xx) est retenté une fois — sur des dizaines de segments en réseau
-    // mobile, un unique raté ne doit pas faire échouer tout le téléchargement.
-    const spoken = segments.filter((s) => s.text.trim());
-    let done = 0;
-    for (const s of spoken) {
-      onProgress?.(`Synthèse audio… ${++done}/${spoken.length}`);
-      try {
-        await synthesizeText(s.text, s.lang);
-      } catch (e) {
-        if (e instanceof TtsUnconfiguredError) break;
-        try {
-          await synthesizeText(s.text, s.lang);
-        } catch (e2) {
-          if (e2 instanceof TtsUnconfiguredError) break;
-          throw e2;
-        }
-      }
-    }
-  }
+  await putPodcast(rec);
   return rec;
 }

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ensurePeriodicSync } from "../lib/reminders";
+import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
 import { useSettings, THEMES, STORY_RATES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
@@ -141,6 +142,8 @@ export function SettingsSections({ quick }: Props) {
 
       {!quick && <SyncSection />}
 
+      {!quick && <StorageSection />}
+
       <section>
         <SectionLabel as="h3" className="mb-3">Thème</SectionLabel>
         <SegmentedControl
@@ -152,6 +155,57 @@ export function SettingsSections({ quick }: Props) {
         />
       </section>
     </div>
+  );
+}
+
+/** Usage/quota + persistance du stockage : la garantie que les téléchargements hors-ligne
+ * (audio, histoires, SRS) ne seront pas purgés par le navigateur sous pression de stockage. */
+function StorageSection() {
+  const [info, setInfo] = useState<StorageInfo | null>(null);
+
+  useEffect(() => {
+    void getStorageInfo().then(setInfo);
+  }, []);
+
+  async function askPersist() {
+    await requestPersistentStorage();
+    setInfo(await getStorageInfo());
+  }
+
+  return (
+    <section>
+      <SectionLabel as="h3" className="mb-3">Stockage</SectionLabel>
+      <div className="flex flex-col gap-3">
+        {info?.usage != null && info?.quota != null && (
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-text">Espace utilisé</span>
+            <span className="text-sm text-muted">
+              {formatBytes(info.usage)} sur {formatBytes(info.quota)}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-text">Stockage persistant</span>
+          <span className="text-sm text-muted">{info == null ? "…" : info.persisted ? "Actif" : "Non garanti"}</span>
+        </div>
+        {info != null && !info.persisted && (
+          <>
+            <p className="m-0 text-xs leading-relaxed text-muted">
+              Sans persistance, le navigateur peut purger les données hors-ligne (audio
+              téléchargé, histoires, révisions) s'il manque d'espace. Installer l'app sur
+              l'écran d'accueil aide à l'obtenir.
+            </p>
+            <button
+              type="button"
+              className="h-11 rounded-sm border border-hairline-strong bg-surface px-3 text-sm text-text"
+              onClick={() => void askPersist()}
+            >
+              Demander la persistance
+            </button>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 

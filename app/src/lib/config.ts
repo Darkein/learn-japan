@@ -17,6 +17,12 @@ export const TTS_VOICES = {
 
 export type TtsLang = keyof typeof TTS_VOICES;
 
+// Budget d'un énoncé multi-voix (contrainte du backend TTS : Google limite une requête à
+// 5 000 octets de SSML). L'assembleur de script (podcastScript.ts) scinde aux frontières
+// de fragments au-delà de ce budget ; la marge couvre l'enrobage <speak>/<voice>.
+export const TTS_SSML_BUDGET_BYTES = 4000;
+export const TTS_SSML_PART_WRAP_BYTES = 80;
+
 export const SRS = {
   newPerDay: 10,
   dailyGoal: 20,

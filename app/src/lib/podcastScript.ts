@@ -1,12 +1,18 @@
 // Assemblage PUR du script podcast (SPEC §11) : cadrage (cours) parlé → quiz variés
-// (français ↔ japonais, avec un blanc) → histoire(s) (annonce du titre puis alternance
-// phrase JP / traduction FR) → transition de fin.
+// (français ↔ japonais, avec un blanc) → histoire(s) (annonce du titre puis paires
+// phrase JP + traduction FR) → transition de fin.
+//
+// Les passages mêlant les deux langues (prose FR avec japonais inline, paires JA+FR)
+// deviennent UN segment portant `parts` : une seule synthèse multi-voix (SSML <voice>)
+// au lieu de fragments coupés à chaque bascule de langue.
 //
 // Déterministe, zéro effet (pas de LLM, pas d'IndexedDB) → testable en Node. La partie
-// « effets » (traduction LLM, pré-génération audio du pack) vit dans lib/podcast.ts.
+// « effets » (traduction LLM) vit dans lib/podcast.ts.
 
+import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES } from "./config";
 import type { ComprehensionQuestion } from "./genClient";
 import { isKana, isKanji, splitJaSentences } from "./kana";
+import type { TtsPart } from "./ttsClient";
 import type { VocabEntry } from "./curriculum";
 import type { Lesson } from "./lessons";
 
@@ -26,6 +32,13 @@ export interface PodcastSegment {
   tokens?: string[];
   /** Index GLOBAL du 1er token de la phrase (surlignage). */
   baseTokenIndex?: number;
+  /** Fragments voicés (segment mixte FR/JA) : une seule synthèse multi-voix. */
+  parts?: TtsPart[];
+}
+
+/** Fragments voicés d'un segment : ses `parts` s'il est mixte, sinon son texte entier. */
+export function segmentParts(seg: Pick<PodcastSegment, "lang" | "text" | "parts">): TtsPart[] {
+  return seg.parts ?? [{ lang: seg.lang, text: seg.text }];
 }
 
 /** Segment avant attribution de l'id global (assigné en fin d'assemblage). */
@@ -41,7 +54,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 5;
+export const PACK_VERSION = 7;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -93,9 +106,18 @@ export function buildVocabQuizzes(vocab: VocabEntry[]): RawSegment[] {
         segs.push({ chapter: "quiz", lang: "fr", text: `Comment dit-on « ${v.fr} » en japonais ?`, pauseAfterMs: QUIZ_PAUSE_MS, label });
         segs.push({ chapter: "quiz", lang: "ja", text: ja });
         break;
-      case 1: // compréhension JP → FR : amorce FR + mot japonais (voix JA) + réponse FR
-        segs.push({ chapter: "quiz", lang: "fr", text: "Que veut dire ce mot ?" });
-        segs.push({ chapter: "quiz", lang: "ja", text: ja, pauseAfterMs: QUIZ_PAUSE_MS, label });
+      case 1: // compréhension JP → FR : amorce FR + mot japonais lus d'une traite, puis réponse FR
+        segs.push({
+          chapter: "quiz",
+          lang: "fr",
+          text: `Que veut dire ce mot ? ${ja}`,
+          parts: [
+            { lang: "fr", text: "Que veut dire ce mot ? " },
+            { lang: "ja", text: ja },
+          ],
+          pauseAfterMs: QUIZ_PAUSE_MS,
+          label,
+        });
         segs.push({ chapter: "quiz", lang: "fr", text: `Cela signifie « ${v.fr} ».` });
         break;
       default: // production, autre formulation
@@ -196,30 +218,77 @@ function isJapaneseLine(s: string): boolean {
   return ja > 0 && ja >= latin;
 }
 
+const utf8 = new TextEncoder();
+
+/** Scinde une suite de fragments en groupes tenant chacun dans le budget SSML (config.ts). */
+function splitByBudget(runs: TtsPart[]): TtsPart[][] {
+  const groups: TtsPart[][] = [];
+  let cur: TtsPart[] = [];
+  let bytes = 0;
+  for (const run of runs) {
+    const cost = utf8.encode(run.text).length + TTS_SSML_PART_WRAP_BYTES;
+    if (cur.length && bytes + cost > TTS_SSML_BUDGET_BYTES) {
+      groups.push(cur);
+      cur = [];
+      bytes = 0;
+    }
+    cur.push(run);
+    bytes += cost;
+  }
+  if (cur.length) groups.push(cur);
+  return groups;
+}
+
+// Ponctuation de fin de phrase de la prose (FR + JA) : frontière naturelle de segment.
+const PROSE_SENTENCE_END = new Set([".", "!", "?", "…", "。", "！", "？"]);
+
+/** Groupes de fragments → segments : fusionnés en `parts` si ≥ 2 fragments, simples sinon. */
+function runsToSegments(runs: TtsPart[], label: string): RawSegment[] {
+  return splitByBudget(runs).map((group) =>
+    group.length === 1
+      ? { chapter: "cours" as const, lang: group[0].lang, text: group[0].text.trim(), label }
+      : { chapter: "cours" as const, lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: group, label },
+  );
+}
+
 /**
- * Découpe une ligne de prose FRANÇAISE qui contient des mots japonais inline (ex. « La
- * particule は marque le thème ») en segments alternés : le texte latin part en voix
- * française, les fragments japonais en voix japonaise — sinon la voix française écorche le
- * japonais (は lu « ka »). Le furigana entre parenthèses est d'abord retiré.
+ * Découpe la prose FRANÇAISE contenant des mots japonais inline (ex. « La particule は
+ * marque le thème ») en fragments voicés — le texte latin en voix française, le japonais
+ * en voix japonaise, sinon la voix française écorche le japonais (は lu « ka ») —
+ * fusionnés en UN segment `parts` PAR PHRASE, lu d'une traite. L'unité parlée reste la
+ * phrase : la première synthèse est courte (le son démarre vite), sans réintroduire de
+ * coupure au milieu d'une phrase. Le furigana entre parenthèses est d'abord retiré ;
+ * l'espacement reste collé au fragment en cours, donc le SSML reconstitue le texte à
+ * l'identique.
  */
 function proseSegments(text: string, label = "Cours"): RawSegment[] {
   const clean = stripFurigana(stripMarkdown(text));
   if (!clean) return [];
   const out: RawSegment[] = [];
+  let runs: TtsPart[] = [];
   let buf = "";
   let lang: "fr" | "ja" | null = null; // langue du fragment en cours (ponctuation = neutre)
-  const flush = () => {
-    const t = buf.trim();
-    if (t) out.push({ chapter: "cours", lang: lang === "ja" ? "ja" : "fr", text: t, label });
+  const flushRun = () => {
+    if (buf.trim()) runs.push({ lang: lang === "ja" ? "ja" : "fr", text: buf });
     buf = "";
   };
-  for (const ch of clean) {
+  const flushSentence = () => {
+    flushRun();
+    if (runs.length) out.push(...runsToSegments(runs, label));
+    runs = [];
+    lang = null;
+  };
+  const chars = [...clean];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
     const cls = isKana(ch) || isKanji(ch) ? "ja" : /[A-Za-zÀ-ÿ0-9]/.test(ch) ? "fr" : null;
-    if (cls && lang && cls !== lang) flush(); // bascule de langue → on coupe le fragment
+    if (cls && lang && cls !== lang) flushRun(); // bascule de langue → nouveau fragment
     if (cls) lang = cls;
     buf += ch;
+    // Fin de phrase (ponctuation finale suivie d'un blanc ou de la fin de ligne).
+    if (PROSE_SENTENCE_END.has(ch) && (i === chars.length - 1 || /\s/.test(chars[i + 1]))) flushSentence();
   }
-  flush();
+  flushSentence();
   return out;
 }
 
@@ -309,9 +378,22 @@ export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): Podcast
       raw.push({ chapter: "histoire", lang: "fr", text: "Réécoutons, en japonais puis en français.", label: "Japonais + français" });
     }
 
+    // Paire (phrase JA, traduction FR) fusionnée : une seule synthèse multi-voix,
+    // pas de coupure entre la phrase et sa traduction.
     ja.forEach((sentence, k) => {
-      raw.push({ chapter: "histoire", lang: "ja", text: sentence });
-      if (fr[k]) raw.push({ chapter: "histoire", lang: "fr", text: fr[k] });
+      if (fr[k]) {
+        raw.push({
+          chapter: "histoire",
+          lang: "ja",
+          text: `${sentence} ${fr[k]}`,
+          parts: [
+            { lang: "ja", text: sentence },
+            { lang: "fr", text: fr[k] },
+          ],
+        });
+      } else {
+        raw.push({ chapter: "histoire", lang: "ja", text: sentence });
+      }
     });
   });
 

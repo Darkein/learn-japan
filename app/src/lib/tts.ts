@@ -1,12 +1,12 @@
 // Couche TTS légère :
-//  - speakWord / speakSentence : lecture d'un mot ou d'une phrase via la Web Speech API du
-//    navigateur (offline, zéro quota) — démarre SYNCHRONEMENT dans le geste utilisateur, donc
-//    audible partout, mobile compris.
+//  - speakWord : lecture d'un mot ou d'une phrase via la Web Speech API du navigateur
+//    (offline, zéro quota, contenu arbitraire) — démarre SYNCHRONEMENT dans le geste
+//    utilisateur, donc audible partout, mobile compris. Réservé au dico et aux exercices.
 //  - splitSentences : segmentation des tokens analysés en phrases (index global conservé),
 //    utilisée par le lecteur audio unifié (lib/storyPodcast.ts).
 //
-// La lecture continue d'un article/podcast (Cloud TTS + surlignage) vit désormais dans le
-// moteur lib/segmentPlayer.ts, piloté par ui/usePodcastPlayer.tsx.
+// La lecture continue d'un article/podcast (Cloud TTS + surlignage) vit dans le moteur
+// lib/segmentPlayer.ts, piloté par ui/usePodcastPlayer.tsx.
 
 import { nudgeAudioFocusRelease, primeAudioFocus } from "./audioFocus";
 import type { AnnotatedToken } from "./furigana";
@@ -50,8 +50,6 @@ export function speakWord(text: string): Promise<void> {
   });
 }
 
-// ---------- Lecture d'une phrase à la demande (correction d'exercice) --------
-
 /** Coupe la lecture de phrase/mot en cours (voix du navigateur). */
 export function stopSentence(): void {
   if (!speechSupported()) return;
@@ -62,18 +60,6 @@ export function stopSentence(): void {
   if (speechActive) nudgeAudioFocusRelease();
 }
 
-/**
- * Lit une phrase à la demande. On utilise DIRECTEMENT la voix du navigateur (Web Speech),
- * exactement comme pour un mot : la lecture démarre SYNCHRONEMENT dans le geste
- * utilisateur, donc audible partout — y compris sur mobile.
- *
- * La promesse se résout à la FIN de l'énoncé (via speakWord), pour que l'appelant affiche
- * un indicateur « lecture en cours » sur toute la durée réelle.
- */
-export function speakSentence(text: string): Promise<void> {
-  return speakWord(text);
-}
-
 // ---------- Segmentation en phrases ------------------------------------------
 
 const SENTENCE_END = new Set(["。", "！", "？", "!", "?", "．", "\n"]);
@@ -81,7 +67,7 @@ const SENTENCE_END = new Set(["。", "！", "？", "!", "?", "．", "\n"]);
 export interface PlayerSentence {
   segments: string[]; // surfaces des tokens de la phrase
   baseIndex: number; // index GLOBAL du 1er token (pour le surlignage)
-  text: string; // = segments.join("") (repli Web Speech)
+  text: string; // = segments.join("")
 }
 
 /**

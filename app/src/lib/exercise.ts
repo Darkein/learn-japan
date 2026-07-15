@@ -47,7 +47,7 @@ interface ExerciseBase {
   context?: string;
   /** Traduction FR de la phrase de contexte (affichée dans la correction). */
   contextFr?: string;
-  /** Lecture audio à faire avant de répondre : phrase (Cloud TTS + cache) ou mot (Web Speech). */
+  /** Lecture audio à faire avant de répondre : phrase ou mot (Web Speech). */
   audio?: { word?: string; sentence?: string };
   /** Écoute proposée APRÈS la réponse (correction) quand il n'y a pas de phrase de contexte. */
   audioBack?: { word?: string; sentence?: string };

@@ -4,8 +4,9 @@
 // Génération SYNCHRONE : pour une courte histoire, le modèle répond en quelques secondes,
 // bien dans les limites d'un Worker.
 //
-// TTS SYNCHRONE aussi (POST /tts) : on synthétise une phrase à la demande et on renvoie
-// l'audio + les timepoints.
+// TTS SYNCHRONE aussi (POST /tts) : deux modes — une phrase tokenisée (audio + timepoints
+// par mot, surlignage du lecteur) ou des fragments multi-voix lus en un seul énoncé
+// (SSML <voice>, mode podcast).
 //
 // CACHE R2 — tout ce que le Worker génère (texte et audio) est mis en cache sur R2 sous
 // une clé déterministe (voir cache.ts) : un appel identique est servi depuis R2 sans
@@ -43,8 +44,8 @@ export interface Env {
   MODEL_CHAIN?: string;
   REQUIRE_ACCESS: string;
   // TTS (mode voiture / écoute d'article). Clé Google Cloud Text-to-Speech : un
-  // SECRET (wrangler secret put GOOGLE_TTS_API_KEY). Sans elle, /tts répond 503 et
-  // le client bascule sur la Web Speech API du navigateur.
+  // SECRET (wrangler secret put GOOGLE_TTS_API_KEY). Sans elle, /tts répond 503 —
+  // lecture audio et téléchargement hors-ligne indisponibles côté client.
   GOOGLE_TTS_API_KEY?: string;
   TTS_VOICE?: string;
   TTS_RATE?: string;
@@ -64,12 +65,20 @@ interface TtsRequest {
   // Surfaces des tokens d'UNE phrase, dans l'ordre. Un repère SSML est inséré
   // avant chaque segment → on récupère l'horodatage de chaque mot (surlignage).
   segments?: string[];
-  // Alternative à `segments` : un texte entier à synthétiser sans timepoints (mode
-  // podcast — transitions, quiz, phrases FR). Ignoré si `segments` est fourni.
-  text?: string;
+  // Alternative à `segments` : fragments voicés lus en UN énoncé (SSML <voice>), sans
+  // timepoints — mode podcast (prose FR avec japonais inline, paires phrase JA +
+  // traduction FR). Ignoré si `segments` est fourni.
+  parts?: TtsPart[];
   voice?: string;
   rate?: number;
   // Langue BCP-47 (défaut ja-JP). Détermine la voix par défaut si `voice` est absent.
+  languageCode?: string;
+}
+
+interface TtsPart {
+  text: string;
+  voice?: string;
+  // Langue BCP-47 du fragment (défaut ja-JP) — fixe sa voix par défaut si `voice` absent.
   languageCode?: string;
 }
 
@@ -418,43 +427,78 @@ function buildSsml(segments: string[]): string {
   return `<speak>${body}</speak>`;
 }
 
+/** Voix effective : celle demandée, sinon le défaut de la langue (env.TTS_VOICE pour le japonais). */
+function resolveVoice(env: Env, voice: string | undefined, languageCode: string): string {
+  return voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
+}
+
+/** Voix et langue effectives d'un fragment multi-voix (défauts par langue du fragment). */
+function resolvePart(env: Env, p: TtsPart): { text: string; voice: string; languageCode: string } {
+  const languageCode = p.languageCode || "ja-JP";
+  return { text: p.text, voice: resolveVoice(env, p.voice, languageCode), languageCode };
+}
+
+/**
+ * SSML multi-voix : concaténation brute des fragments (ils portent leur espacement),
+ * chaque fragment dont la voix diffère de la voix requête étant enveloppé dans
+ * <voice name="…"> — une seule synthèse, prosodie continue entre les langues.
+ */
+function buildPartsSsml(parts: { text: string; voice: string }[], requestVoice: string): string {
+  const body = parts
+    .map((p) => (p.voice === requestVoice ? escapeXml(p.text) : `<voice name="${p.voice}">${escapeXml(p.text)}</voice>`))
+    .join("");
+  return `<speak>${body}</speak>`;
+}
+
 interface TtsResult {
   audio: string; // MP3 en base64
   marks: { i: number; t: number }[]; // i = index token, t = secondes
 }
 
 /**
- * Synthétise une phrase via Cloud TTS (v1beta1 pour les timepoints SSML), avec le
+ * Synthétise un énoncé via Cloud TTS (v1beta1 pour les timepoints SSML), avec le
  * même backoff exponentiel sur transitoires que la génération de texte.
  */
-async function synthesize(env: Env, body: TtsRequest, refresh = false): Promise<TtsResult> {
+async function synthesize(env: Env, body: TtsRequest): Promise<TtsResult> {
   const key = env.GOOGLE_TTS_API_KEY;
   if (!key) throw new Error("tts_unconfigured");
 
   // Deux modes : `segments` (phrase tokenisée → timepoints par mot, pour le lecteur
-  // d'article) ou `text` (texte entier sans timepoints, pour le podcast).
+  // d'article) ou `parts` (fragments multi-voix sans timepoints, pour le podcast).
   const segments = (body.segments ?? []).filter((s) => s.length > 0);
-  const plainText = (body.text ?? "").trim();
-  if (!segments.length && !plainText) throw new Error("texte vide");
+  const parts = (body.parts ?? []).filter((p) => p.text.trim().length > 0);
+  if (!segments.length && !parts.length) throw new Error("texte vide");
   const useMarks = segments.length > 0;
 
-  const languageCode = body.languageCode || "ja-JP";
-  const voice = body.voice || (languageCode === "ja-JP" ? env.TTS_VOICE : undefined) || defaultVoiceFor(languageCode);
   // `Number("")`/`Number("abc")` donnent NaN → repli sur 1 (sinon NaN part à Cloud TTS
   // et pollue la clé de cache).
   const rate = body.rate ?? (Number(env.TTS_RATE) || 1);
-  const ssml = useMarks ? buildSsml(segments) : undefined;
+
+  // Voix/langue au niveau requête : celles du corps en mode `segments`, celles du
+  // PREMIER fragment en mode `parts` (les fragments d'une autre voix sont enveloppés
+  // dans <voice> par buildPartsSsml).
+  let ssml: string;
+  let voice: string;
+  let languageCode: string;
+  if (useMarks) {
+    languageCode = body.languageCode || "ja-JP";
+    voice = resolveVoice(env, body.voice, languageCode);
+    ssml = buildSsml(segments);
+  } else {
+    const resolved = parts.map((p) => resolvePart(env, p));
+    voice = resolved[0].voice;
+    languageCode = resolved[0].languageCode;
+    ssml = buildPartsSsml(resolved, voice);
+  }
 
   // Cache R2 de l'audio (économise le quota Cloud TTS). Clé = paramètres effectifs résolus.
-  const cacheKey = await ttsCacheKey({ ssml, text: useMarks ? undefined : plainText, voice, rate, languageCode });
-  if (!refresh) {
-    const hit = await cacheGet<TtsResult>(env.TTS_CACHE, cacheKey);
-    if (hit?.audio) return hit;
-  }
+  const cacheKey = await ttsCacheKey({ ssml, voice, rate, languageCode });
+  const hit = await cacheGet<TtsResult>(env.TTS_CACHE, cacheKey);
+  if (hit?.audio) return hit;
 
   const url = `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${key}`;
   const payload = JSON.stringify({
-    input: useMarks ? { ssml } : { text: plainText },
+    input: { ssml },
     voice: { languageCode, name: voice },
     audioConfig: { audioEncoding: "MP3", speakingRate: rate },
     ...(useMarks ? { enableTimePointing: ["SSML_MARK"] } : {}),
@@ -592,14 +636,13 @@ export default {
       return json({ lessons });
     }
 
-    // POST /tts → { audio (base64 MP3), marks } (synthèse d'une phrase + timepoints)
+    // POST /tts → { audio (base64 MP3), marks } (phrase à timepoints ou fragments multi-voix)
     if (req.method === "POST" && url.pathname === "/tts") {
-      const body = (await req.json().catch(() => ({}))) as TtsRequest & { refresh?: boolean };
-      const refresh = body.refresh === true || url.searchParams.get("refresh") === "1";
+      const body = (await req.json().catch(() => ({}))) as TtsRequest;
       try {
-        return json(await synthesize(env, body, refresh));
+        return json(await synthesize(env, body));
       } catch (e) {
-        // Clé absente → 503 explicite : le client bascule sur la Web Speech API.
+        // Clé absente → 503 explicite, distinct d'un échec de synthèse (502).
         if (String(e).includes("tts_unconfigured")) return json({ error: "tts_unconfigured" }, 503);
         return json({ error: String(e) }, 502);
       }

@@ -2,19 +2,36 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetDbForTests, getMeta, putMeta, putStory, type StoryRecord } from "./db";
-import { PACK_VERSION } from "./podcastScript";
+import { PACK_VERSION, type PodcastSegment } from "./podcastScript";
 import type { Lesson } from "./lessons";
 
 // Pipeline mocké : chaque primitive pousse son nom dans `calls` pour vérifier l'ordre.
+// Les mocks TTS écrivent le VRAI cache (clés réelles) : la vérification finale du
+// téléchargement relit ces clés — un mock qui n'écrit pas simule un cache troué.
 const calls: string[] = [];
 
 vi.mock("./analyze", () => ({
   analyze: vi.fn(async () => ({
-    // 2 phrases pour le préchauffage audio (splitSentences coupe sur 「。」).
+    // 2 phrases pour la matérialisation audio (splitSentences coupe sur 「。」).
     tokens: [{ surface: "猫" }, { surface: "。" }, { surface: "犬" }, { surface: "。" }],
     gloss: [],
   })),
 }));
+
+// Pack avec segments parlés (dont un mixte) : la matérialisation audio du pack est exercée.
+const PACK_SEGMENTS: PodcastSegment[] = [
+  { id: "p0", chapter: "cours", lang: "fr", text: "Bienvenue." },
+  {
+    id: "p1",
+    chapter: "histoire",
+    lang: "ja",
+    text: "猫がいる。 Il y a un chat.",
+    parts: [
+      { lang: "ja", text: "猫がいる。" },
+      { lang: "fr", text: "Il y a un chat." },
+    ],
+  },
+];
 
 vi.mock("./podcast", () => ({
   ensureStoryTranslationById: vi.fn(async () => {
@@ -23,8 +40,8 @@ vi.mock("./podcast", () => ({
   }),
   generatePodcastPack: vi.fn(async (_id: string, _nav: unknown, onProgress?: (m: string) => void) => {
     calls.push("pack");
-    onProgress?.("Synthèse audio… 1/2");
-    return { id: _id, segments: [], createdAt: 0, version: PACK_VERSION };
+    onProgress?.("Pack podcast…");
+    return { id: _id, segments: PACK_SEGMENTS, createdAt: 0, version: PACK_VERSION };
   }),
 }));
 
@@ -39,9 +56,17 @@ vi.mock("./ttsClient", async (orig) => {
   const actual = (await orig()) as typeof import("./ttsClient");
   return {
     ...actual,
-    synthesizeSentence: vi.fn(async () => {
+    synthesizeSentence: vi.fn(async (segments: string[]) => {
       calls.push("tts");
+      const { putTtsCache: put } = await import("./db");
+      await put(actual.ttsSentenceCacheId(segments), new Blob(), []);
       return { audio: new Blob(), marks: [] };
+    }),
+    synthesizeParts: vi.fn(async (parts: Parameters<typeof actual.ttsPartsCacheId>[0]) => {
+      calls.push("tts-pack");
+      const { putTtsCache: put } = await import("./db");
+      await put(actual.ttsPartsCacheId(parts), new Blob(), []);
+      return new Blob();
     }),
   };
 });
@@ -82,6 +107,7 @@ import * as podcastMod from "./podcast";
 import * as ttsMod from "./ttsClient";
 
 const synthesizeSentence = vi.mocked(ttsMod.synthesizeSentence);
+const synthesizeParts = vi.mocked(ttsMod.synthesizeParts);
 const ensureStoryTranslationById = vi.mocked(podcastMod.ensureStoryTranslationById);
 const getLesson = vi.mocked(lessonsMod.getLesson);
 const addLessonStory = vi.mocked(lessonsMod.addLessonStory);
@@ -130,9 +156,8 @@ describe("downloadStory", () => {
   it("enchaîne traduction → QCM → audio, progression monotone jusqu'à 1, flag écrit", async () => {
     await putStory(fakeStory("s1", { params: { level: 5, grammarIds: ["n5-wa-topic"] } }));
     const fractions: number[] = [];
-    const res = await downloadStory("s1", ({ fraction }) => fractions.push(fraction));
+    await downloadStory("s1", ({ fraction }) => fractions.push(fraction));
 
-    expect(res).toEqual({ ttsOk: true });
     expect(calls).toEqual(["translation", "qcm", "tts", "tts"]);
     for (let i = 1; i < fractions.length; i++) expect(fractions[i]).toBeGreaterThanOrEqual(fractions[i - 1]);
     expect(fractions.at(-1)).toBe(1);
@@ -145,28 +170,26 @@ describe("downloadStory", () => {
     expect(calls).toEqual(["translation", "tts", "tts"]);
   });
 
-  it("TTS non configuré : audio interrompu mais l'histoire est marquée téléchargée (ttsOk: false)", async () => {
+  it("TTS non configuré (échec persistant) : téléchargement en échec, pas de flag", async () => {
     await putStory(fakeStory("s3"));
-    synthesizeSentence.mockRejectedValueOnce(new ttsMod.TtsUnconfiguredError());
-    const res = await downloadStory("s3");
-    expect(res).toEqual({ ttsOk: false });
-    expect(await isStoryDownloaded("s3")).toBe(true);
+    const err = new Error("Synthèse vocale non configurée côté serveur.");
+    synthesizeSentence.mockRejectedValueOnce(err).mockRejectedValueOnce(err);
+    await expect(downloadStory("s3")).rejects.toThrow("Synthèse vocale non configurée");
+    expect(await isStoryDownloaded("s3")).toBe(false);
   });
 
   it("échec QCM : best-effort, le téléchargement aboutit quand même", async () => {
     await putStory(fakeStory("s4", { params: { level: 5, grammarIds: ["n5-wa-topic"] } }));
     const { ensureComprehensionQuiz } = await import("./stories");
     vi.mocked(ensureComprehensionQuiz).mockRejectedValueOnce(new Error("offline"));
-    const res = await downloadStory("s4");
-    expect(res).toEqual({ ttsOk: true });
+    await downloadStory("s4");
     expect(await isStoryDownloaded("s4")).toBe(true);
   });
 
   it("erreur TTS ponctuelle : retentée, le téléchargement aboutit", async () => {
     await putStory(fakeStory("s5b"));
     synthesizeSentence.mockRejectedValueOnce(new Error("HTTP 500"));
-    const res = await downloadStory("s5b");
-    expect(res).toEqual({ ttsOk: true });
+    await downloadStory("s5b");
     expect(await isStoryDownloaded("s5b")).toBe(true);
     // 2 phrases + 1 nouvelle tentative sur la première.
     expect(synthesizeSentence).toHaveBeenCalledTimes(3);
@@ -179,14 +202,23 @@ describe("downloadStory", () => {
     expect(await isStoryDownloaded("s5")).toBe(false);
   });
 
-  it("histoire disparue : renvoie null sans flag", async () => {
-    expect(await downloadStory("absente")).toBeNull();
+  it("synthèse « réussie » mais cache troué : la vérification finale échoue, pas de flag", async () => {
+    await putStory(fakeStory("s6"));
+    // Le mock répond sans écrire le cache (écriture perdue, quota plein…) : une fois par phrase.
+    const silent = { audio: new Blob(), marks: [] };
+    synthesizeSentence.mockResolvedValueOnce(silent).mockResolvedValueOnce(silent);
+    await expect(downloadStory("s6")).rejects.toThrow("Audio manquant en cache (2/2)");
+    expect(await isStoryDownloaded("s6")).toBe(false);
+  });
+
+  it("histoire disparue : no-op sans flag", async () => {
+    await downloadStory("absente");
     expect(await isStoryDownloaded("absente")).toBe(false);
   });
 });
 
 describe("downloadLesson", () => {
-  it("cours → variantes distantes → assets par histoire → pack podcast, flags écrits", async () => {
+  it("cours → variantes distantes → assets par histoire → pack + son audio, flags écrits", async () => {
     const s1 = fakeStory("ls1", { lessonId: "l1", variant: 1 });
     // 1er getLesson : une variante distante 2 ; ensuite elle est matérialisée.
     const before = fakeLesson({ stories: [s1], remoteStoryVariants: [2] });
@@ -202,16 +234,30 @@ describe("downloadLesson", () => {
     await putStory(s1);
     await putStory(s2);
 
-    const res = await downloadLesson("l1");
-    expect(res).toEqual({ ttsOk: true });
+    await downloadLesson("l1");
     expect(calls[0]).toBe("framing");
     expect(calls).toContain("add-story");
-    expect(calls.at(-1)).toBe("pack");
+    expect(calls).toContain("pack");
+    // L'audio du pack est matérialisé APRÈS l'assemblage (un appel par segment parlé).
+    expect(calls.at(-1)).toBe("tts-pack");
+    expect(synthesizeParts).toHaveBeenCalledTimes(PACK_SEGMENTS.length);
     // 2 histoires × (traduction + 2 phrases audio)
     expect(ensureStoryTranslationById).toHaveBeenCalledTimes(2);
     expect(await isStoryDownloaded("ls1")).toBe(true);
     expect(await isStoryDownloaded("ls2")).toBe(true);
     expect(await isLessonDownloaded(after)).toBe(true);
+  });
+
+  it("audio du pack au cache troué : échec, pas de flag leçon", async () => {
+    const s1 = fakeStory("ls1", { lessonId: "l1", variant: 1 });
+    const lesson = fakeLesson({ stories: [s1], remoteStoryVariants: [] });
+    getLesson.mockResolvedValue(lesson);
+    await putStory(s1);
+    // Les phrases d'histoire s'écrivent normalement ; le pack, lui, répond sans écrire
+    // (une fois par segment parlé).
+    synthesizeParts.mockResolvedValueOnce(new Blob()).mockResolvedValueOnce(new Blob());
+    await expect(downloadLesson("l1")).rejects.toThrow("Audio manquant en cache");
+    expect(await isLessonDownloaded(lesson)).toBe(false);
   });
 
   it("ne rappelle pas addLessonStory pour une variante déjà matérialisée", async () => {
@@ -229,7 +275,6 @@ describe("isLessonDownloaded — matrice d'invalidation", () => {
     await putMeta(`download.lesson.${lesson.id}`, {
       at: Date.now(),
       version: DOWNLOAD_VERSION,
-      ttsOk: true,
       variants: [1],
       objectivesHash: objectivesHash(lesson),
       rev: lesson.rev,
@@ -392,12 +437,11 @@ describe("file de téléchargement", () => {
 });
 
 describe("flag histoire", () => {
-  it("écrit version + ttsOk dans meta", async () => {
+  it("écrit version + date dans meta, sans autre champ", async () => {
     await putStory(fakeStory("s9"));
     await downloadStory("s9");
-    const meta = await getMeta<{ version: number; ttsOk: boolean; at: number }>("download.story.s9");
-    expect(meta?.version).toBe(DOWNLOAD_VERSION);
-    expect(meta?.ttsOk).toBe(true);
+    const meta = await getMeta<{ version: number; at: number }>("download.story.s9");
+    expect(meta).toEqual({ at: expect.any(Number), version: DOWNLOAD_VERSION });
     expect(vi.mocked(analyze)).toHaveBeenCalled();
   });
 });

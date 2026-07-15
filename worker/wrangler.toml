@@ -30,7 +30,8 @@ REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configu
 # TTS (écoute d'article / mode voiture). Voix et débit par défaut, surchargeables par
 # requête. La CLÉ est un SECRET :  wrangler secret put GOOGLE_TTS_API_KEY
 # Prérequis GCP : activer « Cloud Text-to-Speech API » puis créer une clé API restreinte
-# à cette API. Sans clé, POST /tts répond 503 → le client lit via la Web Speech API.
+# à cette API. Sans clé, POST /tts répond 503 → lecture podcast et téléchargements
+# hors-ligne indisponibles côté client (seule la lecture de mots — Web Speech — reste).
 TTS_VOICE = "ja-JP-Neural2-B"
 TTS_RATE = "1.0"
 

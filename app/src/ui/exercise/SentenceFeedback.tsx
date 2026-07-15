@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { annotateTokens, type RubySegment } from "../../lib/furigana";
 import { tokenize, type KuromojiToken } from "../../lib/tokenizer";
-import { speakSentence, speakWord, stopSentence } from "../../lib/tts";
+import { speakWord, stopSentence } from "../../lib/tts";
 import { Button } from "../kit/Button";
 import { IconSpeaker } from "../kit/Icon";
 import { Ruby } from "../Ruby";
@@ -19,8 +19,8 @@ interface Props {
 
 /**
  * Bouton d'écoute de la correction quand l'exercice n'a pas de phrase de contexte
- * (kanji, mot isolé, point de grammaire) : joue le mot (Web Speech) ou la phrase
- * (Cloud TTS) fournis via `Exercise.audioBack`.
+ * (kanji, mot isolé, point de grammaire) : joue le mot ou la phrase fournis via
+ * `Exercise.audioBack` (Web Speech — offline, contenu arbitraire).
  */
 export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: string } }) {
   const [speaking, setSpeaking] = useState(false);
@@ -33,7 +33,7 @@ export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: 
     const my = ++token.current;
     setSpeaking(true);
     try {
-      if (audio.sentence) await speakSentence(audio.sentence);
+      if (audio.sentence) await speakWord(audio.sentence);
       else if (audio.word) await speakWord(audio.word);
     } finally {
       if (token.current === my) setSpeaking(false);
@@ -55,8 +55,8 @@ export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: 
 
 /**
  * Phrase de correction d'un exercice : furigana toujours révélés (moment d'étude),
- * bouton d'écoute (Cloud TTS avec repli Web Speech) et traduction FR — stockée, ou
- * générée à la demande via `onTranslate`.
+ * bouton d'écoute (Web Speech) et traduction FR — stockée, ou générée à la demande
+ * via `onTranslate`.
  */
 export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
   const text = tokens?.length ? tokens.map((t) => t.surface_form).join("") : (ja ?? "");
@@ -94,7 +94,7 @@ export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
     const my = ++speakToken.current;
     setSpeaking(true);
     try {
-      await speakSentence(text);
+      await speakWord(text);
     } finally {
       if (speakToken.current === my) setSpeaking(false);
     }

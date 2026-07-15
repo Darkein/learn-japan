@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getStory, type StoryRecord } from "../lib/db";
 import { enrollStory } from "../lib/enroll";
+import { requestPersistentStorage } from "../lib/storage";
 import { initSync } from "../lib/sync";
 import { getLesson, type Lesson } from "../lib/lessons";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
@@ -82,6 +83,12 @@ export function App() {
   // Sauvegarde cloud par code de session : fast-forward au lancement, push périodique,
   // push best-effort au passage en arrière-plan. No-op sans code configuré (voir lib/sync.ts).
   useEffect(() => initSync(), []);
+
+  // Stockage persistant : sans lui, le navigateur peut purger IndexedDB (audio téléchargé,
+  // SRS…) sous pression de stockage. Best-effort — l'état est visible dans les réglages.
+  useEffect(() => {
+    void requestPersistentStorage();
+  }, []);
 
   // Le lecteur podcast est porté ici (au-dessus du routage) pour persister entre les
   // onglets et les pages, et la barre est rendue par-dessus tout le contenu.

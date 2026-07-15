@@ -50,7 +50,7 @@ describe("lessonStoryCacheKey", () => {
 });
 
 describe("ttsCacheKey", () => {
-  const base = { text: "こんにちは", voice: "ja-JP-Neural2-B", rate: 1, languageCode: "ja-JP" };
+  const base = { ssml: "<speak>こんにちは</speak>", voice: "ja-JP-Neural2-B", rate: 1, languageCode: "ja-JP" };
 
   it("préfixe par tts/ et est déterministe", async () => {
     const key = await ttsCacheKey(base);
@@ -61,5 +61,11 @@ describe("ttsCacheKey", () => {
   it("dépend de la voix et du débit", async () => {
     expect(await ttsCacheKey(base)).not.toBe(await ttsCacheKey({ ...base, voice: "ja-JP-Neural2-C" }));
     expect(await ttsCacheKey(base)).not.toBe(await ttsCacheKey({ ...base, rate: 1.2 }));
+  });
+
+  it("deux configs multi-voix différentes ⇒ clés différentes (le SSML porte les voix)", async () => {
+    const fr = { ...base, ssml: '<speak>chat <voice name="ja-JP-Neural2-B">猫</voice></speak>', voice: "fr-FR-Neural2-A" };
+    const frAutre = { ...fr, ssml: '<speak>chat <voice name="ja-JP-Neural2-C">猫</voice></speak>' };
+    expect(await ttsCacheKey(fr)).not.toBe(await ttsCacheKey(frAutre));
   });
 });

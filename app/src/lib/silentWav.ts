@@ -1,13 +1,19 @@
-// Génération de WAV silencieux (PCM mono 4 kHz 8 bits) de durée arbitraire. Sert :
+// Génération de WAV silencieux (PCM mono 24 kHz 8 bits) de durée arbitraire.
+//
+// 24 kHz = la fréquence EXACTE des MP3 Cloud TTS : WAV et segments partagent le même
+// format de sortie, Android ne reconfigure jamais son pipeline audio à la frontière
+// WAV → MP3 — une reconfiguration (ex-WAV 4 kHz) laissait les premiers clips MP3
+// MUETS pendant quelques secondes au démarrage de la lecture. Sert :
 //  - au « keeper » de focus audio (audioFocus.ts) — WAV ≥ 5 s pour un focus persistant ;
 //  - au moteur podcast (segmentPlayer.ts) — blancs de quiz et silence de maintien joués
 //    dans le MÊME <audio> que les segments, pour que l'OS voie un flux continu et ne
 //    suspende pas la page écran éteint (les setTimeout y sont throttlés/gelés).
 
-/** WAV PCM mono 4 kHz 8 bits de `durationMs` millisecondes de silence. */
+const SAMPLE_RATE = 24000;
+
+/** WAV PCM mono 24 kHz 8 bits de `durationMs` millisecondes de silence. */
 export function buildSilentWavBlob(durationMs: number): Blob {
-  const sampleRate = 4000;
-  const numSamples = Math.max(1, Math.round((sampleRate * durationMs) / 1000));
+  const numSamples = Math.max(1, Math.round((SAMPLE_RATE * durationMs) / 1000));
   const headerSize = 44;
   const bytes = new Uint8Array(headerSize + numSamples);
   const view = new DataView(bytes.buffer);
@@ -21,8 +27,8 @@ export function buildSilentWavBlob(durationMs: number): Blob {
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true); // PCM
   view.setUint16(22, 1, true); // mono
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate, true); // byte rate (8 bits/échantillon, mono)
+  view.setUint32(24, SAMPLE_RATE, true);
+  view.setUint32(28, SAMPLE_RATE, true); // byte rate (8 bits/échantillon, mono)
   view.setUint16(32, 1, true); // block align
   view.setUint16(34, 8, true); // bits par échantillon
   writeStr(36, "data");
