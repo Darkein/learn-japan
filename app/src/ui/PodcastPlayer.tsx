@@ -292,7 +292,7 @@ export function PodcastPlayer() {
                 (py-3.5) pour éviter les ratés ; `touch-none` empêche le glissement de déclencher
                 le rafraîchissement de page (pull-to-refresh). */}
             <div
-              className="flex touch-none cursor-grab justify-center py-3.5 active:cursor-grabbing"
+              className="flex touch-none cursor-grab justify-center pt-3 pb-1.5 active:cursor-grabbing"
               onPointerDown={onHandleDown}
               onPointerMove={onHandleMove}
               onPointerUp={onHandleUp}
@@ -406,7 +406,7 @@ export function PodcastPlayer() {
           {reduced ? (
             <MiniBar p={p} progress={progress} onExpand={toggleReduced} />
           ) : (
-            <div className="mx-auto max-w-[44rem] px-4 pt-2">
+            <div className="mx-auto max-w-[44rem] px-4">
               {/* Ligne 1 — titre de la piste (toujours visible) + réduire / fermer. */}
               <div className="flex items-center gap-2">
                 <button
