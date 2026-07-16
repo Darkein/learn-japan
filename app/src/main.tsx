@@ -11,8 +11,9 @@ import { App } from "./ui/App";
 //
 // Ici on enregistre explicitement le SW et on :
 //   1. vérifie les mises à jour périodiquement, au retour de focus et à la reconnexion ;
-//   2. applique la nouvelle version au PROCHAIN retour dans l'app (ou tout de suite si
-//      l'onglet est déjà en arrière-plan) → jamais de rechargement en pleine lecture.
+//   2. applique la nouvelle version à un moment sûr — retour dans l'app, navigation
+//      interne, ou tout de suite si l'onglet est en arrière-plan → jamais de
+//      rechargement en pleine lecture.
 // `updateSW(true)` envoie SKIP_WAITING au SW en attente (voir src/sw.ts) puis recharge
 // la page une seule fois quand le nouveau SW prend le contrôle.
 if (import.meta.env.PROD) {
@@ -28,11 +29,17 @@ if (import.meta.env.PROD) {
       };
       setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL_MS);
       window.addEventListener("online", checkForUpdate);
+      // Retour dans l'app (onglet/PWA repassé au premier plan) : applique une MàJ en
+      // attente, sinon re-checke.
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) return;
-        // Au retour dans l'app : applique une MàJ en attente, sinon re-checke.
         if (pendingUpdate) updateSW(true);
         else checkForUpdate();
+      });
+      // Navigation interne (routing par hash) : moment idéal — entre deux écrans — pour
+      // appliquer une MàJ en attente même si l'app reste au premier plan (desktop web).
+      window.addEventListener("hashchange", () => {
+        if (pendingUpdate) updateSW(true);
       });
     },
     onNeedRefresh() {
