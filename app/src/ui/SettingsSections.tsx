@@ -72,13 +72,13 @@ export function SettingsSections({ quick }: Props) {
             quick ? "flex flex-col gap-2" : "flex items-center justify-between gap-4"
           }
         >
-          <span className="text-sm text-text">Vitesse des histoires</span>
+          <span className="text-sm text-text">Vitesse de lecture</span>
           <SegmentedControl
             fullWidth={quick}
             options={STORY_RATES.map((r) => ({ value: r.value, label: r.label }))}
             value={settings.storyRate}
             onChange={(v) => update({ storyRate: v })}
-            ariaLabel="Vitesse de lecture des histoires"
+            ariaLabel="Vitesse de lecture (leçons et histoires)"
           />
         </div>
       </section>

@@ -41,6 +41,37 @@ export function segmentParts(seg: Pick<PodcastSegment, "lang" | "text" | "parts"
   return seg.parts ?? [{ lang: seg.lang, text: seg.text }];
 }
 
+// ---------- Tracklist (navigation par élément) --------------------------------
+
+/** Entrée de tracklist : premier segment d'un élément (label distinct) et son index. */
+export interface TrackEntry {
+  seg: PodcastSegment;
+  i: number;
+}
+
+/**
+ * Tracklist compacte d'une piste : un élément par label distinct (labels consécutifs
+ * identiques fusionnés — ex. les segments d'un même quiz). Les segments sans label sont
+ * ignorés. C'est la granularité de navigation précédent/suivant, partagée entre la barre
+ * du lecteur (ui/PodcastPlayer.tsx) et les commandes média OS (ui/usePodcastPlayer.tsx).
+ */
+export function trackEntries(segments: PodcastSegment[]): TrackEntry[] {
+  const tracks: TrackEntry[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg.label) continue;
+    const prev = tracks[tracks.length - 1];
+    if (prev && prev.seg.label === seg.label && prev.seg.chapter === seg.chapter) continue;
+    tracks.push({ seg, i });
+  }
+  return tracks;
+}
+
+/** Élément actif : dernier élément dont l'index segment ≤ position courante (-1 si vide). */
+export function activeTrackIndex(tracks: TrackEntry[], segIndex: number): number {
+  return tracks.length ? tracks.reduce((found, t, ti) => (t.i <= segIndex ? ti : found), 0) : -1;
+}
+
 /** Segment avant attribution de l'id global (assigné en fin d'assemblage). */
 type RawSegment = Omit<PodcastSegment, "id">;
 

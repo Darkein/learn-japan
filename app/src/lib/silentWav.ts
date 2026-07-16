@@ -1,13 +1,10 @@
-// Génération de WAV silencieux (PCM mono 24 kHz 8 bits) de durée arbitraire.
+// Génération de WAV silencieux (PCM mono 24 kHz 8 bits) de durée arbitraire, pour le
+// « keeper » de focus audio (audioFocus.ts) — WAV ≥ 5 s pour un focus persistant.
 //
-// 24 kHz = la fréquence EXACTE des MP3 Cloud TTS : WAV et segments partagent le même
-// format de sortie, Android ne reconfigure jamais son pipeline audio à la frontière
-// WAV → MP3 — une reconfiguration (ex-WAV 4 kHz) laissait les premiers clips MP3
-// MUETS pendant quelques secondes au démarrage de la lecture. Sert :
-//  - au « keeper » de focus audio (audioFocus.ts) — WAV ≥ 5 s pour un focus persistant ;
-//  - au moteur podcast (segmentPlayer.ts) — blancs de quiz et silence de maintien joués
-//    dans le MÊME <audio> que les segments, pour que l'OS voie un flux continu et ne
-//    suspende pas la page écran éteint (les setTimeout y sont throttlés/gelés).
+// 24 kHz = la fréquence EXACTE des MP3 Cloud TTS : le pipeline audio n'est jamais
+// reconfiguré entre le keeper et le lecteur — une reconfiguration (ex-WAV 4 kHz)
+// laissait les premiers clips MP3 MUETS pendant quelques secondes au démarrage.
+// Les silences DANS le flux du lecteur, eux, sont du MP3 (cf. silentMp3.ts).
 
 const SAMPLE_RATE = 24000;
 
