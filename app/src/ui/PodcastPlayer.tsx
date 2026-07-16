@@ -93,9 +93,10 @@ export function PodcastPlayer() {
   const snapHeight = (s: SheetState) => (s === "full" ? fullH : s === "open" ? openH : 0);
   const sheetH = dragHeight != null ? dragHeight : snapHeight(sheet);
   const sheetVisible = sheetH > 0;
-  // Le fond s'assombrit proportionnellement à l'ouverture de la liste (pas d'apparition
-  // abrupte) : suit le glissement en direct, se fond en douceur au relâchement.
-  const backdropOpacity = fullH > 0 ? Math.min(1, sheetH / fullH) * 0.55 : 0;
+  // Le fond s'assombrit progressivement sur les 50 premiers px d'ouverture (pas d'apparition
+  // abrupte, mais atteint vite sa pleine intensité) : suit le glissement en direct, se fond en
+  // douceur au relâchement.
+  const backdropOpacity = Math.min(1, sheetH / 50) * 0.6;
 
   // Suit la hauteur de fenêtre (barres d'outils mobiles dynamiques) pour recalculer les ancrages.
   useEffect(() => {
@@ -202,9 +203,12 @@ export function PodcastPlayer() {
           Opacité pilotée par la hauteur de la liste (voir backdropOpacity). */}
       {sheetVisible && !reduced && (
         <div
-          className="fixed inset-0 z-40 bg-ink"
+          className="fixed inset-0 z-40"
           aria-hidden="true"
           style={{
+            // Scrim noir (foncé dans les deux thèmes, contrairement au token --ink qui est clair
+            // en thème sombre).
+            backgroundColor: "#000",
             opacity: backdropOpacity,
             transition: dragHeight != null ? "none" : "opacity 200ms cubic-bezier(0.2,0,0.2,1)",
           }}
