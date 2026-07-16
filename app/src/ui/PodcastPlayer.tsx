@@ -93,10 +93,10 @@ export function PodcastPlayer() {
   const snapHeight = (s: SheetState) => (s === "full" ? fullH : s === "open" ? openH : 0);
   const sheetH = dragHeight != null ? dragHeight : snapHeight(sheet);
   const sheetVisible = sheetH > 0;
-  // Le fond s'assombrit progressivement sur les 50 premiers px d'ouverture (pas d'apparition
-  // abrupte, mais atteint vite sa pleine intensité) : suit le glissement en direct, se fond en
-  // douceur au relâchement.
-  const backdropOpacity = Math.min(1, sheetH / 50) * 0.6;
+  // Le fond s'assombrit progressivement au fil de l'ouverture : opacité proportionnelle jusqu'au
+  // point d'ancrage « ouvert » (atteint sa pleine intensité une fois la liste ouverte, puis
+  // reste stable jusqu'au plein écran). Suit le glissement en direct, se fond au relâchement.
+  const backdropOpacity = openH > 0 ? Math.min(1, sheetH / openH) * 0.6 : 0;
 
   // Suit la hauteur de fenêtre (barres d'outils mobiles dynamiques) pour recalculer les ancrages.
   useEffect(() => {
