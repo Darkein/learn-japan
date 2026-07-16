@@ -44,6 +44,8 @@ const MODE_LABEL: Record<"auto" | "repeat" | "once", string> = {
 };
 
 const REDUCED_KEY = "podcast.reduced";
+// Pistes dont les chapitres sont dépliés dans la liste (mémorisé par piste ; replié par défaut).
+const EXPANDED_KEY = "podcast.expandedTracks";
 // Hauteur (px) réservée sous la barre du bas quand elle est visible (BOTTOM_NAV_HEIGHT = 3.5rem).
 const BOTTOM_NAV_PX = 56;
 type SheetState = "closed" | "open" | "full";
@@ -69,9 +71,15 @@ export function PodcastPlayer() {
     () => typeof window !== "undefined" && localStorage.getItem(REDUCED_KEY) === "1",
   );
   const [sheet, setSheet] = useState<SheetState>("closed");
-  // Affichage des chapitres/segments de la piste en cours dans la liste (repliable via un
-  // chevron sur la piste courante).
-  const [showTracks, setShowTracks] = useState(true);
+  // Clés des pistes dont les chapitres sont dépliés (repliés par défaut, mémorisés par piste).
+  const [expandedTracks, setExpandedTracks] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      return new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? "[]") as string[]);
+    } catch {
+      return new Set();
+    }
+  });
   // Hauteur du tiroir pendant un glissement (null = calée sur le point d'ancrage `sheet`).
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [vh, setVh] = useState<number>(() => (typeof window !== "undefined" ? window.innerHeight : 800));
@@ -141,6 +149,10 @@ export function PodcastPlayer() {
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(REDUCED_KEY, reduced ? "1" : "0");
   }, [reduced]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expandedTracks]));
+  }, [expandedTracks]);
 
   // Continuité scroll ↔ tiroir : quand la liste est scrollée à fond (en haut et qu'on tire vers
   // le bas, ou en bas et qu'on tire vers le haut), le geste pilote la hauteur du panneau comme
@@ -213,6 +225,22 @@ export function PodcastPlayer() {
   const tracks = trackEntries(p.segments);
   const activeTrackIdx = activeTrackIndex(tracks, p.index);
   const progress = p.segments.length ? ((p.index + p.segProgress) / p.segments.length) * 100 : 0;
+
+  // Piste courante (file) → clé stable pour mémoriser le pli/dépli de ses chapitres.
+  const currentItem = p.queue[p.queueIndex];
+  const currentTrackKey = currentItem
+    ? currentItem.kind === "lesson"
+      ? `lesson:${currentItem.lessonId}`
+      : `story:${currentItem.storyId}`
+    : "";
+  const showTracks = currentTrackKey !== "" && expandedTracks.has(currentTrackKey);
+  const toggleTracks = () =>
+    setExpandedTracks((s) => {
+      const n = new Set(s);
+      if (n.has(currentTrackKey)) n.delete(currentTrackKey);
+      else n.add(currentTrackKey);
+      return n;
+    });
 
   function seekAtClientX(clientX: number, rect: DOMRect) {
     const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
@@ -356,7 +384,7 @@ export function PodcastPlayer() {
                                   aria-expanded={showTracks}
                                   aria-label={showTracks ? "Masquer les chapitres" : "Afficher les chapitres"}
                                   title={showTracks ? "Masquer le contenu de la piste" : "Afficher le contenu de la piste"}
-                                  onClick={() => setShowTracks((v) => !v)}
+                                  onClick={toggleTracks}
                                 >
                                   {showTracks ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
                                 </button>
