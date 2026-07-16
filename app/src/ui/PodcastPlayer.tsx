@@ -93,6 +93,9 @@ export function PodcastPlayer() {
   const snapHeight = (s: SheetState) => (s === "full" ? fullH : s === "open" ? openH : 0);
   const sheetH = dragHeight != null ? dragHeight : snapHeight(sheet);
   const sheetVisible = sheetH > 0;
+  // Le fond s'assombrit proportionnellement à l'ouverture de la liste (pas d'apparition
+  // abrupte) : suit le glissement en direct, se fond en douceur au relâchement.
+  const backdropOpacity = fullH > 0 ? Math.min(1, sheetH / fullH) * 0.55 : 0;
 
   // Suit la hauteur de fenêtre (barres d'outils mobiles dynamiques) pour recalculer les ancrages.
   useEffect(() => {
@@ -195,11 +198,16 @@ export function PodcastPlayer() {
 
   return (
     <>
-      {/* Fond cliquable : referme le tiroir quand on interagit avec le site en dessous. */}
+      {/* Fond cliquable : referme le tiroir quand on interagit avec le site en dessous.
+          Opacité pilotée par la hauteur de la liste (voir backdropOpacity). */}
       {sheetVisible && !reduced && (
         <div
-          className="fixed inset-0 z-40 bg-ink/30"
+          className="fixed inset-0 z-40 bg-ink"
           aria-hidden="true"
+          style={{
+            opacity: backdropOpacity,
+            transition: dragHeight != null ? "none" : "opacity 200ms cubic-bezier(0.2,0,0.2,1)",
+          }}
           onPointerDown={() => {
             setSheet("closed");
             setDragHeight(null);
@@ -213,20 +221,20 @@ export function PodcastPlayer() {
         {!reduced && (
           <div className="border-t border-hairline bg-surface">
             {/* Poignée — toujours visible ; tirer vers le haut pour ouvrir / plein écran, vers le
-                bas pour refermer. Un simple tap bascule ouvert/fermé. */}
-            <div className="mx-auto max-w-[44rem] px-4">
-              <div
-                className="flex touch-none cursor-grab justify-center py-2 active:cursor-grabbing"
-                onPointerDown={onHandleDown}
-                onPointerMove={onHandleMove}
-                onPointerUp={onHandleUp}
-                onPointerCancel={onHandleUp}
-                role="button"
-                aria-label={sheet === "closed" ? "Ouvrir la liste des pistes" : "Fermer la liste des pistes"}
-                title="Glisser pour ouvrir la liste des pistes"
-              >
-                <span className={`h-1 w-9 rounded-full ${sheet === "closed" ? "bg-hairline-strong" : "bg-accent"}`} />
-              </div>
+                bas pour refermer. Un simple tap bascule ouvert/fermé. Zone de préhension large
+                (py-3.5) pour éviter les ratés ; `touch-none` empêche le glissement de déclencher
+                le rafraîchissement de page (pull-to-refresh). */}
+            <div
+              className="flex touch-none cursor-grab justify-center py-3.5 active:cursor-grabbing"
+              onPointerDown={onHandleDown}
+              onPointerMove={onHandleMove}
+              onPointerUp={onHandleUp}
+              onPointerCancel={onHandleUp}
+              role="button"
+              aria-label={sheet === "closed" ? "Ouvrir la liste des pistes" : "Fermer la liste des pistes"}
+              title="Glisser pour ouvrir la liste des pistes"
+            >
+              <span className={`h-1.5 w-11 rounded-full ${sheetVisible ? "bg-accent" : "bg-hairline-strong"}`} />
             </div>
             {/* Contenu déroulant : sa hauteur (0 → plein écran) est pilotée par le glissement. */}
             <div
@@ -238,7 +246,7 @@ export function PodcastPlayer() {
               }}
             >
               <div className="mx-auto flex h-full max-w-[44rem] flex-col px-4">
-                <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
                 {/* File d'attente éditable (pistes) : réordonnancement par glisser-déposer + retrait. */}
                 {p.queue.length > 0 && (
                   <ol className="mb-3 list-none rounded-sm border border-hairline">
@@ -321,11 +329,11 @@ export function PodcastPlayer() {
           </div>
         )}
 
-        {/* La barre de contrôle, toujours en bas (accessible même liste dépliée). Le filet du
-            haut n'apparaît qu'en mode réduit (top du lecteur) ou pour séparer la liste ouverte
-            de la barre — sinon la poignée du panneau porte déjà le filet supérieur. */}
+        {/* La barre de contrôle, toujours en bas (accessible même liste dépliée). Filet du haut
+            seulement en mode réduit (c'est alors le sommet du lecteur) ; en mode normal, le
+            panneau au-dessus porte déjà le filet — inutile d'en ajouter un ici. */}
         <div
-          className={`bg-surface ${reduced || sheetVisible ? "border-t border-hairline" : ""}`}
+          className={`bg-surface ${reduced ? "border-t border-hairline" : ""}`}
           style={{ paddingBottom: showBottomNav ? undefined : "var(--safe-b)" }}
         >
           {reduced ? (
