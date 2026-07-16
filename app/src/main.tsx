@@ -9,16 +9,21 @@ import { App } from "./ui/App";
 // ouverte ne re-checkait le service worker qu'au relancement complet → il fallait
 // recharger plusieurs fois avant que la nouvelle version soit prise en compte.
 //
-// Ici on enregistre explicitement le SW et on :
-//   1. vérifie les mises à jour périodiquement, au retour de focus et à la reconnexion ;
-//   2. applique la nouvelle version à un moment sûr — retour dans l'app, navigation
-//      interne, ou tout de suite si l'onglet est en arrière-plan → jamais de
-//      rechargement en pleine lecture.
-// `updateSW(true)` envoie SKIP_WAITING au SW en attente (voir src/sw.ts) puis recharge
-// la page une seule fois quand le nouveau SW prend le contrôle.
+// Deux volets, volontairement découplés :
+//   - DÉTECTION : on demande au navigateur de re-vérifier le service worker au
+//     chargement (immediate), périodiquement, à la reconnexion réseau, à chaque
+//     changement de visibilité et à chaque navigation interne. C'est ce qui manquait :
+//     sans ces déclencheurs, un onglet / une PWA restée ouverte ne re-vérifiait qu'au
+//     relancement complet.
+//   - APPLICATION : dès qu'une nouvelle version est installée et prête (`onNeedRefresh`),
+//     on l'active tout de suite. `registration.update()` étant asynchrone, on ne peut
+//     pas décider d'appliquer « dans le même geste » que la détection ; appliquer
+//     immédiatement à la détection garantit qu'un seul aller-retour (ou une seule
+//     navigation) suffit, sur mobile comme sur desktop. `updateSW(true)` envoie
+//     SKIP_WAITING au SW en attente (voir src/sw.ts) puis recharge la page une seule
+//     fois quand le nouveau SW prend le contrôle.
 if (import.meta.env.PROD) {
   const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 min
-  let pendingUpdate = false;
 
   const updateSW = registerSW({
     immediate: true,
@@ -29,23 +34,13 @@ if (import.meta.env.PROD) {
       };
       setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL_MS);
       window.addEventListener("online", checkForUpdate);
-      // Retour dans l'app (onglet/PWA repassé au premier plan) : applique une MàJ en
-      // attente, sinon re-checke.
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) return;
-        if (pendingUpdate) updateSW(true);
-        else checkForUpdate();
-      });
-      // Navigation interne (routing par hash) : moment idéal — entre deux écrans — pour
-      // appliquer une MàJ en attente même si l'app reste au premier plan (desktop web).
-      window.addEventListener("hashchange", () => {
-        if (pendingUpdate) updateSW(true);
-      });
+      // Changement de visibilité (départ ET retour au premier plan) et navigation interne
+      // (routing par hash) : autant d'occasions de re-vérifier rapidement.
+      document.addEventListener("visibilitychange", checkForUpdate);
+      window.addEventListener("hashchange", checkForUpdate);
     },
     onNeedRefresh() {
-      pendingUpdate = true;
-      // App en arrière-plan → l'utilisateur ne lit rien : on applique immédiatement.
-      if (document.hidden) updateSW(true);
+      updateSW(true);
     },
   });
 }
