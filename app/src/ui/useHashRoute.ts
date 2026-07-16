@@ -65,6 +65,23 @@ function parseRoute(location: string): Route {
   }
 }
 
+/** Route courante, dérivée du hash (utilisable hors React). */
+export function currentRoute(): Route {
+  return parseRoute(currentLocation());
+}
+
+/** Écrans « activité en cours » — lecture d'une histoire ou d'une leçon, session de flux,
+ *  révision. On évite d'appliquer une mise à jour (qui recharge la page) tant que l'un
+ *  d'eux est ouvert, pour ne pas faire perdre à l'utilisateur sa place ou sa saisie. */
+export function isFocusedActivityRoute(route: Route): boolean {
+  return (
+    route.kind === "reader" ||
+    route.kind === "course" ||
+    route.kind === "flow" ||
+    route.kind === "review"
+  );
+}
+
 /** Onglet correspondant à une route (les sous-pages n'ont pas d'onglet propre). */
 export function tabForRoute(route: Route): Tab {
   switch (route.kind) {

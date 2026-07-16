@@ -7,6 +7,13 @@ import { SettingsSections } from "./SettingsSections";
 
 /** Tiroir latéral de réglages rapides : mêmes sections que la page Settings (mode
  * `quick` : sans la section Révision), plus le lien vers tous les paramètres. */
+// Date du build formatée dans le fuseau horaire du navigateur (PC / mobile). L'instant
+// est injecté en ISO UTC (`__BUILD_TIME__`) et converti à l'exécution par `toLocaleString`.
+const BUILD_DATE = new Date(__BUILD_TIME__).toLocaleString("fr-FR", {
+  dateStyle: "short",
+  timeStyle: "short",
+});
+
 export function SettingsPanel() {
   const { panelOpen, closePanel } = useSettings();
 
@@ -35,7 +42,10 @@ export function SettingsPanel() {
           Tous les paramètres →
         </Button>
         {/* Identifiant de build : confirme quelle version est réellement servie (cache PWA). */}
-        <p className="mt-1 font-sans text-xs text-muted">version {__BUILD_ID__}</p>
+        <p className="mt-1 font-sans text-xs text-muted">
+          version {__BUILD_SHA__ ? `${__BUILD_SHA__} · ` : ""}
+          {BUILD_DATE}
+        </p>
       </div>
     </Sheet>
   );
