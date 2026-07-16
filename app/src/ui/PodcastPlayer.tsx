@@ -74,7 +74,8 @@ export function PodcastPlayer() {
   const [vh, setVh] = useState<number>(() => (typeof window !== "undefined" ? window.innerHeight : 800));
   const [barH, setBarH] = useState(0);
 
-  const barRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null); // tout le lecteur (panneau + barre)
+  const contentRef = useRef<HTMLDivElement | null>(null); // contenu déroulant de la liste (hauteur animée)
   const draggingRef = useRef(false); // scrub de la barre de progression
   const dragFrom = useRef<number | null>(null); // réordonnancement de la file
   const sheetDrag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
@@ -87,8 +88,8 @@ export function PodcastPlayer() {
 
   // Points d'ancrage du tiroir (px). `full` s'arrête juste au-dessus de la barre pour la
   // garder visible et manœuvrable même déplié.
-  const openH = Math.round(vh * 0.5);
-  const fullH = Math.max(openH, vh - barH - barBottomPx - 16);
+  const openH = Math.round(vh * 0.42);
+  const fullH = Math.max(openH + 40, vh - barH - barBottomPx - 16);
   const snapHeight = (s: SheetState) => (s === "full" ? fullH : s === "open" ? openH : 0);
   const sheetH = dragHeight != null ? dragHeight : snapHeight(sheet);
   const sheetVisible = sheetH > 0;
@@ -100,14 +101,18 @@ export function PodcastPlayer() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Mesure la hauteur réelle de la barre (varie selon réduit/normal et le contenu).
+  // Empreinte réservée sous le contenu de page = tout le lecteur MOINS le contenu déroulant de
+  // la liste (qui flotte en surimpression, fermable au clic sur le fond). On mesure donc la
+  // hauteur du conteneur et on retranche celle de la liste : reste la poignée + la barre, une
+  // valeur stable même en cours de glissement.
   useLayoutEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    const update = () => setBarH(el.offsetHeight);
+    const c = containerRef.current;
+    if (!c) return;
+    const update = () => setBarH(c.offsetHeight - (contentRef.current?.offsetHeight ?? 0));
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(c);
+    if (contentRef.current) ro.observe(contentRef.current);
     return () => ro.disconnect();
   }, [p.active, reduced]);
 
@@ -144,13 +149,13 @@ export function PodcastPlayer() {
     p.seekFraction(frac);
   }
 
-  function nearestSnap(h: number): SheetState {
-    const cand: [SheetState, number][] = [
-      ["closed", 0],
-      ["open", openH],
-      ["full", fullH],
-    ];
-    return cand.reduce((best, c) => (Math.abs(c[1] - h) < Math.abs(snapHeight(best) - h) ? c[0] : best), "closed" as SheetState);
+  // Résolution du point d'ancrage au relâchement : plus tolérante qu'un simple « plus proche »
+  // — dès qu'on tire franchement vers le haut la liste s'ouvre, et un long glissement va au
+  // plein écran ; sous un petit seuil elle se referme.
+  function resolveSnap(h: number): SheetState {
+    if (h < 72) return "closed";
+    if (h > (openH + fullH) / 2) return "full";
+    return "open";
   }
 
   // Glissement du tiroir : on tire la poignée vers le haut pour ouvrir / plein écran, vers le
@@ -174,7 +179,7 @@ export function PodcastPlayer() {
     if (!d.moved) {
       setSheet((s) => (s === "closed" ? "open" : "closed"));
     } else {
-      setSheet(nearestSnap(dragHeight ?? d.startH));
+      setSheet(resolveSnap(dragHeight ?? d.startH));
     }
     setDragHeight(null);
   }
@@ -202,18 +207,38 @@ export function PodcastPlayer() {
         />
       )}
 
-      <div className="fixed inset-x-0 z-50 flex animate-rise flex-col" style={{ bottom }}>
-        {/* Tiroir des pistes (hauteur animée, tirable). Rendu hors mode réduit. */}
+      <div ref={containerRef} className="fixed inset-x-0 z-50 flex animate-rise flex-col" style={{ bottom }}>
+        {/* Panneau de liste (rendu hors mode réduit). La poignée est SON bord supérieur : elle
+            reste solidaire du haut de la liste et monte avec elle quand on la tire. */}
         {!reduced && (
-          <div
-            className="overflow-hidden border-t border-hairline bg-surface"
-            style={{
-              height: sheetH,
-              transition: dragHeight != null ? "none" : "height 200ms cubic-bezier(0.2,0,0.2,1)",
-            }}
-          >
-            <div className="mx-auto flex h-full max-w-[44rem] flex-col px-4">
-              <div className="min-h-0 flex-1 overflow-y-auto py-3">
+          <div className="border-t border-hairline bg-surface">
+            {/* Poignée — toujours visible ; tirer vers le haut pour ouvrir / plein écran, vers le
+                bas pour refermer. Un simple tap bascule ouvert/fermé. */}
+            <div className="mx-auto max-w-[44rem] px-4">
+              <div
+                className="flex touch-none cursor-grab justify-center py-2 active:cursor-grabbing"
+                onPointerDown={onHandleDown}
+                onPointerMove={onHandleMove}
+                onPointerUp={onHandleUp}
+                onPointerCancel={onHandleUp}
+                role="button"
+                aria-label={sheet === "closed" ? "Ouvrir la liste des pistes" : "Fermer la liste des pistes"}
+                title="Glisser pour ouvrir la liste des pistes"
+              >
+                <span className={`h-1 w-9 rounded-full ${sheet === "closed" ? "bg-hairline-strong" : "bg-accent"}`} />
+              </div>
+            </div>
+            {/* Contenu déroulant : sa hauteur (0 → plein écran) est pilotée par le glissement. */}
+            <div
+              ref={contentRef}
+              className="overflow-hidden"
+              style={{
+                height: sheetH,
+                transition: dragHeight != null ? "none" : "height 200ms cubic-bezier(0.2,0,0.2,1)",
+              }}
+            >
+              <div className="mx-auto flex h-full max-w-[44rem] flex-col px-4">
+                <div className="min-h-0 flex-1 overflow-y-auto pb-3">
                 {/* File d'attente éditable (pistes) : réordonnancement par glisser-déposer + retrait. */}
                 {p.queue.length > 0 && (
                   <ol className="mb-3 list-none rounded-sm border border-hairline">
@@ -290,35 +315,23 @@ export function PodcastPlayer() {
                     })}
                   </ol>
                 )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* La barre proprement dite : mode réduit ou normal. */}
+        {/* La barre de contrôle, toujours en bas (accessible même liste dépliée). Le filet du
+            haut n'apparaît qu'en mode réduit (top du lecteur) ou pour séparer la liste ouverte
+            de la barre — sinon la poignée du panneau porte déjà le filet supérieur. */}
         <div
-          ref={barRef}
-          className="border-t border-hairline bg-surface"
+          className={`bg-surface ${reduced || sheetVisible ? "border-t border-hairline" : ""}`}
           style={{ paddingBottom: showBottomNav ? undefined : "var(--safe-b)" }}
         >
           {reduced ? (
             <MiniBar p={p} progress={progress} onExpand={toggleReduced} />
           ) : (
-            <div className="mx-auto max-w-[44rem] px-4">
-              {/* Poignée de glissement : tirer pour ouvrir la liste des pistes / plein écran. */}
-              <div
-                className="flex touch-none cursor-grab justify-center py-1.5 active:cursor-grabbing"
-                onPointerDown={onHandleDown}
-                onPointerMove={onHandleMove}
-                onPointerUp={onHandleUp}
-                onPointerCancel={onHandleUp}
-                role="button"
-                aria-label={sheet === "closed" ? "Ouvrir la liste des pistes" : "Fermer la liste des pistes"}
-                title="Glisser pour ouvrir la liste"
-              >
-                <span className="h-1 w-9 rounded-full bg-hairline-strong" />
-              </div>
-
+            <div className="mx-auto max-w-[44rem] px-4 pt-2">
               {/* Ligne 1 — titre de la piste (toujours visible) + réduire / fermer. */}
               <div className="flex items-center gap-2">
                 <button
