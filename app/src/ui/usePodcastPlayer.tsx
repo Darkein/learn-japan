@@ -566,14 +566,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   // Nettoyage au démontage.
   useEffect(() => () => player.halt(), [player]);
 
-  // Réserve de l'espace en bas pour que la barre fixe ne masque pas le contenu.
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.body.style.paddingBottom = state.active ? "6.5rem" : "";
-    return () => {
-      document.body.style.paddingBottom = "";
-    };
-  }, [state.active]);
+  // La réserve d'espace en bas (pour que la barre fixe ne masque pas le contenu) est gérée
+  // par PodcastPlayer, qui mesure la hauteur réelle de la barre et la publie en `--player-h`.
 
   // Position piste pour la MediaSession, en UNITÉS-SEGMENTS (1 segment = 1 unité, comme le
   // scrub de seekFraction) : les durées réelles des segments ne sont connues qu'au fil de
