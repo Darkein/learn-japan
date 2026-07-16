@@ -76,9 +76,12 @@ export function PodcastPlayer() {
 
   const containerRef = useRef<HTMLDivElement | null>(null); // tout le lecteur (panneau + barre)
   const contentRef = useRef<HTMLDivElement | null>(null); // contenu déroulant de la liste (hauteur animée)
+  const scrollRef = useRef<HTMLDivElement | null>(null); // zone scrollable interne de la liste
   const draggingRef = useRef(false); // scrub de la barre de progression
   const dragFrom = useRef<number | null>(null); // réordonnancement de la file
   const sheetDrag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
+  // Géométrie courante lue par l'écouteur tactile de la liste (évite les closures périmées).
+  const envRef = useRef({ curSheetH: 0, openH: 0, fullH: 0 });
 
   // Le bottom nav n'apparaît qu'en mobile (pas grand écran) et que sur les 3 onglets
   // principaux (pas sur les sous-pages, qui portent toutes un `from`) — le lecteur se
@@ -97,6 +100,7 @@ export function PodcastPlayer() {
   // point d'ancrage « ouvert » (atteint sa pleine intensité une fois la liste ouverte, puis
   // reste stable jusqu'au plein écran). Suit le glissement en direct, se fond au relâchement.
   const backdropOpacity = openH > 0 ? Math.min(1, sheetH / openH) * 0.6 : 0;
+  envRef.current = { curSheetH: snapHeight(sheet), openH, fullH };
 
   // Suit la hauteur de fenêtre (barres d'outils mobiles dynamiques) pour recalculer les ancrages.
   useEffect(() => {
@@ -134,6 +138,65 @@ export function PodcastPlayer() {
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(REDUCED_KEY, reduced ? "1" : "0");
   }, [reduced]);
+
+  // Continuité scroll ↔ tiroir : quand la liste est scrollée à fond (en haut et qu'on tire vers
+  // le bas, ou en bas et qu'on tire vers le haut), le geste pilote la hauteur du panneau comme
+  // la poignée. On écoute le tactile en non-passif pour pouvoir couper le rebond natif au bon
+  // moment ; ailleurs, le scroll de la liste reste intact.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let startY = 0;
+    let cap = false; // le geste pilote le tiroir
+    let capStartY = 0;
+    let capStartH = 0;
+    let lastH = 0;
+    const resolve = (h: number): SheetState => {
+      const { openH: o, fullH: f } = envRef.current;
+      if (h < 72) return "closed";
+      if (h > (o + f) / 2) return "full";
+      return "open";
+    };
+    const onStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+      cap = false;
+    };
+    const onMove = (e: TouchEvent) => {
+      const y = e.touches[0].clientY;
+      const { curSheetH, fullH: f } = envRef.current;
+      if (!cap) {
+        const dy = startY - y; // vers le haut > 0
+        const atTop = el.scrollTop <= 0;
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+        if ((atTop && dy < -2) || (atBottom && dy > 2 && curSheetH < f - 1)) {
+          cap = true;
+          capStartY = y;
+          capStartH = curSheetH;
+        } else {
+          return; // laisse le scroll natif de la liste
+        }
+      }
+      e.preventDefault(); // coupe le rebond et pilote le tiroir
+      lastH = Math.min(f, Math.max(0, capStartH + (capStartY - y)));
+      setDragHeight(lastH);
+    };
+    const onEnd = () => {
+      if (!cap) return;
+      cap = false;
+      setSheet(resolve(lastH));
+      setDragHeight(null);
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onEnd);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, [p.active, reduced]);
 
   if (!p.active) return null;
 
@@ -250,7 +313,7 @@ export function PodcastPlayer() {
               }}
             >
               <div className="mx-auto flex h-full max-w-[44rem] flex-col px-4">
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
                 {/* File d'attente éditable (pistes) : réordonnancement par glisser-déposer + retrait. */}
                 {p.queue.length > 0 && (
                   <ol className="mb-3 list-none rounded-sm border border-hairline">
