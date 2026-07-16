@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import "./styles/global.css";
 import { App } from "./ui/App";
+import { currentRoute, isFocusedActivityRoute } from "./ui/useHashRoute";
 
 // ---- Mise à jour automatique de la PWA (web, PWA installée, Chrome mobile) --------
 // Le problème historique : sans vérification périodique, un onglet / une PWA restée
@@ -16,14 +17,19 @@ import { App } from "./ui/App";
 //     sans ces déclencheurs, un onglet / une PWA restée ouverte ne re-vérifiait qu'au
 //     relancement complet.
 //   - APPLICATION : dès qu'une nouvelle version est installée et prête (`onNeedRefresh`),
-//     on l'active tout de suite. `registration.update()` étant asynchrone, on ne peut
-//     pas décider d'appliquer « dans le même geste » que la détection ; appliquer
-//     immédiatement à la détection garantit qu'un seul aller-retour (ou une seule
-//     navigation) suffit, sur mobile comme sur desktop. `updateSW(true)` envoie
-//     SKIP_WAITING au SW en attente (voir src/sw.ts) puis recharge la page une seule
-//     fois quand le nouveau SW prend le contrôle.
+//     on l'active tout de suite — SAUF si une activité est en cours (lecture d'une
+//     histoire/leçon, flux, révision) : dans ce cas on diffère jusqu'à ce que
+//     l'utilisateur en sorte, pour ne pas recharger en pleine lecture et lui faire
+//     perdre sa place. `registration.update()` étant asynchrone, appliquer dès la
+//     détection (plutôt que d'attendre l'événement suivant) garantit qu'un seul
+//     aller-retour, ou une seule navigation, suffit — sur mobile comme sur desktop.
+//     `updateSW(true)` envoie SKIP_WAITING au SW en attente (voir src/sw.ts) puis
+//     recharge la page une seule fois quand le nouveau SW prend le contrôle.
 if (import.meta.env.PROD) {
   const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 min
+  let pendingUpdate = false;
+
+  const isBusy = () => isFocusedActivityRoute(currentRoute());
 
   const updateSW = registerSW({
     immediate: true,
@@ -32,15 +38,28 @@ if (import.meta.env.PROD) {
       const checkForUpdate = () => {
         if (navigator.onLine) registration.update().catch(() => {});
       };
+      // Applique une MàJ différée si l'utilisateur n'est plus en pleine activité.
+      const applyIfSafe = () => {
+        if (pendingUpdate && !isBusy()) updateSW(true);
+      };
       setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL_MS);
       window.addEventListener("online", checkForUpdate);
       // Changement de visibilité (départ ET retour au premier plan) et navigation interne
-      // (routing par hash) : autant d'occasions de re-vérifier rapidement.
-      document.addEventListener("visibilitychange", checkForUpdate);
-      window.addEventListener("hashchange", checkForUpdate);
+      // (routing par hash) : occasions de re-vérifier ET d'appliquer une MàJ différée à
+      // un moment sûr — quitter une histoire/leçon est justement une telle occasion.
+      document.addEventListener("visibilitychange", () => {
+        applyIfSafe();
+        checkForUpdate();
+      });
+      window.addEventListener("hashchange", () => {
+        applyIfSafe();
+        checkForUpdate();
+      });
     },
     onNeedRefresh() {
-      updateSW(true);
+      // En pleine activité → on diffère ; sinon on applique tout de suite.
+      if (isBusy()) pendingUpdate = true;
+      else updateSW(true);
     },
   });
 }
