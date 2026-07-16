@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { usePodcastPlayer } from "./usePodcastPlayer";
+import { STORY_RATES } from "./useSettings";
 import { navigate, useHashRoute } from "./useHashRoute";
 import { useMediaQuery } from "./useMediaQuery";
 import { Button } from "./kit/Button";
@@ -35,6 +36,11 @@ const MODE_LABEL: Record<"auto" | "repeat" | "once", string> = {
   repeat: "Répétition",
   once: "Jouer une fois",
 };
+
+/** Libellé de la vitesse courante (« 1× », « 1,25× ») pour le bouton de cycle. */
+function rateLabel(rate: number): string {
+  return STORY_RATES.find((r) => r.value === rate)?.label ?? `${String(rate).replace(".", ",")}×`;
+}
 
 /** Libellé court d'un segment pour la tracklist. */
 function segLabel(seg: PodcastSegment): string {
@@ -189,6 +195,14 @@ export function PodcastPlayer() {
             title="Suivre la lecture : ouvrir la page de la piste courante"
           >
             <IconLink size={18} />
+          </Button>
+          <Button
+            size="sm"
+            onClick={p.cycleRate}
+            aria-label={`Vitesse de lecture : ${rateLabel(p.rate)}`}
+            title="Vitesse de lecture"
+          >
+            <span className="font-sans text-sm font-medium tabular-nums">{rateLabel(p.rate)}</span>
           </Button>
           <Button
             size="sm"

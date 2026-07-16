@@ -26,6 +26,7 @@ import { activeTrackIndex, PACK_VERSION, trackEntries, type PodcastSegment } fro
 import { createSegmentPlayer, type SegmentPlayer } from "../lib/segmentPlayer";
 import { buildStorySegments } from "../lib/storyPodcast";
 import { navigate } from "./useHashRoute";
+import { STORY_RATES, useSettings } from "./useSettings";
 
 const RESUME_KEY = "podcast.resume";
 const AUTONAV_KEY = "podcast.autonav";
@@ -76,6 +77,10 @@ interface PodcastApi extends PodcastState {
   removeFromQueue: (index: number) => void;
   cycleMode: () => void;
   toggleAutoNavigate: () => void;
+  /** Vitesse de lecture courante (persistée, commune leçons/histoires). */
+  rate: number;
+  /** Passe à la vitesse suivante de STORY_RATES (boucle). */
+  cycleRate: () => void;
   seekFraction: (frac: number) => void;
   /** Chemin de la page de la piste courante (null si aucune). */
   currentPage: () => string | null;
@@ -109,6 +114,8 @@ const INITIAL_STATE: PodcastState = {
 
 export function PodcastProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PodcastState>(INITIAL_STATE);
+  const { settings, update: updateSettings } = useSettings();
+  const rate = settings.storyRate;
 
   // État impératif (évite les closures périmées dans les callbacks du moteur audio).
   const restoringRef = useRef(false); // reprise en cours au montage : ne pas écraser RESUME_KEY entre-temps
@@ -371,6 +378,18 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     patch({ mode: m });
   }, [patch]);
 
+  // Vitesse de lecture : appliquée au moteur (playbackRate du flux) dès que le réglage
+  // change — effet immédiat sur la piste en cours, leçons comme histoires.
+  useEffect(() => {
+    player.setRate(rate);
+  }, [player, rate]);
+
+  const cycleRate = useCallback(() => {
+    const i = STORY_RATES.findIndex((r) => r.value === rate);
+    const next = STORY_RATES[(i + 1) % STORY_RATES.length] ?? STORY_RATES[0];
+    updateSettings({ storyRate: next.value });
+  }, [rate, updateSettings]);
+
   const toggle = useCallback(() => {
     if (!player.hasSegments()) return;
     if (playingRef.current) {
@@ -568,12 +587,13 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     const n = state.segments.length;
     if (!state.active || !n) return;
     const pos = player.getPosition();
-    const rate = pos && pos.duration > 0 ? 1 / pos.duration : 0.25;
+    // Unités-segments par seconde RÉELLE : le débit du segment, dilaté par la vitesse.
+    const unitRate = (pos && pos.duration > 0 ? 1 / pos.duration : 0.25) * rate;
     try {
       ms.setPositionState({
         duration: n,
         position: Math.min(n, state.index + Math.min(Math.max(state.segProgress, 0), 1)),
-        playbackRate: rate,
+        playbackRate: unitRate,
       });
     } catch {
       /* valeurs hors spec (durée inconnue) */
@@ -663,6 +683,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       removeFromQueue,
       cycleMode,
       toggleAutoNavigate,
+      rate,
+      cycleRate,
       seekFraction,
       currentPage,
       toggle,
@@ -681,6 +703,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       removeFromQueue,
       cycleMode,
       toggleAutoNavigate,
+      rate,
+      cycleRate,
       seekFraction,
       currentPage,
       toggle,

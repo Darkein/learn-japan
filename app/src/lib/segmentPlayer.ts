@@ -85,6 +85,12 @@ export interface SegmentPlayer {
   halt: () => void;
   /** Position absolue dans le segment courant (null pendant un blanc). */
   getPosition: () => { currentTime: number; duration: number } | null;
+  /**
+   * Vitesse de lecture (1 = normale), appliquée à TOUT le flux (leçons, histoires, blancs)
+   * via `playbackRate` : effet immédiat, aucune re-synthèse — le cache TTS et les
+   * timepoints restent valides (le temps média n'est pas dilaté, seul son écoulement l'est).
+   */
+  setRate: (rate: number) => void;
 }
 
 /** Portion [start, end) du flux : à quel contenu correspond ce temps de lecture. */
@@ -114,6 +120,7 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
   let index = 0;
   let seekOffset = 0; // décalage (0..1) à appliquer au prochain segment démarré
   let pausedInPlace = false; // pause() sans teardown : resume() = simple play()
+  let rate = 1; // vitesse de lecture (cf. setRate)
 
   // --- Flux MediaSource -------------------------------------------------------
   let el: HTMLAudioElement | null = null; // singleton persistant (porte le verrou geste)
@@ -140,12 +147,21 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     if (!el) {
       el = new Audio();
       el.preload = "auto";
+      applyRate(el);
       el.ontimeupdate = onTimeUpdate;
       el.onerror = () => {
         if (genActive) cb.onError("Erreur de lecture du flux audio.");
       };
     }
     return el;
+  }
+
+  // `defaultPlaybackRate` AUSSI : l'algorithme de chargement du média (load() dans halt())
+  // réinitialise playbackRate à cette valeur — sans elle, la vitesse retomberait à 1
+  // au redémarrage suivant.
+  function applyRate(a: HTMLAudioElement): void {
+    a.defaultPlaybackRate = rate;
+    a.playbackRate = rate;
   }
 
   /** Attache un flux MediaSource neuf si l'élément n'en porte pas déjà un d'ouvert. */
@@ -479,6 +495,10 @@ export function createSegmentPlayer(cb: SegmentPlayerCallbacks): SegmentPlayer {
     },
     standby,
     halt,
+    setRate: (r) => {
+      rate = Math.min(Math.max(r, 0.25), 4);
+      if (el) applyRate(el);
+    },
     getPosition: () => {
       if (!el) return null;
       const reg = regionAt(el.currentTime);

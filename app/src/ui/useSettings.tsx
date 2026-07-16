@@ -22,7 +22,7 @@ export const THEMES: { id: Theme; label: string }[] = [
   { id: "dark", label: "Sombre" },
 ];
 
-/** Vitesses de lecture audio proposées pour les histoires. */
+/** Vitesses proposées pour le lecteur audio (leçons et histoires, cf. usePodcastPlayer). */
 export const STORY_RATES: { value: number; label: string }[] = [
   { value: 0.5, label: "0,5×" },
   { value: 0.75, label: "0,75×" },

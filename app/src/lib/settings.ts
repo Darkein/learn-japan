@@ -20,7 +20,7 @@ export interface AppSettings {
   /** Révisions sans le son : les exercices d'écoute sont remplacés par de l'écrit
    * (cloze de production noté sur la carte orale) tant que le réglage est actif. */
   silentReviews: boolean;
-  /** Vitesse de lecture audio des histoires en japonais (1 = vitesse normale). */
+  /** Vitesse du lecteur audio — leçons et histoires (1 = vitesse normale). */
   storyRate: number;
   /** Rappels de révisions (notification locale + badge d'icône). Opt-in. */
   reminders: ReminderSettings;

@@ -114,6 +114,8 @@ class FakeAudio {
   preload = "";
   paused = true;
   currentTime = 0;
+  playbackRate = 1;
+  defaultPlaybackRate = 1;
   ontimeupdate: (() => void) | null = null;
   onerror: (() => void) | null = null;
   private srcAttr: string | null = null;
@@ -131,7 +133,10 @@ class FakeAudio {
   removeAttribute(name: string): void {
     if (name === "src") this.srcAttr = null;
   }
-  load(): void {}
+  load(): void {
+    // L'algorithme de chargement du média réinitialise playbackRate (spec HTML).
+    this.playbackRate = this.defaultPlaybackRate;
+  }
   async play(): Promise<void> {
     this.paused = false;
   }
@@ -323,6 +328,22 @@ describe("createSegmentPlayer — flux continu", () => {
     await settle();
     expect(audio().paused).toBe(false);
     expect(audio().currentTime).toBe(t); // reprise au même endroit, pas de redémarrage
+  });
+
+  it("setRate s'applique à l'élément et survit au halt (load() réinitialise playbackRate)", async () => {
+    vi.mocked(tts.synthesizeParts).mockResolvedValue(clipBlob(2000));
+    const player = createSegmentPlayer(callbacks());
+    player.setRate(1.5); // avant même la création de l'élément
+    player.setSegments([{ id: "s0", chapter: "cours", lang: "fr", text: "Bonjour." }]);
+    player.start(0);
+    await settle();
+    expect(audio().playbackRate).toBe(1.5);
+    player.halt(); // load() → playbackRate = defaultPlaybackRate, qui doit porter la vitesse
+    player.start(0);
+    await settle();
+    expect(audio().playbackRate).toBe(1.5);
+    player.setRate(0.75); // changement en cours de lecture : effet immédiat
+    expect(audio().playbackRate).toBe(0.75);
   });
 
   it("standby coupe la piste mais entretient le silence ; halt détache tout", async () => {
