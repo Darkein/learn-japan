@@ -16,10 +16,17 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
 };
 
-self.skipWaiting();
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
+
+// Mise à jour pilotée par l'app (registerType `prompt`) : on n'appelle plus
+// `skipWaiting()` à l'installation. Le nouveau SW reste en attente jusqu'à ce que l'app
+// envoie le message SKIP_WAITING (via `updateSW(true)`), au moment choisi — typiquement
+// au retour dans l'app, pour ne jamais recharger en pleine lecture. Voir src/main.tsx.
+self.addEventListener("message", (event) => {
+  if ((event.data as { type?: string } | null)?.type === "SKIP_WAITING") self.skipWaiting();
+});
 
 // Dictionnaire kuromoji (~12 Mo) : exclu du precache, servi en CacheFirst à la demande.
 registerRoute(

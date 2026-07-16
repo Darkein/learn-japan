@@ -13,18 +13,19 @@ const BASE = "/learn-japan/";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-// Identifiant de build affiché en bas des réglages : permet de vérifier d'un coup d'œil
+// Identité de build affichée en bas des réglages : permet de vérifier d'un coup d'œil
 // quelle version est réellement servie (utile avec le cache du service worker PWA).
-const BUILD_ID = (() => {
-  let sha = "";
+// On expose le SHA et l'instant BRUT (ISO UTC) séparément : la date est formatée à
+// l'exécution dans le fuseau horaire du navigateur (PC / mobile), pas figée en UTC.
+const BUILD_SHA = (() => {
   try {
-    sha = execSync("git rev-parse --short HEAD", { cwd: here }).toString().trim();
+    return execSync("git rev-parse --short HEAD", { cwd: here }).toString().trim();
   } catch {
     // hors dépôt git (archive, CI minimal) : on se contente de la date.
+    return "";
   }
-  const date = new Date().toISOString().slice(0, 16).replace("T", " ");
-  return sha ? `${sha} · ${date} UTC` : `${date} UTC`;
 })();
+const BUILD_TIME = new Date().toISOString();
 
 /**
  * Sert les assets `*.gz` (dictionnaire JMdict, dict kuromoji) en OCTETS BRUTS, sans
@@ -68,14 +69,19 @@ function rawGzipAssets(): PluginOption {
 export default defineConfig({
   base: BASE,
   define: {
-    __BUILD_ID__: JSON.stringify(BUILD_ID),
+    __BUILD_SHA__: JSON.stringify(BUILD_SHA),
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
   },
   plugins: [
     rawGzipAssets(),
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      // `prompt` (et non `autoUpdate`) : le nouveau SW s'installe mais n'est activé que
+      // lorsqu'on le décide côté app (main.tsx : au retour dans l'app, jamais en pleine
+      // lecture). Le SW n'appelle donc plus `skipWaiting()` de lui-même — il attend le
+      // message SKIP_WAITING envoyé par `updateSW(true)`. Voir src/main.tsx et src/sw.ts.
+      registerType: "prompt",
       // SW custom (src/sw.ts) : même precache/runtime-cache qu'avant (le dictionnaire
       // kuromoji ~12 Mo reste hors precache, servi en CacheFirst) + rappels de révisions
       // (periodic background sync → notification locale). Voir src/sw.ts.
