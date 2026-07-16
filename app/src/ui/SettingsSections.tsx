@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ensurePeriodicSync } from "../lib/reminders";
 import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
-import { useSettings, THEMES, STORY_RATES } from "./useSettings";
+import { useSettings, THEMES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { SectionLabel } from "./kit/SectionLabel";
@@ -65,23 +65,7 @@ export function SettingsSections({ quick }: Props) {
         </div>
       </section>
 
-      <section>
-        <SectionLabel as="h3" className="mb-3">Lecture audio</SectionLabel>
-        <div
-          className={
-            quick ? "flex flex-col gap-2" : "flex items-center justify-between gap-4"
-          }
-        >
-          <span className="text-sm text-text">Vitesse de lecture</span>
-          <SegmentedControl
-            fullWidth={quick}
-            options={STORY_RATES.map((r) => ({ value: r.value, label: r.label }))}
-            value={settings.storyRate}
-            onChange={(v) => update({ storyRate: v })}
-            ariaLabel="Vitesse de lecture (leçons et histoires)"
-          />
-        </div>
-      </section>
+      {/* La vitesse de lecture se règle directement dans le lecteur audio (bouton « 1× »). */}
 
       {!quick && (
         <section>

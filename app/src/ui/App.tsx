@@ -42,10 +42,10 @@ import { initReminders, updateBadge } from "../lib/reminders";
 import { stopSentence } from "../lib/tts";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
-// Hauteur approximative du lecteur podcast replié (hors safe-area) — réserve de la place
-// dans le shell pour éviter qu'il ne recouvre le contenu (le détail exact varie peu en
-// pratique ; la tracklist dépliée peut dépasser cette estimation, cas rare accepté).
-const PLAYER_HEIGHT = "8rem";
+// Réserve de place dans le shell pour ne pas être recouvert par le lecteur podcast. Sa hauteur
+// réelle est mesurée par PodcastPlayer et publiée en `--player-h` (le repli « réduit » libère
+// d'autant la page) ; `8rem` sert de secours avant la première mesure.
+const PLAYER_HEIGHT = "var(--player-h, 8rem)";
 
 /** Calcule le padding bas du shell selon ce qui flotte par-dessus (nav du bas, lecteur). */
 function shellPadding(navVisible: boolean, playerActive: boolean): string {
@@ -276,7 +276,7 @@ function AppShell() {
         <SlideStack
           currentKey={reader.id}
           labels={{ prev: "Histoire précédente", next: "Histoire suivante" }}
-          bottomOffset={podcast.active ? "calc(var(--safe-b) + 9.5rem)" : undefined}
+          bottomOffset={podcast.active ? "calc(var(--safe-b) + var(--player-h, 8rem) + 1.5rem)" : undefined}
           onPrev={storyNeighbors.prevId ? () => goToStory(storyNeighbors.prevId!) : undefined}
           onNext={storyNeighbors.nextId ? () => goToStory(storyNeighbors.nextId!) : undefined}
           renderPrev={
@@ -321,7 +321,7 @@ function AppShell() {
         <SlideStack
           currentKey={course.id}
           labels={{ prev: "Leçon précédente", next: "Leçon suivante" }}
-          bottomOffset={podcast.active ? "calc(var(--safe-b) + 9.5rem)" : undefined}
+          bottomOffset={podcast.active ? "calc(var(--safe-b) + var(--player-h, 8rem) + 1.5rem)" : undefined}
           onPrev={courseNeighbors.prevId ? () => goToLesson(courseNeighbors.prevId!) : undefined}
           onNext={courseNeighbors.nextId ? () => goToLesson(courseNeighbors.nextId!) : undefined}
           renderPrev={

@@ -80,6 +80,9 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Pas de rebond / pull-to-refresh : glisser la poignée du lecteur (ou dépasser en bas de
+       page) ne doit jamais recharger l'app (PWA). */
+    overscroll-behavior-y: contain;
   }
 
   h1,
