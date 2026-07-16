@@ -288,11 +288,12 @@ export function PodcastPlayer() {
         {!reduced && (
           <div className="border-t border-hairline bg-surface">
             {/* Poignée — toujours visible ; tirer vers le haut pour ouvrir / plein écran, vers le
-                bas pour refermer. Un simple tap bascule ouvert/fermé. Zone de préhension large
-                (py-3.5) pour éviter les ratés ; `touch-none` empêche le glissement de déclencher
-                le rafraîchissement de page (pull-to-refresh). */}
+                bas pour refermer. Un simple tap bascule ouvert/fermé. Rembourrage symétrique et
+                resserré : la pastille reste centrée entre le bord du panneau et le contenu (liste
+                dépliée) comme entre la poignée et le titre (liste fermée). `touch-none` empêche le
+                glissement de déclencher le rafraîchissement de page (pull-to-refresh). */}
             <div
-              className="flex touch-none cursor-grab justify-center pt-3 pb-1.5 active:cursor-grabbing"
+              className="flex touch-none cursor-grab justify-center py-2 active:cursor-grabbing"
               onPointerDown={onHandleDown}
               onPointerMove={onHandleMove}
               onPointerUp={onHandleUp}
