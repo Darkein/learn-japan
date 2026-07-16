@@ -233,6 +233,10 @@ export function PodcastPlayer() {
       ? `lesson:${currentItem.lessonId}`
       : `story:${currentItem.storyId}`
     : "";
+  // Titre affiché : `p.title` n'est posé qu'après chargement — pendant la préparation on retombe
+  // sur le titre de la piste en file, pour que le player soit complet dès l'ouverture.
+  const displayTitle = p.title || currentItem?.title || "";
+  const loading = !!p.preparing;
   const showTracks = currentTrackKey !== "" && expandedTracks.has(currentTrackKey);
   const toggleTracks = () =>
     setExpandedTracks((s) => {
@@ -313,7 +317,11 @@ export function PodcastPlayer() {
         />
       )}
 
-      <div ref={containerRef} className="fixed inset-x-0 z-50 flex animate-rise flex-col" style={{ bottom }}>
+      <div
+        ref={containerRef}
+        className="fixed inset-x-0 z-50 flex animate-rise flex-col bg-surface"
+        style={{ bottom }}
+      >
         {/* Panneau de liste (rendu hors mode réduit). La poignée est SON bord supérieur : elle
             reste solidaire du haut de la liste et monte avec elle quand on la tire. */}
         {!reduced && (
@@ -448,7 +456,7 @@ export function PodcastPlayer() {
           style={{ paddingBottom: showBottomNav ? undefined : "var(--safe-b)" }}
         >
           {reduced ? (
-            <MiniBar p={p} progress={progress} onExpand={toggleReduced} />
+            <MiniBar p={p} title={displayTitle} progress={progress} onExpand={toggleReduced} />
           ) : (
             <div className="mx-auto max-w-[44rem] px-4">
               {/* Ligne 1 — titre de la piste (toujours visible) + réduire / fermer. */}
@@ -461,7 +469,7 @@ export function PodcastPlayer() {
                   }}
                   title="Ouvrir la page de la piste"
                 >
-                  {p.title}
+                  {displayTitle}
                 </button>
                 <Button
                   size="icon"
@@ -504,29 +512,31 @@ export function PodcastPlayer() {
                 </span>
               </div>
 
-              {/* Ligne 3 — barre de progression scrubbable. */}
-              {p.segments.length > 0 && (
-                <div
-                  className="mt-2 h-2.5 w-full cursor-pointer touch-none overflow-hidden rounded-full bg-surface-2"
-                  onPointerDown={(e) => {
-                    draggingRef.current = true;
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    seekAtClientX(e.clientX, e.currentTarget.getBoundingClientRect());
-                  }}
-                  onPointerMove={(e) => {
-                    if (!draggingRef.current) return;
-                    seekAtClientX(e.clientX, e.currentTarget.getBoundingClientRect());
-                  }}
-                  onPointerUp={() => {
-                    draggingRef.current = false;
-                  }}
-                  onPointerCancel={() => {
-                    draggingRef.current = false;
-                  }}
-                >
-                  <div className="h-full bg-accent" style={{ width: `${progress}%` }} />
-                </div>
-              )}
+              {/* Ligne 3 — barre de progression scrubbable. Toujours rendue (même vide pendant le
+                  chargement, où elle pulse) pour que la hauteur du player ne change pas. */}
+              <div
+                className={`mt-2 h-2.5 w-full overflow-hidden rounded-full bg-surface-2 ${
+                  loading ? "animate-pulse" : "cursor-pointer touch-none"
+                }`}
+                onPointerDown={(e) => {
+                  if (loading || p.segments.length === 0) return;
+                  draggingRef.current = true;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  seekAtClientX(e.clientX, e.currentTarget.getBoundingClientRect());
+                }}
+                onPointerMove={(e) => {
+                  if (!draggingRef.current) return;
+                  seekAtClientX(e.clientX, e.currentTarget.getBoundingClientRect());
+                }}
+                onPointerUp={() => {
+                  draggingRef.current = false;
+                }}
+                onPointerCancel={() => {
+                  draggingRef.current = false;
+                }}
+              >
+                <div className="h-full bg-accent" style={{ width: `${progress}%` }} />
+              </div>
 
               {/* Ligne 4 — transport à gauche, réglages regroupés à droite. */}
               <div className="mt-2 mb-3 flex items-center gap-2">
@@ -604,21 +614,21 @@ export function PodcastPlayer() {
 /** Barre mini : lecture/pause, titre, progression fine, et bouton pour rétablir la vue complète. */
 function MiniBar({
   p,
+  title,
   progress,
   onExpand,
 }: {
   p: ReturnType<typeof usePodcastPlayer>;
+  title: string;
   progress: number;
   onExpand: () => void;
 }) {
   return (
     <div className="relative">
-      {/* Progression collée en haut de la barre mini. */}
-      {p.segments.length > 0 && (
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-surface-2">
-          <div className="h-full bg-accent" style={{ width: `${progress}%` }} />
-        </div>
-      )}
+      {/* Progression collée en haut de la barre mini (toujours présente : pulse au chargement). */}
+      <div className={`absolute inset-x-0 top-0 h-0.5 bg-surface-2 ${p.preparing ? "animate-pulse" : ""}`}>
+        <div className="h-full bg-accent" style={{ width: `${progress}%` }} />
+      </div>
       <div className="mx-auto flex max-w-[44rem] items-center gap-2 px-3 py-1.5">
         <Button
           size="icon"
@@ -634,7 +644,7 @@ function MiniBar({
           onClick={onExpand}
           title="Agrandir le lecteur"
         >
-          {p.title}
+          {title}
         </button>
         <Button size="icon" variant="quiet" onClick={onExpand} aria-label="Agrandir le lecteur" title="Agrandir le lecteur">
           <IconChevronUp />
