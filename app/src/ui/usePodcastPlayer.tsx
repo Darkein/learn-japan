@@ -22,7 +22,7 @@ import { allStories, getPodcast, getStory } from "../lib/db";
 import { getLesson, markLessonStarted } from "../lib/lessons";
 import { endAction, nextMode, reorder, type PlayMode, type QueueItem } from "../lib/playQueue";
 import { generatePodcastPack } from "../lib/podcast";
-import { PACK_VERSION, type PodcastSegment } from "../lib/podcastScript";
+import { activeTrackIndex, PACK_VERSION, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { createSegmentPlayer, type SegmentPlayer } from "../lib/segmentPlayer";
 import { buildStorySegments } from "../lib/storyPodcast";
 import { navigate } from "./useHashRoute";
@@ -399,8 +399,23 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     [patch, player, startAt, state.segments.length],
   );
 
-  const next = useCallback(() => seek(player.index() + 1), [player, seek]);
-  const prev = useCallback(() => seek(player.index() - 1), [player, seek]);
+  // Précédent/suivant naviguent par ÉLÉMENT de la tracklist (labels distincts — un quiz
+  // entier, un paragraphe d'histoire), pas par segment brut : même granularité pour les
+  // boutons de la barre du lecteur et les commandes média OS (écran verrouillé, volant).
+  const stepTrack = useCallback(
+    (delta: 1 | -1) => {
+      const tracks = trackEntries(state.segments);
+      if (!tracks.length) {
+        seek(player.index() + delta);
+        return;
+      }
+      const at = activeTrackIndex(tracks, player.index());
+      seek(tracks[Math.min(tracks.length - 1, Math.max(0, at + delta))].i);
+    },
+    [player, seek, state.segments],
+  );
+  const next = useCallback(() => stepTrack(1), [stepTrack]);
+  const prev = useCallback(() => stepTrack(-1), [stepTrack]);
   const jumpTo = useCallback((i: number) => seek(i), [seek]);
 
   // Scrub proportionnel sur toute la piste : la fraction (0..1) désigne un segment ET un
@@ -566,16 +581,56 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   };
 
   // MediaSession : contrôles média OS / Bluetooth / volant (SPEC §11). Seulement quand le
-  // lecteur est ACTIF. next/prev = phrase suivante/précédente (adapté aux commandes au
-  // volant) ; ne PAS déclarer seekbackward/seekforward, qui remplacent next/prev sur
-  // certaines UI Android.
+  // lecteur est ACTIF. next/prev = élément suivant/précédent de la tracklist (même
+  // granularité que la barre du lecteur) ; ne PAS déclarer seekbackward/seekforward, qui
+  // remplacent next/prev sur certaines UI Android.
+  //
+  // Les handlers sont enregistrés UNE FOIS par session active et lisent les callbacks du
+  // rendu courant via une ref : les réenregistrer à chaque changement de segment passait
+  // par un état « handler retiré » qui faisait clignoter les boutons de la notification
+  // Android à chaque fin de phrase.
+  const msActionsRef = useRef({ toggle, next, prev, seekFraction, close, segCount: 0 });
+  msActionsRef.current = { toggle, next, prev, seekFraction, close, segCount: state.segments.length };
   useEffect(() => {
     if (!state.active) return;
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
     const ms = navigator.mediaSession;
+    ms.setActionHandler("play", () => msActionsRef.current.toggle());
+    ms.setActionHandler("pause", () => msActionsRef.current.toggle());
+    ms.setActionHandler("nexttrack", () => msActionsRef.current.next());
+    ms.setActionHandler("previoustrack", () => msActionsRef.current.prev());
+    try {
+      ms.setActionHandler("seekto", (d) => {
+        const n = msActionsRef.current.segCount;
+        if (d.seekTime != null && n > 0) msActionsRef.current.seekFraction(d.seekTime / n);
+      });
+    } catch {
+      /* action non supportée */
+    }
+    try {
+      ms.setActionHandler("stop", () => msActionsRef.current.close());
+    } catch {
+      /* action non supportée */
+    }
+    return () => {
+      for (const a of ["play", "pause", "nexttrack", "previoustrack", "seekto", "stop"] as const) {
+        try {
+          ms.setActionHandler(a, null);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, [state.active]);
+
+  // Métadonnées de la notification : seulement quand le titre change (les reposer à
+  // chaque segment rafraîchissait aussi la notification inutilement).
+  useEffect(() => {
+    if (!state.active) return;
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
     const base = import.meta.env.BASE_URL;
     try {
-      ms.metadata = new MediaMetadata({
+      navigator.mediaSession.metadata = new MediaMetadata({
         title: state.title || "Lecture",
         artist: "Learn Japan",
         // PNG raster requis (le SVG est ignoré par les notifications média Android).
@@ -587,35 +642,15 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     } catch {
       /* MediaMetadata indisponible */
     }
-    ms.setActionHandler("play", () => toggle());
-    ms.setActionHandler("pause", () => toggle());
-    ms.setActionHandler("nexttrack", () => next());
-    ms.setActionHandler("previoustrack", () => prev());
-    const n = state.segments.length;
-    try {
-      ms.setActionHandler("seekto", (d) => {
-        if (d.seekTime != null && n > 0) seekFraction(d.seekTime / n);
-      });
-    } catch {
-      /* action non supportée */
-    }
-    try {
-      ms.setActionHandler("stop", () => close());
-    } catch {
-      /* action non supportée */
-    }
-    ms.playbackState = state.playing ? "playing" : "paused";
+  }, [state.active, state.title]);
+
+  // État lecture/pause et position (recalés aussi au fil des segments).
+  useEffect(() => {
+    if (!state.active) return;
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
     pushPosRef.current();
-    return () => {
-      for (const a of ["play", "pause", "nexttrack", "previoustrack", "seekto", "stop"] as const) {
-        try {
-          ms.setActionHandler(a, null);
-        } catch {
-          /* ignore */
-        }
-      }
-    };
-  }, [state.active, state.playing, state.title, state.index, state.segments.length, toggle, next, prev, seekFraction, close]);
+  }, [state.active, state.playing, state.index, state.segments.length]);
 
   const api = useMemo<PodcastApi>(
     () => ({

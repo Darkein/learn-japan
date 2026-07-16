@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Lesson } from "./lessons";
 import { splitJaSentences } from "./kana";
 import {
+  activeTrackIndex,
   buildComprehensionAudio,
   buildPodcastScript,
   buildVocabQuizzes,
@@ -12,6 +13,8 @@ import {
   segmentParts,
   stripFurigana,
   titleSegment,
+  trackEntries,
+  type PodcastSegment,
 } from "./podcastScript";
 
 describe("splitJaSentences", () => {
@@ -359,5 +362,40 @@ describe("stripFurigana", () => {
   it("préserve les parenthèses qui ne sont pas du furigana (kanji ou latin)", () => {
     expect(stripFurigana("猫（ねこ, chat）")).toBe("猫（ねこ, chat）");
     expect(stripFurigana("東京（とうきょう）と大阪")).toBe("東京と大阪");
+  });
+});
+
+describe("trackEntries / activeTrackIndex", () => {
+  const seg = (id: string, chapter: PodcastSegment["chapter"], label?: string): PodcastSegment => ({
+    id,
+    chapter,
+    lang: "fr",
+    text: id,
+    label,
+  });
+  const segments = [
+    seg("s0", "cours", "Cours"),
+    seg("s1", "cours"), // sans label : ignoré
+    seg("s2", "quiz", "Quiz"),
+    seg("s3", "quiz", "Quiz"), // même label consécutif : fusionné
+    seg("s4", "histoire", "Il était une fois…"),
+  ];
+
+  it("fusionne les labels consécutifs identiques et ignore les segments sans label", () => {
+    expect(trackEntries(segments).map((t) => t.i)).toEqual([0, 2, 4]);
+  });
+
+  it("ne fusionne pas un même label dans deux chapitres différents", () => {
+    const s = [seg("a", "cours", "X"), seg("b", "quiz", "X")];
+    expect(trackEntries(s).map((t) => t.i)).toEqual([0, 1]);
+  });
+
+  it("élément actif = dernier élément commencé avant la position courante", () => {
+    const tracks = trackEntries(segments);
+    expect(activeTrackIndex(tracks, 0)).toBe(0);
+    expect(activeTrackIndex(tracks, 1)).toBe(0); // segment sans label : rattaché à l'élément précédent
+    expect(activeTrackIndex(tracks, 3)).toBe(1); // s3 fusionné dans l'élément Quiz
+    expect(activeTrackIndex(tracks, 4)).toBe(2);
+    expect(activeTrackIndex([], 3)).toBe(-1);
   });
 });

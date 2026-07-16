@@ -3,7 +3,7 @@
 // une tracklist repliable (chapitres Cours / Quiz / Histoire) où l'on peut sauter.
 
 import { useRef, useState } from "react";
-import type { PodcastSegment } from "../lib/podcastScript";
+import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { navigate, useHashRoute } from "./useHashRoute";
@@ -60,28 +60,11 @@ export function PodcastPlayer() {
   const current = p.segments[p.index];
   const chapter = current ? CHAPTER_LABEL[current.chapter] : "";
 
-  // Tracklist compacte : un seul item par label distinct (labels consécutifs identiques fusionnés).
-  // Les segments sans label et les doublons consécutifs sont ignorés. Sert à la fois à la liste
-  // dépliable et à la navigation précédent/suivant (par élément, pas par segment brut).
-  const tracks: { seg: PodcastSegment; i: number }[] = [];
-  for (let i = 0; i < p.segments.length; i++) {
-    const seg = p.segments[i];
-    if (!seg.label) continue;
-    const prevTrack = tracks[tracks.length - 1];
-    if (prevTrack && prevTrack.seg.label === seg.label && prevTrack.seg.chapter === seg.chapter) continue;
-    tracks.push({ seg, i });
-  }
-  // Item actif = dernier track dont l'index segment ≤ position courante.
-  const activeTrackIdx = tracks.length ? tracks.reduce((found, t, ti) => (t.i <= p.index ? ti : found), 0) : -1;
-
-  function goToTrack(delta: 1 | -1) {
-    if (!tracks.length) {
-      delta > 0 ? p.next() : p.prev();
-      return;
-    }
-    const targetTi = Math.min(tracks.length - 1, Math.max(0, activeTrackIdx + delta));
-    p.jumpTo(tracks[targetTi].i);
-  }
+  // Tracklist compacte (lib/podcastScript.ts) : un item par label distinct. La navigation
+  // précédent/suivant à cette granularité vit dans le hook (p.next/p.prev), partagée avec
+  // les commandes média OS ; ici on ne s'en sert que pour la liste dépliable.
+  const tracks = trackEntries(p.segments);
+  const activeTrackIdx = activeTrackIndex(tracks, p.index);
 
   function seekAtClientX(clientX: number, rect: DOMRect) {
     const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
@@ -258,12 +241,7 @@ export function PodcastPlayer() {
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex shrink-0 items-center gap-3">
-            <Button
-              size="icon"
-              onClick={() => goToTrack(-1)}
-              disabled={!!p.preparing}
-              aria-label="Élément précédent"
-            >
+            <Button size="icon" onClick={p.prev} disabled={!!p.preparing} aria-label="Élément précédent">
               <IconPrev />
             </Button>
             <Button
@@ -275,12 +253,7 @@ export function PodcastPlayer() {
             >
               {p.playing ? <IconPause /> : <IconPlay />}
             </Button>
-            <Button
-              size="icon"
-              onClick={() => goToTrack(1)}
-              disabled={!!p.preparing}
-              aria-label="Élément suivant"
-            >
+            <Button size="icon" onClick={p.next} disabled={!!p.preparing} aria-label="Élément suivant">
               <IconNext />
             </Button>
           </div>
