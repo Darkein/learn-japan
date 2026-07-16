@@ -69,6 +69,9 @@ export function PodcastPlayer() {
     () => typeof window !== "undefined" && localStorage.getItem(REDUCED_KEY) === "1",
   );
   const [sheet, setSheet] = useState<SheetState>("closed");
+  // Affichage des chapitres/segments de la piste en cours dans la liste (repliable via un
+  // chevron sur la piste courante).
+  const [showTracks, setShowTracks] = useState(true);
   // Hauteur du tiroir pendant un glissement (null = calée sur le point d'ancrage `sheet`).
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [vh, setVh] = useState<number>(() => (typeof window !== "undefined" ? window.innerHeight : 800));
@@ -346,23 +349,35 @@ export function PodcastPlayer() {
                             </span>
                             {item.title}
                           </button>
-                          {!isCurrent && (
-                            <button
-                              className="shrink-0 cursor-pointer text-muted hover:text-accent"
-                              aria-label="Retirer de la file"
-                              onClick={() => p.removeFromQueue(qi)}
-                            >
-                              <IconClose size={14} />
-                            </button>
-                          )}
+                          {isCurrent
+                            ? tracks.length > 0 && (
+                                <button
+                                  className="shrink-0 cursor-pointer text-muted hover:text-accent"
+                                  aria-expanded={showTracks}
+                                  aria-label={showTracks ? "Masquer les chapitres" : "Afficher les chapitres"}
+                                  title={showTracks ? "Masquer le contenu de la piste" : "Afficher le contenu de la piste"}
+                                  onClick={() => setShowTracks((v) => !v)}
+                                >
+                                  {showTracks ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
+                                </button>
+                              )
+                            : (
+                                <button
+                                  className="shrink-0 cursor-pointer text-muted hover:text-accent"
+                                  aria-label="Retirer de la file"
+                                  onClick={() => p.removeFromQueue(qi)}
+                                >
+                                  <IconClose size={14} />
+                                </button>
+                              )}
                         </li>
                       );
                     })}
                   </ol>
                 )}
 
-                {/* Chapitres de la piste courante */}
-                {tracks.length > 0 && (
+                {/* Chapitres de la piste courante (repliables via le chevron de la piste en cours) */}
+                {showTracks && tracks.length > 0 && (
                   <ol className="list-none rounded-sm border border-hairline">
                     {tracks.map(({ seg, i }, ti) => {
                       const isCurrent = ti === activeTrackIdx;
