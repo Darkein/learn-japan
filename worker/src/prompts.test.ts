@@ -322,56 +322,46 @@ describe("buildVocabExamplesPrompt", () => {
   });
 });
 
-describe("buildMnemonicPrompt", () => {
-  it("routé par composePrompt, expose les métadonnées et exige les 3 axes étiquetés", () => {
+describe("buildMnemonicPrompt (lot)", () => {
+  it("numérote le lot, expose les métadonnées et impose le format « N. lec || sens || forme »", () => {
     const prompt = composePrompt({
       kind: "mnemonic",
-      kanji: "日",
-      fr: "jour, soleil",
-      meanings: ["Day", "Sun"],
-      on: ["にち", "じつ"],
-      kun: ["ひ"],
-      strokes: 4,
+      items: [
+        { ja: "日", fr: "jour, soleil", on: ["にち", "じつ"], kun: ["ひ"], strokes: 4 },
+        { ja: "一", fr: "un", on: ["いち"], kun: ["ひと"] },
+      ],
     });
-    expect(prompt).toContain("日");
-    expect(prompt).toContain("jour, soleil"); // ancre française
-    expect(prompt).toContain("Day, Sun"); // référence anglaise conservée
-    expect(prompt).toContain("にち、じつ");
-    expect(prompt).toContain("Traits : 4");
-    expect(prompt).toContain("LECTURE: OBLIGATOIRE"); // cheville sonore renforcée
-    expect(prompt).toContain("SENS:");
-    expect(prompt).toContain("FORME:");
+    expect(prompt).toContain("2 kanji");
+    expect(prompt).toContain("1. 日 — sens: jour, soleil");
+    expect(prompt).toContain("on: にち、じつ");
+    expect(prompt).toContain("traits: 4");
+    expect(prompt).toContain("2. 一 — sens: un");
+    expect(prompt).toContain("lecture || sens || forme");
     expect(prompt).toContain("EN FRANÇAIS");
   });
 
-  it("reste sûr sans métadonnées (kanji seul)", () => {
-    const prompt = composePrompt({ kind: "mnemonic", kanji: "水" });
-    expect(prompt).toContain("水");
-    expect(prompt).toContain("FORME:");
+  it("borne le lot à mnemonicItemsList (15)", () => {
+    const items = Array.from({ length: 30 }, (_, i) => ({ ja: `字${i}`, fr: `sens${i}` }));
+    const prompt = composePrompt({ kind: "mnemonic", items });
+    expect(prompt).toContain("15 kanji");
+    expect(prompt).not.toContain("字20");
   });
 });
 
-describe("buildWordMnemonicPrompt", () => {
-  it("routé par composePrompt, ancre le sens FR, la lecture entière et la composition", () => {
+describe("buildWordMnemonicPrompt (lot)", () => {
+  it("numérote le lot, ancre le sens FR, la lecture et la composition", () => {
     const prompt = composePrompt({
       kind: "word-mnemonic",
-      word: "勉強",
-      yomi: "べんきょう",
-      fr: "étudier",
-      components: ["勉 = effort", "強 = fort"],
+      items: [{ ja: "勉強", yomi: "べんきょう", fr: "étudier", components: ["勉 = effort", "強 = fort"] }],
     });
-    expect(prompt).toContain("Mot : 勉強");
-    expect(prompt).toContain("べんきょう");
-    expect(prompt).toContain("étudier");
-    expect(prompt).toContain("勉 = effort ; 強 = fort");
-    expect(prompt).toContain("LECTURE: OBLIGATOIRE");
-    expect(prompt).toContain("FORME:");
+    expect(prompt).toContain("1. 勉強 (べんきょう) — sens: étudier");
+    expect(prompt).toContain("kanji: 勉 = effort, 強 = fort");
+    expect(prompt).toContain("lecture || sens || composition");
     expect(prompt).toContain("EN FRANÇAIS");
   });
 
   it("reste sûr sans composants (mot mono-kanji ou kana)", () => {
-    const prompt = composePrompt({ kind: "word-mnemonic", word: "ねこ", fr: "chat" });
-    expect(prompt).toContain("Mot : ねこ");
-    expect(prompt).toContain("chat");
+    const prompt = composePrompt({ kind: "word-mnemonic", items: [{ ja: "ねこ", fr: "chat" }] });
+    expect(prompt).toContain("1. ねこ — sens: chat");
   });
 });

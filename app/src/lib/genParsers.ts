@@ -10,7 +10,7 @@ export interface StoryTranslation {
   sentences: string[];
 }
 
-/** Moyens mnémotechniques d'un kanji sur trois axes (lecture / sens / forme). */
+/** Moyens mnémotechniques (kanji ou mot) sur trois axes. Pour un mot, `form` = composition. */
 export interface Mnemonic {
   reading: string;
   meaning: string;
@@ -18,24 +18,27 @@ export interface Mnemonic {
 }
 
 /**
- * Extrait les trois axes d'un moyen mnémotechnique (lignes étiquetées LECTURE:/SENS:/FORME:,
- * cf. buildMnemonicPrompt côté Worker). Renvoie null si aucune étiquette exploitable — on
- * préfère ne rien embarquer qu'une donnée douteuse. Robuste au bruit : accepte `:` ou `：`,
- * tolère un préfixe de puce.
+ * Extrait un LOT de mnémotechniques d'une réponse « N. lecture || sens || forme » (une ligne
+ * par élément, cf. buildMnemonicPrompt / buildWordMnemonicPrompt côté Worker). Renvoie un
+ * tableau de longueur `n`, aligné sur l'ordre demandé ; case null si la ligne manque ou est
+ * vide (on préfère un trou à une donnée douteuse). Robuste au bruit : ignore les lignes non
+ * numérotées, tolère un 4ᵉ champ surnuméraire (rattaché à la forme).
  */
-export function parseMnemonic(raw: string): Mnemonic | null {
-  const grab = (label: string): string => {
-    for (const line of raw.split(/\r?\n/)) {
-      const m = line.match(new RegExp(`^\\s*[-*•]?\\s*${label}\\s*[:：]\\s*(.+)$`, "i"));
-      if (m) return m[1].trim();
-    }
-    return "";
-  };
-  const reading = grab("LECTURE");
-  const meaning = grab("SENS");
-  const form = grab("FORME");
-  if (!reading && !meaning && !form) return null;
-  return { reading, meaning, form };
+export function parseMnemonicBatch(raw: string, n: number): (Mnemonic | null)[] {
+  const out: (Mnemonic | null)[] = new Array(n).fill(null);
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*(\d+)\s*[.．)]\s*(.+)$/);
+    if (!m) continue;
+    const idx = Number(m[1]) - 1;
+    if (idx < 0 || idx >= n || out[idx]) continue;
+    const parts = m[2].split("||").map((s) => s.trim());
+    const reading = parts[0] ?? "";
+    const meaning = parts[1] ?? "";
+    const form = parts.slice(2).join(" ").trim(); // 3ᵉ champ (+ surplus éventuel)
+    if (!reading && !meaning && !form) continue;
+    out[idx] = { reading, meaning, form };
+  }
+  return out;
 }
 
 /** Extrait le titre et les N traductions du texte renvoyé par le modèle (robuste au bruit). */

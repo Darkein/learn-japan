@@ -1,8 +1,8 @@
-// Corpus statique de moyens mnémotechniques — un jeu {lecture, sens, forme} par kanji de
-// l'inventaire. Généré via le Worker (kind "mnemonic", cache R2 → relances gratuites), puis
-// écrit dans app/src/data/inventory/kanji-mnemonics.json — fichier FRÈRE de kanji.json (que
-// build-inventory.ts régénère et écraserait). Reprise : les entrées déjà présentes sont
-// sautées (sauf --refresh). Le rendu (fiche kanji) fusionne ce fichier à l'exécution.
+// Corpus statique de moyens mnémotechniques KANJI — un jeu {lecture, sens, forme} par kanji
+// de l'inventaire. Généré PAR LOTS via le Worker (kind "mnemonic", un appel pour ~BATCH kanji,
+// cache R2 → relances gratuites), écrit dans app/src/data/inventory/kanji-mnemonics.json
+// (frère de kanji.json). Reprise : les entrées présentes sont sautées (sauf --refresh). Le
+// rendu (fiche kanji) fusionne ce fichier à l'exécution.
 //
 //   npm run data:mnemonics                       # tous les kanji de l'inventaire
 //   npm run data:mnemonics -- --level 5          # seulement les kanji N5
@@ -10,11 +10,11 @@
 //   npm run data:mnemonics -- --refresh          # ignore le cache R2 ET les entrées existantes
 //   WORKER_URL=https://… npm run data:mnemonics  # cibler un autre Worker
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseMnemonic, type Mnemonic } from "../app/src/lib/genParsers";
-import { createProgressBar } from "./progress";
+import type { Mnemonic } from "../app/src/lib/genParsers";
+import { generateBatched } from "./generate-batched";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const INV = join(ROOT, "app", "src", "data", "inventory");
@@ -27,7 +27,9 @@ const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-jap
   "",
 );
 
-/** Espacement entre requêtes : évite les 429 du fournisseur (aligné sur GEN_GAP_MS client). */
+/** Taille d'un lot : aligné sur LIMITS.mnemonicItemsList côté Worker. */
+const BATCH = 15;
+/** Espacement entre lots : évite les 429 du fournisseur. */
 const GAP_MS = 1000;
 
 interface KanjiInvEntry {
@@ -41,33 +43,6 @@ interface KanjiInvEntry {
 }
 
 const kanjiAll = read<KanjiInvEntry[]>(join(INV, "kanji.json"));
-
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-/** Un moyen mnémotechnique pour un kanji, ou null si le Worker ne renvoie rien d'exploitable. */
-async function generate(k: KanjiInvEntry, refresh: boolean): Promise<Mnemonic | null> {
-  const body = {
-    kind: "mnemonic",
-    kanji: k.id,
-    fr: k.fr, // traduction française curée — ancre du sens côté prompt
-    meanings: k.meanings,
-    on: k.on ?? [],
-    kun: k.kun ?? [],
-    strokes: k.strokes,
-    ...(refresh ? { refresh: true } : {}),
-  };
-  const res = await fetch(`${WORKER_URL}/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
-  if (!res.ok || data.error || !data.text) throw new Error(data.error ?? `HTTP ${res.status}`);
-  if (data.text.startsWith("【stub】")) {
-    throw new Error("le Worker répond un stub : aucune clé configurée côté Worker (TOGETHER_API_KEY)");
-  }
-  return parseMnemonic(data.text);
-}
 
 interface Args {
   level?: number;
@@ -86,8 +61,7 @@ function parseArgs(argv: string[]): Args {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  // Efface la vue (les lignes « > … » que npm imprime avant le script) pour partir sur un
-  // écran propre. TTY uniquement (n'affecte pas les logs CI) ; le scrollback est préservé.
+  // Efface la vue (les lignes « > … » de npm) pour partir sur un écran propre — TTY only.
   if (process.stdout.isTTY) process.stdout.write("\x1b[2J\x1b[H");
   let pool = kanjiAll;
   if (args.level) pool = pool.filter((k) => k.level === args.level);
@@ -98,52 +72,32 @@ async function main(): Promise<void> {
 
   console.log(`Worker : ${WORKER_URL}`);
   console.log(
-    `Kanji : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""}`,
+    `Kanji : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""} — lots de ${BATCH}`,
   );
 
-  const total = pool.length;
-  // Ratés collectés pour être listés À LA FIN : les afficher pendant le run casserait la barre.
-  const problems: string[] = [];
-  // ETA sur les kanji RÉELLEMENT générés (hors repris, qui « avancent » instantanément).
-  const toProcess = args.refresh ? total : pool.filter((k) => !results[k.id]).length;
-  const bar = createProgressBar(total, toProcess);
+  await generateBatched<KanjiInvEntry>({
+    items: pool,
+    idOf: (k) => k.id,
+    labelOf: (k) => k.id,
+    toBody: (batch) => ({
+      kind: "mnemonic",
+      items: batch.map((k) => ({
+        ja: k.id,
+        fr: k.fr ?? k.meanings[0] ?? "",
+        on: k.on ?? [],
+        kun: k.kun ?? [],
+        strokes: k.strokes,
+      })),
+    }),
+    results,
+    outPath: OUT,
+    workerUrl: WORKER_URL,
+    refresh: args.refresh,
+    batchSize: BATCH,
+    gapMs: GAP_MS,
+  });
 
-  for (const k of pool) {
-    bar.preview(k.id); // feedback immédiat pendant l'appel réseau
-    if (!args.refresh && results[k.id]) {
-      bar.tick("skipped", k.id);
-      continue;
-    }
-    try {
-      const m = await generate(k, args.refresh);
-      if (m) {
-        results[k.id] = m;
-        bar.tick("ok", k.id);
-      } else {
-        problems.push(`⚠ ${k.id} — réponse non exploitable`);
-        bar.tick("empty", k.id);
-      }
-    } catch (e) {
-      problems.push(`✗ ${k.id} — ${String(e)}`);
-      bar.tick("failed", k.id);
-    }
-    // Sauvegarde incrémentale : une interruption ne perd pas le travail déjà fait.
-    writeFileSync(OUT, JSON.stringify(results, null, 1) + "\n");
-    await sleep(GAP_MS);
-  }
-
-  bar.finish();
-
-  if (problems.length) {
-    console.log(`\n${problems.length} problème(s) :`);
-    for (const p of problems) console.log(`  ${p}`);
-  }
-  const { ok, skipped, empty, failed } = bar.stats;
-  console.log(
-    `\nTerminé — ${ok} générés, ${skipped} déjà présents, ${empty} vides, ${failed} échecs.`,
-  );
-  console.log(`Corpus : ${Object.keys(results).length} entrées → ${OUT}`);
-  if (ok === 0 && Object.keys(results).length === 0) process.exit(1);
+  if (Object.keys(results).length === 0) process.exit(1);
 }
 
 main().catch((e) => {

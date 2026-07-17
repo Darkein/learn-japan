@@ -13,6 +13,24 @@ export interface VocabItem {
   fr: string;
 }
 
+/** Un élément d'un lot de mnémotechniques (kanji OU mot) avec ses métadonnées. */
+export interface MnemonicItem {
+  /** Le kanji, ou la surface du mot. */
+  ja: string;
+  /** Lecture du mot (absente pour un kanji, qui porte on/kun). */
+  yomi?: string;
+  /** Traduction française curée — ancre du sens. */
+  fr: string;
+  /** Lectures on (kanji). */
+  on?: string[];
+  /** Lectures kun (kanji). */
+  kun?: string[];
+  /** Nombre de traits (kanji). */
+  strokes?: number;
+  /** Mot : glose « 漢字 = sens » de chaque kanji (matière à la composition). */
+  components?: string[];
+}
+
 export type GenKind =
   | "story"
   | "lesson"
@@ -47,19 +65,9 @@ export interface GenerateRequest {
   sentences?: string[];
   // kind: "vocab-examples" — lexique déjà connu à privilégier dans les phrases.
   allowedVocab?: string[];
-  // kind: "mnemonic" — un kanji et ses métadonnées KANJIDIC (le Worker n'a pas d'inventaire).
-  kanji?: string;
-  /** Traduction française curée (ancre du sens, prioritaire sur `meanings` anglais). */
-  fr?: string;
-  meanings?: string[];
-  on?: string[];
-  kun?: string[];
-  strokes?: number;
-  components?: string[];
-  // kind: "word-mnemonic" — un mot (surface + lecture), `fr` = sens, `components` = glose
-  // « 漢字 = sens » de chaque kanji du mot (matière à l'axe composition).
-  word?: string;
-  yomi?: string;
+  // kind: "mnemonic" / "word-mnemonic" — LOT d'éléments (kanji ou mots) traités en UN appel,
+  // chacun avec ses métadonnées (le Worker n'a pas d'inventaire).
+  items?: MnemonicItem[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
   variant?: number;
@@ -84,15 +92,13 @@ const LIMITS = {
   exampleVocabList: 20,
   allowedVocabList: 400,
   allowedVocabItem: 40,
-  // kind: "mnemonic" / "word-mnemonic" — un kanji ou un mot + ses lectures/sens/composants.
-  kanjiChar: 4,
+  // kind: "mnemonic" / "word-mnemonic" — lot d'éléments + leurs lectures/sens/composants.
+  mnemonicItemsList: 15,
   frMeaning: 80,
   wordSurface: 40,
   wordReading: 60,
   readingList: 12,
   readingItem: 24,
-  meaningList: 12,
-  meaningItem: 60,
   componentList: 12,
   componentItem: 24,
   // Illustration : le texte d'histoire déjà généré sert de contexte de scène. Borne large
@@ -170,6 +176,26 @@ function cleanVocab(value: unknown): VocabItem[] {
       };
     })
     .filter((v) => v.ja || v.fr);
+}
+
+/** Assainit un lot d'éléments de mnémotechnique (kanji ou mots) : nombre et champs bornés. */
+function cleanMnemonicItems(value: unknown): MnemonicItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, LIMITS.mnemonicItemsList)
+    .map((v) => {
+      const it = (v ?? {}) as Record<string, unknown>;
+      return {
+        ja: clean(it.ja, LIMITS.wordSurface),
+        yomi: it.yomi != null ? clean(it.yomi, LIMITS.wordReading) : undefined,
+        fr: clean(it.fr, LIMITS.frMeaning),
+        on: cleanList(it.on, LIMITS.readingList, LIMITS.readingItem),
+        kun: cleanList(it.kun, LIMITS.readingList, LIMITS.readingItem),
+        strokes: cleanOrder(it.strokes) || undefined,
+        components: cleanList(it.components, LIMITS.componentList, LIMITS.componentItem),
+      } satisfies MnemonicItem;
+    })
+    .filter((it) => it.ja);
 }
 
 // ---------- Gabarits ---------------------------------------------------------
@@ -441,91 +467,75 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
 }
 
 /**
- * Moyens mnémotechniques pour UN kanji, sur trois axes : la LECTURE (associer la lecture
- * on/kun à un son mémorable), le SENS, et la FORME (histoire d'images à partir des traits
- * et des composants). Corpus statique généré au build par scripts/build-mnemonics.ts.
- * Toutes les métadonnées du kanji sont fournies dans le corps (le Worker n'a pas d'inventaire).
- * Sortie à lignes étiquetées `LECTURE:` / `SENS:` / `FORME:` (parsée côté client, parseMnemonic).
+ * Moyens mnémotechniques pour un LOT de kanji, sur trois axes : LECTURE (associer une lecture
+ * on/kun à un son mémorable), SENS, FORME (histoire d'images à partir des traits/composants).
+ * Corpus statique généré au build par scripts/build-mnemonics.ts. Métadonnées fournies dans le
+ * corps (le Worker n'a pas d'inventaire). Sortie : UNE ligne par kanji « N. lecture || sens ||
+ * forme » (parsée côté client, parseMnemonicBatch) — un seul appel LLM pour tout le lot.
  */
 export function buildMnemonicPrompt(r: GenerateRequest): string {
-  const kanji = clean(r.kanji, LIMITS.kanjiChar);
-  const fr = clean(r.fr, LIMITS.frMeaning);
-  const meanings = cleanList(r.meanings, LIMITS.meaningList, LIMITS.meaningItem);
-  const on = cleanList(r.on, LIMITS.readingList, LIMITS.readingItem);
-  const kun = cleanList(r.kun, LIMITS.readingList, LIMITS.readingItem);
-  const components = cleanList(r.components, LIMITS.componentList, LIMITS.componentItem);
-  const strokes = cleanOrder(r.strokes); // 0 si absent ; borné 1..999
-
-  const facts = [
-    `Kanji : ${kanji}`,
-    // Le sens FRANÇAIS est l'ancre : c'est ce que l'apprenant apprend. L'anglais KANJIDIC
-    // n'est qu'une référence de désambiguïsation.
-    fr ? `Sens (français, à utiliser) : ${fr}` : "",
-    meanings.length ? `Sens (référence anglaise) : ${meanings.join(", ")}` : "",
-    on.length ? `Lectures on : ${on.join("、")}` : "",
-    kun.length ? `Lectures kun : ${kun.join("、")}` : "",
-    strokes ? `Traits : ${strokes}` : "",
-    components.length ? `Composants visibles : ${components.join("、")}` : "",
-  ].filter(Boolean);
+  const items = cleanMnemonicItems(r.items);
+  const numbered = items
+    .map((it, i) => {
+      const meta = [
+        it.fr ? `sens: ${it.fr}` : "",
+        it.on?.length ? `on: ${it.on.join("、")}` : "",
+        it.kun?.length ? `kun: ${it.kun.join("、")}` : "",
+        it.strokes ? `traits: ${it.strokes}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ; ");
+      return `${i + 1}. ${it.ja}${meta ? ` — ${meta}` : ""}`;
+    })
+    .join("\n");
 
   return [
     "Tu es un professeur de japonais qui aide des francophones à mémoriser les kanji.",
-    `Propose des moyens mnémotechniques EN FRANÇAIS pour le kanji ci-dessous.`,
-    "Ancre le SENS sur la traduction française fournie (pas sur l'anglais).",
-    ...facts,
+    `Voici ${items.length} kanji, un par ligne numérotée (avec leur sens français et leurs lectures) :`,
+    numbered,
     "",
-    "Donne EXACTEMENT trois lignes, chacune préfixée par son étiquette, rien d'autre :",
-    // La cheville sonore est le point faible à renforcer : on impose une lecture précise en
-    // hiragana + un accroche-son français relié au sens, avec un exemple pour cadrer le style.
-    "LECTURE: OBLIGATOIRE, jamais vide. Choisis la lecture la plus utile (donne-la en hiragana), puis relie ce SON à un mot ou une image en français, et rattache-le au sens. Exemple pour 飲 (のむ, « boire ») : « のむ “nomu” sonne comme un nomade assoiffé qui boit ». Si aucun rapprochement sonore n'est net, invente une petite phrase française qui contient le son de la lecture.",
-    "SENS: une astuce courte pour retenir le sens FRANÇAIS du kanji.",
-    "FORME: une petite histoire visuelle reliant les traits ou les composants au sens (façon « histoire d'images »).",
+    "Pour CHAQUE kanji, propose trois moyens mnémotechniques EN FRANÇAIS, en ancrant le sens sur la traduction française fournie :",
+    "- LECTURE : relie le SON de la lecture la plus utile (en hiragana) à un mot ou une image en français, rattaché au sens ; jamais vide. Si aucun rapprochement n'est net, invente une petite phrase française contenant ce son.",
+    "- SENS : une astuce courte pour retenir le sens français.",
+    "- FORME : une petite histoire visuelle reliant les traits ou composants au sens (sans inventer d'étymologie douteuse).",
     "",
-    "Chaque ligne : une seule phrase concise (25 mots maximum), concrète et imagée, en français.",
-    "Appuie-toi sur des faits établis ; si un composant est incertain, reste sur la forme visible sans inventer d'étymologie douteuse.",
-    "N'ajoute ni titre, ni puce, ni ligne vide, ni commentaire — seulement les trois lignes étiquetées.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+    "Format STRICT, une ligne par kanji, dans l'ordre, sans aucune autre ligne :",
+    "« N. lecture || sens || forme » (le séparateur entre les trois champs est exactement « || »).",
+    "Exemple de format : 1. accroche sonore de la lecture || astuce pour le sens || histoire de la forme",
+    "Chaque champ : une phrase concise (20 mots maximum), concrète et imagée, en français. Pas de puce, pas de ligne vide, pas de romaji superflu.",
+  ].join("\n");
 }
 
 /**
- * Moyens mnémotechniques pour UN MOT (vocabulaire), sur trois axes : LECTURE (cheville
- * sonore de la lecture entière), SENS (traduction française), et COMPOSITION (comment les
- * kanji du mot se combinent pour donner le sens). Réutilise le format à lignes étiquetées
- * LECTURE:/SENS:/FORME: (même parser que le mnémo kanji) — l'UI affiche « FORME » comme
- * « Composition » pour un mot. Sortie EN FRANÇAIS.
+ * Moyens mnémotechniques pour un LOT de MOTS, sur trois axes : LECTURE (cheville sonore de la
+ * lecture entière), SENS (traduction française), COMPOSITION (comment les kanji se combinent).
+ * Réutilise le même format « N. lecture || sens || forme » et le même parser que le mnémo
+ * kanji — l'UI affiche « FORME » comme « Composition » pour un mot. Un seul appel LLM par lot.
  */
 export function buildWordMnemonicPrompt(r: GenerateRequest): string {
-  const word = clean(r.word, LIMITS.wordSurface);
-  const yomi = clean(r.yomi, LIMITS.wordReading);
-  const fr = clean(r.fr, LIMITS.frMeaning);
-  // `components` = glose « 漢字 = sens » de chaque kanji du mot (matière à la composition).
-  const components = cleanList(r.components, LIMITS.componentList, LIMITS.componentItem);
-
-  const facts = [
-    `Mot : ${word}`,
-    yomi ? `Lecture : ${yomi}` : "",
-    fr ? `Sens (français, à utiliser) : ${fr}` : "",
-    components.length ? `Kanji qui le composent : ${components.join(" ; ")}` : "",
-  ].filter(Boolean);
+  const items = cleanMnemonicItems(r.items);
+  const numbered = items
+    .map((it, i) => {
+      const reading = it.yomi && it.yomi !== it.ja ? ` (${it.yomi})` : "";
+      const comp = it.components?.length ? ` ; kanji: ${it.components.join(", ")}` : "";
+      return `${i + 1}. ${it.ja}${reading} — sens: ${it.fr}${comp}`;
+    })
+    .join("\n");
 
   return [
     "Tu es un professeur de japonais qui aide des francophones à mémoriser le vocabulaire.",
-    "Propose des moyens mnémotechniques EN FRANÇAIS pour le MOT ci-dessous. Ancre le SENS sur la traduction française fournie.",
-    ...facts,
+    `Voici ${items.length} mots, un par ligne numérotée (avec leur lecture, leur sens français et les kanji qui les composent) :`,
+    numbered,
     "",
-    "Donne EXACTEMENT trois lignes, chacune préfixée par son étiquette, rien d'autre :",
-    "LECTURE: OBLIGATOIRE, jamais vide. Relie le SON de la lecture ENTIÈRE du mot (donnée ci-dessus) à un mot ou une image en français, et rattache-le au sens. Exemple pour 勉強 (べんきょう, « étudier ») : « benkyou → “bien, écoute !” quand on étudie ». Si aucun rapprochement n'est net, invente une petite phrase française qui contient le son de la lecture.",
-    "SENS: une astuce courte pour retenir le sens FRANÇAIS du mot.",
-    "FORME: si le mot a plusieurs kanji, explique comment leurs sens se combinent pour donner celui du mot (ex. 勉 « effort » + 強 « fort » → étudier avec effort) ; s'il n'a qu'un kanji ou aucun, laisse cette ligne vide après l'étiquette.",
+    "Pour CHAQUE mot, propose trois moyens mnémotechniques EN FRANÇAIS, en ancrant le sens sur la traduction française fournie :",
+    "- LECTURE : relie le SON de la lecture ENTIÈRE du mot à un mot ou une image en français, rattaché au sens ; jamais vide. Ex. 勉強 (べんきょう, étudier) → « bien, écoute ! ». Si aucun rapprochement n'est net, invente une petite phrase française contenant ce son.",
+    "- SENS : une astuce courte pour retenir le sens français du mot.",
+    "- COMPOSITION : si plusieurs kanji, comment leurs sens se combinent (勉 effort + 強 fort → étudier avec effort) ; si un seul kanji ou aucun, laisse ce champ vide.",
     "",
-    "Chaque ligne : une seule phrase concise (25 mots maximum), concrète et imagée, en français.",
-    "Appuie-toi sur des faits établis ; n'invente pas d'étymologie douteuse.",
-    "N'ajoute ni titre, ni puce, ni ligne vide, ni commentaire — seulement les trois lignes étiquetées.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+    "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne :",
+    "« N. lecture || sens || composition » (le séparateur entre les trois champs est exactement « || »).",
+    "Chaque champ : une phrase concise (20 mots maximum), en français. Pas de puce, pas de ligne vide.",
+  ].join("\n");
 }
 
 // ---------- Illustration d'histoire (ukiyo-e) --------------------------------

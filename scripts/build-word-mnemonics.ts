@@ -1,9 +1,9 @@
 // Corpus statique de moyens mnémotechniques par MOT (vocabulaire) — un jeu {lecture, sens,
-// composition} par mot de l'inventaire. Généré via le Worker (kind "word-mnemonic", cache R2
-// → relances gratuites), écrit dans app/src/data/inventory/vocab-mnemonics.json — fichier
-// FRÈRE de vocab.json. Reprise : les entrées présentes sont sautées (sauf --refresh). Le
-// rendu (fiche mot) fusionne ce fichier à l'exécution. Pendant complémentaire de
-// build-mnemonics.ts (niveau kanji).
+// composition} par mot de l'inventaire. Généré PAR LOTS via le Worker (kind "word-mnemonic",
+// un appel pour ~BATCH mots, cache R2 → relances gratuites), écrit dans
+// app/src/data/inventory/vocab-mnemonics.json (frère de vocab.json). Reprise : les entrées
+// présentes sont sautées (sauf --refresh). Le rendu (fiche mot) fusionne ce fichier à
+// l'exécution. Pendant complémentaire de build-mnemonics.ts (niveau kanji).
 //
 //   npm run data:word-mnemonics                       # tout le vocabulaire de l'inventaire
 //   npm run data:word-mnemonics -- --level 5          # seulement le vocab N5
@@ -11,11 +11,11 @@
 //   npm run data:word-mnemonics -- --refresh          # ignore le cache R2 ET les entrées existantes
 //   WORKER_URL=https://… npm run data:word-mnemonics  # cibler un autre Worker
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseMnemonic, type Mnemonic } from "../app/src/lib/genParsers";
-import { createProgressBar } from "./progress";
+import type { Mnemonic } from "../app/src/lib/genParsers";
+import { generateBatched } from "./generate-batched";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const INV = join(ROOT, "app", "src", "data", "inventory");
@@ -28,7 +28,9 @@ const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-jap
   "",
 );
 
-/** Espacement entre requêtes : évite les 429 du fournisseur (aligné sur GEN_GAP_MS client). */
+/** Taille d'un lot : aligné sur LIMITS.mnemonicItemsList côté Worker. */
+const BATCH = 15;
+/** Espacement entre lots : évite les 429 du fournisseur. */
 const GAP_MS = 1000;
 
 interface VocabInvEntry {
@@ -49,8 +51,6 @@ const vocabAll = read<VocabInvEntry[]>(join(INV, "vocab.json"));
 const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
 const kanjiById = new Map(read<KanjiInvEntry[]>(join(INV, "kanji.json")).map((k) => [k.id, k]));
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
 const frOf = (v: VocabInvEntry): string => v.fr ?? vocabFr[v.id] ?? v.meanings[0] ?? "";
 
 /** Glose « 漢字 = sens » de chaque kanji du mot (matière à l'axe composition). */
@@ -64,29 +64,6 @@ function kanjiGloss(surface: string): string[] {
     out.push(`${ch} = ${k?.fr ?? k?.meanings[0] ?? "?"}`);
   }
   return out;
-}
-
-/** Un moyen mnémotechnique pour un mot, ou null si le Worker ne renvoie rien d'exploitable. */
-async function generate(v: VocabInvEntry, refresh: boolean): Promise<Mnemonic | null> {
-  const body = {
-    kind: "word-mnemonic",
-    word: v.surface,
-    yomi: v.reading,
-    fr: frOf(v),
-    components: kanjiGloss(v.surface),
-    ...(refresh ? { refresh: true } : {}),
-  };
-  const res = await fetch(`${WORKER_URL}/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
-  if (!res.ok || data.error || !data.text) throw new Error(data.error ?? `HTTP ${res.status}`);
-  if (data.text.startsWith("【stub】")) {
-    throw new Error("le Worker répond un stub : aucune clé configurée côté Worker (TOGETHER_API_KEY)");
-  }
-  return parseMnemonic(data.text);
 }
 
 interface Args {
@@ -117,50 +94,31 @@ async function main(): Promise<void> {
 
   console.log(`Worker : ${WORKER_URL}`);
   console.log(
-    `Mots : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""}`,
+    `Mots : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""} — lots de ${BATCH}`,
   );
 
-  const total = pool.length;
-  const problems: string[] = [];
-  const toProcess = args.refresh ? total : pool.filter((v) => !results[v.id]).length;
-  const bar = createProgressBar(total, toProcess);
+  await generateBatched<VocabInvEntry>({
+    items: pool,
+    idOf: (v) => v.id,
+    labelOf: (v) => v.surface,
+    toBody: (batch) => ({
+      kind: "word-mnemonic",
+      items: batch.map((v) => ({
+        ja: v.surface,
+        yomi: v.reading,
+        fr: frOf(v),
+        components: kanjiGloss(v.surface),
+      })),
+    }),
+    results,
+    outPath: OUT,
+    workerUrl: WORKER_URL,
+    refresh: args.refresh,
+    batchSize: BATCH,
+    gapMs: GAP_MS,
+  });
 
-  for (const v of pool) {
-    bar.preview(v.surface);
-    if (!args.refresh && results[v.id]) {
-      bar.tick("skipped", v.surface);
-      continue;
-    }
-    try {
-      const m = await generate(v, args.refresh);
-      if (m) {
-        results[v.id] = m;
-        bar.tick("ok", v.surface);
-      } else {
-        problems.push(`⚠ ${v.surface} (${v.id}) — réponse non exploitable`);
-        bar.tick("empty", v.surface);
-      }
-    } catch (e) {
-      problems.push(`✗ ${v.surface} (${v.id}) — ${String(e)}`);
-      bar.tick("failed", v.surface);
-    }
-    // Sauvegarde incrémentale : une interruption ne perd pas le travail déjà fait.
-    writeFileSync(OUT, JSON.stringify(results, null, 1) + "\n");
-    await sleep(GAP_MS);
-  }
-
-  bar.finish();
-
-  if (problems.length) {
-    console.log(`\n${problems.length} problème(s) :`);
-    for (const p of problems) console.log(`  ${p}`);
-  }
-  const { ok, skipped, empty, failed } = bar.stats;
-  console.log(
-    `\nTerminé — ${ok} générés, ${skipped} déjà présents, ${empty} vides, ${failed} échecs.`,
-  );
-  console.log(`Corpus : ${Object.keys(results).length} entrées → ${OUT}`);
-  if (ok === 0 && Object.keys(results).length === 0) process.exit(1);
+  if (Object.keys(results).length === 0) process.exit(1);
 }
 
 main().catch((e) => {

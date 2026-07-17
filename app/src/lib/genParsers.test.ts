@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseComprehensionQcm, parseMnemonic, parseStoryTranslation } from "./genParsers";
+import { parseComprehensionQcm, parseMnemonicBatch, parseStoryTranslation } from "./genParsers";
 
 // La composition des prompts (cadrage, histoire, traduction) vit désormais côté Worker
 // — voir worker/src/prompts.test.ts. Le client ne fait plus que parser la réponse.
@@ -86,32 +86,35 @@ describe("parseComprehensionQcm", () => {
   });
 });
 
-describe("parseMnemonic", () => {
-  it("extrait les trois axes étiquetés", () => {
+describe("parseMnemonicBatch", () => {
+  it("aligne les lignes numérotées « N. lecture || sens || forme »", () => {
     const raw = [
-      "LECTURE: « nichi » comme dans « niche » où dort le soleil.",
-      "SENS: le soleil qui marque le jour.",
-      "FORME: un cadre avec un trait au milieu, comme le soleil à l'horizon.",
+      "1. のむ → nomade assoiffé || boire = porter un bol aux lèvres || 食 + 欠",
+      "2. いち → « inch » || un = un seul trait || un trait horizontal",
     ].join("\n");
-    const m = parseMnemonic(raw);
-    expect(m).not.toBeNull();
-    expect(m!.reading).toContain("niche");
-    expect(m!.meaning).toContain("jour");
-    expect(m!.form).toContain("soleil");
+    const out = parseMnemonicBatch(raw, 2);
+    expect(out[0]).toEqual({
+      reading: "のむ → nomade assoiffé",
+      meaning: "boire = porter un bol aux lèvres",
+      form: "食 + 欠",
+    });
+    expect(out[1]!.meaning).toContain("un seul trait");
   });
 
-  it("tolère « ： », la casse et un préfixe de puce", () => {
-    const raw = ["- lecture ：test lecture", "* Sens : test sens", "FORME:test forme"].join("\n");
-    const m = parseMnemonic(raw);
-    expect(m).toEqual({ reading: "test lecture", meaning: "test sens", form: "test forme" });
+  it("laisse un trou (null) pour une ligne manquante, longueur = n", () => {
+    const out = parseMnemonicBatch("2. a || b || c", 3);
+    expect(out).toHaveLength(3);
+    expect(out[0]).toBeNull();
+    expect(out[1]).toEqual({ reading: "a", meaning: "b", form: "c" });
+    expect(out[2]).toBeNull();
   });
 
-  it("renvoie ce qui existe même si un axe manque", () => {
-    const m = parseMnemonic("SENS: seulement le sens");
-    expect(m).toEqual({ reading: "", meaning: "seulement le sens", form: "" });
+  it("ignore les lignes non numérotées et rattache un 4ᵉ champ à la forme", () => {
+    const out = parseMnemonicBatch("Voici :\n1. lec || sens || part1 || part2", 1);
+    expect(out[0]).toEqual({ reading: "lec", meaning: "sens", form: "part1 part2" });
   });
 
-  it("renvoie null si aucune étiquette exploitable", () => {
-    expect(parseMnemonic("du texte sans étiquette")).toBeNull();
+  it("null si la ligne est vide de contenu", () => {
+    expect(parseMnemonicBatch("1.  ||  || ", 1)[0]).toBeNull();
   });
 });
