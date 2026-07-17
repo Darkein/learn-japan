@@ -2,6 +2,8 @@
 // tableaux, exemples `:::example` (paires JP / traduction), encadrés `:::info|warning|…`.
 // Aucun React ici : le rendu vit dans ui/LessonMarkdown.tsx.
 
+import { stripFurigana } from "./podcastScript";
+
 export type Block =
   | { kind: "heading"; level: number; text: string }
   | { kind: "hr" }
@@ -132,4 +134,74 @@ export function parseBlocks(text: string): Block[] {
   }
 
   return blocks;
+}
+
+// ---------- Correspondance segment parlé → bloc affiché (suivi de lecture) ----------
+
+/** Texte humain d'un bloc, concaténé (base de la correspondance segment → bloc). */
+export function blockText(b: Block): string {
+  switch (b.kind) {
+    case "heading":
+      return b.text;
+    case "hr":
+      return "";
+    case "ul":
+    case "ol":
+      return b.items.join(" ");
+    case "table":
+      return [...b.head, ...b.rows.flat()].join(" ");
+    case "example":
+      return b.pairs.map((p) => `${p.jp} ${p.fr ?? ""}`).join(" ");
+    case "callout":
+      return b.body;
+    case "quote":
+    case "para":
+      return b.lines.join(" ");
+  }
+}
+
+/**
+ * Forme normalisée pour la correspondance : furigana retiré, puis lettres/chiffres/
+ * kana/kanji seuls, en minuscules. Le texte des segments parlés a traversé
+ * stripMarkdown/stripFurigana (podcastScript) : cette normalisation rend ces
+ * transformations sans importance des deux côtés.
+ */
+export function normalizeForMatch(s: string): string {
+  return (
+    stripFurigana(s)
+      .toLowerCase()
+      .match(/[a-zà-ÿ0-9぀-ヿ㐀-鿿ｦ-ﾟ]/g)
+      ?.join("") ?? ""
+  );
+}
+
+/**
+ * Index du bloc affiché correspondant à un segment parlé du chapitre « cours ».
+ * Recherche par inclusion du texte normalisé, à partir de `fromIndex` (la lecture est
+ * linéaire : le biais évite les faux positifs des fragments courts), avec repli sur le
+ * titre (niveau ≤ 2) égal au label du segment. -1 si rien ne correspond.
+ */
+export function findBlockForSegment(
+  blocks: Block[],
+  segText: string,
+  segLabel: string | undefined,
+  fromIndex = 0,
+): number {
+  const needle = normalizeForMatch(segText);
+  if (needle.length >= 6 && blocks.length > 0) {
+    const n = blocks.length;
+    const start = Math.min(Math.max(fromIndex, 0), n - 1);
+    for (let k = 0; k < n; k++) {
+      const i = (start + k) % n;
+      if (normalizeForMatch(blockText(blocks[i])).includes(needle)) return i;
+    }
+  }
+  const label = normalizeForMatch(segLabel ?? "");
+  if (label) {
+    const i = blocks.findIndex(
+      (b) => b.kind === "heading" && b.level <= 2 && normalizeForMatch(b.text) === label,
+    );
+    if (i >= 0) return i;
+  }
+  return -1;
 }

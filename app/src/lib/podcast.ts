@@ -4,6 +4,7 @@
 // matérialisé en cache par le téléchargement hors-ligne (lib/download.ts).
 // L'assemblage pur du script vit dans lib/podcastScript.ts.
 
+import { analyze } from "./analyze";
 import {
   getStory,
   putPodcast,
@@ -27,6 +28,7 @@ import {
   type ScriptNav,
 } from "./podcastScript";
 import { ensureComprehensionQuiz } from "./stories";
+import { splitSentences, type PlayerSentence } from "./tts";
 
 // ---------- Traduction d'histoire (préalable à l'assemblage) -----------------
 
@@ -129,7 +131,20 @@ export async function generatePodcastPack(
 
   lesson = (await getLesson(lessonId))!; // re-hydrate avec traductions/titres/QCM à jour
 
-  const segments = buildPodcastScript(lesson, nav);
+  // Phrases tokenisées par histoire (mêmes tokens que le Reader → index global aligné) :
+  // active le karaoké mot-à-mot dans le pack. Tokenizer indisponible → pack sans surlignage.
+  const storyTokens = new Map<string, PlayerSentence[]>();
+  for (const story of lesson.stories) {
+    onProgress?.("Analyse de l'histoire…");
+    try {
+      const analyzed = await analyze(story.text);
+      storyTokens.set(story.id, splitSentences(analyzed.tokens));
+    } catch {
+      // repli : paire fusionnée sans karaoké pour cette histoire
+    }
+  }
+
+  const segments = buildPodcastScript(lesson, nav, storyTokens);
   const rec: PodcastRecord = { id: lessonId, segments, createdAt: Date.now(), version: PACK_VERSION };
   await putPodcast(rec);
   return rec;

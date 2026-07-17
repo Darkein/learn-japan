@@ -176,7 +176,7 @@ async function downloadStoryAssets(story: StoryRecord, onProgress: OnProgress): 
 
   onProgress({ fraction: 0.4, label: "Audio…" });
   const analyzed = await analyze(story.text);
-  const segments = buildStorySegments(analyzed.tokens);
+  const segments = buildStorySegments(analyzed.tokens, story.id);
   await materializeTts(
     segments.map((s) => {
       const tokens = s.tokens ?? [s.text];
@@ -265,10 +265,16 @@ export async function downloadLesson(lessonId: string, onProgress?: OnProgress):
   );
 
   // Matérialise l'audio du pack (une synthèse par segment parlé, multi-voix comprise).
+  // Même routage que le lecteur (segmentPlayer.synthClip) : segment tokenisé → phrase avec
+  // timepoints (cache partagé avec la lecture standalone, déjà matérialisé ci-dessus).
   await materializeTts(
     pack.segments
       .filter((s) => s.text.trim())
       .map((s) => {
+        if (s.tokens) {
+          const tokens = s.tokens;
+          return { cacheId: ttsSentenceCacheId(tokens), synthesize: () => synthesizeSentence(tokens, 0) };
+        }
         const parts = segmentParts(s);
         return { cacheId: ttsPartsCacheId(parts), synthesize: () => synthesizeParts(parts) };
       }),

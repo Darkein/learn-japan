@@ -5,11 +5,12 @@ import { DownloadButton } from "./DownloadButton";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
-import { IconArrowRight, IconClose } from "./kit/Icon";
+import { IconArrowRight, IconClose, IconPause, IconPlay } from "./kit/Icon";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import { StoryIllustration } from "./StoryIllustration";
 import { useGenJobs } from "./useGenJobs";
+import { usePodcastPlayer } from "./usePodcastPlayer";
 
 function chips(params: StoryRecord["params"]): string[] {
   const out: string[] = [];
@@ -28,6 +29,7 @@ interface Props {
 export function Stories({ onOpen }: Props) {
   const [stories, setStories] = useState<StoryRecord[] | null>(null);
   const { dataVersion } = useGenJobs();
+  const podcast = usePodcastPlayer();
   const lessonTitles = useMemo(() => {
     const m = new Map<string, { order: number; title: string }>();
     for (const c of getCurriculum()) m.set(c.id, { order: c.order, title: c.title });
@@ -112,6 +114,31 @@ export function Stories({ onOpen }: Props) {
                     }}
                   >
                     <IconClose size={16} />
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    size="icon"
+                    aria-label={
+                      podcast.activeStoryId === s.id && podcast.playing
+                        ? "Mettre en pause"
+                        : "Écouter l'histoire"
+                    }
+                    title={
+                      podcast.activeStoryId === s.id && podcast.playing
+                        ? "Mettre en pause"
+                        : "Écouter l'histoire"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (podcast.activeStoryId === s.id) podcast.toggle();
+                      else podcast.playStory({ storyId: s.id, title: s.titleFr ?? s.title });
+                    }}
+                  >
+                    {podcast.activeStoryId === s.id && podcast.playing ? (
+                      <IconPause size={16} />
+                    ) : (
+                      <IconPlay size={16} />
+                    )}
                   </Button>
                   <DownloadButton target={{ kind: "story", storyId: s.id }} size={16} />
                   <span className="text-muted">

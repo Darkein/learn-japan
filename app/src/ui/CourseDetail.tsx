@@ -1,8 +1,10 @@
 import { createPortal } from "react-dom";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { grammarDetail } from "../lib/inventory";
+import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
+import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
 import { usePodcastPlayer } from "./usePodcastPlayer";
@@ -10,6 +12,7 @@ import { ReaderBarSlot, ReaderHeaderSlot } from "./ReaderPage";
 import { useLessonGen } from "./useLessonGen";
 import { useSettings } from "./useSettings";
 import { Markdown } from "./LessonMarkdown";
+import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { IconArrowRight, IconPlay } from "./kit/Icon";
@@ -32,6 +35,21 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
     useLessonGen(lesson);
   const podcast = usePodcastPlayer();
   const podcastBusy = podcast.active && podcast.preparing !== null;
+
+  // Suivi de lecture : segment courant quand C'EST cette leçon qui joue (même en pause).
+  const currentTrack = podcast.queue[podcast.queueIndex];
+  const playingThisLesson =
+    podcast.active && currentTrack?.kind === "lesson" && currentTrack.lessonId === lesson.id;
+  const curSeg: PodcastSegment | undefined = playingThisLesson
+    ? podcast.segments[podcast.index]
+    : undefined;
+  // Libellé de l'élément courant à la granularité de la tracklist (les segments sans
+  // label sont rattachés à l'élément précédent) — même logique que la barre du lecteur.
+  const tracks = useMemo(
+    () => (playingThisLesson ? trackEntries(podcast.segments) : []),
+    [playingThisLesson, podcast.segments],
+  );
+  const trackLabel = tracks[activeTrackIndex(tracks, podcast.index)]?.seg.label;
 
   const ready = lesson.state === "ready";
   const storyInProgress = busy && job?.phase === "story";
@@ -110,10 +128,26 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
 
       <div className="flex flex-col gap-4 pt-4">
 
+      {/* Encart « en cours de lecture » : contrepartie visible des chapitres quiz et
+          compréhension, qui n'ont pas d'équivalent rendu dans la page. */}
+      {curSeg && curSeg.text.trim() && (
+        <Card accentFlag className="flex items-baseline gap-3 px-4 py-2">
+          <SectionLabel className="shrink-0">
+            {trackLabel ??
+              (curSeg.chapter === "comprehension" ? "Compréhension" : curSeg.chapter === "quiz" ? "Quiz" : curSeg.chapter === "histoire" ? "Histoire" : "Cours")}
+          </SectionLabel>
+          <span className="min-w-0 flex-1 truncate font-sans text-sm text-text">{curSeg.text}</span>
+        </Card>
+      )}
+
       <div className="mb-2 flex items-center justify-between">
         <SectionLabel as="h3">Le cours</SectionLabel>
       </div>
-        <Cours lesson={lesson} />
+        <Cours
+          lesson={lesson}
+          activeSegment={curSeg?.chapter === "cours" ? curSeg : null}
+          follow={podcast.playing && podcast.autoNavigate}
+        />
 
         {/* En fin de leçon : on vérifie ses acquis après l'avoir parcourue. Les items
             de la leçon entrent en rotation SRS et chaque réponse est replanifiée. */}
@@ -143,7 +177,9 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
                     <div
                       role="button"
                       tabIndex={0}
-                      className="flex cursor-pointer items-center gap-3"
+                      className={`flex cursor-pointer items-center gap-3 ${
+                        curSeg?.storyId === s.id ? "-mx-2 rounded-sm bg-accent/10 px-2 py-1" : ""
+                      }`}
                       onClick={() => void read(s)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") void read(s);
@@ -156,6 +192,7 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
                           {s.titleFr && <span className="ml-1 font-sans text-sm text-muted">({s.titleFr})</span>}
                         </span>
                         <ReadabilityBadge text={s.text} />
+                        {curSeg?.storyId === s.id && <Badge variant="accent">En lecture</Badge>}
                       </span>
                       <span className="shrink-0 text-muted">
                         <IconArrowRight size={16} />
@@ -232,9 +269,29 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
   );
 }
 
-function Cours({ lesson }: { lesson: Lesson }) {
+function Cours({
+  lesson,
+  activeSegment,
+  follow,
+}: {
+  lesson: Lesson;
+  /** Segment « cours » en cours de lecture (surlignage du bloc correspondant), null sinon. */
+  activeSegment: PodcastSegment | null;
+  follow: boolean;
+}) {
   const { settings } = useSettings();
   const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);
+
+  // Bloc affiché correspondant au segment parlé. La lecture est linéaire : on repart du
+  // dernier bloc trouvé (biais monotone) pour lever l'ambiguïté des fragments courts.
+  const blocks = useMemo(() => parseBlocks(lesson.framing ?? ""), [lesson.framing]);
+  const lastMatchRef = useRef(0);
+  const activeBlock = useMemo(() => {
+    if (!activeSegment) return -1;
+    const i = findBlockForSegment(blocks, activeSegment.text, activeSegment.label, lastMatchRef.current);
+    if (i >= 0) lastMatchRef.current = i;
+    return i;
+  }, [blocks, activeSegment]);
   return (
     <div>
       {(grammar.length > 0 || lesson.objectives.vocab.length > 0) && (
@@ -277,7 +334,12 @@ function Cours({ lesson }: { lesson: Lesson }) {
 
       {lesson.framing && (
         <div className="mt-6">
-          <Markdown text={lesson.framing} reveal={settings.furiganaDefault} />
+          <Markdown
+            text={lesson.framing}
+            reveal={settings.furiganaDefault}
+            activeBlock={activeBlock}
+            follow={follow}
+          />
         </div>
       )}
     </div>

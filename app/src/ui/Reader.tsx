@@ -12,7 +12,7 @@ import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } fro
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { DownloadButton } from "./DownloadButton";
-import { ReaderBarSlot } from "./ReaderPage";
+import { ReaderBarSlot, ReaderHeaderSlot } from "./ReaderPage";
 import { IconArrowRight, IconChevronDown, IconPause, IconPlay } from "./kit/Icon";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { SectionLabel } from "./kit/SectionLabel";
@@ -103,6 +103,7 @@ export function Reader({ incoming, preview = false }: Props) {
   const lessonCtx = incoming.lessonContext ?? null;
   const { regenerateStory } = useGenJobs();
   const barSlot = useContext(ReaderBarSlot);
+  const headerSlot = useContext(ReaderHeaderSlot);
 
   const podcast = usePodcastPlayer();
   const isActiveStory = !!incoming.id && podcast.activeStoryId === incoming.id;
@@ -172,8 +173,84 @@ export function Reader({ incoming, preview = false }: Props) {
     setOpenIdx(null);
   }
 
+  // Contrôle de lecture (Écouter/Pause + file d'attente), porté dans le slot d'en-tête
+  // sous le titre — même emplacement que le bouton « Podcast » de la leçon (CourseDetail).
+  // En aperçu (couche voisine du carrousel), rendu à l'identique pour la mise en page mais
+  // inerte : non-cliquable et hors tabulation, pour ne pas lancer la lecture de la voisine.
+  const playControl = (
+    <div
+      className={`relative inline-flex ${preview ? "pointer-events-none" : ""}`}
+      aria-hidden={preview || undefined}
+    >
+      <div
+        className={`inline-flex items-stretch overflow-hidden rounded-sm border bg-surface transition-colors ${
+          isActiveStory && podcast.playing ? "border-accent" : "border-hairline-strong hover:border-accent"
+        } ${!incoming.id ? "opacity-50" : ""}`}
+      >
+        <button
+          onClick={
+            preview
+              ? undefined
+              : () => {
+                  if (!incoming.id) return;
+                  if (isActiveStory) podcast.toggle();
+                  else podcast.playStory({ storyId: incoming.id, title: incoming.title ?? "Histoire" });
+                }
+          }
+          disabled={!incoming.id || (isActiveStory && !!podcast.preparing)}
+          tabIndex={preview ? -1 : undefined}
+          className={`inline-flex min-h-11 items-center gap-2 px-4 font-sans text-sm transition-colors disabled:cursor-not-allowed ${
+            isActiveStory && podcast.playing ? "text-accent" : "text-text"
+          } ${incoming.id ? "cursor-pointer hover:bg-surface-2" : ""}`}
+        >
+          {isActiveStory && podcast.playing ? (
+            <>
+              <IconPause size={16} />
+              Pause
+            </>
+          ) : (
+            <>
+              <IconPlay size={16} />
+              Écouter
+            </>
+          )}
+        </button>
+        <button
+          aria-label="Options de lecture"
+          onClick={preview ? undefined : () => setMenuOpen((o) => !o)}
+          disabled={!incoming.id}
+          tabIndex={preview ? -1 : undefined}
+          aria-expanded={menuOpen}
+          className={`inline-flex items-center border-l border-hairline-strong px-2 text-text transition-colors disabled:cursor-not-allowed ${
+            incoming.id ? "cursor-pointer hover:bg-surface-2" : ""
+          }`}
+        >
+          <IconChevronDown size={16} />
+        </button>
+      </div>
+      {menuOpen && incoming.id && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 rounded-sm border border-hairline bg-surface shadow">
+            <button
+              className="block w-full cursor-pointer whitespace-nowrap px-3 py-2 text-left text-sm hover:bg-surface-2"
+              onClick={() => {
+                podcast.enqueueStory({ storyId: incoming.id!, title: incoming.title ?? "Histoire" });
+                setMenuOpen(false);
+              }}
+            >
+              Ajouter à la file d'attente
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-6">
+      {headerSlot && createPortal(playControl, headerSlot)}
+      {!headerSlot && <div className="flex flex-wrap items-center gap-2">{playControl}</div>}
       {/* Bouton de téléchargement hors-ligne dans la barre sticky, à côté de la roue
           des paramètres. Histoire non enregistrée (lecteur libre) : rien à télécharger. */}
       {barSlot &&
@@ -276,64 +353,6 @@ export function Reader({ incoming, preview = false }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative inline-flex">
-              <div
-                className={`inline-flex items-stretch overflow-hidden rounded-sm border bg-surface transition-colors ${
-                  isActiveStory && podcast.playing ? "border-accent" : "border-hairline-strong hover:border-accent"
-                } ${!incoming.id ? "opacity-50" : ""}`}
-              >
-                <button
-                  onClick={() => {
-                    if (!incoming.id) return;
-                    if (isActiveStory) podcast.toggle();
-                    else podcast.playStory({ storyId: incoming.id, title: incoming.title ?? "Histoire" });
-                  }}
-                  disabled={!incoming.id || (isActiveStory && !!podcast.preparing)}
-                  className={`inline-flex min-h-11 items-center gap-2 px-4 font-sans text-sm transition-colors disabled:cursor-not-allowed ${
-                    isActiveStory && podcast.playing ? "text-accent" : "text-text"
-                  } ${incoming.id ? "cursor-pointer hover:bg-surface-2" : ""}`}
-                >
-                  {isActiveStory && podcast.playing ? (
-                    <>
-                      <IconPause size={16} />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <IconPlay size={16} />
-                      Écouter
-                    </>
-                  )}
-                </button>
-                <button
-                  aria-label="Options de lecture"
-                  onClick={() => setMenuOpen((o) => !o)}
-                  disabled={!incoming.id}
-                  aria-expanded={menuOpen}
-                  className={`inline-flex items-center border-l border-hairline-strong px-2 text-text transition-colors disabled:cursor-not-allowed ${
-                    incoming.id ? "cursor-pointer hover:bg-surface-2" : ""
-                  }`}
-                >
-                  <IconChevronDown size={16} />
-                </button>
-              </div>
-              {menuOpen && incoming.id && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute left-0 top-full z-20 mt-1 rounded-sm border border-hairline bg-surface shadow">
-                    <button
-                      className="block w-full cursor-pointer whitespace-nowrap px-3 py-2 text-left text-sm hover:bg-surface-2"
-                      onClick={() => {
-                        podcast.enqueueStory({ storyId: incoming.id!, title: incoming.title ?? "Histoire" });
-                        setMenuOpen(false);
-                      }}
-                    >
-                      Ajouter à la file d'attente
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
             <Button variant="primary" onClick={() => setExoOpen(true)}>
               Exercices
             </Button>

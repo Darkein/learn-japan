@@ -126,6 +126,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const modeRef = useRef<PlayMode>("auto"); // miroir du mode de lecture
   const endedRef = useRef<() => void>(() => undefined); // fin de piste (recalculée à chaque rendu)
   const autoNavRef = useRef(false); // miroir du suivi auto vers la page de la piste
+  const segmentsRef = useRef<PodcastSegment[]>([]); // miroir des segments (storyId par segment)
+  const autoNavPageRef = useRef<string | null>(null); // dernière page suivie (évite les nav répétées)
 
   const patch = useCallback((p: Partial<PodcastState>) => setState((s) => ({ ...s, ...p })), []);
 
@@ -138,7 +140,24 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef<SegmentPlayer | null>(null);
   if (!playerRef.current) {
     playerRef.current = createSegmentPlayer({
-      onSegmentStart: (i) => patch({ index: i, segProgress: 0, currentTokenIndex: null }),
+      // L'histoire active est portée par le SEGMENT (storyId) : le surlignage du Reader
+      // s'allume aussi quand une leçon lit son histoire, et s'éteint hors du bloc histoire.
+      onSegmentStart: (i) => {
+        const storyId = segmentsRef.current[i]?.storyId ?? null;
+        patch({ index: i, segProgress: 0, currentTokenIndex: null, activeStoryId: storyId });
+        // Suivi auto pendant une leçon : bascule vers la page de l'histoire lue, puis
+        // revient au cours — seulement au changement de page cible (pas à chaque segment).
+        if (autoNavRef.current) {
+          const item = queueRef.current[qIndexRef.current];
+          if (item?.kind === "lesson") {
+            const page = storyId ? `/lecture/${encodeURIComponent(storyId)}` : pageForItem(item);
+            if (page !== autoNavPageRef.current) {
+              autoNavPageRef.current = page;
+              navigate(page);
+            }
+          }
+        }
+      },
       onProgress: (p) => {
         patch({ segProgress: p });
         // Recale la barre de l'écran verrouillé en cours de segment (le débit réel du
@@ -171,7 +190,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       const autoplay = opts?.autoplay ?? true;
       const startIndex = opts?.resumeIndex ?? 0;
       // Suivi auto : on bascule vers la page de la piste (jamais lors d'une reprise silencieuse).
-      if (autoplay && autoNavRef.current) navigate(pageForItem(item));
+      autoNavPageRef.current = pageForItem(item);
+      if (autoplay && autoNavRef.current) navigate(autoNavPageRef.current);
       // En lecture : silence de maintien pendant la génération/analyse (la session audio OS
       // survit au changement de piste, même écran éteint). Restauration au montage : halt()
       // (aucun geste → un play() serait refusé de toute façon).
@@ -208,6 +228,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
                 });
           if (token !== loadTokenRef.current) return;
           await markLessonStarted(item.lessonId);
+          segmentsRef.current = pack.segments;
           player.setSegments(pack.segments);
           const clamped = Math.min(startIndex, Math.max(0, pack.segments.length - 1));
           player.setIndex(clamped);
@@ -225,7 +246,8 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
           if (!story) throw new Error(`Histoire introuvable : ${item.storyId}`);
           const analyzed = await analyze(story.text);
           if (token !== loadTokenRef.current) return;
-          const segments = buildStorySegments(analyzed.tokens);
+          const segments = buildStorySegments(analyzed.tokens, item.storyId);
+          segmentsRef.current = segments;
           player.setSegments(segments);
           const clamped = Math.min(startIndex, Math.max(0, segments.length - 1));
           player.setIndex(clamped);
@@ -412,7 +434,11 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
         startAt(clamped);
       } else {
         player.setIndex(clamped);
-        patch({ index: clamped, segProgress: 0 });
+        patch({
+          index: clamped,
+          segProgress: 0,
+          activeStoryId: segmentsRef.current[clamped]?.storyId ?? null,
+        });
       }
     },
     [patch, player, startAt, state.segments.length],
@@ -475,6 +501,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => {
     player.halt();
     loadTokenRef.current++;
+    segmentsRef.current = [];
     player.setSegments([]);
     player.setIndex(0);
     queueRef.current = [];

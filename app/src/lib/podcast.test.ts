@@ -10,10 +10,14 @@ const SEGMENTS: PodcastSegment[] = [
   { id: "s1", chapter: "quiz", lang: "ja", text: "ねこ", pauseAfterMs: 5000 },
 ];
 
+const { buildPodcastScript } = vi.hoisted(() => ({ buildPodcastScript: vi.fn() }));
+
 vi.mock("./podcastScript", async (orig) => {
   const actual = (await orig()) as typeof import("./podcastScript");
-  return { ...actual, buildPodcastScript: () => SEGMENTS };
+  return { ...actual, buildPodcastScript };
 });
+
+vi.mock("./analyze", () => ({ analyze: vi.fn() }));
 
 vi.mock("./lessons", async (orig) => {
   const actual = (await orig()) as typeof import("./lessons");
@@ -39,9 +43,12 @@ vi.mock("./ttsClient", async (orig) => {
 });
 
 import { generatePodcastPack } from "./podcast";
+import * as analyzeMod from "./analyze";
 import * as lessonsMod from "./lessons";
 import * as ttsMod from "./ttsClient";
+import type { AnnotatedToken } from "./furigana";
 
+const analyze = vi.mocked(analyzeMod.analyze);
 const getLesson = vi.mocked(lessonsMod.getLesson);
 const synthesizeParts = vi.mocked(ttsMod.synthesizeParts);
 const synthesizeSentence = vi.mocked(ttsMod.synthesizeSentence);
@@ -85,6 +92,10 @@ beforeEach(async () => {
   (globalThis as unknown as { indexedDB: IDBFactory }).indexedDB = new IDBFactory();
   _resetDbForTests();
   vi.clearAllMocks();
+  buildPodcastScript.mockReturnValue(SEGMENTS);
+  analyze.mockResolvedValue({
+    tokens: [{ surface: "猫" }, { surface: "。" }] as AnnotatedToken[],
+  } as Awaited<ReturnType<typeof analyzeMod.analyze>>);
   getLesson.mockResolvedValue(fakeLesson());
   await putStory(cleanStory());
 });
@@ -108,5 +119,20 @@ describe("generatePodcastPack", () => {
     getLesson.mockResolvedValueOnce(empty).mockResolvedValue(fakeLesson());
     await generatePodcastPack("l1");
     expect(lessonsMod.addLessonStory).toHaveBeenCalledWith(empty, 1);
+  });
+
+  it("tokenise chaque histoire et passe les phrases (index global) au script", async () => {
+    await generatePodcastPack("l1");
+    expect(analyze).toHaveBeenCalledWith("猫。");
+    const map = buildPodcastScript.mock.calls[0][2] as Map<string, unknown>;
+    expect(map.get("st1")).toEqual([{ segments: ["猫", "。"], baseIndex: 0, text: "猫。" }]);
+  });
+
+  it("tokenizer indisponible → pack quand même, sans phrases tokenisées", async () => {
+    analyze.mockRejectedValue(new Error("kuromoji absent"));
+    const rec = await generatePodcastPack("l1");
+    expect(rec.segments).toHaveLength(2);
+    const map = buildPodcastScript.mock.calls[0][2] as Map<string, unknown>;
+    expect(map.size).toBe(0);
   });
 });

@@ -12,6 +12,7 @@
 import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES } from "./config";
 import type { ComprehensionQuestion } from "./genClient";
 import { isKana, isKanji, splitJaSentences } from "./kana";
+import type { PlayerSentence } from "./tts";
 import type { TtsPart } from "./ttsClient";
 import type { VocabEntry } from "./curriculum";
 import type { Lesson } from "./lessons";
@@ -34,6 +35,8 @@ export interface PodcastSegment {
   baseTokenIndex?: number;
   /** Fragments voicés (segment mixte FR/JA) : une seule synthèse multi-voix. */
   parts?: TtsPart[];
+  /** Id de l'histoire à laquelle ce segment appartient (surlignage Reader, suivi CourseDetail). */
+  storyId?: string;
 }
 
 /** Fragments voicés d'un segment : ses `parts` s'il est mixte, sinon son texte entier. */
@@ -85,7 +88,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 7;
+export const PACK_VERSION = 8;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -373,8 +376,17 @@ export interface ScriptNav {
   nextLessonTitle?: string;
 }
 
-/** Assemble le script complet d'une leçon (cours → quiz → histoires → transition de fin). */
-export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): PodcastSegment[] {
+/**
+ * Assemble le script complet d'une leçon (cours → quiz → histoires → transition de fin).
+ * `storyTokens` (phrases tokenisées par histoire, index global — fourni par
+ * generatePodcastPack via analyze/splitSentences) active le karaoké mot-à-mot des
+ * histoires : timepoints TTS, mêmes entrées de cache audio que la lecture standalone.
+ */
+export function buildPodcastScript(
+  lesson: Lesson,
+  nav: ScriptNav = {},
+  storyTokens: Map<string, PlayerSentence[]> = new Map(),
+): PodcastSegment[] {
   const raw: RawSegment[] = [];
 
   // 1. Cours — leçon FR (grammaire) parlée, segmentée pour gérer les exemples japonais.
@@ -392,27 +404,46 @@ export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): Podcast
   //    sur la lecture bilingue unique (pas de double lecture inutile).
   lesson.stories.forEach((story, s) => {
     const intro = s === 0 ? "Voici une histoire en rapport avec la leçon :" : "Voici l'histoire suivante :";
-    raw.push({ chapter: "histoire", lang: "fr", text: intro, label: `Histoire ${s + 1}` });
-    raw.push(titleSegment(story.titleFr ?? story.title, "histoire"));
+    raw.push({ chapter: "histoire", lang: "fr", text: intro, label: `Histoire ${s + 1}`, storyId: story.id });
+    raw.push({ ...titleSegment(story.titleFr ?? story.title, "histoire"), storyId: story.id });
     // Furigana retiré : la voix japonaise ne doit pas relire la lecture entre parenthèses.
     const ja = splitJaSentences(story.text).map(stripFurigana);
     const fr = story.translation ?? [];
     const questions = story.comprehension ?? [];
+    // Phrases tokenisées exploitables seulement si leur découpage s'aligne sur celui des
+    // traductions (mêmes terminateurs → quasi toujours) ; sinon repli sans karaoké.
+    const tok = storyTokens.get(story.id);
+    const aligned = tok && tok.length === ja.length ? tok : null;
+    // Phrase JA porteuse de tokens (timepoints → surlignage), ou texte nu en repli.
+    const jaSeg = (k: number): RawSegment =>
+      aligned
+        ? {
+            chapter: "histoire",
+            lang: "ja",
+            text: aligned[k].text,
+            tokens: aligned[k].segments,
+            baseTokenIndex: aligned[k].baseIndex,
+            storyId: story.id,
+          }
+        : { chapter: "histoire", lang: "ja", text: ja[k], storyId: story.id };
 
     if (questions.length > 0) {
       // 1re écoute : japonais seul.
-      raw.push({ chapter: "histoire", lang: "fr", text: "D'abord, écoutez l'histoire en japonais.", label: "Japonais" });
-      ja.forEach((sentence) => raw.push({ chapter: "histoire", lang: "ja", text: sentence }));
+      raw.push({ chapter: "histoire", lang: "fr", text: "D'abord, écoutez l'histoire en japonais.", label: "Japonais", storyId: story.id });
+      ja.forEach((_, k) => raw.push(jaSeg(k)));
       // QCM de compréhension audio.
-      raw.push(...buildComprehensionAudio(questions));
+      raw.push(...buildComprehensionAudio(questions).map((q) => ({ ...q, storyId: story.id })));
       // 2e écoute : japonais puis français.
-      raw.push({ chapter: "histoire", lang: "fr", text: "Réécoutons, en japonais puis en français.", label: "Japonais + français" });
+      raw.push({ chapter: "histoire", lang: "fr", text: "Réécoutons, en japonais puis en français.", label: "Japonais + français", storyId: story.id });
     }
 
-    // Paire (phrase JA, traduction FR) fusionnée : une seule synthèse multi-voix,
-    // pas de coupure entre la phrase et sa traduction.
+    // Phrases tokenisées : phrase JA (karaoké) puis traduction FR en segments séparés —
+    // le flux MediaSource les enchaîne sans blanc. Repli : paire fusionnée multi-voix.
     ja.forEach((sentence, k) => {
-      if (fr[k]) {
+      if (aligned) {
+        raw.push(jaSeg(k));
+        if (fr[k]) raw.push({ chapter: "histoire", lang: "fr", text: fr[k], storyId: story.id });
+      } else if (fr[k]) {
         raw.push({
           chapter: "histoire",
           lang: "ja",
@@ -421,9 +452,10 @@ export function buildPodcastScript(lesson: Lesson, nav: ScriptNav = {}): Podcast
             { lang: "ja", text: sentence },
             { lang: "fr", text: fr[k] },
           ],
+          storyId: story.id,
         });
       } else {
-        raw.push({ chapter: "histoire", lang: "ja", text: sentence });
+        raw.push({ chapter: "histoire", lang: "ja", text: sentence, storyId: story.id });
       }
     });
   });

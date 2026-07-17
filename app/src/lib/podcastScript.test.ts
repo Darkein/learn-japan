@@ -318,6 +318,67 @@ describe("buildPodcastScript — déroulé avec QCM de compréhension", () => {
   });
 });
 
+describe("buildPodcastScript — phrases tokenisées (karaoké)", () => {
+  const story = {
+    id: "s1",
+    createdAt: 1,
+    title: "猫の話",
+    text: "猫がいる。水を飲む。",
+    params: { level: 5 },
+    titleFr: "Le chat",
+    translation: ["Il y a un chat.", "Il boit de l'eau."],
+  };
+  const sentences = [
+    { segments: ["猫", "が", "いる", "。"], baseIndex: 0, text: "猫がいる。" },
+    { segments: ["水", "を", "飲む", "。"], baseIndex: 4, text: "水を飲む。" },
+  ];
+  const withTokens = lesson({ stories: [story] });
+
+  it("aligné : phrase JA porteuse de tokens (index global) puis traduction FR séparée", () => {
+    const script = buildPodcastScript(withTokens, {}, new Map([["s1", sentences]]));
+    const hist = script.filter((s) => s.chapter === "histoire");
+    const ja1 = hist.find((s) => s.text === "猫がいる。");
+    expect(ja1).toMatchObject({ lang: "ja", tokens: ["猫", "が", "いる", "。"], baseTokenIndex: 0 });
+    const ja2 = hist.find((s) => s.text === "水を飲む。");
+    expect(ja2).toMatchObject({ baseTokenIndex: 4 });
+    // La traduction suit en segment FR distinct, plus de paire fusionnée.
+    expect(hist[hist.indexOf(ja1!) + 1]).toMatchObject({ lang: "fr", text: "Il y a un chat." });
+    expect(hist.some((s) => s.parts)).toBe(false);
+  });
+
+  it("aligné : storyId posé sur tous les segments du bloc histoire (QCM compris)", () => {
+    const withQcm = lesson({
+      stories: [
+        { ...story, comprehension: [{ question: "Qui ?", options: ["A.", "B."], answerIndex: 0 }] },
+      ],
+    });
+    const script = buildPodcastScript(withQcm, { nextLessonTitle: "Suivante" }, new Map([["s1", sentences]]));
+    for (const s of script) {
+      if (s.chapter === "histoire" || s.chapter === "comprehension") {
+        // Seule la transition de fin (hors histoire) reste sans storyId.
+        if (s.text === "Passons à la leçon suivante :" || s.text === "Suivante") continue;
+        expect(s.storyId).toBe("s1");
+      } else {
+        expect(s.storyId).toBeUndefined();
+      }
+    }
+    // La passe « japonais seul » porte aussi les tokens.
+    const firstComp = script.findIndex((s) => s.chapter === "comprehension");
+    const before = script.slice(0, firstComp).filter((s) => s.lang === "ja");
+    expect(before.every((s) => s.tokens)).toBe(true);
+  });
+
+  it("désaligné ou absent : repli sur la paire fusionnée sans tokens", () => {
+    const misaligned = new Map([["s1", sentences.slice(0, 1)]]);
+    for (const map of [misaligned, new Map()]) {
+      const hist = buildPodcastScript(withTokens, {}, map).filter((s) => s.chapter === "histoire");
+      const pair = hist.find((s) => s.text === "猫がいる。 Il y a un chat.");
+      expect(pair!.parts).toHaveLength(2);
+      expect(hist.some((s) => s.tokens)).toBe(false);
+    }
+  });
+});
+
 describe("segmentParts", () => {
   it("renvoie les parts d'un segment mixte, ou le texte entier sinon", () => {
     const mixte = { lang: "fr" as const, text: "chat 猫", parts: [{ lang: "fr" as const, text: "chat " }, { lang: "ja" as const, text: "猫" }] };

@@ -17,6 +17,11 @@ describe("buildStorySegments", () => {
     expect(segs[1].id).not.toBe(segs[0].id);
   });
 
+  it("propage le storyId sur chaque segment (surlignage piloté par segment)", () => {
+    const segs = buildStorySegments(toks("猫", "。", "犬", "。"), "s1");
+    expect(segs.every((s) => s.storyId === "s1")).toBe(true);
+  });
+
   it("tronque le label des phrases longues", () => {
     const long = "あ".repeat(40);
     const segs = buildStorySegments(toks(long, "。"));

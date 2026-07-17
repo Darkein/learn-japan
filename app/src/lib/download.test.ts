@@ -18,11 +18,21 @@ vi.mock("./analyze", () => ({
   })),
 }));
 
-// Pack avec segments parlés (dont un mixte) : la matérialisation audio du pack est exercée.
+// Pack avec segments parlés (dont un mixte et un tokenisé) : la matérialisation audio du
+// pack est exercée sur les deux routes (parts multi-voix / phrase avec timepoints).
 const PACK_SEGMENTS: PodcastSegment[] = [
   { id: "p0", chapter: "cours", lang: "fr", text: "Bienvenue." },
   {
     id: "p1",
+    chapter: "histoire",
+    lang: "ja",
+    text: "鳥。",
+    tokens: ["鳥", "。"],
+    baseTokenIndex: 0,
+    storyId: "ls1",
+  },
+  {
+    id: "p2",
     chapter: "histoire",
     lang: "ja",
     text: "猫がいる。 Il y a un chat.",
@@ -238,9 +248,11 @@ describe("downloadLesson", () => {
     expect(calls[0]).toBe("framing");
     expect(calls).toContain("add-story");
     expect(calls).toContain("pack");
-    // L'audio du pack est matérialisé APRÈS l'assemblage (un appel par segment parlé).
+    // L'audio du pack est matérialisé APRÈS l'assemblage : segments à tokens en phrase
+    // (timepoints, cache partagé avec la lecture standalone), les autres en multi-voix.
     expect(calls.at(-1)).toBe("tts-pack");
-    expect(synthesizeParts).toHaveBeenCalledTimes(PACK_SEGMENTS.length);
+    expect(synthesizeParts).toHaveBeenCalledTimes(2); // p0 + p2 (p1, tokenisé, passe en phrase)
+    expect(synthesizeSentence).toHaveBeenCalledWith(["鳥", "。"], 0);
     // 2 histoires × (traduction + 2 phrases audio)
     expect(ensureStoryTranslationById).toHaveBeenCalledTimes(2);
     expect(await isStoryDownloaded("ls1")).toBe(true);

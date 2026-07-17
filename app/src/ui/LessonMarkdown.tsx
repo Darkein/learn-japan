@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { parseBlocks, type Block } from "../lib/lessonMarkdown";
 import { annotateTokens, type RubySegment } from "../lib/furigana";
 import { tokenize } from "../lib/tokenizer";
@@ -62,11 +62,36 @@ function renderBlock(b: Block, idx: number | string, reveal: boolean): ReactNode
   );
 }
 
-export function Markdown({ text, reveal }: { text: string; reveal: boolean }) {
+export function Markdown({
+  text,
+  reveal,
+  activeBlock = -1,
+  follow = false,
+}: {
+  text: string;
+  reveal: boolean;
+  /** Bloc en cours de lecture audio (surligné), -1 si aucun. */
+  activeBlock?: number;
+  /** Fait défiler jusqu'au bloc actif (suivi auto) — le surlignage, lui, est toujours rendu. */
+  follow?: boolean;
+}) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
+  const activeRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (follow && activeBlock >= 0)
+      activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [activeBlock, follow]);
   return (
     <div className="space-y-4">
-      {blocks.map((b, idx) => renderBlock(b, idx, reveal))}
+      {blocks.map((b, idx) =>
+        idx === activeBlock ? (
+          <div key={idx} ref={activeRef} className="-mx-2 rounded-sm bg-accent/10 px-2 py-1 transition-colors">
+            {renderBlock(b, `a${idx}`, reveal)}
+          </div>
+        ) : (
+          renderBlock(b, idx, reveal)
+        ),
+      )}
     </div>
   );
 }

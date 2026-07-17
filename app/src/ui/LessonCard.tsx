@@ -6,8 +6,10 @@ import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
 import { DownloadButton } from "./DownloadButton";
 import { Badge } from "./kit/Badge";
-import { IconArrowRight, IconLock } from "./kit/Icon";
+import { Button } from "./kit/Button";
+import { IconArrowRight, IconLock, IconPause, IconPlay } from "./kit/Icon";
 import { ProgressBar } from "./kit/ProgressBar";
+import { usePodcastPlayer } from "./usePodcastPlayer";
 
 interface Props {
   lesson: Lesson;
@@ -29,6 +31,10 @@ function summarize(lesson: Lesson): string {
 
 export function LessonCard({ lesson, onOpen, selected }: Props) {
   const { job, busy, error, progress, label, retry, dismiss } = useLessonGen(lesson);
+  const podcast = usePodcastPlayer();
+  const currentTrack = podcast.queue[podcast.queueIndex];
+  const isActiveLesson =
+    podcast.active && currentTrack?.kind === "lesson" && currentTrack.lessonId === lesson.id;
 
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
@@ -124,8 +130,20 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
           </span>
         )}
       </button>
-      {/* Hors du <button> de la carte (bouton imbriqué invalide). Présent même verrouillée :
-          télécharger ne débloque pas. */}
+      {/* Hors du <button> de la carte (bouton imbriqué invalide). Présents même verrouillée :
+          télécharger/écouter ne débloquent pas (cf. « Commencer quand même »). */}
+      <Button
+        variant="quiet"
+        size="icon"
+        aria-label={isActiveLesson && podcast.playing ? "Mettre en pause" : "Écouter le podcast"}
+        title={isActiveLesson && podcast.playing ? "Mettre en pause" : "Écouter le podcast"}
+        onClick={() => {
+          if (isActiveLesson) podcast.toggle();
+          else podcast.startLesson(lesson.id);
+        }}
+      >
+        {isActiveLesson && podcast.playing ? <IconPause size={16} /> : <IconPlay size={16} />}
+      </Button>
       <DownloadButton target={{ kind: "lesson", lesson }} size={16} />
       </div>
 
