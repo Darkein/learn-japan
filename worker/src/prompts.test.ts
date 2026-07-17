@@ -336,9 +336,11 @@ describe("buildMnemonicPrompt (lot)", () => {
     expect(prompt).toContain("on: にち、じつ");
     expect(prompt).toContain("traits: 4");
     expect(prompt).toContain("2. 一 — sens: un");
-    // Un seul mnémo qui lie SON et SENS dans la même phrase, plus la composition à part.
+    // Un seul mnémo qui lie SON et SENS ; l'image = paréidolie du tracé ; style imposé.
     expect(prompt).toContain("UNE SEULE phrase mnémotechnique");
-    expect(prompt).toContain("mnémo || composition");
+    expect(prompt).toContain("RESSEMBLE le tracé");
+    expect(prompt).toContain("mnémo || image");
+    expect(prompt).toContain("STYLE UNIFORME");
     expect(prompt).toContain("EN FRANÇAIS");
   });
 
@@ -360,6 +362,7 @@ describe("buildWordMnemonicPrompt (lot)", () => {
     expect(prompt).toContain("kanji: 勉 = effort, 強 = fort");
     expect(prompt).toContain("UNE SEULE phrase mnémotechnique");
     expect(prompt).toContain("mnémo || composition");
+    expect(prompt).toContain("STYLE UNIFORME");
     expect(prompt).toContain("EN FRANÇAIS");
   });
 

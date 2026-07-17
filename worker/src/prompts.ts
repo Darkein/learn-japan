@@ -470,9 +470,11 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
  * Moyens mnémotechniques pour un LOT de kanji. UN SEUL mnémo par kanji (méthode du mot-clé) :
  * une phrase française qui contient le SON de la lecture ET évoque le sens — voir le kanji
  * doit rappeler d'un coup prononciation et sens, sans deux astuces séparées à retenir. En
- * complément, une courte EXPLICATION de la forme (composants), assumée comme explication.
- * Corpus statique généré au build par scripts/build-mnemonics.ts. Sortie : UNE ligne par
- * kanji « N. mnémo || composition » (parsée côté client, parseMnemonicBatch).
+ * complément, une IMAGE : ce à quoi ressemble le tracé (paréidolie, « une personne qui boit
+ * à une fontaine » pour 飲), reliée au sens — pas la liste des composants. Style imposé :
+ * déclaratif, présent, impersonnel (pas de « imagine »/tutoiement), constant d'un item à
+ * l'autre. Corpus statique généré au build par scripts/build-mnemonics.ts. Sortie : UNE
+ * ligne par kanji « N. mnémo || image » (parsée côté client, parseMnemonicBatch).
  */
 export function buildMnemonicPrompt(r: GenerateRequest): string {
   const items = cleanMnemonicItems(r.items);
@@ -497,10 +499,13 @@ export function buildMnemonicPrompt(r: GenerateRequest): string {
     "",
     "Pour CHAQUE kanji, donne deux champs EN FRANÇAIS :",
     "- MNÉMO : UNE SEULE phrase mnémotechnique qui relie LE SON de la lecture la plus utile (en hiragana, entre parenthèses) ET le sens français, dans la même image. Exemple pour 飲 (のむ, boire) : « Le NOMade assoiffé BOIT (のむ) ». Le son doit s'entendre dans un mot français de la phrase, et la phrase doit raconter le sens. Jamais vide.",
-    "- COMPOSITION : une courte explication de la forme — quels composants ou traits, et comment ils suggèrent le sens (sans étymologie douteuse). C'est une explication, pas une devinette.",
+    "- IMAGE : ce à quoi RESSEMBLE le tracé du kanji, comme une silhouette vue dans un nuage, reliée au sens. Exemple pour 飲 : « Une personne penchée qui boit à une fontaine ». Décris l'image d'ensemble que forment les traits — pas la liste des composants ; les composants ne sont qu'un indice. Reste sur ce qui se voit.",
+    "",
+    "STYLE UNIFORME, obligatoire pour les deux champs et identique d'un kanji à l'autre :",
+    "phrase déclarative au présent, impersonnelle — ne t'adresse JAMAIS au lecteur : pas de « imagine », « visualise », « pense à », « retiens », aucun tutoiement ni vouvoiement. Décris directement la scène, comme dans les exemples ci-dessus.",
     "",
     "Format STRICT, une ligne par kanji, dans l'ordre, sans aucune autre ligne :",
-    "« N. mnémo || composition » (le séparateur entre les deux champs est exactement « || »).",
+    "« N. mnémo || image » (le séparateur entre les deux champs est exactement « || »).",
     "Chaque champ : une phrase concise (25 mots maximum), concrète et imagée, en français. Pas de puce, pas de ligne vide.",
   ].join("\n");
 }
@@ -530,6 +535,9 @@ export function buildWordMnemonicPrompt(r: GenerateRequest): string {
     "Pour CHAQUE mot, donne deux champs EN FRANÇAIS :",
     "- MNÉMO : UNE SEULE phrase mnémotechnique qui relie LE SON de la lecture ENTIÈRE du mot (en hiragana, entre parenthèses) ET son sens français, dans la même image. Exemple pour 勉強 (べんきょう, étudier) : « “BIEN, écOUTe !” dit le prof à qui ÉTUDIE (べんきょう) ». Le son doit s'entendre dans la phrase, et la phrase doit raconter le sens. Jamais vide.",
     "- COMPOSITION : si le mot a plusieurs kanji, une courte explication de comment leurs sens se combinent (勉 effort + 強 fort → étudier avec effort) ; si un seul kanji ou aucun, laisse ce champ vide. C'est une explication, pas une devinette.",
+    "",
+    "STYLE UNIFORME, obligatoire pour les deux champs et identique d'un mot à l'autre :",
+    "phrase déclarative au présent, impersonnelle — ne t'adresse JAMAIS au lecteur : pas de « imagine », « visualise », « pense à », « retiens », aucun tutoiement ni vouvoiement. Décris directement la scène, comme dans l'exemple ci-dessus.",
     "",
     "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne :",
     "« N. mnémo || composition » (le séparateur entre les deux champs est exactement « || »).",

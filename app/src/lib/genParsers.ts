@@ -14,8 +14,9 @@ export interface StoryTranslation {
  * Moyen mnémotechnique d'un kanji ou d'un mot :
  *  - `story` : LE mnémo — une seule phrase qui contient le SON de la lecture et évoque le
  *    sens (méthode du mot-clé : 飲 のむ → « le NOMade assoiffé BOIT ») ;
- *  - `composition` : explication complémentaire (composants du kanji / kanji du mot), utile
- *    mais assumée comme explication, pas comme second mnémo à retenir.
+ *  - `composition` : complément visuel — pour un kanji, l'IMAGE que forme le tracé
+ *    (paréidolie : 飲 ressemble à une personne qui boit à une fontaine) ; pour un mot,
+ *    l'explication de la combinaison de ses kanji. Pas un second mnémo à retenir.
  */
 export interface Mnemonic {
   story: string;

@@ -90,7 +90,7 @@ export function KanjiSheet({
 
       {detail.mnemonic && (detail.mnemonic.story || detail.mnemonic.composition) && (
         <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
-          {/* UN mnémo (son + sens dans la même phrase) ; la composition est une explication. */}
+          {/* UN mnémo (son + sens dans la même phrase) ; l'image = ce que le tracé évoque. */}
           {detail.mnemonic.story && (
             <span>
               <span className="text-muted">Mnémo :</span>{" "}
@@ -99,7 +99,7 @@ export function KanjiSheet({
           )}
           {detail.mnemonic.composition && (
             <span>
-              <span className="text-muted">Composition :</span>{" "}
+              <span className="text-muted">Image :</span>{" "}
               <span className="text-text">{detail.mnemonic.composition}</span>
             </span>
           )}
