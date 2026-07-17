@@ -120,4 +120,22 @@ describe("parseMnemonicBatch", () => {
     });
     expect(parseMnemonicBatch("1.  || ", 1)[0]).toBeNull();
   });
+
+  it("retire les libellés parasites (« 安 — MNÉMO : », « IMAGE : »…) recopiés par le modèle", () => {
+    const raw = [
+      "1. 安 — MNÉMO : Un âne (あん) se RELAXE. || IMAGE : Une femme assise sous un toit.",
+      "2. 皆さん (みなさん) — mnémo : Une MINce ASSemblée. || COMPOSITION : 皆 tous + さん suffixe.",
+      "3. MNÉMO: La borne disparaît. || Image: Un fil emmêlé.",
+    ].join("\n");
+    const out = parseMnemonicBatch(raw, 3);
+    expect(out[0]).toEqual({
+      story: "Un âne (あん) se RELAXE.",
+      composition: "Une femme assise sous un toit.",
+    });
+    expect(out[1]).toEqual({
+      story: "Une MINce ASSemblée.",
+      composition: "皆 tous + さん suffixe.",
+    });
+    expect(out[2]).toEqual({ story: "La borne disparaît.", composition: "Un fil emmêlé." });
+  });
 });

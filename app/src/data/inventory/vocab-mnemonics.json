@@ -2580,23 +2580,23 @@
   "composition": ""
  },
  "皆さん|みなさん": {
-  "story": "皆さん (みなさん) — MNÉMO : Sur la scène, une MINce ASSemblée acclame « tout le monde, vous tous » en criant « MINASAN ! ».",
-  "composition": "COMPOSITION : 皆 (tous) + le suffixe honorifique さん → s’adresser poliment à tout le monde."
+  "story": "Sur la scène, une MINce ASSemblée acclame « tout le monde, vous tous » en criant « MINASAN ! ».",
+  "composition": "皆 (tous) + le suffixe honorifique さん → s’adresser poliment à tout le monde."
  },
  "南|みなみ": {
-  "story": "南 (みなみ) — MNÉMO : La boussole indique le sud quand l’aiguille se cale sur le MIlieu du NAdir MIroitant.",
+  "story": "La boussole indique le sud quand l’aiguille se cale sur le MIlieu du NAdir MIroitant.",
   "composition": ""
  },
  "耳|みみ": {
-  "story": "耳 (みみ) — MNÉMO : Une oreille perçoit le bruit d’une MIe de pain qui MItraille le silence.",
+  "story": "Une oreille perçoit le bruit d’une MIe de pain qui MItraille le silence.",
   "composition": ""
  },
  "見る|みる": {
-  "story": "見る (みる) — MNÉMO : Pour voir le spectacle, un MIlitaire Russe écarte les branches devant ses yeux.",
+  "story": "Pour voir le spectacle, un MIlitaire Russe écarte les branches devant ses yeux.",
   "composition": ""
  },
  "みんな|みんな": {
-  "story": "みんな — MNÉMO : Dans la cour, le MIel NAppe joyeusement la tartine que tous les enfants se partagent.",
+  "story": "Dans la cour, le MIel NAppe joyeusement la tartine que tous les enfants se partagent.",
   "composition": ""
  },
  "目|め": {
@@ -5232,24 +5232,24 @@
   "composition": "La crainte révérencielle (敬) se mêle à la pensée (意) d'autrui."
  },
  "経緯|けいい": {
-  "story": "経緯 (けいい) — mnémo : Un \"KAYAK\" flotte sur l'eau, symbolisant le DÉROULEMENT des CIRCONSTANCES (けいい).",
-  "composition": "composition : 経 (sutra, fil vertical) + 緯 (horizontal, trame) → le croisement des fils représente l'enchaînement des circonstances."
+  "story": "Un \"KAYAK\" flotte sur l'eau, symbolisant le DÉROULEMENT des CIRCONSTANCES (けいい).",
+  "composition": "経 (sutra, fil vertical) + 緯 (horizontal, trame) → le croisement des fils représente l'enchaînement des circonstances."
  },
  "経営|けいえい": {
-  "story": "経営 (けいえい) — mnémo : Un \"KAYAK\" glisse silencieusement, image d'une GESTION fluide et d'une DIRECTION sans heurts (けいえい).",
-  "composition": "composition : 経 (sutra, gouverner) + 営 (occupation, gérer) → administrer et gérer une occupation."
+  "story": "Un \"KAYAK\" glisse silencieusement, image d'une GESTION fluide et d'une DIRECTION sans heurts (けいえい).",
+  "composition": "経 (sutra, gouverner) + 営 (occupation, gérer) → administrer et gérer une occupation."
  },
  "景気|けいき": {
-  "story": "景気 (けいき) — mnémo : Un \"CAKE\" savoureux reflète une CONJONCTURE ÉCONOMIQUE prospère et une humeur joyeuse (けいき).",
-  "composition": "composition : 景 (scenery, aspect) + 気 (énergie, humeur) → l'aspect et l'énergie du climat économique."
+  "story": "Un \"CAKE\" savoureux reflète une CONJONCTURE ÉCONOMIQUE prospère et une humeur joyeuse (けいき).",
+  "composition": "景 (scenery, aspect) + 気 (énergie, humeur) → l'aspect et l'énergie du climat économique."
  },
  "計器|けいき": {
-  "story": "計器 (けいき) — mnémo : Un \"CAKE\" est pesé avec précision sur un INSTRUMENT DE MESURE en cuisine (けいき).",
-  "composition": "composition : 計 (plot, mesurer) + 器 (utensil) → un ustensile pour mesurer."
+  "story": "Un \"CAKE\" est pesé avec précision sur un INSTRUMENT DE MESURE en cuisine (けいき).",
+  "composition": "計 (plot, mesurer) + 器 (utensil) → un ustensile pour mesurer."
  },
  "契機|けいき": {
-  "story": "契機 (けいき) — mnémo : Un \"CAKE\" partagé scelle un engagement et devient l'OCCASION d'un nouveau départ (けいき).",
-  "composition": "composition : 契 (pledge, engagement) + 機 (loom, mécanisme) → le mécanisme qui déclenche un engagement."
+  "story": "Un \"CAKE\" partagé scelle un engagement et devient l'OCCASION d'un nouveau départ (けいき).",
+  "composition": "契 (pledge, engagement) + 機 (loom, mécanisme) → le mécanisme qui déclenche un engagement."
  },
  "傾向|けいこう": {
   "story": "傾向 (けいこう) — Un kayak coûte cher mais la TENDANCE est d’en acheter.",
@@ -6036,7 +6036,7 @@
   "composition": "Faire sa maison dans la création, l'écrivain bâtit un foyer par ses œuvres."
  },
  "作曲|さっきょく": {
-  "story": "作曲 (さっきょく) — composition : “SAKÉ, YO-KUrt” : en renversant ces deux ingrédients sur la partition, la composition musicale naît d'un heureux accident.",
+  "story": "“SAKÉ, YO-KUrt” : en renversant ces deux ingrédients sur la partition, la composition musicale naît d'un heureux accident.",
   "composition": "L'action de faire plier les sons, comme on courbe une mélodie pour composer."
  },
  "ざっと|ざっと": {
@@ -6912,24 +6912,24 @@
   "composition": "La personne et son espèce définissent la race humaine."
  },
  "信じる|しんじる": {
-  "story": "信じる (しんじる) — sens: croire ; kanji: 信 = Faith",
-  "composition": "MNÉMO : « CHINE, JIRE » cette histoire incroyable, pourtant tout le monde la CROIT. COMPOSITION :"
+  "story": "« CHINE, JIRE » cette histoire incroyable, pourtant tout le monde la CROIT.",
+  "composition": ""
  },
  "人生|じんせい": {
-  "story": "人生 (じんせい) — sens: vie (humaine) ; kanji: 人 = personne, 生 = vie, naître",
-  "composition": "MNÉMO : Le JEAN scie la VIE humaine en deux. COMPOSITION : La personne et la vie se combinent pour désigner l'existence humaine."
+  "story": "Le JEAN scie la VIE humaine en deux.",
+  "composition": "La personne et la vie se combinent pour désigner l'existence humaine."
  },
  "親戚|しんせき": {
-  "story": "親戚 (しんせき) — sens: parenté, proches ; kanji: 親 = Parent, 戚 = ?",
-  "composition": "MNÉMO : « CHINE, SÈQUE » ses économies pour aider sa PARENTÉ dans le besoin. COMPOSITION : Le parent et l'affliction se combinent pour évoquer les proches qui partagent les peines."
+  "story": "« CHINE, SÈQUE » ses économies pour aider sa PARENTÉ dans le besoin.",
+  "composition": "Le parent et l'affliction se combinent pour évoquer les proches qui partagent les peines."
  },
  "新鮮|しんせん": {
-  "story": "新鮮 (しんせん) — sens: frais ; kanji: 新 = New, 鮮 = Fresh",
-  "composition": "MNÉMO : « CHINE, CENDRE » ses légumes pour les garder FRAIS plus longtemps. COMPOSITION : Le nouveau et le vif se combinent pour qualifier ce qui est d'une fraîcheur éclatante."
+  "story": "« CHINE, CENDRE » ses légumes pour les garder FRAIS plus longtemps.",
+  "composition": "Le nouveau et le vif se combinent pour qualifier ce qui est d'une fraîcheur éclatante."
  },
  "心臓|しんぞう": {
-  "story": "心臓 (しんぞう) — sens: cœur ; kanji: 心 = Heart, 臓 = Entrails",
-  "composition": "MNÉMO : Le « CHINE, ZOO » expose un CŒUR d'animal conservé dans le formol. COMPOSITION : Le cœur et les entrailles se combinent pour désigner l'organe vital central."
+  "story": "Le « CHINE, ZOO » expose un CŒUR d'animal conservé dans le formol.",
+  "composition": "Le cœur et les entrailles se combinent pour désigner l'organe vital central."
  },
  "身体|しんたい": {
   "story": "Un corps (しんたい) en pleine forme s'écrie « CHIN ! TAIlle parfaite ! » devant le miroir.",

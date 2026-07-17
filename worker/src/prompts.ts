@@ -507,6 +507,7 @@ export function buildMnemonicPrompt(r: GenerateRequest): string {
     "Format STRICT, une ligne par kanji, dans l'ordre, sans aucune autre ligne :",
     "« N. mnémo || image » (le séparateur entre les deux champs est exactement « || »).",
     "Chaque champ : une phrase concise (25 mots maximum), concrète et imagée, en français. Pas de puce, pas de ligne vide.",
+    "Chaque champ commence DIRECTEMENT par sa phrase : ne recopie ni le kanji, ni un libellé comme « MNÉMO : », « IMAGE : » ou « 安 — » en tête de champ.",
   ].join("\n");
 }
 
@@ -542,6 +543,7 @@ export function buildWordMnemonicPrompt(r: GenerateRequest): string {
     "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne :",
     "« N. mnémo || composition » (le séparateur entre les deux champs est exactement « || »).",
     "Chaque champ : une phrase concise (25 mots maximum), en français. Pas de puce, pas de ligne vide.",
+    "Chaque champ commence DIRECTEMENT par sa phrase : ne recopie ni le mot, ni un libellé comme « MNÉMO : » ou « COMPOSITION : » en tête de champ.",
   ].join("\n");
 }
 
