@@ -37,11 +37,11 @@ export function createProgressBar(total: number, toProcess: number): ProgressBar
     const rate = processed / Math.max(elapsed, 0.001); // items générés / s (hors repris)
     const etaS = processed >= 2 && rate > 0 ? Math.round((toProcess - processed) / rate) : 0;
     const eta = etaS > 0 ? ` · ~${Math.floor(etaS / 60)}m${String(etaS % 60).padStart(2, "0")}` : "";
-    // Marqueurs à largeur fixe (1 cellule) : pas d'emoji « next track » qui, rendu sur
-    // 2 cellules par certains terminaux, chevaucherait le chiffre suivant.
+    // Marqueurs à largeur fixe (1 cellule) : pas d'emoji (⏭, ⚠…) qui, rendu sur 2 cellules
+    // par certains terminaux, chevaucherait le chiffre suivant.
     const counts =
       `✓${stats.ok} »${stats.skipped}` +
-      (stats.empty ? ` ⚠${stats.empty}` : "") +
+      (stats.empty ? ` !${stats.empty}` : "") +
       (stats.failed ? ` ✗${stats.failed}` : "");
     return `${gauge} ${pct}% ${done}/${total} ${counts}${eta}  ${current}`;
   };
