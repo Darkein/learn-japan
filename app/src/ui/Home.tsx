@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
+import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
@@ -56,6 +57,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
   const [tokaido, setTokaido] = useState<TokaidoStatus | null>(null);
   const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
+  const [reco, setReco] = useState<Recommendation | null>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
@@ -72,6 +74,9 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
     setMirror(await currentMirrorCandidate(stories));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
     setUnlockedLesson(newlyUnlocked ?? null);
+    // Reco de lecture : calcul potentiellement coûteux (tokenisation au 1er passage, puis
+    // cache) — hors du chemin de rendu, la carte apparaît quand elle est prête.
+    void recommendStories(new Date(), stories).then((r) => setReco(r[0] ?? null));
   }
 
   useEffect(() => {
@@ -169,6 +174,25 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
           </div>
           <Button className="shrink-0" onClick={onStartMirror}>
             Relire
+          </Button>
+        </div>
+      )}
+
+      {reco && (
+        <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
+          <div className="flex flex-col">
+            <SectionLabel>À lire pour toi</SectionLabel>
+            <span className="text-sm text-muted">
+              « <span className="text-text">{reco.story.title}</span> » —{" "}
+              {Math.round(reco.coverage * 100)}% de mots connus
+              {reco.dueHits > 0
+                ? ` · ${reco.dueHits} mot${reco.dueHits > 1 ? "s" : ""} à réviser en contexte`
+                : ""}
+              .
+            </span>
+          </div>
+          <Button className="shrink-0" onClick={() => onOpenStory(reco.story)}>
+            Lire
           </Button>
         </div>
       )}
