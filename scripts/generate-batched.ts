@@ -25,6 +25,8 @@ export interface BatchedOptions<T> {
   refresh: boolean;
   batchSize: number;
   gapMs: number;
+  /** Lots traités en parallèle (pool) : divise le temps total, borné par les 429 du fournisseur. */
+  concurrency: number;
 }
 
 /** Un mnémo est exploitable s'il porte au moins l'histoire (la composition seule ne suffit pas). */
@@ -63,39 +65,58 @@ export async function generateBatched<T>(opts: BatchedOptions<T>): Promise<strin
     else todo.push(it);
   }
 
-  // Phase 2 : lots.
-  for (let i = 0; i < todo.length; i += batchSize) {
-    const batch = todo.slice(i, i + batchSize);
-    bar.preview(labelOf(batch[0]));
-    let parsed: (Mnemonic | null)[];
-    try {
-      const text = await callWorker(workerUrl, {
-        ...toBody(batch),
-        ...(refresh ? { refresh: true } : {}),
+  // Phase 2 : lots, traités en PARALLÈLE (pool de `concurrency` requêtes simultanées).
+  // Le temps d'un appel LLM est dominé par les tokens de sortie : séquentiel, N lots
+  // coûtent N × durée d'un lot ; en parallèle, le temps total est divisé par le pool.
+  // Les mutations de `results`/barre restent sûres (event loop mono-thread).
+  const lots: T[][] = [];
+  for (let i = 0; i < todo.length; i += batchSize) lots.push(todo.slice(i, i + batchSize));
+
+  let nextLot = 0;
+  const runSlot = async (): Promise<void> => {
+    for (;;) {
+      const idx = nextLot++;
+      if (idx >= lots.length) return;
+      const batch = lots[idx];
+      bar.preview(labelOf(batch[0]));
+      let parsed: (Mnemonic | null)[];
+      try {
+        const text = await callWorker(workerUrl, {
+          ...toBody(batch),
+          ...(refresh ? { refresh: true } : {}),
+        });
+        parsed = parseMnemonicBatch(text, batch.length);
+      } catch (e) {
+        for (const it of batch) {
+          problems.push(`✗ ${labelOf(it)} (${idOf(it)}) — ${String(e)}`);
+          bar.tick("failed", labelOf(it));
+        }
+        await sleep(gapMs);
+        continue;
+      }
+      batch.forEach((it, j) => {
+        const m = parsed[j];
+        if (usable(m)) {
+          results[idOf(it)] = m;
+          bar.tick("ok", labelOf(it));
+        } else {
+          problems.push(`⚠ ${labelOf(it)} (${idOf(it)}) — ligne manquante ou vide`);
+          bar.tick("empty", labelOf(it));
+        }
       });
-      parsed = parseMnemonicBatch(text, batch.length);
-    } catch (e) {
-      for (const it of batch) {
-        problems.push(`✗ ${labelOf(it)} (${idOf(it)}) — ${String(e)}`);
-        bar.tick("failed", labelOf(it));
-      }
+      // Sauvegarde incrémentale : une interruption ne perd pas les lots déjà écrits.
+      writeFileSync(outPath, JSON.stringify(results, null, 1) + "\n");
       await sleep(gapMs);
-      continue;
     }
-    batch.forEach((it, j) => {
-      const m = parsed[j];
-      if (usable(m)) {
-        results[idOf(it)] = m;
-        bar.tick("ok", labelOf(it));
-      } else {
-        problems.push(`⚠ ${labelOf(it)} (${idOf(it)}) — ligne manquante ou vide`);
-        bar.tick("empty", labelOf(it));
-      }
-    });
-    // Sauvegarde incrémentale : une interruption ne perd pas les lots déjà écrits.
-    writeFileSync(outPath, JSON.stringify(results, null, 1) + "\n");
-    await sleep(gapMs);
-  }
+  };
+  // Départs décalés (gapMs) pour ne pas ouvrir toutes les connexions au même instant.
+  const slots = Math.max(1, Math.min(opts.concurrency, lots.length));
+  await Promise.all(
+    Array.from({ length: slots }, async (_, s) => {
+      await sleep(s * gapMs);
+      await runSlot();
+    }),
+  );
 
   bar.finish();
 

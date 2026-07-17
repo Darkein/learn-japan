@@ -27,9 +27,11 @@ const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-jap
   "",
 );
 
-/** Taille d'un lot : aligné sur LIMITS.mnemonicItemsList côté Worker. */
-const BATCH = 15;
-/** Espacement entre lots : évite les 429 du fournisseur. */
+/** Taille d'un lot (≤ LIMITS.mnemonicItemsList côté Worker) : lots plus courts = réponse plus rapide. */
+const BATCH = 10;
+/** Lots simultanés : divise le temps total ; modéré pour rester sous les limites du fournisseur. */
+const CONCURRENCY = 3;
+/** Espacement entre lots d'un même slot : évite les 429 du fournisseur. */
 const GAP_MS = 1000;
 
 interface KanjiInvEntry {
@@ -95,6 +97,7 @@ async function main(): Promise<void> {
     refresh: args.refresh,
     batchSize: BATCH,
     gapMs: GAP_MS,
+    concurrency: CONCURRENCY,
   });
 
   if (Object.keys(results).length === 0) process.exit(1);
