@@ -22,7 +22,14 @@ interface Props {
  * (kanji, mot isolé, point de grammaire) : joue le mot ou la phrase fournis via
  * `Exercise.audioBack` (Web Speech — offline, contenu arbitraire).
  */
-export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: string } }) {
+export function AudioBackButton({
+  audio,
+  label = "Écouter",
+}: {
+  audio: { word?: string; sentence?: string };
+  /** Libellé du bouton — « Écouter le mot » quand il cohabite avec l'écoute de la phrase. */
+  label?: string;
+}) {
   const [speaking, setSpeaking] = useState(false);
   const token = useRef(0);
 
@@ -45,10 +52,10 @@ export function AudioBackButton({ audio }: { audio: { word?: string; sentence?: 
       variant="ghost"
       onClick={() => void listen()}
       active={speaking}
-      aria-label="Écouter"
+      aria-label={label}
     >
       <IconSpeaker size={16} />
-      {speaking ? "Lecture…" : "Écouter"}
+      {speaking ? "Lecture…" : label}
     </Button>
   );
 }

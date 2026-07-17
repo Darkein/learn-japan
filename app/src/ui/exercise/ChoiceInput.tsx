@@ -78,8 +78,12 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
               fr={ex.contextFr}
               onTranslate={() => translateExampleFr(ex.context!, ex)}
             />
-          ) : (
-            ex.audioBack && <AudioBackButton audio={ex.audioBack} />
+          ) : null}
+          {ex.audioBack && (
+            <AudioBackButton
+              audio={ex.audioBack}
+              label={ex.cloze || ex.context ? "Écouter le mot" : "Écouter"}
+            />
           )}
           {picked === ex.answerIndex ? (
             <>

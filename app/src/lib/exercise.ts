@@ -147,6 +147,14 @@ export async function translateExampleFr(ja: string, ex: Exercise): Promise<stri
   return fr;
 }
 
+/**
+ * Id de repli des questions de compréhension SANS point de grammaire ciblé (voir
+ * `comprehensionExercises`) : propres à leur histoire, exclues de la planification SRS.
+ */
+export function isStoryComprehensionId(id: string): boolean {
+  return id.startsWith("comprehension:");
+}
+
 /** Note FSRS → action de statut vocab (pour les exercices notés via `applyStatus`). */
 const GRADE_TO_STATUS: Record<SrsGrade, StatusAction> = {
   again: "forgot",
@@ -188,6 +196,13 @@ export async function gradeExercise(
     if (skill === "written") v.status = grade === "easy" ? "known" : "review";
     await putVocab(v);
   } else if (ex.track === "comprehension") {
+    // Question de compréhension propre à une histoire (pas de point de grammaire ciblé,
+    // id de repli « comprehension:N ») : notée mais JAMAIS planifiée en SRS — la question
+    // n'a de sens que dans son histoire, elle ne doit pas revenir en révision.
+    if (isStoryComprehensionId(ex.id)) {
+      await logReview({ itemId: ex.id, track: ex.track, grade, at: now.getTime() });
+      return;
+    }
     const c = (await getComprehensionItem(ex.id)) ?? {
       id: ex.id,
       name: ex.seedName ?? ex.front,

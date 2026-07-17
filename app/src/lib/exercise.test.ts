@@ -153,6 +153,21 @@ describe("gradeExercise", () => {
     expect(c?.card?.reps).toBe(1);
   });
 
+  it("choice/comprehension d'histoire (id de repli) : notée mais JAMAIS planifiée en SRS", async () => {
+    const ex: ChoiceExercise = {
+      mode: "choice",
+      key: "comprehension:0",
+      track: "comprehension",
+      id: "comprehension:0",
+      front: "Que fait le chat ?",
+      back: "Il dort.",
+      choices: ["Il dort.", "Il mange.", "Il court."],
+      answerIndex: 0,
+    };
+    await gradeExercise(ex, "good", new Date());
+    expect(await getComprehensionItem("comprehension:0")).toBeUndefined();
+  });
+
   it("build/vocab : note le vocabulaire de contenu de la phrase, pas la piste grammaire", async () => {
     const tokens = [
       tok({ surface_form: "猫", pos: "名詞", reading: "ネコ", basic_form: "猫" }),

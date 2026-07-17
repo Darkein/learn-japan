@@ -8,6 +8,7 @@ import {
   allLessonProgress,
   allVocab,
   bumpSrsDaily,
+  deleteComprehensionItem,
   getDB,
   getGrammar,
   getSrsDaily,
@@ -18,7 +19,7 @@ import {
 } from "./db";
 import { conjugationExercise, type DrillVerb } from "./conjugation";
 import type { GrammarItem, VocabItem } from "./db";
-import { gradeExercise, type Exercise } from "./exercise";
+import { gradeExercise, isStoryComprehensionId, type Exercise } from "./exercise";
 import {
   comprehensionReviewExercise,
   grammarReviewExercise,
@@ -33,7 +34,7 @@ import { SRS } from "./config";
 import { loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
-import { effectiveExample } from "./vocab";
+import { effectiveExample, repairConjugatedVocab } from "./vocab";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
@@ -84,9 +85,22 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     else newCount++;
   }
   for (const c of comprehension) {
+    if (isStoryComprehensionId(c.id)) continue; // purgé au montage de session
     if (c.card) { if (isDue(c.card, horizon)) dueCount++; }
   }
   return { dueCount, newCount };
+}
+
+/**
+ * Purge les items de compréhension propres à une histoire, créés par une ancienne version
+ * de gradeExercise (voir `isStoryComprehensionId`) : leurs questions n'ont pas de sens
+ * hors de leur histoire et polluaient les révisions. Idempotent.
+ */
+async function purgeStoryComprehension(): Promise<void> {
+  const items = await allComprehension();
+  await Promise.all(
+    items.filter((c) => isStoryComprehensionId(c.id)).map((c) => deleteComprehensionItem(c.id)),
+  );
 }
 
 export async function buildSession(
@@ -94,6 +108,11 @@ export async function buildSession(
   opts: SessionOpts = {},
 ): Promise<Exercise[]> {
   const scope = opts.scope ?? "due";
+
+  // Hygiène des stores avant de construire : formes conjuguées stockées en surface
+  // (révisions FR → JA qui exigeaient « し » pour faire) et compréhension d'histoire.
+  await repairConjugatedVocab();
+  await purgeStoryComprehension();
 
   let exercises: Exercise[];
   if (scope === "all") {
@@ -232,6 +251,7 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     }
   }
   for (const c of comprehensionAll) {
+    if (isStoryComprehensionId(c.id)) continue;
     if (c.card && isDue(c.card, horizon)) {
       due.push(comprehensionReviewExercise(c, c.card.due.getTime()));
     }

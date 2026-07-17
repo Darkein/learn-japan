@@ -11,6 +11,7 @@ import { BottomSheet } from "./BottomSheet";
 import { KanjiBreakdown } from "./KanjiBreakdown";
 import { KanjiDetail } from "./KanjiSheet";
 import { Badge } from "./kit/Badge";
+import { IconSpeaker } from "./kit/Icon";
 
 const STATUS_FR: Record<ItemStatus, string> = {
   unknown: "jamais marqué",
@@ -54,12 +55,12 @@ export function VocabPeekSheet({
             <span className="font-jp text-2xl">{v.ja}</span>
             {v.yomi && <span className="text-lg text-muted">{v.yomi}</span>}
             <button
-              className="cursor-pointer rounded-sm border border-hairline px-2 py-0.5 text-base leading-none transition-colors hover:border-accent"
+              className="cursor-pointer self-center rounded-sm border border-hairline px-2 py-1 leading-none transition-colors hover:border-accent"
               onClick={() => speakWord(v.ja)}
               aria-label="Écouter le mot"
               title="Écouter"
             >
-              🔊
+              <IconSpeaker size={16} />
             </button>
             <Badge className="ml-auto">N{v.level}</Badge>
           </div>

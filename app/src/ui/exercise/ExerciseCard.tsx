@@ -4,7 +4,7 @@ import type { SrsGrade } from "../../lib/srs";
 import { speakWord, stopSentence } from "../../lib/tts";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
-import { IconPlay } from "../kit/Icon";
+import { IconPlay, IconSpeaker } from "../kit/Icon";
 import { BuildInput } from "./BuildInput";
 import { ChoiceInput } from "./ChoiceInput";
 import { JpFront } from "./JpFront";
@@ -70,7 +70,9 @@ export function ExerciseCard({
       {ex.audio && !listened ? (
         <>
           {ex.audioOnly ? (
-            <div className="text-lg text-muted">🔊 Écoute la phrase…</div>
+            <div className="flex items-center gap-2 text-lg text-muted">
+              <IconSpeaker size={18} /> Écoute la phrase…
+            </div>
           ) : (
             <JpFront text={ex.front} className="font-jp text-3xl" />
           )}

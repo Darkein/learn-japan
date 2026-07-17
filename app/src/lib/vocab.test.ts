@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
-import { getVocab, type VocabItem } from "./db";
+import { getVocab, putVocab, type VocabItem } from "./db";
 import {
   addInventoryWordToReview,
   applyStatus,
@@ -8,6 +8,7 @@ import {
   itemIdFor,
   meaningFor,
   refreshStoredMeanings,
+  repairConjugatedVocab,
 } from "./vocab";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -15,6 +16,16 @@ vi.mock("./inventory", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./inventory")>()),
   staticExample: (id: string) =>
     id === "猫|ねこ" ? { ja: "猫は水を飲みます。", fr: "Le chat boit de l'eau." } : null,
+}));
+
+// Lectures de formes de base connues du mock ; toute autre forme simule un dico kuromoji
+// indisponible (échec de retokenisation).
+vi.mock("./tokenizer", () => ({
+  tokenize: async (text: string) => {
+    const READINGS: Record<string, string> = { する: "スル", いる: "イル", 食べる: "タベル" };
+    if (!READINGS[text]) throw new Error("dico indisponible (test)");
+    return [{ surface_form: text, reading: READINGS[text] }];
+  },
 }));
 
 function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }): KuromojiToken {
@@ -75,6 +86,40 @@ describe("addInventoryWordToReview", () => {
     const item = await addInventoryWordToReview({ id, ja: "水", yomi: "みず", fr: "eau", level: 5 });
     expect(item.status).toBe("known");
     expect((await getVocab(id))?.status).toBe("known");
+  });
+});
+
+describe("forme de dictionnaire (création + réparation)", () => {
+  it("stocke la forme de base pour un token conjugué (し → する)", async () => {
+    const shi = tok({ surface_form: "し", pos: "動詞", basic_form: "する", reading: "シ" });
+    const item = await applyStatus(shi, "review");
+    expect(item.id).toBe("する|し");
+    expect(item.surface).toBe("する");
+    expect(item.reading).toBe("する");
+  });
+
+  it("retombe sur la forme rencontrée si la retokenisation échoue", async () => {
+    const yon = tok({ surface_form: "読ん", pos: "動詞", basic_form: "読む", reading: "ヨン" });
+    const item = await applyStatus(yon, "review");
+    expect(item.surface).toBe("読ん");
+    expect(item.reading).toBe("よん");
+  });
+
+  it("répare un item existant stocké en forme conjuguée", async () => {
+    await putVocab({
+      id: "食べる|たべ", surface: "食べ", reading: "たべ", meaning: "manger",
+      tags: [], status: "review", cards: {},
+    });
+    expect(await repairConjugatedVocab()).toBeGreaterThanOrEqual(1);
+    const v = await getVocab("食べる|たべ");
+    expect(v?.surface).toBe("食べる");
+    expect(v?.reading).toBe("たべる");
+  });
+
+  it("laisse intact un item irréparable (dico indisponible)", async () => {
+    await repairConjugatedVocab();
+    const v = await getVocab("読む|よん");
+    expect(v?.surface).toBe("読ん");
   });
 });
 

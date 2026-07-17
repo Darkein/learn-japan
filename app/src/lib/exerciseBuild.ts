@@ -13,7 +13,7 @@ import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
-import { effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
+import { baseForm, baseReading, effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
 
 const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
 
@@ -62,24 +62,6 @@ export function particleExercises(
   });
 
   return shuffle(out).slice(0, max);
-}
-
-/** Forme de base (dictionnaire) d'un token, ou sa surface si kuromoji ne la donne pas. */
-function baseForm(t: KuromojiToken): string {
-  return t.basic_form && t.basic_form !== "*" ? t.basic_form : t.surface_form;
-}
-
-/**
- * Lecture en kana de la FORME DE BASE d'un token. Si le mot apparaît déjà sous sa forme
- * de base, la lecture du token convient ; sinon (verbe/adjectif conjugué) on retokenise
- * la forme de base pour obtenir sa vraie lecture — fiable même pour les irréguliers
- * (来る→くる vs 来ます→きます), là où une reconstruction depuis la surface se tromperait.
- */
-async function baseReading(t: KuromojiToken): Promise<string> {
-  const base = baseForm(t);
-  if (t.surface_form === base && t.reading) return normalizeReading(t.reading);
-  const sub = await tokenize(base);
-  return normalizeReading(sub.map((s) => s.reading ?? s.surface_form).join(""));
 }
 
 /**
@@ -212,6 +194,7 @@ export function vocabTypeExercise(
         prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
         context: example.ja,
         ...(example.fr ? { contextFr: example.fr } : {}),
+        audioBack: { word: v.surface },
       };
     }
     return {
@@ -248,6 +231,7 @@ export function vocabTypeExercise(
       ...(example?.fr ? { contextFr: example.fr } : {}),
       prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
       answers,
+      audioBack: { word: v.surface },
     };
   }
   return {
@@ -261,8 +245,9 @@ export function vocabTypeExercise(
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
     answers,
-    ...(example?.ja ? { context: example.ja } : { audioBack: { word: v.surface } }),
+    ...(example?.ja ? { context: example.ja } : {}),
     ...(example?.fr ? { contextFr: example.fr } : {}),
+    audioBack: { word: v.surface },
   };
 }
 
@@ -308,6 +293,7 @@ export function vocabListenMeaningExercise(
     ...(example?.fr ? { contextFr: example.fr } : {}),
     choices,
     answerIndex,
+    audioBack: { word: v.surface },
   };
 }
 

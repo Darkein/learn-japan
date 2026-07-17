@@ -19,6 +19,7 @@ import { StatusTag } from "./CatalogueInventory";
 import { BottomSheet } from "./BottomSheet";
 import { Badge } from "./kit/Badge";
 import { Emphasis } from "./kit/Emphasis";
+import { IconSpeaker } from "./kit/Icon";
 
 const SUGGESTIONS_COLLAPSED = 8;
 const SUGGESTIONS_EXPANDED = 30;
@@ -78,12 +79,12 @@ export function KanjiDetail({
         <span className="font-jp text-5xl">{detail.ja}</span>
         <span className="text-lg">{detail.fr}</span>
         <button
-          className="cursor-pointer rounded-sm border border-hairline px-2 py-0.5 text-base leading-none transition-colors hover:border-accent"
+          className="cursor-pointer self-center rounded-sm border border-hairline px-2 py-1 leading-none transition-colors hover:border-accent"
           onClick={() => speakWord(detail.ja)}
           aria-label="Écouter le mot"
           title="Écouter"
         >
-          🔊
+          <IconSpeaker size={16} />
         </button>
         <Badge className="ml-auto">N{detail.level}</Badge>
       </div>

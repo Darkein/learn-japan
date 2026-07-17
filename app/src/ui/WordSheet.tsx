@@ -12,6 +12,7 @@ import { BottomSheet } from "./BottomSheet";
 import { KanjiBreakdown } from "./KanjiBreakdown";
 import { KanjiDetail } from "./KanjiSheet";
 import { Emphasis } from "./kit/Emphasis";
+import { IconSpeaker } from "./kit/Icon";
 
 const POS_FR: Record<string, string> = {
   名詞: "nom",
@@ -113,12 +114,12 @@ export function WordSheet({
           <span className="text-lg text-muted">{reading}</span>
         )}
         <button
-          className="cursor-pointer rounded-sm border border-hairline px-2 py-0.5 text-base leading-none transition-colors hover:border-accent"
+          className="cursor-pointer self-center rounded-sm border border-hairline px-2 py-1 leading-none transition-colors hover:border-accent"
           onClick={() => speakWord(token.surface_form)}
           aria-label="Écouter le mot"
           title="Écouter"
         >
-          🔊
+          <IconSpeaker size={16} />
         </button>
         <span className="ml-auto font-sans text-xs uppercase tracking-wider text-muted">
           {POS_FR[token.pos] ?? token.pos}

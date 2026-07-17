@@ -109,7 +109,12 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
               onTranslate={() => translateExampleFr(ex.context!, ex)}
             />
           )}
-          {!ex.context && ex.audioBack && <AudioBackButton audio={ex.audioBack} />}
+          {ex.audioBack && (
+            <AudioBackButton
+              audio={ex.audioBack}
+              label={ex.context ? "Écouter le mot" : "Écouter"}
+            />
+          )}
           {result === "correct" ? (
             <GradeButtons onGraded={onGraded} onNext={onNext} />
           ) : result === "almost" ? (

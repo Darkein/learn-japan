@@ -374,6 +374,9 @@ export async function getComprehensionItem(id: string): Promise<ComprehensionIte
 export async function allComprehension(): Promise<ComprehensionItem[]> {
   return (await getDB()).getAll("comprehension");
 }
+export async function deleteComprehensionItem(id: string): Promise<void> {
+  await (await getDB()).delete("comprehension", id);
+}
 
 // Histoires ------------------------------------------------------------------
 export async function putStory(story: StoryRecord): Promise<void> {

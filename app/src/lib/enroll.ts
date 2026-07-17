@@ -8,9 +8,9 @@ import {
   type VocabItem, type GrammarItem,
 } from "./db";
 import { getCurriculumEntry } from "./curriculum";
-import { isContent, itemIdFor, meaningFor } from "./vocab";
+import { isContent, itemIdFor, newVocabItemFromToken } from "./vocab";
 import { tokenize } from "./tokenizer";
-import { kataToHira, splitJaSentences } from "./kana";
+import { splitJaSentences } from "./kana";
 import { allVocab } from "./db";
 import type { StoryRecord } from "./db";
 
@@ -68,18 +68,13 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
         const existing = await getVocab(id);
         if (existing) return;
 
-        const surface = token.surface_form;
-        const idx = sentences.findIndex((s) => s.includes(surface));
+        // La phrase d'exemple se cherche avec la forme RENCONTRÉE (conjuguée), même si
+        // l'item stocke la forme de dictionnaire (voir newVocabItemFromToken).
+        const idx = sentences.findIndex((s) => s.includes(token.surface_form));
         const fr = idx >= 0 ? story.translation?.[idx] : undefined;
 
         const item: VocabItem = {
-          id,
-          surface: token.surface_form,
-          reading: token.reading ? kataToHira(token.reading) : token.surface_form,
-          meaning: meaningFor(token),
-          tags: [],
-          status: "unknown",
-          cards: {},
+          ...(await newVocabItemFromToken(token)),
           example: idx >= 0 ? { ja: sentences[idx], ...(fr ? { fr } : {}) } : undefined,
         };
         await putVocab(item);

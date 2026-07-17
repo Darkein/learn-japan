@@ -3,7 +3,7 @@
 
 import { contentDictSnapshot } from "./data";
 import type { ContentDict } from "./gloss";
-import { kataToHira } from "./kana";
+import { kataToHira, normalizeReading } from "./kana";
 import {
   allVocab,
   getVocab,
@@ -14,7 +14,7 @@ import {
 } from "./db";
 import { resolveVocab, staticExample, type InvVocab } from "./inventory";
 import { newCard, review, type SrsGrade } from "./srs";
-import type { KuromojiToken } from "./tokenizer";
+import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞", "連体詞"]);
 
@@ -27,6 +27,80 @@ export function isContent(token: KuromojiToken): boolean {
 export function itemIdFor(token: KuromojiToken): string {
   const reading = token.reading ? kataToHira(token.reading) : "";
   return `${token.basic_form || token.surface_form}|${reading}`;
+}
+
+/** Forme de base (dictionnaire) d'un token, ou sa surface si kuromoji ne la donne pas. */
+export function baseForm(t: KuromojiToken): string {
+  return t.basic_form && t.basic_form !== "*" ? t.basic_form : t.surface_form;
+}
+
+/**
+ * Lecture en kana de la FORME DE BASE d'un token. Si le mot apparaît déjà sous sa forme
+ * de base, la lecture du token convient ; sinon (verbe/adjectif conjugué) on retokenise
+ * la forme de base pour obtenir sa vraie lecture — fiable même pour les irréguliers
+ * (来る→くる vs 来ます→きます), là où une reconstruction depuis la surface se tromperait.
+ */
+export async function baseReading(t: KuromojiToken): Promise<string> {
+  const base = baseForm(t);
+  if (t.surface_form === base && t.reading) return normalizeReading(t.reading);
+  const sub = await tokenize(base);
+  return normalizeReading(sub.map((s) => s.reading ?? s.surface_form).join(""));
+}
+
+/**
+ * Item vocab neuf depuis un token : stocke la FORME DE DICTIONNAIRE (surface + lecture de
+ * base), pas la forme conjuguée rencontrée. Sinon un verbe croisé en します créait un item
+ * « し » dont la révision FR → JA (« faire ») refusait する. Si la retokenisation échoue
+ * (dico kuromoji indisponible), on retombe sur la forme rencontrée — l'item sera réparé
+ * plus tard par repairConjugatedVocab.
+ */
+export async function newVocabItemFromToken(token: KuromojiToken): Promise<VocabItem> {
+  let surface = token.surface_form;
+  let reading = token.reading ? kataToHira(token.reading) : token.surface_form;
+  try {
+    const r = await baseReading(token);
+    if (r) {
+      surface = baseForm(token);
+      reading = r;
+    }
+  } catch {
+    /* forme rencontrée conservée */
+  }
+  return {
+    id: itemIdFor(token),
+    surface,
+    reading,
+    meaning: meaningFor(token),
+    tags: [],
+    status: "unknown",
+    cards: {},
+  };
+}
+
+/**
+ * Répare les items créés avant `newVocabItemFromToken` avec une forme conjuguée en surface
+ * (l'id porte la forme de base : « する|し » stocké avec surface « し »). Idempotent, appelé
+ * au montage d'une session de révision ; renvoie le nombre d'items corrigés.
+ */
+export async function repairConjugatedVocab(): Promise<number> {
+  const items = await allVocab();
+  let updated = 0;
+  for (const item of items) {
+    const [base] = item.id.split("|");
+    if (!base || base === "*" || base === item.surface) continue;
+    try {
+      const sub = await tokenize(base);
+      const reading = normalizeReading(sub.map((s) => s.reading ?? s.surface_form).join(""));
+      if (!reading) continue;
+      item.surface = base;
+      item.reading = reading;
+      await putVocab(item);
+      updated++;
+    } catch {
+      /* dico kuromoji indisponible : on réessaiera à la prochaine session */
+    }
+  }
+  return updated;
 }
 
 /**
@@ -91,18 +165,9 @@ const ACTION_TO_STATUS: Record<StatusAction, ItemStatus> = {
 
 /** Récupère un item existant ou en fabrique un neuf depuis le token. */
 async function loadOrCreate(token: KuromojiToken): Promise<VocabItem> {
-  const id = itemIdFor(token);
-  const existing = await getVocab(id);
+  const existing = await getVocab(itemIdFor(token));
   if (existing) return existing;
-  return {
-    id,
-    surface: token.surface_form,
-    reading: token.reading ? kataToHira(token.reading) : token.surface_form,
-    meaning: meaningFor(token),
-    tags: [],
-    status: "unknown",
-    cards: {},
-  };
+  return newVocabItemFromToken(token);
 }
 
 /**
