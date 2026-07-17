@@ -48,6 +48,7 @@ async function generate(k: KanjiInvEntry, refresh: boolean): Promise<Mnemonic | 
   const body = {
     kind: "mnemonic",
     kanji: k.id,
+    fr: k.fr, // traduction française curée — ancre du sens côté prompt
     meanings: k.meanings,
     on: k.on ?? [],
     kun: k.kun ?? [],

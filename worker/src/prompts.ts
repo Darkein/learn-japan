@@ -48,6 +48,8 @@ export interface GenerateRequest {
   allowedVocab?: string[];
   // kind: "mnemonic" — un kanji et ses métadonnées KANJIDIC (le Worker n'a pas d'inventaire).
   kanji?: string;
+  /** Traduction française curée (ancre du sens, prioritaire sur `meanings` anglais). */
+  fr?: string;
   meanings?: string[];
   on?: string[];
   kun?: string[];
@@ -79,6 +81,7 @@ const LIMITS = {
   allowedVocabItem: 40,
   // kind: "mnemonic" — un kanji + ses lectures/sens/composants.
   kanjiChar: 4,
+  frMeaning: 80,
   readingList: 12,
   readingItem: 24,
   meaningList: 12,
@@ -439,6 +442,7 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
  */
 export function buildMnemonicPrompt(r: GenerateRequest): string {
   const kanji = clean(r.kanji, LIMITS.kanjiChar);
+  const fr = clean(r.fr, LIMITS.frMeaning);
   const meanings = cleanList(r.meanings, LIMITS.meaningList, LIMITS.meaningItem);
   const on = cleanList(r.on, LIMITS.readingList, LIMITS.readingItem);
   const kun = cleanList(r.kun, LIMITS.readingList, LIMITS.readingItem);
@@ -447,7 +451,10 @@ export function buildMnemonicPrompt(r: GenerateRequest): string {
 
   const facts = [
     `Kanji : ${kanji}`,
-    meanings.length ? `Sens : ${meanings.join(", ")}` : "",
+    // Le sens FRANÇAIS est l'ancre : c'est ce que l'apprenant apprend. L'anglais KANJIDIC
+    // n'est qu'une référence de désambiguïsation.
+    fr ? `Sens (français, à utiliser) : ${fr}` : "",
+    meanings.length ? `Sens (référence anglaise) : ${meanings.join(", ")}` : "",
     on.length ? `Lectures on : ${on.join("、")}` : "",
     kun.length ? `Lectures kun : ${kun.join("、")}` : "",
     strokes ? `Traits : ${strokes}` : "",
@@ -457,11 +464,14 @@ export function buildMnemonicPrompt(r: GenerateRequest): string {
   return [
     "Tu es un professeur de japonais qui aide des francophones à mémoriser les kanji.",
     `Propose des moyens mnémotechniques EN FRANÇAIS pour le kanji ci-dessous.`,
+    "Ancre le SENS sur la traduction française fournie (pas sur l'anglais).",
     ...facts,
     "",
     "Donne EXACTEMENT trois lignes, chacune préfixée par son étiquette, rien d'autre :",
-    "LECTURE: une astuce courte pour retenir la ou les lectures principales (associe le son à un mot français ou une image sonore).",
-    "SENS: une astuce courte pour retenir le sens du kanji.",
+    // La cheville sonore est le point faible à renforcer : on impose une lecture précise en
+    // hiragana + un accroche-son français relié au sens, avec un exemple pour cadrer le style.
+    "LECTURE: OBLIGATOIRE, jamais vide. Choisis la lecture la plus utile (donne-la en hiragana), puis relie ce SON à un mot ou une image en français, et rattache-le au sens. Exemple pour 飲 (のむ, « boire ») : « のむ “nomu” sonne comme un nomade assoiffé qui boit ». Si aucun rapprochement sonore n'est net, invente une petite phrase française qui contient le son de la lecture.",
+    "SENS: une astuce courte pour retenir le sens FRANÇAIS du kanji.",
     "FORME: une petite histoire visuelle reliant les traits ou les composants au sens (façon « histoire d'images »).",
     "",
     "Chaque ligne : une seule phrase concise (25 mots maximum), concrète et imagée, en français.",

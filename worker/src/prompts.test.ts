@@ -327,16 +327,18 @@ describe("buildMnemonicPrompt", () => {
     const prompt = composePrompt({
       kind: "mnemonic",
       kanji: "日",
+      fr: "jour, soleil",
       meanings: ["Day", "Sun"],
       on: ["にち", "じつ"],
       kun: ["ひ"],
       strokes: 4,
     });
     expect(prompt).toContain("日");
-    expect(prompt).toContain("Day, Sun");
+    expect(prompt).toContain("jour, soleil"); // ancre française
+    expect(prompt).toContain("Day, Sun"); // référence anglaise conservée
     expect(prompt).toContain("にち、じつ");
     expect(prompt).toContain("Traits : 4");
-    expect(prompt).toContain("LECTURE:");
+    expect(prompt).toContain("LECTURE: OBLIGATOIRE"); // cheville sonore renforcée
     expect(prompt).toContain("SENS:");
     expect(prompt).toContain("FORME:");
     expect(prompt).toContain("EN FRANÇAIS");
