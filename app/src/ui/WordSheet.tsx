@@ -5,7 +5,8 @@ import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
 import { speakWord, stopSentence } from "../lib/tts";
 import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
-import { vocabMnemonic } from "../lib/inventory";
+import { vocabMnemonic } from "../lib/mnemonics";
+import type { Mnemonic } from "../lib/genParsers";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { KanjiBreakdown } from "./KanjiBreakdown";
 import { KanjiSheet } from "./KanjiSheet";
@@ -51,11 +52,23 @@ export function WordSheet({
 }) {
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
-  // Mnémo mot (corpus statique) : l'id du token (`basic_form|lecture`) coïncide avec l'id
-  // inventaire (`surface|lecture`) pour les mots usuels. Absent → rien affiché.
-  const mnemonic = content ? vocabMnemonic(itemIdFor(token)) : undefined;
+  const [mnemonic, setMnemonic] = useState<Mnemonic | undefined>(undefined);
   const [encounter, setEncounter] = useState<ReEncounter | null>(null);
   const [kanjiOpen, setKanjiOpen] = useState<string | null>(null);
+
+  // Mnémo mot (corpus statique, chargé paresseusement — lib/mnemonics.ts) : l'id du token
+  // (`basic_form|lecture`) coïncide avec l'id inventaire (`surface|lecture`) pour les mots
+  // usuels. Absent → rien affiché.
+  useEffect(() => {
+    if (!content) return;
+    let cancelled = false;
+    void vocabMnemonic(itemIdFor(token)).then((m) => {
+      if (!cancelled) setMnemonic(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, content]);
 
   // Fermeture de la fiche : coupe la synthèse vocale en cours (sinon l'utterance
   // orpheline peut laisser le focus audio OS actif et le ducking du volume système).

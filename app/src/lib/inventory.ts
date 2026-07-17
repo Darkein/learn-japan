@@ -7,11 +7,8 @@ import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import examplesInv from "../data/inventory/examples.json";
-import kanjiMnemonics from "../data/inventory/kanji-mnemonics.json";
-import vocabMnemonicsData from "../data/inventory/vocab-mnemonics.json";
 import { kataToHira, splitEntryForms } from "./kana";
 import type { VocabEntry } from "./curriculum";
-import type { Mnemonic } from "./genParsers";
 
 interface KanjiInvEntry {
   id: string;
@@ -41,16 +38,7 @@ interface GrammarInvEntry {
 }
 
 const kanjiById = new Map((kanjiInv as KanjiInvEntry[]).map((k) => [k.id, k]));
-// Moyens mnémotechniques (corpus statiques générés par scripts/build-mnemonics.ts et
-// build-word-mnemonics.ts) : fichiers FRÈRES de kanji.json / vocab.json (les scripts ne
-// réécrivent qu'eux, sans toucher la donnée curée). Clés : caractère (kanji) / `surface|lecture` (mot).
-const mnemonicsById = kanjiMnemonics as Record<string, Mnemonic>;
-const vocabMnemonicsById = vocabMnemonicsData as Record<string, Mnemonic>;
-
-/** Moyen mnémotechnique d'un mot de vocabulaire (par id `surface|lecture`), si généré. */
-export function vocabMnemonic(id: string): Mnemonic | undefined {
-  return vocabMnemonicsById[id];
-}
+// Moyens mnémotechniques : voir lib/mnemonics.ts (import dynamique, hors bundle principal).
 const vocabById = new Map((vocabInv as VocabInvEntry[]).map((v) => [v.id, v]));
 const grammarById = new Map(
   (grammarInv as { items: GrammarInvEntry[] }).items.map((g) => [g.id, g]),
@@ -161,8 +149,6 @@ export interface KanjiDetail {
   kun: string[];
   strokes?: number;
   level: number;
-  /** Moyens mnémotechniques (lecture / sens / forme), si générés. */
-  mnemonic?: Mnemonic;
 }
 
 /** Détail d'un kanji de l'inventaire (KANJIDIC), ou null s'il n'y figure pas. */
@@ -178,7 +164,6 @@ export function kanjiDetail(ch: string): KanjiDetail | null {
     kun: k.kun ?? [],
     strokes: k.strokes,
     level: k.level,
-    mnemonic: mnemonicsById[k.id],
   };
 }
 
