@@ -15,15 +15,17 @@ import { listLessons, type Lesson } from "../lib/lessons";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { InventoryRows } from "./CatalogueInventory";
+import { KanaChart } from "./KanaChart";
 import { KanjiSheet } from "./KanjiSheet";
 import { LessonList } from "./LessonList";
 import { useGenJobs } from "./useGenJobs";
 import { VocabPeekSheet } from "./VocabPeekSheet";
 
-type Section = "lessons" | "kanji" | "vocab" | "grammar";
+type Section = "lessons" | "kana" | "kanji" | "vocab" | "grammar";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "lessons", label: "Leçons" },
+  { id: "kana", label: "Kana" },
   { id: "kanji", label: "Kanji" },
   { id: "vocab", label: "Vocabulaire" },
   { id: "grammar", label: "Grammaire" },
@@ -93,13 +95,13 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <nav className="flex flex-wrap gap-4 border-b border-hairline pb-2">
+      <nav className="flex gap-4 overflow-x-auto border-b border-hairline pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
             aria-current={section === s.id}
             onClick={() => setSection(s.id)}
-            className="cursor-pointer border-b-2 border-transparent py-1 font-sans text-sm tracking-wide text-muted aria-[current=true]:border-accent aria-[current=true]:text-text"
+            className="shrink-0 cursor-pointer whitespace-nowrap border-b-2 border-transparent py-1 font-sans text-sm tracking-wide text-muted aria-[current=true]:border-accent aria-[current=true]:text-text"
           >
             {s.label}
           </button>
@@ -117,6 +119,8 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
             onOpenCourse={onOpenCourse}
           />
         )
+      ) : section === "kana" ? (
+        <KanaChart />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-4">
