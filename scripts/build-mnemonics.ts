@@ -97,55 +97,79 @@ async function main(): Promise<void> {
   );
 
   const total = pool.length;
-  let done = 0;
-  let ok = 0;
-  let skipped = 0;
-  let empty = 0;
-  let failed = 0;
   const started = Date.now();
+  const stats = { ok: 0, skipped: 0, empty: 0, failed: 0 };
+  // Ratés collectés pour être listés À LA FIN : les afficher pendant le run casserait la
+  // barre à une seule ligne.
+  const problems: string[] = [];
+  let done = 0;
 
-  // Progression imprimée à CHAQUE kanji (succès compris) : sans ça, un long run silencieux
-  // ne dit jamais où il en est. Compteur [i/total], statut, et ETA grossière.
-  const progressLine = (k: KanjiInvEntry, mark: string): string => {
-    const pct = total ? Math.round((done / total) * 100) : 100;
+  const isTty = process.stdout.isTTY === true;
+  const BAR_WIDTH = 22;
+
+  // Une barre de progression sur UNE ligne (jauge + %, compteur, ETA, kanji courant).
+  const bar = (current: string): string => {
+    const ratio = total ? done / total : 1;
+    const filled = Math.round(BAR_WIDTH * ratio);
+    const gauge = "█".repeat(filled) + "░".repeat(BAR_WIDTH - filled);
+    const pct = String(Math.round(ratio * 100)).padStart(3);
     const elapsed = (Date.now() - started) / 1000;
     const rate = done / Math.max(elapsed, 0.001); // kanji/s
-    const etaS = rate > 0 ? Math.round((total - done) / rate) : 0;
-    const eta = done > 1 && etaS > 0 ? ` · ~${Math.floor(etaS / 60)}m${String(etaS % 60).padStart(2, "0")} restant` : "";
-    return `[${done}/${total} ${pct}%] ${k.id} ${mark}${eta}`;
+    const etaS = done > 1 && rate > 0 ? Math.round((total - done) / rate) : 0;
+    const eta = etaS > 0 ? ` · ~${Math.floor(etaS / 60)}m${String(etaS % 60).padStart(2, "0")}` : "";
+    const counts =
+      `✓${stats.ok} ⏭${stats.skipped}` +
+      (stats.empty ? ` ⚠${stats.empty}` : "") +
+      (stats.failed ? ` ✗${stats.failed}` : "");
+    return `${gauge} ${pct}% ${done}/${total} ${counts}${eta}  ${current}`;
+  };
+
+  // Rendu : TTY → réécrit la même ligne (\r + effacement de fin de ligne) ; sinon (CI, log
+  // non interactif où \r est illisible) → une ligne périodique tous les 10 kanji.
+  const draw = (current: string): void => {
+    if (isTty) process.stdout.write(`\r${bar(current)}\x1b[K`);
+    else if (done % 10 === 0 || done === total) console.log(bar(current));
   };
 
   for (const k of pool) {
-    done++;
+    if (isTty) draw(`${k.id} …`); // feedback immédiat pendant l'appel réseau
     if (!args.refresh && results[k.id]) {
-      skipped++;
-      console.log(progressLine(k, "— déjà présent"));
+      stats.skipped++;
+      done++;
+      draw(k.id);
       continue;
     }
     try {
       const m = await generate(k, args.refresh);
       if (m) {
         results[k.id] = m;
-        ok++;
-        console.log(progressLine(k, "✓"));
+        stats.ok++;
       } else {
-        empty++;
-        console.warn(progressLine(k, "⚠ réponse non exploitable"));
+        stats.empty++;
+        problems.push(`⚠ ${k.id} — réponse non exploitable`);
       }
     } catch (e) {
-      failed++;
-      console.warn(progressLine(k, `✗ ${String(e)}`));
+      stats.failed++;
+      problems.push(`✗ ${k.id} — ${String(e)}`);
     }
+    done++;
+    draw(k.id);
     // Sauvegarde incrémentale : une interruption ne perd pas le travail déjà fait.
     writeFileSync(OUT, JSON.stringify(results, null, 1) + "\n");
     await sleep(GAP_MS);
   }
 
+  if (isTty) process.stdout.write("\n"); // quitte la ligne de la barre
+
+  if (problems.length) {
+    console.log(`\n${problems.length} problème(s) :`);
+    for (const p of problems) console.log(`  ${p}`);
+  }
   console.log(
-    `\nTerminé — ${ok} générés, ${skipped} déjà présents, ${empty} vides, ${failed} échecs.`,
+    `\nTerminé — ${stats.ok} générés, ${stats.skipped} déjà présents, ${stats.empty} vides, ${stats.failed} échecs.`,
   );
   console.log(`Corpus : ${Object.keys(results).length} entrées → ${OUT}`);
-  if (ok === 0 && Object.keys(results).length === 0) process.exit(1);
+  if (stats.ok === 0 && Object.keys(results).length === 0) process.exit(1);
 }
 
 main().catch((e) => {
