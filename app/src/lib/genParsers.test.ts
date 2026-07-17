@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseComprehensionQcm, parseStoryTranslation } from "./genParsers";
+import { parseComprehensionQcm, parseMnemonicBatch, parseStoryTranslation } from "./genParsers";
 
 // La composition des prompts (cadrage, histoire, traduction) vit désormais côté Worker
 // — voir worker/src/prompts.test.ts. Le client ne fait plus que parser la réponse.
@@ -83,5 +83,59 @@ describe("parseComprehensionQcm", () => {
     const r = parseComprehensionQcm(raw, grammarIds);
     expect(r[0].question).toBe("Pas de tag ?");
     expect(r[0].targetGrammarId).toBeUndefined();
+  });
+});
+
+describe("parseMnemonicBatch", () => {
+  it("aligne les lignes numérotées « N. mnémo || composition »", () => {
+    const raw = [
+      "1. Le NOMade assoiffé BOIT (のむ). || 食 manger + 欠 bâiller : bouche ouverte pour avaler.",
+      "2. « ITCHi » : UN seul trait, ça démange. || Un trait horizontal.",
+    ].join("\n");
+    const out = parseMnemonicBatch(raw, 2);
+    expect(out[0]).toEqual({
+      story: "Le NOMade assoiffé BOIT (のむ).",
+      composition: "食 manger + 欠 bâiller : bouche ouverte pour avaler.",
+    });
+    expect(out[1]!.story).toContain("UN seul trait");
+  });
+
+  it("laisse un trou (null) pour une ligne manquante, longueur = n", () => {
+    const out = parseMnemonicBatch("2. a || b", 3);
+    expect(out).toHaveLength(3);
+    expect(out[0]).toBeNull();
+    expect(out[1]).toEqual({ story: "a", composition: "b" });
+    expect(out[2]).toBeNull();
+  });
+
+  it("ignore les lignes non numérotées et rattache un champ surnuméraire à la composition", () => {
+    const out = parseMnemonicBatch("Voici :\n1. mnémo || part1 || part2", 1);
+    expect(out[0]).toEqual({ story: "mnémo", composition: "part1 part2" });
+  });
+
+  it("composition vide acceptée (mot en kana), ligne vide refusée", () => {
+    expect(parseMnemonicBatch("1. juste le mnémo ||", 1)[0]).toEqual({
+      story: "juste le mnémo",
+      composition: "",
+    });
+    expect(parseMnemonicBatch("1.  || ", 1)[0]).toBeNull();
+  });
+
+  it("retire les libellés parasites (« 安 — MNÉMO : », « IMAGE : »…) recopiés par le modèle", () => {
+    const raw = [
+      "1. 安 — MNÉMO : Un âne (あん) se RELAXE. || IMAGE : Une femme assise sous un toit.",
+      "2. 皆さん (みなさん) — mnémo : Une MINce ASSemblée. || COMPOSITION : 皆 tous + さん suffixe.",
+      "3. MNÉMO: La borne disparaît. || Image: Un fil emmêlé.",
+    ].join("\n");
+    const out = parseMnemonicBatch(raw, 3);
+    expect(out[0]).toEqual({
+      story: "Un âne (あん) se RELAXE.",
+      composition: "Une femme assise sous un toit.",
+    });
+    expect(out[1]).toEqual({
+      story: "Une MINce ASSemblée.",
+      composition: "皆 tous + さん suffixe.",
+    });
+    expect(out[2]).toEqual({ story: "La borne disparaît.", composition: "Un fil emmêlé." });
   });
 });

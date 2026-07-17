@@ -5,9 +5,12 @@ import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
 import { speakWord, stopSentence } from "../lib/tts";
 import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
+import { vocabMnemonic } from "../lib/mnemonics";
+import type { Mnemonic } from "../lib/genParsers";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { KanjiBreakdown } from "./KanjiBreakdown";
 import { KanjiSheet } from "./KanjiSheet";
+import { Emphasis } from "./kit/Emphasis";
 import { Sheet } from "./kit/Sheet";
 
 const POS_FR: Record<string, string> = {
@@ -50,8 +53,23 @@ export function WordSheet({
 }) {
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
+  const [mnemonic, setMnemonic] = useState<Mnemonic | undefined>(undefined);
   const [encounter, setEncounter] = useState<ReEncounter | null>(null);
   const [kanjiOpen, setKanjiOpen] = useState<string | null>(null);
+
+  // Mnémo mot (corpus statique, chargé paresseusement — lib/mnemonics.ts) : l'id du token
+  // (`basic_form|lecture`) coïncide avec l'id inventaire (`surface|lecture`) pour les mots
+  // usuels. Absent → rien affiché.
+  useEffect(() => {
+    if (!content) return;
+    let cancelled = false;
+    void vocabMnemonic(itemIdFor(token)).then((m) => {
+      if (!cancelled) setMnemonic(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, content]);
 
   // Fermeture de la fiche : coupe la synthèse vocale en cours (sinon l'utterance
   // orpheline peut laisser le focus audio OS actif et le ducking du volume système).
@@ -96,6 +114,28 @@ export function WordSheet({
         <div className="text-sm text-muted">
           Croisé pour la {encounter.count}ᵉ fois
           {encounter.learnedAt != null && <> · appris {formatDaysAgo(encounter.learnedAt)}</>}
+        </div>
+      )}
+
+      {mnemonic && (mnemonic.story || mnemonic.composition) && (
+        <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
+          {/* UN mnémo (son + sens dans la même phrase) ; la composition est une explication. */}
+          {mnemonic.story && (
+            <span>
+              <span className="text-muted">Mnémo :</span>{" "}
+              <span className="text-text">
+                <Emphasis text={mnemonic.story} />
+              </span>
+            </span>
+          )}
+          {mnemonic.composition && (
+            <span>
+              <span className="text-muted">Composition :</span>{" "}
+              <span className="text-text">
+                <Emphasis text={mnemonic.composition} />
+              </span>
+            </span>
+          )}
         </div>
       )}
 

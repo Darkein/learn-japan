@@ -31,6 +31,7 @@ import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
 import { normalizeReading } from "./kana";
 import { SRS } from "./config";
 import { loadSettings } from "./settings";
+import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
 import { effectiveExample } from "./vocab";
 
@@ -207,6 +208,9 @@ async function grammarSessionExercise(
 
 async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const s = loadSettings();
+  // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le backlog,
+  // lui, est mesuré plus bas sur les items dus de CETTE session). Voir lib/tuning.ts.
+  const tuning = await loadTuning();
   const due: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
@@ -310,10 +314,13 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
     }
   }
 
-  // Budget nouveaux items
+  // Budget nouveaux items — débit auto-réglé : la rétention mesurée et le retard dû du jour
+  // (backlog = items dus de cette session) rabotent `newPerDay` quand l'utilisateur peine ou
+  // accumule, pour consolider plutôt qu'empiler du neuf. Voir lib/tuning.ts.
   const dateStr = localDateString(now);
   const daily = await getSrsDaily(dateStr);
-  const budget = Math.max(0, s.newPerDay - (daily?.introduced ?? 0));
+  const newCap = effectiveNewPerDay(s.newPerDay, tuning.measuredRetention, due.length);
+  const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
 
   if (out.length < s.dailyGoal && budget > 0 && room > 0) {
     const newCards: Exercise[] = [];

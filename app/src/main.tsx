@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import "./styles/global.css";
 import { App } from "./ui/App";
+import { initTuning } from "./lib/tuning";
 import { currentRoute, isFocusedActivityRoute } from "./ui/useHashRoute";
 
 // ---- Mise à jour automatique de la PWA (web, PWA installée, Chrome mobile) --------
@@ -63,6 +64,10 @@ if (import.meta.env.PROD) {
     },
   });
 }
+
+// Auto-réglage du SRS : applique la cible de rétention stockée puis, si périmée, la recalcule
+// à partir du taux d'erreur mesuré (voir lib/tuning.ts). Non bloquant.
+if (typeof indexedDB !== "undefined") void initTuning();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

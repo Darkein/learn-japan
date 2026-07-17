@@ -1,0 +1,2450 @@
+{
+ "日": {
+  "story": "Un DJ (じつ) rayonnant comme le SOLEIL anime la piste de danse.",
+  "composition": "Un rectangle avec une ligne médiane, comme un soleil stylisé traversé par un rayon."
+ },
+ "一": {
+  "story": "Le hérisson ITCH (いち) porte UN seul et minuscule chapeau sur la tête.",
+  "composition": "Une barre horizontale unique, comme un trait tiré pour compter le chiffre un."
+ },
+ "国": {
+  "story": "Le KOala (こく) défend son PAYS, un vaste territoire d'eucalyptus.",
+  "composition": "Un cadre carré enfermant un trésor de jade, comme une enceinte fortifiée protégeant une nation."
+ },
+ "人": {
+  "story": "Une DJIN (じん) sort de sa lampe et prend la forme d'une PERSONNE.",
+  "composition": "Une silhouette humaine debout, les deux jambes écartées, vue de profil en pleine marche."
+ },
+ "年": {
+  "story": "Le vieux NÉNufar (ねん) célèbre chaque ANNÉE l'arrivée du printemps sur l'étang.",
+  "composition": "Un toit pointu surplombant une structure complexe, comme une pagode marquant le passage des années."
+ },
+ "大": {
+  "story": "Le sumo DAÏkon (だい) est un GRAND champion au gabarit impressionnant.",
+  "composition": "Une silhouette massive, bras et jambes largement écartés, comme un géant qui prend toute la place."
+ },
+ "十": {
+  "story": "Le JUDoka (じゅう) maîtrise DIX prises secrètes pour vaincre son adversaire.",
+  "composition": "Une croix parfaite, comme les deux lignes qui se coupent pour former le nombre dix."
+ },
+ "二": {
+  "story": "Le samouraï NI (に) porte DEUX sabres croisés dans son dos.",
+  "composition": "Deux barres horizontales parallèles, comme les deux doigts levés pour indiquer le chiffre deux."
+ },
+ "本": {
+  "story": "Le HONteux (ほん) érudit cache un LIVRE sous sa robe, à l'ORIGINE de tout son savoir.",
+  "composition": "Un arbre solide avec une racine profonde et une barre soulignant le tronc, comme un volume posé debout."
+ },
+ "中": {
+  "story": "Le TCHU (ちゅう) de la locomotive résonne au MILIEU du tunnel obscur.",
+  "composition": "Un rectangle traversé verticalement par une ligne, comme une bouche ouverte au centre d'un visage."
+ },
+ "長": {
+  "story": "Le cuisinier TCHO (ちょう) est un CHEF étoilé aux LONGs cheveux noués en toque.",
+  "composition": "Une chevelure qui s'étire en longues mèches superposées, coiffée d'un chapeau haut de forme."
+ },
+ "出": {
+  "story": "Le magicien SHOUt (しゅつ) fait SORTIR un lapin blanc de son chapeau.",
+  "composition": "Deux montagnes superposées d'où jaillit une pousse, comme quelque chose qui émerge et sort de terre."
+ },
+ "三": {
+  "story": "Le SANglier (さん) trace TROIS sillons parallèles dans la terre avec ses défenses.",
+  "composition": "Trois barres horizontales superposées, comme les trois coups frappés avant le lever de rideau."
+ },
+ "時": {
+  "story": "Le JI (じ) de la cloche indique l'HEURE, suspendu dans le TEMPS qui s'écoule.",
+  "composition": "Un soleil à gauche et un temple à droite, comme un cadran solaire mesurant les heures au flanc d'un édifice."
+ },
+ "行": {
+  "story": "Le KOala (こう) décide d'ALLER explorer une autre branche d'eucalyptus.",
+  "composition": "Un carrefour en forme de T où un chemin part en diagonale, comme une intersection où l'on s'engage pour avancer."
+ },
+ "見": {
+  "story": "Le KENnel voit passer les chiens que le gardien peut VOIR (けん)",
+  "composition": "Un œil géant sur deux jambes qui observe derrière une fenêtre."
+ },
+ "月": {
+  "story": "La lune se lève sur le lac où les GUÊpes TSUnamis dansent sous la LUNE (げつ)",
+  "composition": "Un croissant de lune aux bords aiguisés comme des crocs."
+ },
+ "後": {
+  "story": "Le GOéland reste en ARRIÈRE du bateau, APRÈS le départ (ご)",
+  "composition": "Une silhouette qui marche en regardant par-dessus son épaule."
+ },
+ "前": {
+  "story": "Le ZENith se dresse DEVANT, juste AVANT l'horizon (ぜん)",
+  "composition": "Un escalier droit qui monte vers une plateforme surélevée."
+ },
+ "生": {
+  "story": "Le SEIgle pousse, donnant la VIE et NAÎT au printemps (せい)",
+  "composition": "Une jeune pousse qui sort de terre avec ses premières feuilles."
+ },
+ "五": {
+  "story": "Le GOéland trace le chiffre CINQ dans le sable (ご)",
+  "composition": "Un quadrillage parfait où quatre lignes enserrent une case centrale."
+ },
+ "間": {
+  "story": "Le KANgourou bondit dans l'INTERVALLE ENTRE deux rochers (かん)",
+  "composition": "Une porte entrebâillée laissant passer un rayon de soleil."
+ },
+ "上": {
+  "story": "Le JOEilleur pose la bague DESSUS le coussin, en HAUT (じょう)",
+  "composition": "Une barre horizontale flottant au-dessus d'un support stable."
+ },
+ "東": {
+  "story": "Le TOUtou court vers l'EST au lever du soleil (とう)",
+  "composition": "Un arbre traversé par le disque solaire à l'horizon."
+ },
+ "四": {
+  "story": "Le SIfflet retentit QUATRE fois dans la cour (し)",
+  "composition": "Une fenêtre à quatre carreaux enfermée dans un cadre rectangulaire."
+ },
+ "今": {
+  "story": "Le CONcierge arrive MAINTENANT, à l'instant même (こん)",
+  "composition": "Un toit pointu abritant un comptoir où l'on s'arrête."
+ },
+ "金": {
+  "story": "Le KINé réclame son OR, son ARGENT, son MÉTAL (きん)",
+  "composition": "Un trône royal surmonté d'un dais étincelant de richesses."
+ },
+ "九": {
+  "story": "Le QUEUE de billard frappe la boule NEUF (きゅう)",
+  "composition": "Une crosse recourbée qui s'achève en crochet acéré."
+ },
+ "入": {
+  "story": "Le GNOU se précipite pour ENTRER dans la grotte (にゅう)",
+  "composition": "Deux jambes qui franchissent un seuil en se pliant vers l'intérieur."
+ },
+ "学": {
+  "story": "Le GAlopin va à l'ÉCOLE pour APPRENDRE, ÉTUDIER (がく)",
+  "composition": "Un enfant assis sous un toit, les bras posés sur un pupitre."
+ },
+ "高": {
+  "story": "Un KOala TRÈS HAUT perché crie « こう » (haut, cher)",
+  "composition": "Une tour de guet à deux étages avec un toit pointu et une fenêtre carrée tout en haut."
+ },
+ "円": {
+  "story": "Un jardinier trace un cercle parfait en YEN (えん) avec un râteau ROND",
+  "composition": "Un coffre-fort carré à l’intérieur duquel une ligne horizontale et un crochet dessinent une pièce percée."
+ },
+ "子": {
+  "story": "L’ENFANT (こ) s’endort sur un COussin",
+  "composition": "Un nouveau-né emmailloté, la tête ronde en haut, les bras écartés et une longue brassière qui pend."
+ },
+ "外": {
+  "story": "Le chat DEHORS (そと) saute par la fenêtre en SÔTant sur le rebord EXTÉRIEUR",
+  "composition": "Une porte de jardin entrouverte vue de face, avec une barre horizontale qui marque le seuil vers l’extérieur."
+ },
+ "八": {
+  "story": "Un HUIT (はち) pattes HÂTif traverse la route",
+  "composition": "Deux pattes d’araignée obliques qui s’écartent en formant un V renversé."
+ },
+ "六": {
+  "story": "Un RÔdeur glisse SIX (ろく) pièces dans sa poche en ROULant les dés",
+  "composition": "Une table basse vue de face avec un couvercle bombé et quatre petits pieds écartés."
+ },
+ "下": {
+  "story": "Le sumo BAS (した) tombe sur le CHIendent SOUS le ring",
+  "composition": "Une potence inversée dont la barre horizontale soutient un poids suspendu dans le vide."
+ },
+ "来": {
+  "story": "Le LAI d’un ruisseau annonce la VENUE (くる) du printemps qui COURe vers la vallée",
+  "composition": "Un toit de grange à deux pentes, perché au-dessus d’un chemin sinueux bordé de deux arbres grêles."
+ },
+ "気": {
+  "story": "L’ÉNERGIE (き) monte quand on frappe le clou avec une bonne « KIck »",
+  "composition": "Un voile de brume qui s’élève en volutes au-dessus d’une croix plantée en terre."
+ },
+ "小": {
+  "story": "Un CHIhuahua SI PETIT (ちいさい) se cache dans un soulier",
+  "composition": "Trois gouttes de rosée minuscules alignées, retenues par une tige recourbée."
+ },
+ "七": {
+  "story": "Une guêpe aux SEPT (しち) rayures CHIttant sur la vitre",
+  "composition": "Une faux au manche court dont la lame retournée barre l’horizon d’un trait oblique."
+ },
+ "山": {
+  "story": "Une MONTAGNE (やま) coiffée de neige évoque un YAMAkasi debout sur la cime",
+  "composition": "Trois pics dressés côte à côte, le sommet central plus haut et pointu."
+ },
+ "話": {
+  "story": "Un gardien de square qui PARLE (はなす) à un chien WAHOU en CONVERSATION",
+  "composition": "Une bouche grande ouverte à gauche, d’où sortent des ondes sonores qui ricochent sur une langue fourchue."
+ },
+ "女": {
+  "story": "Une FEMME (おんな) danse la JOTA en ONdulant les bras",
+  "composition": "Une silhouette agenouillée de profil, la tête inclinée, le buste cambré et les jambes repliées en arrière."
+ },
+ "北": {
+  "story": "Le NORD (きた) s’atteint en suivant une HOKU sur la glace puis en QUITtant la banquise",
+  "composition": "Un dos de caribou tourné vers la gauche, l’épaule massive en avant et une défense recourbée plantée dans le sol."
+ },
+ "午": {
+  "story": "Le goût du repas de MIDI (ご) est délicieux.",
+  "composition": "Une aiguille d’horloge pointant vers le haut, surmontée d’un trait horizontal comme le soleil au zénith."
+ },
+ "百": {
+  "story": "Le pyjama rayé du CENTenaire (ひゃく) est usé.",
+  "composition": "Un store vénitien à six lames horizontales, barré d’une ligne oblique qui rappelle le chiffre cent."
+ },
+ "書": {
+  "story": "Le chauffeur de taxi ÉCRIT (か.く) sa course sur un carnet.",
+  "composition": "Une main tenant un pinceau qui trace des traits sur une feuille, sous un couvercle protecteur."
+ },
+ "先": {
+  "story": "Le SENS interdit (せん) empêche d’avancer.",
+  "composition": "Un piéton qui avance, les deux jambes en mouvement, avec un obstacle horizontal barrant sa route."
+ },
+ "名": {
+  "story": "Le prénom (な) gravé sur la lame du couteau brille.",
+  "composition": "Une plaque d’identification rectangulaire posée au-dessus d’une bouche entrouverte qui prononce un nom."
+ },
+ "川": {
+  "story": "Le courant de la RIVIÈRE (かわ) emporte le canoë.",
+  "composition": "Trois lignes verticales fluides et sinueuses qui dessinent les courants parallèles d’un cours d’eau."
+ },
+ "千": {
+  "story": "Le SENS (せん) de la marche est indiqué par la flèche.",
+  "composition": "Une croix inclinée surmontée d’une ligne horizontale, comme un panneau indicateur planté au sol."
+ },
+ "水": {
+  "story": "Le Suisse (すい) boit de l’EAU (みず) fraîche à la fontaine.",
+  "composition": "Une cascade qui se divise en quatre filets liquides, avec des éclaboussures latérales."
+ },
+ "半": {
+  "story": "Le hanneton (はん) coupé en DEUX (なか.ば) se débat encore.",
+  "composition": "Un bâton vertical qui tranche net un objet rond, partageant sa forme en deux moitiés symétriques."
+ },
+ "男": {
+  "story": "Le danseur HOMME (おとこ) soulève des haltères.",
+  "composition": "Une silhouette robuste aux larges épaules, dont les bras musclés supportent un poids carré au-dessus de la tête."
+ },
+ "西": {
+  "story": "La niche (にし) du chien est à l’OUEST (せい) de la maison.",
+  "composition": "Un cadre quadrillé comme une fenêtre, traversé par une ligne ondulée qui évoque le soleil couchant."
+ },
+ "電": {
+  "story": "La lampe ÉLECTRIQUE (でん) éclaire le salon.",
+  "composition": "Une prise murale d’où s’échappe un fil torsadé, surmonté d’un abat-jour qui diffuse la lumière."
+ },
+ "校": {
+  "story": "Le cours magistral à l’ÉCOLE (こう) ennuie les élèves.",
+  "composition": "Un bâtiment rectangulaire au toit pointu, posé sur des fondations solides et flanqué d’une cour latérale."
+ },
+ "語": {
+  "story": "Le gamin LANGUE (ご) pendante imite le chien.",
+  "composition": "Une bouche ouverte d’où sortent des paroles, avec une grille de mots croisés qui se forme sur le côté."
+ },
+ "土": {
+  "story": "Le TAS de TERRE (つち) cache un trésor.",
+  "composition": "Une motte de terre en forme de croix, plantée dans le sol et surmontée d’une couche d’humus horizontale."
+ },
+ "木": {
+  "story": "Le BOKU (ぼく) sculpte un ARBRE (木) avec son canif",
+  "composition": "Une silhouette d’arbre au tronc droit et aux branches étalées."
+ },
+ "聞": {
+  "story": "Un MONstre (もん) ENTEND (聞) tout depuis sa grotte",
+  "composition": "Une oreille géante placée sous un portail."
+ },
+ "食": {
+  "story": "Le SHOKU (しょく) prépare un bon REPAS (食) sur le grill",
+  "composition": "Un toit au-dessus d’une assiette pleine de nourriture."
+ },
+ "車": {
+  "story": "Le SHAman (しゃ) conduit sa VOITURE (車) dans la steppe",
+  "composition": "Un véhicule à deux essieux vu du dessus avec une caisse centrale."
+ },
+ "何": {
+  "story": "Le NANI (なに) demande QUOI (何) en pointant du doigt",
+  "composition": "Une personne adossée à un mur qui tend le bras pour interroger."
+ },
+ "南": {
+  "story": "Le MINAMI (みなみ) chaud souffle du SUD (南) sur la plaine",
+  "composition": "Une croix coiffée d’un toit pointu, comme une boussole."
+ },
+ "万": {
+  "story": "Le MAN (まん) compte jusqu’à DIX-MILLE (万) en un souffle",
+  "composition": "Une grande faux qui fauche d’un seul geste."
+ },
+ "毎": {
+  "story": "Le MAI (まい) répète CHAQUE (毎) geste du matin",
+  "composition": "Une mère penchée au-dessus de son enfant, le geste quotidien."
+ },
+ "白": {
+  "story": "Le HAKU (はく) porte un vêtement BLANC (白) éclatant",
+  "composition": "Un soleil radieux avec un rayon qui jaillit vers le bas."
+ },
+ "天": {
+  "story": "Le TEN (てん) lève les yeux vers le CIEL (天) immense",
+  "composition": "Un homme debout, bras écartés, sous la grande voûte céleste."
+ },
+ "母": {
+  "story": "Le BO (ぼ) appelle sa MÈRE (母) en pleurant",
+  "composition": "La poitrine maternelle avec deux seins et le cœur qui bat au centre."
+ },
+ "火": {
+  "story": "Le KA (か) souffle sur le FEU (火) de camp",
+  "composition": "Un danseur qui agite les bras comme des flammes qui montent."
+ },
+ "右": {
+  "story": "Le MIGI (みぎ) tend sa main DROITE (右) pour saluer",
+  "composition": "Un bras qui se lève vers la droite avec la main ouverte."
+ },
+ "読": {
+  "story": "Le DOKU (どく) LIT (読) un grimoire à la bougie",
+  "composition": "Un œil attentif penché sur un livre ouvert posé sur une table."
+ },
+ "友": {
+  "story": "Le YUU (ゆう) serre la main de son AMI (友) fidèle",
+  "composition": "Deux mains qui se rejoignent et se soutiennent mutuellement."
+ },
+ "左": {
+  "story": "左 — Le SAge avance en GAUCHE (ひだり) avec une canne dans la main.",
+  "composition": "Une main qui tient un outil de mesure en équerre, orientée vers la gauche."
+ },
+ "休": {
+  "story": "休 — Un homme fatigué fait une sieste RÉPARATRICE (やす.む) contre un arbre.",
+  "composition": "Une personne appuyée contre un tronc d’arbre, les épaules relâchées."
+ },
+ "父": {
+  "story": "父 — Le PÈRE (ちち) soulève un enfant dans ses bras comme deux flammes croisées.",
+  "composition": "Deux mains protectrices levées au-dessus d’un corps robuste, comme une silhouette paternelle."
+ },
+ "雨": {
+  "story": "雨 — Un rideau de PLUIE (あめ) tombe du ciel par la fenêtre.",
+  "composition": "Une fenêtre à carreaux sous un toit, traversée par quatre gouttes qui ruissellent."
+ },
+ "会": {
+  "story": "会 — Le CAImand rencontre (あ.う) ses collègues au MEETING annuel.",
+  "composition": "Un toit pointu sous lequel deux personnes assises se font face autour d’une table de réunion."
+ },
+ "同": {
+  "story": "同 — Le DOUanier vérifie que les deux valises sont identiques, exactement la MÊME (おな.じ) chose.",
+  "composition": "Un cadre rectangulaire qui enferme un trait commun répété sous un couvercle unifié."
+ },
+ "事": {
+  "story": "事 — Le JEUne employé s’occupe de chaque AFFAIRE (こと) avec sérieux.",
+  "composition": "Un balai vertical qui traverse plusieurs étagères remplies de dossiers empilés."
+ },
+ "自": {
+  "story": "自 — Le JEUne homme se regarde SOI-MÊME (みずか.ら) dans le miroir sans artifice.",
+  "composition": "Un œil incliné surmonté d’un sourcil épais qui s’observe de profil."
+ },
+ "社": {
+  "story": "社 — Le CHAt s’est glissé dans l’ENTREPRISE (やしろ) pour saluer les employés.",
+  "composition": "Un autel dressé à gauche d’un sol marqué, comme l’entrée d’un bâtiment officiel."
+ },
+ "新": {
+  "story": "新 — Une NOUVELLE SHINgue (しん) est sortie de sa boîte.",
+  "composition": "Une hache plantée dans un arbre avec un grelot en haut pour marquer le renouveau."
+ },
+ "場": {
+  "story": "場 — Sur la LOCation, un JÔNE (じょう) homme soulève de la terre.",
+  "composition": "Un terrain rectangulaire ensoleillé où un personnage soulève un lourd fardeau."
+ },
+ "員": {
+  "story": "員 — L'employé a un ŒIL (いん) sur chaque dossier.",
+  "composition": "Un coffre à trésor surmonté d'une bouche surveillante qui compte les pièces."
+ },
+ "立": {
+  "story": "立 — Le champion se tient DEBOUT et RIT (りつ) sur le podium.",
+  "composition": "Un bonhomme aux jambes écartées et bras tendus, fermement planté sur le sol."
+ },
+ "開": {
+  "story": "開 — Le rideau s'OUVRE sur un KAÏ (かい) pilote acrobatique.",
+  "composition": "Deux battants de porte encadrant un mécanisme à levier qui écarte les vantaux."
+ },
+ "発": {
+  "story": "発 — Le HATeau quitte le port avec un grand DÉPART (はつ)",
+  "composition": "Un bateau à vapeur avec une cheminée qui fume, prêt à larguer les amarres."
+ },
+ "者": {
+  "story": "者 — Le vieux SHAman est le SEUL à connaître la formule magique (しゃ)",
+  "composition": "Une silhouette courbée appuyée sur une canne, coiffée d’un chapeau pointu."
+ },
+ "地": {
+  "story": "地 — Le CHIen creuse frénétiquement le SOL pour enterrer son os (ち)",
+  "composition": "Une pelle plantée dans un carré de terre meuble sous un ciel chargé."
+ },
+ "業": {
+  "story": "業 — Le GUIDOn de la moto est tordu, le GARAGE fait des AFFAIRES (ぎょう)",
+  "composition": "Un établi en désordre surmonté d’une enseigne lumineuse et d’outils suspendus."
+ },
+ "方": {
+  "story": "方 — Le dictateur HAUSSE la voix en montrant une DIRECTION autoritaire (ほう)",
+  "composition": "Une potence avec un fanion qui indique le sens du vent."
+ },
+ "手": {
+  "story": "手",
+  "composition": "Le THÉ (て) brûlant échappe de la MAIN. Une main ouverte aux quatre doigts tendus, le pouce écarté."
+ },
+ "力": {
+  "story": "力",
+  "composition": "Le RYOKU (りょく) se contracte sous l'effort de la PUISSANCE. Un bras musclé plié, le poing serré vers le haut."
+ },
+ "問": {
+  "story": "問",
+  "composition": "Le MONT (もん) sacré murmure une QUESTION à la porte du temple. Un portail à deux battants sous lequel une bouche s'ouvre pour parler."
+ },
+ "代": {
+  "story": "代",
+  "composition": "Le DAÏM (だい) se lève pour SUBSTITUER un samouraï fatigué. Un homme debout, une lance à la main, prêt à remplacer un autre."
+ },
+ "明": {
+  "story": "明",
+  "composition": "Le MÉI (めい) de mai rend la lune plus BRILLANTE que le soleil. Un soleil et une lune réunis dans une seule fenêtre lumineuse."
+ },
+ "理": {
+  "story": "理 — Un LOgIcien RItourne la LOGIQUE (り) dans sa tête.",
+  "composition": "Une grille de rizière où un trait horizontal sépare le ciel et la terre traversés par une veine verticale."
+ },
+ "体": {
+  "story": "体 — Un TAIlleur prend les mesures du CORPS (たい) avec précision.",
+  "composition": "Un bonhomme au chapeau carré qui se tient debout, bras écartés, jambes ancrées au sol."
+ },
+ "田": {
+  "story": "田 — Dans la DÉNivellation, un RIZIÈRE (でん) en terrasses scintille.",
+  "composition": "Une fenêtre à quatre carreaux égaux, vue du ciel sur une parcelle cultivée."
+ },
+ "主": {
+  "story": "主 — Le CHÂTeau abrite un SEIGNEUR (しゅ) couronné.",
+  "composition": "Une couronne à trois pointes posée sur un pilier royal."
+ },
+ "題": {
+  "story": "題 — Le DAIly News affiche un gros TITRE (だい) en première page.",
+  "composition": "Un journal ouvert dont la manchette barre la une au-dessus d'une silhouette de lecteur."
+ },
+ "動": {
+  "story": "動 — Un DOUanier fait MOUVOIR (どう) la barrière pour laisser passer le train.",
+  "composition": "Un véhicule lourd dont les roues et le châssis se mettent en branle."
+ },
+ "京": {
+  "story": "京 — Sous le ciel KYOto, la CAPITALE (きょう) scintille de mille lanternes.",
+  "composition": "Un toit pointu surplombant une petite bouche illuminée au cœur de la ville."
+ },
+ "目": {
+  "story": "目 — Le MOKOteur regarde fixement l'ŒIL (もく) du cyclone approcher.",
+  "composition": "Un rectangle blanc vertical cerné d’un cadre, comme un œil grand ouvert."
+ },
+ "通": {
+  "story": "通 — Le grand TSOU traverse le TRAFIC (つう) sans jamais s’arrêter.",
+  "composition": "Une silhouette qui avance sur une voie droite, coiffée d’un chapeau et soutenue par une base roulante."
+ },
+ "言": {
+  "story": "言 — Le GENS du village DIT (げん) toujours la vérité d’une voix grave.",
+  "composition": "Une bouche ouverte d’où s’échappent des ondes sonores superposées."
+ },
+ "意": {
+  "story": "L'IDée (い) surgit comme une ampoule qui s'allume au-dessus de la tête.",
+  "composition": "Un rectangle évasé avec une petite croix en son sommet, comme une tête surmontée d'une idée lumineuse."
+ },
+ "不": {
+  "story": "Le FUsible (ふ) grille et tout devient NÉGATIF, plus rien ne fonctionne.",
+  "composition": "Une silhouette d'oiseau tombant à la renverse, les ailes écartées dans le vide."
+ },
+ "作": {
+  "story": "La SAgesse (さ) du potier qui FAÇONNE (つく.る) l'argile avec patience.",
+  "composition": "Un homme debout à gauche qui tend la main vers un établi à droite."
+ },
+ "用": {
+  "story": "Le YOga (よう) apprend à UTILISER le corps comme un outil.",
+  "composition": "Une grande barrière verticale qui encadre et maintient un étai central."
+ },
+ "度": {
+  "story": "Le DOs (ど) courbé du vieillard mesure les DEGRÉS du temps qui passe.",
+  "composition": "Un abri sous un auvent qui protège une main tenant un objet, comme un thermomètre."
+ },
+ "強": {
+  "story": "Le roi est FORT (きょう) comme un lion rugissant au zoo.",
+  "composition": "Un arc tendu par un muscle géant, prêt à décocher une flèche dans un tournoi."
+ },
+ "公": {
+  "story": "Un KOala grimpe sur le panneau PUBLIC (こう) de la mairie.",
+  "composition": "Deux ailes déployées au-dessus d’un nez carré, comme un emblème sur un bâtiment officiel."
+ },
+ "持": {
+  "story": "Un JIbeau tient fermement (もつ) une tasse de thé fumante.",
+  "composition": "Une main tendue qui agrippe un objet précieux posé sur une étagère de temple."
+ },
+ "野": {
+  "story": "Le yaourt coule sur les PLAINES (の) vertes du pique-nique.",
+  "composition": "Un village miniature avec deux champs tracés au cordeau, vu d’une colline en surplomb."
+ },
+ "以": {
+  "story": "Une Idole brandit un trophée par le moyen (もって) d’une longue perche.",
+  "composition": "Un homme stylisé qui pousse un chariot à bras, le corps penché en avant sur le chemin."
+ },
+ "安": {
+  "story": "Un âne (あん) se RELAXE (安) à l'ombre d'un arbre.",
+  "composition": "Une femme assise sous un toit, les jambes croisées, qui soupire d'aise."
+ },
+ "院": {
+  "story": "Un alien (いん) se cache dans une INSTITUTION (院) secrète.",
+  "composition": "Un bâtiment avec un toit en pente, une petite cour intérieure et une entrée voûtée."
+ },
+ "心": {
+  "story": "Un shinobi (しん) écoute battre son CŒUR (心) dans le silence de la nuit.",
+  "composition": "Un organe palpitant avec trois gouttes de sang qui jaillissent à droite."
+ },
+ "界": {
+  "story": "Un kayak (かい) flotte entre deux MONDES (界) parallèles.",
+  "composition": "Une rizière quadrillée dont les parcelles d'eau séparent le ciel de la terre."
+ },
+ "教": {
+  "story": "Un Kyotoïte (きょう) patient ENSEIGNE (教) l'art du thé à un novice.",
+  "composition": "Une main tendue qui montre un enfant en train de frapper un symbole avec un bâton."
+ },
+ "思": {
+  "story": "Le MAIRE pense (し) que sa ville est trop petite.",
+  "composition": "Un champ de riz sous un cœur, comme une idée qui germe dans l’esprit."
+ },
+ "家": {
+  "story": "Une maison (いえ) avec un toit pointu abrite toute la famille.",
+  "composition": "Un toit large qui protège un cochon couché, silhouette d’une demeure paisible."
+ },
+ "世": {
+  "story": "La scie coupe à travers chaque génération (せい).",
+  "composition": "Trois barres horizontales traversées par une ligne verticale, comme les strates d’une époque."
+ },
+ "多": {
+  "story": "Beaucoup (おお.い) d’étoiles brillent dans le ciel nocturne.",
+  "composition": "Deux blocs empilés sous une lune, silhouette d’une pile d’objets nombreux."
+ },
+ "正": {
+  "story": "Un tatouage correct (せい) ne s’efface jamais.",
+  "composition": "Une barre droite qui stoppe une marche, comme une règle qui redresse ce qui est tordu."
+ },
+ "文": {
+  "story": "文 — Le BUNker abrite des SENTENCES (ぶん) secrètes gravées sur les murs.",
+  "composition": "Un étagère à deux niveaux soutenant une croix qui stabilise des écrits."
+ },
+ "元": {
+  "story": "元 — Au COMMENCEMENT, le GENdarme (げん) pose la première pierre.",
+  "composition": "Une table sous un toit d'où partent deux jambes écartées qui initient un mouvement."
+ },
+ "重": {
+  "story": "重 — La JUpe lourde (じゅう) de plomb rend l'acteur très HEAVY.",
+  "composition": "Un véhicule aux multiples couches superposées écrasant le sol sous son poids."
+ },
+ "近": {
+  "story": "近 — Le KINésithérapeute (きん) se tient tout PRÈS pour masser.",
+  "composition": "Une hache posée près d'un chemin sinueux qui avance à faible distance."
+ },
+ "考": {
+  "story": "考 — Le KOala (こう) grimé en penseur CONSIDÈRE longuement une feuille.",
+  "composition": "Un vieillard appuyé sur une canne, la tête inclinée sous le poids de la réflexion."
+ },
+ "画": {
+  "story": "Le GARS fait un BRUSH-STROKE (が) précis avec son pinceau.",
+  "composition": "Un tableau encadré où un pinceau trace une ligne qui délimite un champ de riz."
+ },
+ "海": {
+  "story": "Le CAïman plonge dans la MER (かい) pour chasser.",
+  "composition": "Une vaste étendue d'eau sous un ciel où chaque goutte de pluie tombe comme une flèche maternelle."
+ },
+ "売": {
+  "story": "Le BAILleur crie pour VENDRE (ばい) ses légumes au marché.",
+  "composition": "Un samouraï aux bras chargés de marchandises se hâte vers la place du marché."
+ },
+ "知": {
+  "story": "Le CHIffre secret permet de SAVOIR (ち) la combinaison du coffre.",
+  "composition": "Une bouche qui émet une parole de connaissance sous l'abri d'un toit protecteur."
+ },
+ "道": {
+  "story": "Le DOS rond, on avance sur la ROUTE (どう) en portant un fardeau.",
+  "composition": "Un cou sinueux qui supporte une tête guidant des pas sur un chemin qui serpente."
+ },
+ "集": {
+  "story": "Dans la SHUffle, les gens se rassemblent (しゅう)",
+  "composition": "Un oiseau perché au sommet d’un arbre attire ses semblables pour former un groupe."
+ },
+ "別": {
+  "story": "Le blé BETTerave se sépare (べつ) de la terre",
+  "composition": "Une bouche ouverte crache un couteau qui tranche un lien en deux."
+ },
+ "物": {
+  "story": "Une BOUTeille prend vie et devient une chose (ぶつ)",
+  "composition": "Une vache se transforme en une forme indéfinissable sous un drap."
+ },
+ "使": {
+  "story": "L’employé obéit au CHEF et utilise (し) l’outil",
+  "composition": "Une silhouette humaine en costume tient un outil allongé dans la main droite."
+ },
+ "品": {
+  "story": "Un HINdou examine les marchandises (ひん) précieuses",
+  "composition": "Trois boîtes empilées forment une étagère bien garnie."
+ },
+ "計": {
+  "story": "Le KÉpi du général sert à PLOTer la stratégie (けい).",
+  "composition": "Une balance à plateaux dont le fléau forme un trait horizontal, les deux plateaux devenant les traits inférieurs."
+ },
+ "死": {
+  "story": "La SCIe fatale apporte la DEATH (し).",
+  "composition": "Un squelette allongé sur le dos, les bras croisés sur la poitrine et les jambes raides."
+ },
+ "特": {
+  "story": "Le TOUCAN est un oiseau très SPECIAL (とく).",
+  "composition": "Un animal cornu attaché par une longe à un poteau, debout sur ses pattes arrière."
+ },
+ "私": {
+  "story": "Le CHIffre secret représente le MOI intérieur (し).",
+  "composition": "Une gerbe de blé inclinée par le vent, dont les épis retombent en courbe vers la droite."
+ },
+ "始": {
+  "story": "La CHImie COMMENCE par une étincelle (し).",
+  "composition": "Une femme debout qui soulève un couvercle, libérant un filet de vapeur qui s'élève."
+ },
+ "町": {
+  "story": "町 — Le mât CHIbougan tinte l’heure pour le TOWN (まち).",
+  "composition": "Une place carrée fermée par une barrière où une croix de chemin se dresse comme un clocher de bourg."
+ },
+ "料": {
+  "story": "料 — Le lion RYŌga le FEE d’un air gourmand (りょう).",
+  "composition": "Un bol de riz débordant à gauche et une louche à droite qui mesure la portion payante."
+ },
+ "工": {
+  "story": "工 — Le COU épaissi de l’artisan soulève le CRAFT (こう).",
+  "composition": "Une poutre horizontale calée entre deux montants verticaux, comme un établi robuste."
+ },
+ "建": {
+  "story": "建 — Le KENnelier plante un pieu pour BUILD la niche (けん).",
+  "composition": "Un trait de sol sous un toit protecteur, traversé par un long poteau que prolonge une allée en ligne droite."
+ },
+ "空": {
+  "story": "空 — Dans le KŪgelhopf EMPTY, une grotte s’ouvre sous la croûte (くう).",
+  "composition": "Un toit en pyramide au-dessus d’une voûte creusée, où deux souffles d’air s’échappent par une fente."
+ },
+ "住": {
+  "story": "Le DJ de la résidence DWELL (じゅう) mixe toute la nuit sans dormir.",
+  "composition": "Un toit pointu au-dessus d’une maison carrée où une silhouette humaine se tient debout à l’intérieur."
+ },
+ "真": {
+  "story": "Le CHINchilla affirme que c’est TRUE (しん) en hochant la tête gravement.",
+  "composition": "Un grand œil vertical à dix cils posé sur une table basse à deux pieds, qui fixe intensément la vérité."
+ },
+ "有": {
+  "story": "Le YOUTuber POSSESS (ゆう) une collection de vues sur ses vidéos.",
+  "composition": "Une main tendue qui tient fermement un croissant de lune par sa partie charnue."
+ },
+ "口": {
+  "story": "Le KOala ouvre grand sa MOUTH (こう) pour mâcher une feuille d’eucalyptus.",
+  "composition": "Un simple cadre carré aux bords épais, béant comme une bouche grande ouverte."
+ },
+ "少": {
+  "story": "Le SHOWman ne montre que FEW (しょう) tours de magie avant de disparaître.",
+  "composition": "Un petit point unique tombant d’une ligne oblique inclinée vers la droite, comme une goutte rare."
+ },
+ "急": {
+  "story": "Le bus KIOUsque HURRY (きゅう) fonce sans s'arrêter.",
+  "composition": "Un véhicule vu de profil avec un toit, un frein à main tiré et une roue qui patine dans la hâte."
+ },
+ "止": {
+  "story": "La machine à sous crie \"CHI\" puis s'arrête STOP (し).",
+  "composition": "Un panneau de sens interdit où le trait vertical bloque une barre horizontale qui avance."
+ },
+ "送": {
+  "story": "Un fantôme SOUffle pour ESCORTER (そう) l'âme vers l'au-delà.",
+  "composition": "Un spectre avec un grand chapeau qui marche en tenant par la main une silhouette plus petite."
+ },
+ "切": {
+  "story": "La lame tranche le SAUCISson en deux, CUT (せつ) net.",
+  "composition": "Une épée courbe qui sectionne une corde en deux morceaux distincts."
+ },
+ "転": {
+  "story": "La pièce de dix yens RÉVOLVE (てん) sur la table en tournoyant.",
+  "composition": "Un disque plat posé sur un support qui bascule et roule sur sa tranche."
+ },
+ "研": {
+  "story": "研 — Le KENnel du laboratoire POLIT (けん) les lames avec sa langue râpeuse.",
+  "composition": "Un bloc de pierre abrasif sur lequel une main appuie une lame, vu en coupe transversale."
+ },
+ "足": {
+  "story": "足 — Le SOCK percé laisse voir la JAMBE (そく) fatiguée du marcheur.",
+  "composition": "Un pied vu de profil avec la cheville, le talon posé au sol et les orteils pointés vers l’avant."
+ },
+ "究": {
+  "story": "究 — Le QUIllard du navire sonde les abysses pour une RECHERCHE (きゅう) approfondie.",
+  "composition": "Une main qui tient une sonde plongeant dans une cavité étroite et profonde."
+ },
+ "楽": {
+  "story": "楽 — Le RÂteau effleure les cordes de la harpe et la MUSIQUE (らく) emplit le jardin.",
+  "composition": "Une harpe en bois clair sur un piédestal, dont les cordes vibrent entre deux montants courbes."
+ },
+ "起": {
+  "story": "起 — La Clé tourne dans la serrure et RÉVEILLE (き) le mécanisme endormi.",
+  "composition": "Un personnage qui se lève d’un bond, les bras écartés, un pied encore au sol et l’autre déjà en mouvement."
+ },
+ "朝": {
+  "story": "朝 — Le matin, on entend le CHAT (ちょう) qui miaule à l’aube.",
+  "composition": "Un soleil qui se lève derrière une fenêtre ouverte sur l’horizon."
+ },
+ "運": {
+  "story": "運 — Un bus bondé transporte (うん) les voyageurs avec un bruit de moteur qui fait « UN ».",
+  "composition": "Un véhicule chargé avançant lentement sous un toit protecteur."
+ },
+ "終": {
+  "story": "終 — L’histoire se termine quand le héros enfile ses CHAUSSUres (しゅう) pour partir.",
+  "composition": "Un fil qui s’achève en un point final après un dernier nœud serré."
+ },
+ "台": {
+  "story": "台 — Sur le piédestal, on pose une grosse TARTE (たい) bien décorée.",
+  "composition": "Une base solide et carrée soutenant une plateforme surélevée."
+ },
+ "広": {
+  "story": "広 — Dans la vaste plaine, un K.O (こう) retentit et l’écho s’étend au loin.",
+  "composition": "Un espace ouvert sous un toit large qui s’étire vers les côtés."
+ },
+ "着": {
+  "story": "Sur le CHAMP de courses, on DONne (ちゃく) sa veste au cheval avant la course",
+  "composition": "Une silhouette penchée qui enfile une veste, avec un col relevé sur la nuque."
+ },
+ "店": {
+  "story": "La MITSENne du marin indique le chemin vers le STORE (てん) flottant sur l'eau",
+  "composition": "La devanture carrée d'une boutique avec une large enseigne au-dessus et un comptoir en dessous."
+ },
+ "病": {
+  "story": "Le malade pique du nez dans sa BYOUrre (びょう) tellement il est ILL",
+  "composition": "Une silhouette alitée sous un toit, avec des tremblements qui parcourent le corps fiévreux."
+ },
+ "質": {
+  "story": "La SCIE TUE (しつ) lentement la SUBSTANCE du bois en libérant son essence",
+  "composition": "Un bloc de matière brute posé sur une balance, surmonté d'un couperet prêt à trancher."
+ },
+ "待": {
+  "story": "Le TAIlleur attend le client, figé dans son WAIT (たい) silencieux",
+  "composition": "Une silhouette debout et immobile, légèrement penchée en avant, le pied frappant doucement le sol."
+ },
+ "親": {
+  "story": "Un parent (おや) entend son enfant crier « OYAh » de joie en ouvrant un cadeau",
+  "composition": "Une silhouette debout avec un chapeau, qui se penche pour regarder un petit enfant à ses pieds."
+ },
+ "験": {
+  "story": "La vérification d’un ticket de caisse révèle une erreur, et le client lâche un « KEN » d’agacement (けん)",
+  "composition": "Un œil grand ouvert sous un toit pointu, avec des pattes griffues qui examinent un petit objet carré."
+ },
+ "英": {
+  "story": "La reine d’Angleterre salue la foule d’un « HÉ ! » majestueux (えい)",
+  "composition": "Une grande herbe surmontée d’une couronne, qui se dresse droite et fière au milieu d’un jardin."
+ },
+ "医": {
+  "story": "Le docteur pose un stéthoscope glacé, et le patient pousse un petit « HI ! » de surprise (い)",
+  "composition": "Une flèche plantée dans une boîte ouverte, comme une seringue prête à soigner dans une mallette."
+ },
+ "仕": {
+  "story": "Le serveur s’affaire en cuisine quand un plat tombe et résonne d’un « CHI » fracassant (し)",
+  "composition": "Un bonhomme tout simple, debout près d’un comptoir, qui tend le bras pour servir une assiette."
+ },
+ "試": {
+  "story": "試 — Le CHÂTeau organise un TEST (ためす) où chaque pièce est une épreuve différente.",
+  "composition": "Une silhouette de tour de château avec des créneaux et une fenêtre en forme de grille d'examen."
+ },
+ "族": {
+  "story": "族 — Le ZOo et son Clan forment une TRIBU (ぞく) qui vit en harmonie avec les bêtes sauvages.",
+  "composition": "Une bannière dressée au-dessus d'un groupe de silhouettes serrées avançant ensemble."
+ },
+ "銀": {
+  "story": "銀 — Un GAIN exceptionnel permet d'acheter un lingot d'ARGENT (ぎん) brillant sous la lampe.",
+  "composition": "Un éclat métallique en forme de croissant de lune reflété dans un miroir d'orfèvre."
+ },
+ "早": {
+  "story": "早 — Le SAUt du soleil hors du lit annonce un réveil très MATINAL (はやい).",
+  "composition": "Une fleur qui s'ouvre brusquement en dix points au premier rayon du jour."
+ },
+ "映": {
+  "story": "映 — Un Éclair frappe la vitre et y REFLÈTE (うつす) un paysage inversé pendant l'orage.",
+  "composition": "Le soleil central projette son disque au centre d'un cadre rectangulaire comme sur un écran."
+ },
+ "夜": {
+  "story": "夜 — La YOURte s'ouvre sur la NUIT (よる) étoilée.",
+  "composition": "Une silhouette coiffée d'un chapeau pointu marche sous un croissant de lune et une goutte de nuit."
+ },
+ "音": {
+  "story": "音 — Le cerf-volant chante un SON (おと) en vibrant au vent.",
+  "composition": "Un soleil levant ou couchant dont les rayons inférieurs forment une bouche ouverte qui émet des ondes."
+ },
+ "注": {
+  "story": "注 — On verse une infusion POUR (そそぐ) apaiser l'âme.",
+  "composition": "Une cascade d'eau qui s'écoule d'une verseuse inclinée au-dessus d'une flamme."
+ },
+ "帰": {
+  "story": "帰 — Sur le quai, on crie au RETOUR (かえる) du navire.",
+  "composition": "Une épée dressée à gauche, un balai à droite, qui balaie le chemin menant à la maison."
+ },
+ "古": {
+  "story": "古 — Le COffre rouillé cache un trésor très ANCIEN (ふるい).",
+  "composition": "Une croix surplombant une bouche ouverte qui raconte une histoire d'autrefois."
+ },
+ "歌": {
+  "story": "歌",
+  "composition": "Le CHAT (か) ronronne un doux CHANT (うた) de contentement. Une bouche grande ouverte chante, surmontée d’un couvercle et d’un souffle qui s’élève en volutes."
+ },
+ "買": {
+  "story": "買",
+  "composition": "Sur le BAZAR (ばい), un client ACHÈTE (かう) l’objet de ses rêves. Un filet à emplettes coiffé d’un œil béant, prêt à capturer la bonne affaire."
+ },
+ "悪": {
+  "story": "悪",
+  "composition": "Un AKU (あく) matoïde ricane en commettant une action MAUVAISE (わるい). Un cœur en pièces sous un masque grimaçant, d’où s’échappe une pensée tordue."
+ },
+ "図": {
+  "story": "図",
+  "composition": "Dans le ZOO (ず), le plan dessine la CARTE (ず) des enclos. Un enclos carré renfermant un trésor secret, vu d’en haut comme un plan."
+ },
+ "週": {
+  "story": "週",
+  "composition": "Le CHOU (しゅう) fleurit chaque SEMAINE (しゅう) dans le potager. Un chemin entouré de terre qui fait le tour complet d’une enceinte sacrée."
+ },
+ "室": {
+  "story": "室 — La MOUTARDE s’épaissit dans la pièce (しつ) fermée.",
+  "composition": "Un toit avec un rectangle au sol et une ligne centrale, comme une chambre vue en coupe."
+ },
+ "歩": {
+  "story": "歩 — Sur le trottoir, un HOMME marche (ある.く) en comptant ses pas.",
+  "composition": "Une petite jambe qui avance avec trois empreintes de pas simplifiées."
+ },
+ "風": {
+  "story": "風 — Un FOU soulève le vent (ふう) avec un éventail géant.",
+  "composition": "Un voile gonflé par une bourrasque, traversé de lignes courbes et d’un insecte emporté."
+ },
+ "紙": {
+  "story": "紙 — Une feuille de SHIso glissée sous la page (かみ) du livre.",
+  "composition": "Une fibre végétale étirée en fils fins à côté d’une surface plane et blanche."
+ },
+ "黒": {
+  "story": "黒 — Le COQ noir (くろ) piétine des braises dans la cour.",
+  "composition": "Un feu sous une marmite renversée qui noircit le sol de suie."
+ },
+ "花": {
+  "story": "Le chat KÂ (か) se repose délicatement sur une FLEUR.",
+  "composition": "Une tige courbée supporte une tête de fleur épanouie avec des pétales qui s'ouvrent vers la gauche."
+ },
+ "春": {
+  "story": "Sous le soleil, un être CHUN (しゅん) voit la nature renaître au PRINTEMPS.",
+  "composition": "Un soleil éclatant surplombe une pousse qui sort de terre et s'étale en une large feuille printanière."
+ },
+ "赤": {
+  "story": "Un guerrier SÉK (せき) au visage ROUGE de colère brandit son épée.",
+  "composition": "Une croix dressée sur une structure qui évoque un personnage aux bras écartés, les pieds en flammes rouges."
+ },
+ "青": {
+  "story": "Le ciel SEI (せい) déploie son manteau BLEU au-dessus de la lune.",
+  "composition": "Une tige verticale centrale soutient un croissant de lune sous un large ciel rectangulaire et ordonné."
+ },
+ "館": {
+  "story": "Le vieux KAN (かん) s'avance dans un immense BÂTIMENT aux multiples salles.",
+  "composition": "Un toit pentu abrite une structure complexe avec une large entrée et des étages qui s'empilent comme un édifice officiel."
+ },
+ "屋": {
+  "story": "屋 — Un roi (おく) couronne le TOIT (や) de son palais.",
+  "composition": "Une silhouette massive avec un toit pointu et un corps large, comme une maison vue de face."
+ },
+ "色": {
+  "story": "色 — La chatte (しょく) rousse affiche une belle COULEUR (いろ).",
+  "composition": "Une forme accroupie aux courbes douces, comme une silhouette animale pelotonnée."
+ },
+ "走": {
+  "story": "走 — Le sol (そう) tremble quand le cheval COURT (はし.る).",
+  "composition": "Une jambe tendue en avant avec un mouvement fluide, comme un sprinteur en pleine foulée."
+ },
+ "秋": {
+  "story": "秋 — Un chou (しゅう) doré mûrit en AUTOMNE (あき).",
+  "composition": "Une plante surmontée d'une flamme, comme un épi de blé sous le soleil déclinant."
+ },
+ "夏": {
+  "story": "夏 — Le chat (か) somnole sous le soleil d'ÉTÉ (なつ).",
+  "composition": "Une tête coiffée d'un large chapeau sur un corps trapu, comme une personne alanguie par la chaleur."
+ },
+ "習": {
+  "story": "Dans la SHUite, un élève APPREND (しゅう) à tracer des plumes.",
+  "composition": "Une aile déployée au-dessus d’un bec blanc, juste sous un toit."
+ },
+ "駅": {
+  "story": "Le guichet automatique rend un ÉKI (えき) à la gare.",
+  "composition": "Un grand bâtiment à gauche, une tour de contrôle et un quai à droite."
+ },
+ "洋": {
+  "story": "Un mouton flotte en plein océan en criant « YO ! » (よう).",
+  "composition": "Une vague qui se brise en trois gouttes à côté d’un mouton debout."
+ },
+ "旅": {
+  "story": "Un RYOnaute fait un VOYAGE (りょ) autour de la Terre.",
+  "composition": "Une bannière carrée qui claque au vent, avec un personnage et une valise en dessous."
+ },
+ "服": {
+  "story": "Une robe FOUKOU (ふく) glisse sur la lune.",
+  "composition": "Un vêtement à manche gauche, épaule ronde et pli droit qui tombe jusqu’au croissant."
+ },
+ "夕": {
+  "story": "Le YUcca s'épanouit en un seul SOIR (ゆう).",
+  "composition": "Une lune croissant émergeant derrière un nuage effilé."
+ },
+ "借": {
+  "story": "Le CHAcal astucieux EMPRUNTE (か.りる) une proie sans demander.",
+  "composition": "Un homme debout près d'un buisson épineux tendant la main."
+ },
+ "曜": {
+  "story": "Le YOgi fixe le JOUR DE LA SEMAINE (よう) sur son réveil en méditant.",
+  "composition": "Un soleil rayonnant au-dessus d'un perchoir où deux oiseaux écartent leurs plumes."
+ },
+ "飲": {
+  "story": "Le NOMade assoiffé BOIT (の.む) l'eau d'une oasis miraculeuse.",
+  "composition": "Une silhouette penchée en arrière, bouche grande ouverte sous un auvent, avalant un liquide."
+ },
+ "肉": {
+  "story": "Le NIQUEur de pique-nique dévore la VIANDE (にく) avec voracité.",
+  "composition": "Une grille de barbecue fumante où deux personnes encadrent un morceau strié."
+ },
+ "冬": {
+  "story": "En plein HIVER, un TOUtou (とう) grelotte sous la neige.",
+  "composition": "Un bonhomme de neige avec un chapeau et des flocons qui tombent."
+ },
+ "昼": {
+  "story": "Un CHIen hurlant (ちゅう) à la lune en plein JOUR.",
+  "composition": "Un soleil levant au-dessus d’une ligne d’horizon plate."
+ },
+ "茶": {
+  "story": "Le CHAT (ちゃ) sirote un THÉ brûlant avec délice.",
+  "composition": "Une maison avec un toit pointu et une tasse fumante à l’intérieur."
+ },
+ "弟": {
+  "story": "Le petit FRÈRE porte un TEE-shirt (てい) trop grand pour lui.",
+  "composition": "Un enfant aux jambes arquées coiffé d’un grand chapeau pointu."
+ },
+ "牛": {
+  "story": "La VACHE regarde un type en GUImauve (ぎゅう) qui l’observe.",
+  "composition": "Une tête de vache avec deux cornes et une longue barbe."
+ },
+ "貸": {
+  "story": "Un TAIlleur généreux PRÊTE (かす) un costume sur mesure.",
+  "composition": "Un comptoir incliné avec un objet posé dessus, comme une main tendue qui offre quelque chose."
+ },
+ "堂": {
+  "story": "Dans le DOS d'un temple, une CHAMBRE PUBLIQUE résonne de chants.",
+  "composition": "Une petite construction surmontée d'un toit pointu, semblable à un pavillon sacré aperçu de loin."
+ },
+ "鳥": {
+  "story": "Un TORIcolis guette un OISEAU (とり) perché dans un arbre.",
+  "composition": "Une créature à crête, aux ailes déployées et aux griffes posées sur une branche, le tout tracé d'un seul élan."
+ },
+ "飯": {
+  "story": "La HANche lourde après un bon REPAS (めし) dominical en famille.",
+  "composition": "Un bol fumant coiffé d'un couvercle, posé à côté d'une main qui tient une baguette."
+ },
+ "勉": {
+  "story": "Un BENêt fournit un gros EFFORT (べん) pour comprendre la leçon.",
+  "composition": "Une silhouette courbée, la tête lourde, poussant de toutes ses forces contre un mur invisible."
+ },
+ "漢": {
+  "story": "Un CANard SINisé cancane avec un accent SINO- (かん).",
+  "composition": "Un canard coiffé d’un chapeau chinois, dont le plumage forme des traits d’écriture ondulants sur l’eau."
+ },
+ "去": {
+  "story": "Le roi KIOsk quitte le trône et s'en est allé (きょ), GONE pour toujours.",
+  "composition": "Une silhouette de profil qui franchit une porte ouverte, le pied levé pour partir définitivement."
+ },
+ "味": {
+  "story": "L'émission de MIcrophone explore la FLAVEUR (み) du fruit défendu.",
+  "composition": "Une bouche grande ouverte dont la langue savoure un fruit rond, les papilles en éveil."
+ },
+ "写": {
+  "story": "Le CHAt gris se reflète dans l'eau, COPIE (しゃ) parfaite de son ombre.",
+  "composition": "Un animal assis vu de profil qui se penche au-dessus d'une surface réfléchissante, le miroir inversé."
+ },
+ "字": {
+  "story": "L'enfant sage comme une JIrafe trace un CARACTÈRE (じ) sur le sol.",
+  "composition": "Un petit toit pointu sous lequel un bambin dessine un bâton, la main guidant le trait."
+ },
+ "答": {
+  "story": "Le matelot lance un TÔlet à la mer, unique SOLUTION (とう) pour ramer jusqu'au rivage.",
+  "composition": "Une coiffe de bambou au-dessus d'un visage qui répond, la bouche ouverte sous l'abri."
+ },
+ "魚": {
+  "story": "Le (ぎょ)tan est un gros POISSON (ぎょ) qui frétille dans la rivière.",
+  "composition": "Une tête de poisson en haut avec des écailles en bas et une nageoire qui se termine par quatre points, comme des gouttes d'eau."
+ },
+ "兄": {
+  "story": "L'AÎNÉ (あに) de la famille est un bel ÂNE (あに) gris aux longues oreilles.",
+  "composition": "Une bouche carrée sur deux jambes écartées, comme un grand frère qui se tient debout, bras ouverts."
+ },
+ "犬": {
+  "story": "Le CHIEN (いぬ) court après une plume tombée d'un NID (いぬ).",
+  "composition": "Un gros point avec une ligne qui traverse un carré, comme un chien assis avec une oreille dressée et une patte en avant."
+ },
+ "妹": {
+  "story": "La PETITE SŒUR (いもうと) glisse sa main dans un gant tout doux, en IMITATION (いもうと) de sa grande sœur.",
+  "composition": "Une femme à gauche qui se penche vers une branche avec des feuilles, comme une petite sœur qui suit sa grande sœur."
+ },
+ "姉": {
+  "story": "L'AÎNÉE (あね) tricote un pull avec des ANNEAUX (あね) de laine multicolore.",
+  "composition": "Une femme à gauche et un échafaudage de traits à droite, comme une grande sœur qui construit une tour de blocs en jouant."
+ },
+ "政": {
+  "story": "政 — Le SEIgle mûr inspire la POLITIQUE (せい)",
+  "composition": "Un soleil frappant une règle droite qui impose l’ordre sur une place."
+ },
+ "議": {
+  "story": "議 — Un GUIdon de vélo tordu anime la DÉLIBÉRATION (ぎ)",
+  "composition": "Un pupitre incliné avec une aile et un cœur sous une balance d’idées."
+ },
+ "民": {
+  "story": "民 — Le peuple MINce se rassemble, PEUPLE (みん)",
+  "composition": "Une silhouette courbée portant une hotte, les jambes enracinées dans la terre commune."
+ },
+ "連": {
+  "story": "連 — Le RENne avance en file pour EMMENER (れん)",
+  "composition": "Une voiture aux roues alignées qui trace un chemin sinueux en tirant un char invisible."
+ },
+ "対": {
+  "story": "対 — Une TAIe d’oreiller froissée reflète le VIS-À-VIS (たい)",
+  "composition": "Deux profils identiques séparés par une ligne, comme un reflet dans un miroir vertical."
+ },
+ "定": {
+  "story": "定 — Un dé TERmine le DÉPart (てい) du jeu de société.",
+  "composition": "Un toit sous lequel un piéton marche d'un pas décidé vers une ligne d'arrivée."
+ },
+ "回": {
+  "story": "回 — Le CAId tourne en rond et fait une ROUE (かい) sur lui-même.",
+  "composition": "Une bouche carrée qui encercle une spirale tourbillonnant à l'intérieur."
+ },
+ "選": {
+  "story": "選 — On élit le SÉNateur parce qu'il a du bon SENS (せん).",
+  "composition": "Une main qui pousse délicatement deux ballotins pour choisir le meilleur sur un chemin."
+ },
+ "米": {
+  "story": "米 — Le riz pousse quand le MAIs a un bon RENDEMENT (まい).",
+  "composition": "Un arbre dont les branches portent de toutes petites gouttes de pluie scintillantes."
+ },
+ "実": {
+  "story": "実 — La RÉAlité frappe comme un coup de fouet le JITsu (じつ) du combattant.",
+  "composition": "Un toit qui coiffe une grosse tête pleine de fruits mûrs prêts à tomber."
+ },
+ "部": {
+  "story": "部 — La BOUée (ぶ) délimite la SECTION de baignade surveillée.",
+  "composition": "Un panneau vertical indiquant une zone, avec un toit et deux compartiments séparés."
+ },
+ "合": {
+  "story": "合 — Un GOUrin (ごう) s’emboîte parfaitement dans le manche, c’est un bon FIT.",
+  "composition": "Un couvercle triangulaire qui s’ajuste pile sur une ouverture carrée."
+ },
+ "市": {
+  "story": "市 — La SCIe (し) est en promotion sur le MARCHé du bricolage.",
+  "composition": "Un étal de marché avec un auvent pointu et une toile qui pend jusqu’au sol."
+ },
+ "内": {
+  "story": "内 — Le NAIeur (ない) reste à l’intérieur de la piscine couverte.",
+  "composition": "Une personne debout sous un toit, enfermée dans un cadre qui l’entoure complètement."
+ },
+ "相": {
+  "story": "相 — Une relation INTERpersonnelle se crée quand l’eau (そう) éteint le feu.",
+  "composition": "Un œil qui regarde un arbre, les deux se faisant face comme dans un miroir."
+ },
+ "関": {
+  "story": "Le gardien du CAMP (かん) bloque la CONNEXION.",
+  "composition": "Une grande porte à deux battants fermée par une barre horizontale, vue de face."
+ },
+ "決": {
+  "story": "Le QUÊTeur (けつ) solitaire DÉCIDE de partir en montagne.",
+  "composition": "Un torrent gelé en trois coups de glace sur la gauche, qui se brise d’un bloc vers la droite."
+ },
+ "全": {
+  "story": "Le ZEN (ぜん) englobe le TOUT sans exception.",
+  "composition": "Un toit triangulaire posé sur une table, abritant un espace vide parfaitement clos."
+ },
+ "表": {
+  "story": "La HYène (ひょう) gratte la SURFACE pour déterrer un os.",
+  "composition": "Une croix plantée dans un sol horizontal, surmontée d’une longue traîne qui s’étale vers la droite."
+ },
+ "戦": {
+  "story": "Le SÉNateur (せん) déclare la GUERRE d’une voix tremblante.",
+  "composition": "Deux lances dressées côte à côte, surmontant un bouclier carré traversé d’une hampe."
+ },
+ "経": {
+  "story": "Le moine récite un SUTRA (きょう) d’une voix claire comme le cristal.",
+  "composition": "Un rouleau sacré déroulé verticalement où chaque trait de pinceau forme des volutes d’encens."
+ },
+ "最": {
+  "story": "Le SAIge médite au SOMMET (さい) de la montagne pour atteindre l’ultime vérité.",
+  "composition": "Un pic rocheux coiffé d’un soleil éclatant qui domine tout le paysage."
+ },
+ "現": {
+  "story": "Un fantôme APPARAÎT (げん) soudainement dans le PRÉSENT, laissant une trace glacée.",
+  "composition": "Un spectre translucide dont la silhouette émerge d’un miroir ancien."
+ },
+ "調": {
+  "story": "Le CHAT ronronne en rythme, créant un ACCORD (ちょう) musical et apaisant.",
+  "composition": "Une portée musicale où les notes s’alignent comme des oiseaux sur un fil."
+ },
+ "化": {
+  "story": "Le CHAMan se CHANGE (か) en renard sous la lueur de la pleine lune.",
+  "composition": "Une silhouette humaine dont l’ombre projetée sur le sol devient animale."
+ },
+ "期": {
+  "story": "Le PÉRIodique paraît à date fixe (き)",
+  "composition": "Un soleil carré et une lune posée sur un calendrier ouvert."
+ },
+ "取": {
+  "story": "Prendre un TORchon pour essuyer (と.る)",
+  "composition": "Une main qui attrape une grande oreille tendue."
+ },
+ "都": {
+  "story": "Un TOUtou se promène dans la métropole (と)",
+  "composition": "Un vieux quartier surmonté d’un dais impérial incliné."
+ },
+ "和": {
+  "story": "Le WAGon roule dans une harmonie paisible (わ)",
+  "composition": "Une bouche souriante sous un épi de blé qui danse."
+ },
+ "機": {
+  "story": "Le KIlomètre de fil passe dans le métier à tisser (き)",
+  "composition": "Un rouet en bois dont les rayons croisent des fils tendus."
+ },
+ "当": {
+  "story": "当 — Le TAUreau reçoit un coup bien ciblé (とう) qui le frappe en plein front.",
+  "composition": "Un balancier de pendule pointu qui vient frapper le centre d'une cible rectangulaire."
+ },
+ "約": {
+  "story": "約 — Le YAK se lie par une promesse sacrée (やく) devant le temple tibétain.",
+  "composition": "Un fil de soie noué autour d'une louche, symbole d'un engagement scellé."
+ },
+ "首": {
+  "story": "首 — Le spectacle de SHUshis décapités (しゅ) expose des têtes au cou tranché.",
+  "composition": "Un visage aux longs cheveux dressés sur un cou raide, vu de profil."
+ },
+ "法": {
+  "story": "法 — Sur la HOUle, une méthode stricte (ほう) impose un chemin à suivre sans dévier.",
+  "composition": "Une vague d'eau qui s'écrase contre un rocher et repart en ligne droite."
+ },
+ "性": {
+  "story": "性 — Le SEIGneur médite sur la nature profonde (せい) du cœur et de la chair.",
+  "composition": "Un cœur vertical planté dans un sol vivant, d'où pousse une jeune tige."
+ },
+ "要": {
+  "story": "Le YOga est tout ce dont on a besoin (よう) pour se sentir bien.",
+  "composition": "Une femme aux bras tendus porte un lourd fardeau sur sa tête, symbolisant un besoin vital."
+ },
+ "制": {
+  "story": "Le SEIgle pousse en un SYSTÈME (せい) de rangs bien ordonnés.",
+  "composition": "Un couteau tranchant qui coupe un tissu en deux parties égales, comme une règle."
+ },
+ "治": {
+  "story": "Un DJ (じ) RÈGNE (じ) sur la piste de danse toute la nuit.",
+  "composition": "Une digue de pierres surmontée d'une plateforme qui maîtrise et calme le cours de l'eau."
+ },
+ "務": {
+  "story": "Une MUE (む) est une TÂCHE (む) fatigante pour le serpent.",
+  "composition": "Un animal cornu frappé par une lance qui s'active et remplit sa mission avec force."
+ },
+ "成": {
+  "story": "Un SEIgle qui devient (せい) du pain se TRANSFORME (せい).",
+  "composition": "Une hallebarde plantée en terre dont la lame se change en une croix victorieuse."
+ },
+ "数": {
+  "story": "数 — Le SOUffle coupé, on compte un à un chaque NUMBER (すう) qui défile.",
+  "composition": "Un boulier vertical dont les boules s’empilent en deux colonnes sous un toit incliné."
+ },
+ "記": {
+  "story": "記 — La QUIétude règne dans le scriptorium où le moine NOTE (き) les annales.",
+  "composition": "Un pupitre à pupitre où une plume trace des lignes sur une page ouverte."
+ },
+ "初": {
+  "story": "初 — Le CHAUdron fume pour la PREMIÈRE FOIS (しょ) de la saison froide.",
+  "composition": "Un sablier dont le sable commence à peine à couler entre deux montants de bois."
+ },
+ "指": {
+  "story": "指 — On montre du doigt le CHIen égaré, l’index pointé vers lui (し).",
+  "composition": "Une main tendue dont l’index et le majeur désignent une direction sous un trait de ciel."
+ },
+ "権": {
+  "story": "権 — Le KENnel du maître-chien affirme son AUTORITÉ (けん) sur la meute.",
+  "composition": "Un heaume à cornes coiffant un trône massif flanqué de deux gardiens debout."
+ },
+ "平": {
+  "story": "平 — Le paysan HEUreux aplanit sa rizière pour qu’elle soit bien plate (へい)",
+  "composition": "Un plateau de balance parfaitement horizontal avec deux plateaux vides et stables."
+ },
+ "加": {
+  "story": "加 — Le cuisinier CAAlme un plat trop fade en y ajoutant du sel (か)",
+  "composition": "Une main qui dépose un petit plus sur une bouche grande ouverte prête à recevoir."
+ },
+ "受": {
+  "story": "受 — Dans la JUngle, le disciple accepte humblement l’enseignement du maître (じゅ)",
+  "composition": "Deux mains tendues sous une protection qui recueillent avec soin un objet tombé du ciel."
+ },
+ "続": {
+  "story": "続 — Le ZOo garde la file continue des visiteurs qui longent les enclos sans s’arrêter (ぞく)",
+  "composition": "Un fil de soie qui se déroule sans fin depuis une bobine posée près d’un comptoir de vente."
+ },
+ "進": {
+  "story": "進 — Le SHINtô prie pour avancer sereinement sur le chemin de la vie (しん)",
+  "composition": "Un pas décidé qui franchit une porte sacrée en s’élevant légèrement du sol."
+ },
+ "支": {
+  "story": "Une branche SÈCHE (し) soutient (ささえる) le vieil arbre penché.",
+  "composition": "Une main tendue qui porte une branche fourchue posée en équilibre sur un support."
+ },
+ "産": {
+  "story": "Le produit naît (うむ) debout sur un mont SANS (さん) ombre.",
+  "composition": "Une falaise abrupte d'où sort une pousse vivante coiffée d'un trait horizontal."
+ },
+ "点": {
+  "story": "La TEMpête (てん) allume (つける) un point noir sur l'horizon.",
+  "composition": "Une étincelle posée comme une tache au-dessus d'un foyer à quatre pieds."
+ },
+ "報": {
+  "story": "Le rapport récompense (むくいる) en criant HÔ (ほう) la nouvelle.",
+  "composition": "Un sceau frappé à gauche qui serre une oreille agenouillée sous une main autoritaire."
+ },
+ "済": {
+  "story": "La dette réglée (すむ) soulage comme un SAIn (さい) soupir.",
+  "composition": "Une eau qui coule uniformément à travers un alignement de barres égales coiffé d'un chapeau."
+ },
+ "交": {
+  "story": "La foule se MÊLE (まじる) au MAGICIen qui fait disparaître les passants dans son spectacle.",
+  "composition": "Un personnage debout aux bras croisés, coiffé d'un grand chapeau pointu, qui se fond dans une foule environnante."
+ },
+ "資": {
+  "story": "Un gros CHAT dort sur un tas d'ACTIFS (し) financiers en billets et pièces d'or.",
+  "composition": "Une silhouette de chat assis, les oreilles dressées, sous un toit qui abrite une pile de lingots et de pièces."
+ },
+ "予": {
+  "story": "Le YOgi prédit l'avenir AU PRÉALABLE (よ) en lisant dans les feuilles de thé.",
+  "composition": "Une étagère à deux niveaux où un trait oblique barre le compartiment du bas, comme une information anticipée."
+ },
+ "向": {
+  "story": "Un KOala se tourne VERS L'AU-DELÀ (むこう) en fixant l'horizon sans bouger.",
+  "composition": "Une silhouette de maison avec une petite fenêtre intérieure, dont le toit se prolonge en une longue ligne horizontale pointant au loin."
+ },
+ "際": {
+  "story": "Un SAIge cueille des champignons à L'OCCASION (さい) de la première pluie d'automne.",
+  "composition": "Un monticule escarpé à gauche, surmonté d'une plate-forme, relié par une passerelle à une structure à étages coiffée d'un petit toit."
+ },
+ "活": {
+  "story": "La vie est ACTive (かつ) comme un chat qui bondit.",
+  "composition": "Une main qui tient une langue de feu au-dessus d’une bouche ouverte et parlante."
+ },
+ "原": {
+  "story": "Dans la plaine, la neige est GÉNante (げん) pour les lièvres sans abri.",
+  "composition": "Une falaise abrupte sous un soleil d’où jaillit une petite source blanche."
+ },
+ "共": {
+  "story": "KYOu et moi partageons tout (きょう) comme un vieux couple.",
+  "composition": "Deux mains jointes qui soulèvent ensemble un plateau chargé de légumes."
+ },
+ "得": {
+  "story": "Le TOUCan obtient (とく) toujours le fruit le plus mûr.",
+  "composition": "Une coquille d’escargot posée sur un coquillage au pied d’une règle de mesure."
+ },
+ "解": {
+  "story": "Le mystère se dissipe quand la clé (かい) tourne dans la serrure.",
+  "composition": "Un angle de corne tranchante qui sépare la chair d’un poisson avec un couteau."
+ },
+ "勝": {
+  "story": "しょう (victory)",
+  "composition": "Un SHOgoun lève le poing en signe de VICTORY dans la fumée des combats. Un trophée dressé sur un piédestal, surmonté d’une force qui jaillit et d’un crochet de puissance."
+ },
+ "面": {
+  "story": "めん (mask)",
+  "composition": "Un MENDiant cache son visage sous un MASK de théâtre Nô pour ne pas être reconnu. Un masque rectangulaire aux yeux vides, traversé par une bouche fermée et un nez droit."
+ },
+ "告": {
+  "story": "こく (revelation)",
+  "composition": "Un COQ chante à l’aube pour faire une RÉVÉLATION au monde endormi. Une bouche grande ouverte d’où s’élève une parole surmontée d’un toit, comme un oracle sous un temple."
+ },
+ "反": {
+  "story": "はん (anti)",
+  "composition": "Un HANdicapé se dresse ANTI-conformiste en rejetant les normes d’un revers de main. Une falaise abrupte d’où une main repousse quelque chose vers l’arrière."
+ },
+ "判": {
+  "story": "はん (judgement)",
+  "composition": "Un HANdicapé mental subit un JUGEMENT sévère au tribunal, coupé en deux par la sentence. Une lame de guillotine qui tranche une parole en deux moitiés égales."
+ },
+ "在": {
+  "story": "在 — Un ZAInoïste fatigué EXISTE (ざい) dans un coin de la gare.",
+  "composition": "Un auvent protecteur abrite une structure qui s’élève au-dessus du sol."
+ },
+ "件": {
+  "story": "件 — Le KENnel abrite un drôle d’AFFAIR (けん) de chiens disparus.",
+  "composition": "Une silhouette humaine se tient debout à côté d’un poteau indicateur."
+ },
+ "側": {
+  "story": "側 — Sur le côté, une SOCQuette (そく) orpheline traîne sur le flanc du chemin.",
+  "composition": "Un visage de profil avec un long cou et une crinière qui retombe en cascade."
+ },
+ "任": {
+  "story": "任 — La NONne confie une lourde RESPONSABILITÉ (にん) au jeune novice.",
+  "composition": "Une personne porte un lourd fardeau en équilibre sur son épaule."
+ },
+ "引": {
+  "story": "引 — Un INdividu TIRE (ひく) de toutes ses forces sur la corde d’un arc.",
+  "composition": "Un arc tendu vers l’arrière avec sa corde prête à se détendre."
+ },
+ "認": {
+  "story": "Le cerf se RECONNAÎT (にん) dans le miroir, c'est un ACKNOWLEDGE.",
+  "composition": "Une silhouette de cervidé avec un œil et un cœur sous un toit, figée devant son reflet."
+ },
+ "参": {
+  "story": "Le SAINT (さん) NONPLUSSED reste trois jours sous la pluie sans MAIRIE (まいる).",
+  "composition": "Un personnage coiffé d'un grand chapeau triangulaire, les bras ballants sous trois gouttes de pluie."
+ },
+ "利": {
+  "story": "Le lit (り) superpose les matelas pour un PROFIT maximum.",
+  "composition": "Un lit à baldaquin dont les pieds et le sommet sont des lames de couteau acérées."
+ },
+ "組": {
+  "story": "Un seau (そ) sert à ASSOCIER les poissons en les mettant en GUIMauve (くみ).",
+  "composition": "Un récipient carré surmonté d'une anse, rempli de fils emmêlés qui débordent."
+ },
+ "信": {
+  "story": "Le CHIEN (しん) guide l'aveugle, symbole d'une totale FAITH.",
+  "composition": "Une personne debout à gauche qui tient fermement la parole donnée, comme une laisse."
+ },
+ "求": {
+  "story": "Un REQUEST (きゅう) se fait à l'entrée d'un QG où l'on demande une faveur",
+  "composition": "Un homme à genoux tend les bras vers une cible ronde, comme pour supplier."
+ },
+ "所": {
+  "story": "La PLACE (しょ) est un petit CHOt où l'on range ses affaires personnelles",
+  "composition": "Un abri rudimentaire avec un toit en pente et un espace carré protégé à l'intérieur."
+ },
+ "次": {
+  "story": "Le NEXT (じ) est une DJette glaciale qui annonce le morceau suivant",
+  "composition": "Une silhouette agenouillée, penchée en avant, prête à bondir vers la droite."
+ },
+ "昨": {
+  "story": "YESTERDAY (さく) est le jour où l'on a fait un SACré mensonge qu'on regrette",
+  "composition": "Un soleil écrasé sous un lourd couvercle, barré d'un trait oblique comme une faute."
+ },
+ "論": {
+  "story": "L'ARGUMENT (ろん) est un ROND-point où les idées tournent sans fin",
+  "composition": "Une tour de guet coiffée d'un toit pointu, d'où l'on observe et débat sans cesse."
+ },
+ "官": {
+  "story": "Un CANcre paresseux rêve de devenir BUREAUCRAT (かん)",
+  "composition": "Un toit sur deux petites boîtes empilées, comme un fonctionnaire derrière son guichet."
+ },
+ "増": {
+  "story": "Le ZOO agrandit ses enclos pour faire AUGMENTER (ぞう) le nombre d'animaux",
+  "composition": "Une accumulation de couches superposées avec un toit, comme un tas qui grandit."
+ },
+ "係": {
+  "story": "Dans la baie de KEIHIN, le RESPONSABLE (けい) surveille le port",
+  "composition": "Une silhouette debout avec un bras tendu qui tient un registre, comme un chef qui contrôle."
+ },
+ "感": {
+  "story": "Le CANon gronde et fait vibrer l'ÉMOTION (かん) dans les cœurs",
+  "composition": "Un projectile lourd surmonté d'un couvercle, comme une poitrine qui contient un sentiment explosif."
+ },
+ "情": {
+  "story": "JOE Dassin chante des FEELINGS (じょう) mélancoliques sous la pluie",
+  "composition": "Une silhouette debout près d'un arbre sous un toit, comme un cœur solitaire plein de sentiments."
+ },
+ "投": {
+  "story": "Le jet de pierre dans l’ÉTANG est un bon THROW (とう)",
+  "composition": "Un bras tendu qui lance un projectile depuis une position en équilibre."
+ },
+ "示": {
+  "story": "Sur l’estrade, le GÉant montre du doigt pour SHOW (じ)",
+  "composition": "Un présentoir à deux étages avec deux petites offrandes posées dessus."
+ },
+ "変": {
+  "story": "Dans cette ruelle ÉTroite, le temps devient UNUSUAL (へん)",
+  "composition": "Un personnage assis en tailleur sous un toit pointu, la tête penchée de côté."
+ },
+ "打": {
+  "story": "Le boxeur DAnois assène un STRIKE (だ)",
+  "composition": "Un poing fermé qui frappe une surface verticale et y laisse une marque."
+ },
+ "直": {
+  "story": "Le TCHADien marche STRAIGHTAWAY (ちょく) vers l’horizon",
+  "composition": "Un œil grand ouvert surmonté d’une ligne droite qui file sans dévier."
+ },
+ "両": {
+  "story": "Le RYOtier vérifie les DEUX (りょう) côtés du train.",
+  "composition": "Une balance à deux plateaux symétriques tenus par une barre centrale."
+ },
+ "式": {
+  "story": "Le graphiste esquisse un STYLE (しき) CHIC.",
+  "composition": "Un poteau carré soutenant une bannière et un outil de frappe."
+ },
+ "確": {
+  "story": "Un CAillOU donne l'ASSURANCE (かく) d'une preuve solide.",
+  "composition": "Un oiseau perché sur un toit protégé par une pierre dure."
+ },
+ "果": {
+  "story": "Le CAractère mûr devient le FRUIT (か) de l'expérience.",
+  "composition": "Un arbre dont les branches portent un champ carré bien rempli."
+ },
+ "容": {
+  "story": "Le YOga apprend à CONTENIR (よう) son énergie.",
+  "composition": "Un toit recouvrant une vallée qui enveloppe un espace vide."
+ },
+ "必": {
+  "story": "必 — L’HISTOire se répète INVARIABLEMENT (ひつ).",
+  "composition": "Une aiguille fichée dans un cœur, symbole d’une fatalité inévitable."
+ },
+ "演": {
+  "story": "演 — Un ÉNORme rideau s’ouvre sur la PERFORMANCE (えん).",
+  "composition": "Un danseur sous un toit, bras étendus, qui offre un spectacle sur scène."
+ },
+ "歳": {
+  "story": "歳 — Le SAIson des bilans marque la fin d’année (さい).",
+  "composition": "Une lance plantée dans une botte de riz, image d’une récolte annuelle achevée."
+ },
+ "争": {
+  "story": "争 — Dans la mêlée, un SOLDat CONTEND la victoire (そう).",
+  "composition": "Deux poings serrés qui se heurtent et un crochet qui retient la lutte."
+ },
+ "談": {
+  "story": "談 — Le DANseur et le chanteur DISCUTENT passionnément (だん).",
+  "composition": "Deux bouches au-dessus d’un feu, qui échangent des paroles animées."
+ },
+ "能": {
+  "story": "Un athlète de haut Niveau déploie toute sa caPacité (のう)",
+  "composition": "Un insecte avec une carapace pointue et deux grandes antennes recourbées vers l’avant."
+ },
+ "位": {
+  "story": "Un général se tient debout à côté d’un homme agenouillé pour indiquer son Rang (い)",
+  "composition": "Un personnage debout à gauche qui observe un second personnage incliné et prosterné."
+ },
+ "置": {
+  "story": "Sur le chantier, un chef ordonne de mettre en Place (ち) le filet droit devant",
+  "composition": "Un grand panneau vertical surmonté d’un toit, sous lequel un objet est déposé au sol."
+ },
+ "流": {
+  "story": "Le flot de la Rivière sort du robinet et s’écoule en un Courant (りゅう) continu",
+  "composition": "Une cascade de gouttes qui tombe d’un bec verseur dans une vasque où l’eau tourbillonne."
+ },
+ "格": {
+  "story": "Le jury délibère sous le grand Chêne pour attribuer le Statut (かく) final",
+  "composition": "Un arbre au tronc épais à gauche, dont la cime touche une bouche ouverte qui annonce le résultat."
+ },
+ "状": {
+  "story": "Le JOUEur statue sur le STATUS QUO (じょう) d’une compétition figée.",
+  "composition": "Un podium en escalier surmonté d’une goutte qui fige l’instant présent."
+ },
+ "球": {
+  "story": "Le QUIller lance une BALL (きゅう) de bowling qui roule sur la piste.",
+  "composition": "Une raquette ronde qui frappe une balle rebondissant vers le haut."
+ },
+ "職": {
+  "story": "Le CHOC pour obtenir un POSTE (しょく) résonne dans l’entreprise.",
+  "composition": "Une oreille attentive à gauche, un marteau au centre et une flèche droite qui frappent un pupitre de travail."
+ },
+ "与": {
+  "story": "Le YOgi BESTOW (よ) un don précieux à son disciple.",
+  "composition": "Deux mains superposées qui offrent un objet rectangulaire enveloppé."
+ },
+ "供": {
+  "story": "Le KYOu de soumission SUBMIT (きょう) un hommage à l’empereur.",
+  "composition": "Une personne debout à gauche qui présente une offrande sur une table basse à droite."
+ },
+ "疑": {
+  "story": "疑",
+  "composition": "Le bruit du GIsement dans le DOUTE (ぎ) fait vaciller la conviction. Un homme figé, le dos rond et la tête penchée, fixe une flèche plantée dans le sol devant ses pieds."
+ },
+ "過": {
+  "story": "過",
+  "composition": "La CAgne est TROP PLEINE (か) et déborde de fruits gâtés. Une main qui pousse un charriot bringuebalant sous une canicule écrasante, soulevant une poussière excessive."
+ },
+ "局": {
+  "story": "局",
+  "composition": "Un KIOsque à journaux (きょく) sert de BUREAU de fortune au coin de la rue. Un bâtiment vu de face avec un toit pointu, une large porte carrée et un petit guichet sur le côté."
+ },
+ "放": {
+  "story": "放",
+  "composition": "La HAche (ほう) fend la corde et LIBÈRE le radeau prisonnier de la berge. Une main ouverte qui repousse un panneau carré, laissant une traînée de lumière s’échapper vers la droite."
+ },
+ "常": {
+  "story": "常",
+  "composition": "Le JOur (じょう) se lève, USUEL et immuable, sur la plaine endormie. Une table d’école surmontée d’un grand soleil rond dont les rayons touchent un torchon suspendu."
+ },
+ "収": {
+  "story": "Le SHUcre des impôts remplit les caisses de l'INCOME (しゅう).",
+  "composition": "Une main qui récolte et serre des pièces dans un coffre."
+ },
+ "断": {
+  "story": "La DANTesque lame tranche le lien, c'est la SEVERANCE (だん).",
+  "composition": "Une hache lourde qui coupe net un rouleau de soie."
+ },
+ "石": {
+  "story": "Le SEKIne de sel gemme est un bloc de STONE (せき).",
+  "composition": "Un rocher anguleux tombé au pied d'une falaise."
+ },
+ "違": {
+  "story": "Un Ivre mort titube, c'est la DIFFERENCE (い) avec la ligne droite.",
+  "composition": "Des pas zigzagants qui s'écartent d'un chemin rectiligne."
+ },
+ "消": {
+  "story": "Le SHOW laser s'éteint pour EXTINGUISH (しょう) la dernière lueur.",
+  "composition": "Une bougie dont la flamme se dissout en gouttes de cire."
+ },
+ "由": {
+  "story": "Le YUcca pousse droit, et c’est pour cette raison (ゆう) qu’on l’admire.",
+  "composition": "Une tige verticale sort d’un carré de terre, avec une petite branche latérale en haut."
+ },
+ "説": {
+  "story": "Le sage écarte les nuages avec un SET de baguettes pour expliquer son opinion (せつ).",
+  "composition": "Un œil grand ouvert surmonté d’une paire de cornes qui parlent, posé sur deux jambes écartées."
+ },
+ "難": {
+  "story": "La NONne grimace devant un plat DIFFICILE à mâcher (なん).",
+  "composition": "Une bouche crispée à gauche, un corps hérissé de plumes et de traits serrés à droite."
+ },
+ "優": {
+  "story": "La brise caresse le YUcca en fleur, pleine de tendresse (ゆう).",
+  "composition": "Un visage penché au-dessus d’une main qui tient une fleur, avec un cœur sous un toit protecteur."
+ },
+ "夫": {
+  "story": "Le vent FOU soulève le chapeau du mari (ふう) sur la colline.",
+  "composition": "Un bonhomme en deux traits larges, bras écartés, qui porte un chapeau plat au-dessus de la tête."
+ },
+ "神": {
+  "story": "Le CHINtoque prie les DIEUX (しん)",
+  "composition": "Une silhouette agenouillée devant un autel, les bras levés vers le ciel."
+ },
+ "番": {
+  "story": "Le BANquier prend son TOUR (ばん)",
+  "composition": "Un guichet avec une file de personnes alignées attendant leur tour."
+ },
+ "規": {
+  "story": "Le QIde suit un STANDARD (き)",
+  "composition": "Une règle graduée posée sur une table de dessin."
+ },
+ "術": {
+  "story": "Le JUTEux pratique un ART (じゅつ)",
+  "composition": "Un pinceau en mouvement traçant une ligne fluide sur une toile."
+ },
+ "備": {
+  "story": "La BIche s'ÉQUIPE (び)",
+  "composition": "Un animal portant une selle et des sacoches sur le dos."
+ },
+ "宅": {
+  "story": "Un TAKsi rentre au foyer, c’est son HOME (たく).",
+  "composition": "Un toit pointu avec un petit appentis collé, comme une maison simple et trapue."
+ },
+ "害": {
+  "story": "Le blé transgénique cause un vrai HARM (がい) dans l’estomac.",
+  "composition": "Un toit au-dessus d’une bouche pleine de dents qui mord une plante, silhouette d’un danger qui ronge."
+ },
+ "配": {
+  "story": "Le sommelier HAÏlien DISTRIBUE (はい) le vin aux invités.",
+  "composition": "Une jarre de vin à gauche et une personne courbée à droite, bras tendu vers l’avant pour offrir."
+ },
+ "警": {
+  "story": "La vigie crie « KEILLe ! » pour ADMONESTER (けい) le matelot distrait.",
+  "composition": "Une tourelle de guet surmontant une bouche grande ouverte qui lance un avertissement, juchée sur des mots."
+ },
+ "育": {
+  "story": "La nurse IKKe l’enfant et le FAIT GRANDIR (いく) avec soin.",
+  "composition": "Un nouveau-né renversé en haut, une masse de chair ronde soutenue par un socle stable, silhouette d’une croissance nourrie."
+ },
+ "席": {
+  "story": "Un roi **SEK** (せき) réserve son **SIÈGE** pour le banquet.",
+  "composition": "Un bâtiment rectangulaire avec un toit pointu abritant un tapis déroulé sous un dais."
+ },
+ "訪": {
+  "story": "Le **FO**u **REND VISITE** (ほう) à la reine pour lui parler.",
+  "composition": "Une personne debout à droite qui s'apprête à frapper à une porte carrée."
+ },
+ "乗": {
+  "story": "Le **JOU**eur **MONTE** (じょう) sur son cheval de bois.",
+  "composition": "Une silhouette avec un chapeau plat et des jambes écartées chevauchant un arbre."
+ },
+ "残": {
+  "story": "Un **ZAN**i **RESTE** (ざん) immobile après la fin du spectacle.",
+  "composition": "Un os empilé sur une pièce de monnaie à côté d'une lance brisée."
+ },
+ "想": {
+  "story": "Le **SO**leil fait naître un **CONCEPT** (そう) lumineux dans l'esprit.",
+  "composition": "Un arbre qui pousse sous un œil grand ouvert surmonté d'un cœur allongé."
+ },
+ "声": {
+  "story": "声 — Le SEIgle mûrissant dans le champ murmure d’une VOIX douce sous le vent.",
+  "composition": "Un visage de profil avec une bouche grande ouverte d’où s’échappent des ondes sonores vers la droite."
+ },
+ "念": {
+  "story": "念 — Le NENuphar flotte sur l’étang en formant un vœu, un WISH silencieux pour la paix.",
+  "composition": "Un toit au-dessus d’un cœur traversé par une ligne de tension, comme une prière comprimée sous un crâne."
+ },
+ "助": {
+  "story": "助 — Le JOséph en salopette apporte son HELP en poussant une lourde charrette.",
+  "composition": "Un bras musclé qui soulève un fardeau à gauche, soutenu par une force venue de la droite."
+ },
+ "労": {
+  "story": "労 — Le vieux RÔdeur fatigué a les traits marqués par le dur LABOR des champs.",
+  "composition": "Une tête coiffée d’un chapeau de paille penchée sur un outil, le dos courbé par l’effort sous un soleil écrasant."
+ },
+ "例": {
+  "story": "例 — Le REÎtre aligne les soldats en rang pour montrer l’EXAMPLE parfait de discipline.",
+  "composition": "Une rangée de silhouettes humaines debout à gauche, figées devant un couteau qui les mesure toutes à la même aune."
+ },
+ "然": {
+  "story": "然 — Le ZEN du moine contemple l’univers tel qu’il est, une simple affaire de SORT OF THING (ぜん)",
+  "composition": "Une silhouette assise en tailleur au sommet d’une colline, sous un croissant de lune, qui médite sur la nature des choses."
+ },
+ "限": {
+  "story": "限 — Une barrière infranchissable marque la LIMITE du terrain, comme un GENDarme qui bloque le passage (げん)",
+  "composition": "Une haute palissade de bois surmontée d’un toit pointu, dressée devant une colline escarpée pour stopper toute progression."
+ },
+ "追": {
+  "story": "追 — Le chasseur POURSUIT le gibier sans relâche, tel un essaim de mouches TSUI-TSUI qui bourdonne à ses trousses (つい)",
+  "composition": "Une route sinueuse qui part d’une bouche ouverte et s’élance derrière une silhouette en mouvement, comme une traque lancée."
+ },
+ "商": {
+  "story": "商 — Le marchand se tient debout pour FAIRE UNE AFFAIRE, coiffé d’un grand CHAPEAU rond qui lui donne l’air prospère (しょう)",
+  "composition": "Un personnage coiffé d’un large couvre-chef, planté devant un étal à tréteaux où s’empilent des marchandises."
+ },
+ "葉": {
+  "story": "葉 — Une FEUILLE d’arbre tombe en dansant, légère comme un YO-YO que le vent fait voltiger (よう)",
+  "composition": "Un arbre touffu dont la couronne éclatée libère une pluie de feuilles portées par la brise."
+ },
+ "伝": {
+  "story": "Le DENTiste TRANSMET (でん) un message à son patient la bouche ouverte.",
+  "composition": "Une silhouette humaine debout qui tend un objet vers une autre silhouette plus petite."
+ },
+ "働": {
+  "story": "Le DOUanier TRAVAILLE (どう) toute la journée à contrôler les passeports.",
+  "composition": "Une personne de profil qui pousse un lourd chariot avec les bras tendus."
+ },
+ "形": {
+  "story": "Un GAI luron prend la FORME (けい) d'une statue pour faire rire les passants.",
+  "composition": "Un visage aux traits simplifiés dont les cheveux dessinent trois lignes vers la droite."
+ },
+ "景": {
+  "story": "Le SOLEIL éclaire un PAYSAGE (けい) vu depuis une fenêtre ronde.",
+  "composition": "Un soleil stylisé au-dessus d'une tour carrée coiffée d'un toit pointu."
+ },
+ "落": {
+  "story": "Un RAT culbute et TOMBE (らく) d'une branche dans l'étang en contrebas.",
+  "composition": "Une cascade qui dégringole entre des herbes folles sous un toit protecteur."
+ },
+ "好": {
+  "story": "Le bon CHEF **AIME** (この.む) ce qui est **BON**",
+  "composition": "Une mère et son enfant côte à côte, formant un lien d'affection tendre."
+ },
+ "退": {
+  "story": "Le **TAI**lleur se **RETIRE** (しりぞ.く) en reculant",
+  "composition": "Un chemin sinueux qui s'éloigne d'un portail ouvert, vu de dos."
+ },
+ "頭": {
+  "story": "La **TOU**r Eiffel a une grosse **TÊTE** (あたま) au sommet",
+  "composition": "Un visage de profil avec un œil géant, un front massif et des mèches de cheveux."
+ },
+ "負": {
+  "story": "Le **FOU** subit une **DÉFAITE** (ま.ける) en courant partout",
+  "composition": "Une coquille d'escargot écrasée sous le poids d'un fardeau mal équilibré."
+ },
+ "渡": {
+  "story": "Le **TO**témique passeur fait **TRAVERSER** (わた.る) l'eau",
+  "composition": "Des gouttes de pluie qui glissent le long d'un pont arqué au-dessus d'une rivière."
+ },
+ "失": {
+  "story": "失",
+  "composition": "Le chat (しつ) LOSE sa souris mécanique sous le canapé. Un personnage incliné vers l'avant qui lâche un petit objet rectangulaire de sa main."
+ },
+ "差": {
+  "story": "差",
+  "composition": "Le SAge fait une DISTINCTION entre le vrai miel et la contrefaçon. Un homme portant un plateau à hauteur d'épaule sur lequel repose un objet pointu qui dépasse."
+ },
+ "末": {
+  "story": "末",
+  "composition": "Le MATou griffe le tapis jusqu'à l'usure complète de ses fils, c'est la fin. Un arbre dont les branches supérieures s'évasent en un large éventail au sommet du tronc."
+ },
+ "守": {
+  "story": "守",
+  "composition": "Le CHUteur en wingsuit GARDE son calme en volant au ras des falaises. Un toit protecteur qui s'étend au-dessus d'une main fermement posée sur un point d'ancrage."
+ },
+ "若": {
+  "story": "若",
+  "composition": "Le YAK chevelu et JEUNE gambade maladroitement dans la prairie humide. Une tête couronnée d'herbes folles qui jaillissent au-dessus d'une bouche grande ouverte tournée vers la droite."
+ },
+ "役": {
+  "story": "Le YAKusa remplit son DUTY (やく) en protégeant le quartier.",
+  "composition": "Un personnage en marche rapide, portant un outil ou une arme sur l'épaule, qui avance d'un pas décidé."
+ },
+ "構": {
+  "story": "Le KOAla prend une POSTURE (こう) immobile dans son arbre.",
+  "composition": "Un empilement de poutres en bois formant une structure haute et stable, comme une charpente vue de face."
+ },
+ "割": {
+  "story": "Le gâteau bien KATchak se coupe en PROPORTION (かつ) égale pour chacun.",
+  "composition": "Un couteau qui tranche à côté d'une bouche ouverte, la lame divisant nettement une surface lisse."
+ },
+ "費": {
+  "story": "Le prix de l'essence est une véritable HIssue pour cette EXPENSE (ひ) quotidienne.",
+  "composition": "Une coquille d'escargot d'où s'échappe un filet de fumée, comme de l'argent qui part en fumée."
+ },
+ "付": {
+  "story": "Le timbre FOU s'ADHERE (ふ) tout seul sur l'enveloppe.",
+  "composition": "Une main tendue qui donne une pièce à une autre main plus petite, dans un geste d'attachement."
+ },
+ "種": {
+  "story": "Sous la DOUCHE (しゅ) pousse une nouvelle ESPÈCE de plante.",
+  "composition": "Une tige verticale surmontée d’un épi lourd qui penche, comme une graine prête à tomber."
+ },
+ "美": {
+  "story": "La Biche (び) admire sa propre BEAUTÉ dans le reflet de l’étang.",
+  "composition": "Un grand mouton à cornes repliées qui porte une longue traîne soyeuse descendant jusqu’au sol."
+ },
+ "命": {
+  "story": "Le MAYORal (めい) scelle le DESTIN de la ville d’un coup de tampon.",
+  "composition": "Une bouche ouverte sous un toit, d’où s’échappe un souffle vital qui se recourbe en spirale."
+ },
+ "福": {
+  "story": "Le FUGU (ふく) cuisiné avec maîtrise apporte la BÉNÉDICTION d’un repas sans danger.",
+  "composition": "Un autel dressé avec une offrande au centre, surmonté d’un champ et d’une bouche qui reçoivent la prospérité."
+ },
+ "望": {
+  "story": "La BOUle (ぼう) de cristal révèle l’AMBITION secrète d’un trône lointain.",
+  "composition": "Une lune pleine posée sur un croissant, portée par un roi debout dont le regard fixe l’horizon."
+ },
+ "深": {
+  "story": "深 — Le CHIEN plonge dans un trou très PROFOND (しん).",
+  "composition": "Une tour de guet qui s’enfonce dans l’eau avec ses pilotis reflétés dans les profondeurs."
+ },
+ "申": {
+  "story": "申 — Le CHIEN MOUillÉ demande la permission d’entrer (もう.す).",
+  "composition": "Une bouche ouverte traversée par une lance verticale qui s’élève pour prendre la parole."
+ },
+ "様": {
+  "story": "様 — Le YOghourt glacé fond sur le costume du notable distingué (よう).",
+  "composition": "Un personnage en kimono coiffé d’un chapeau, les bras écartés, qui salue avec déférence."
+ },
+ "財": {
+  "story": "財 — Le ZÈbre garde jalousement son magot (ざい).",
+  "composition": "Un coffre-fort rectangulaire posé sur un piédestal, protégé par un battant latéral."
+ },
+ "港": {
+  "story": "港 — Le KOala débarque au port avec sa valise (こう).",
+  "composition": "Un quai en pierre qui s’avance dans les vagues, bordé d’une grue et d’un entrepôt."
+ },
+ "非": {
+  "story": "Le clown HIHI fait un vol plané dans les airs, c'est UN- (ひ) accident spectaculaire.",
+  "composition": "Une silhouette de clown en plein saut périlleux, bras et jambes écartés en désordre."
+ },
+ "観": {
+  "story": "Avec un grand KANgourou, on adopte un nouvel OUTLOOK (かん) sur la nature australienne.",
+  "composition": "Un œil géant surmonté d'une paupière lourde qui scrute l'horizon depuis un point d'observation élevé."
+ },
+ "察": {
+  "story": "Le chat SAUTE soudainement, car il devine le GUESS (さつ) d'un danger invisible.",
+  "composition": "Un toit de maison avec un œil scrutateur en dessous qui épie par la fenêtre."
+ },
+ "段": {
+  "story": "Le DANseur atteint un GRADE (だん) supérieur après des années d'escaliers gravis.",
+  "composition": "Un escalier abrupt menant à une estrade où l'on reçoit un diplôme."
+ },
+ "横": {
+  "story": "Le roi YOgi COuche sur le côté, allongé de manière SIDEWAYS (よこ) dans son palais doré.",
+  "composition": "Un arbre majestueux couché à l'horizontale, ses branches devenant des lignes parallèles au sol."
+ },
+ "識": {
+  "story": "識 — Le CHIen policier renifle les valises en DISCRIMINANT (しき) les odeurs suspectes.",
+  "composition": "Une oreille géante à gauche et un pic hérissé de lames au centre, comme un radar qui analyse tout."
+ },
+ "呼": {
+  "story": "呼 — Le COq chante pour APPELER (よぶ) la basse-cour au lever du soleil.",
+  "composition": "Une bouche grande ouverte à gauche et un point d’interclamation tordu à droite, comme un cri qui se propage."
+ },
+ "達": {
+  "story": "達 — Le TATouage sur son bras montre qu’il est un voyageur ACCOMPLI (たつ) ayant parcouru le monde.",
+  "composition": "Une route en zigzag avec des pattes à gauche et un mouton chargé de bagages à droite, comme une caravane qui avance."
+ },
+ "良": {
+  "story": "良 — Le lion ROUX et sa crinière majestueuse incarnent ce qui est BON (よい) et noble dans la savane.",
+  "composition": "Un visage carré coiffé d’un chapeau pointu et une longue natte qui descend, comme une silhouette digne et droite."
+ },
+ "候": {
+  "story": "候 — Le KOala s’accroche à son arbre malgré le CLIMAT (こう) humide de la forêt tropicale.",
+  "composition": "Un bonhomme en armure avec une lance verticale et une flèche qui le traverse, comme un chevalier figé sous l’orage."
+ },
+ "処": {
+  "story": "Le SHOwman obèse DISPOSE (しょ) les fauteuils sur la scène.",
+  "composition": "Une jambe pliée qui s'apprête à poser un coussin sur une table basse."
+ },
+ "太": {
+  "story": "Un TAureau bien PLUMP (たい) broute dans le pré.",
+  "composition": "Un gros point rond posé sur une courbe large comme un ventre rebondi."
+ },
+ "客": {
+  "story": "Le caCHot accueille un GUEST (きゃく) pour la nuit.",
+  "composition": "Un toit pointu au-dessus d'une bouche ouverte et d'un pas qui entre."
+ },
+ "否": {
+  "story": "La HIène NEGATE (ひ) l'évidence en secouant la tête.",
+  "composition": "Une bouche carrée qui crache un NON ferme suivi d'un point final."
+ },
+ "師": {
+  "story": "Le SCIentifique EXPERT (し) observe au microscope.",
+  "composition": "Une oreille dressée sur une tour d'où pend un chiffon noué."
+ },
+ "光": {
+  "story": "Un RAYon de lumière (こう) fait briller un KOala doré sur une branche d'arbre.",
+  "composition": "Un personnage aux jambes écartées tient un objet brillant au-dessus de sa tête, d'où jaillissent des rayons vers le haut."
+ },
+ "路": {
+  "story": "Un long chemin (ろ) se déroule sous les pattes d'un ROnin solitaire sous la pluie.",
+  "composition": "Une jambe qui avance suivie d'une route sinueuse longeant une berge, avec une bouche ouverte à l'horizon."
+ },
+ "科": {
+  "story": "Le département (か) des sciences s'active quand un CAdre mesure des plants de riz avec une règle.",
+  "composition": "Un épi de riz incliné à gauche et une toise graduée à droite qui s'enfonce dans le sol."
+ },
+ "積": {
+  "story": "Le volume (せき) d'un tas de neige bloque la route, rendant le paysage tout SEc et KIthara.",
+  "composition": "Un épi de riz à gauche et, à droite, une montagne de sacs empilés que quelqu'un tasse avec un outil."
+ },
+ "他": {
+  "story": "Un autre (た) client s'assoit au comptoir, mais le serveur pose un TAbouret pour quelqu'un d'autre.",
+  "composition": "Une silhouette humaine debout, un bras tendu vers une étagère où repose un objet carré."
+ },
+ "程": {
+  "story": "程 — Dans le désert, l'ÉTENDUE (ほど) est telle qu'un chameau boiteux cherche son HÔTEL Désert.",
+  "composition": "Un épi de riz présenté sur une bouche ouverte, mesurant l'étendue d'une récolte."
+ },
+ "満": {
+  "story": "満 — Le réservoir est PLEIN (みちる) quand la jauge affiche « FULL » sous un soleil de PLOMB MANgANèse.",
+  "composition": "Un réservoir d'eau sous un toit, rempli à ras bord, débordant par les côtés."
+ },
+ "敗": {
+  "story": "敗 — La DÉFAITE (やぶれる) survient quand le guerrier, blessé au ventre, pousse un cri d'effroi : « Y'A BOUE RÊVE ! ».",
+  "composition": "Un coquillage brisé tenant un bâton, symbole d'un coquillage fendu par l'échec."
+ },
+ "値": {
+  "story": "値 — Le PRIX (あたい) d'un diamant brut s'élève quand un joaillier s'exclame : « AH, TAILLE ! ».",
+  "composition": "Une personne debout qui examine une pièce de monnaie droite, évaluant son prix."
+ },
+ "突": {
+  "story": "突 — Le coup de poignard PERCE (つく) la cible avec un bruit sourd : « TSUKI ! ».",
+  "composition": "Un poing fermé sortant brusquement d'une caverne pour frapper vers le haut."
+ },
+ "殺": {
+  "story": "Le SÂle tueur KILL (さつ) sa victime d'un coup de couteau.",
+  "composition": "Une lame de hache dans le coin supérieur droit s'abat sur un corps désarticulé."
+ },
+ "号": {
+  "story": "Le GOÛTer a pour NICKNAME (ごう) \"gourmand\" à cause de son appétit.",
+  "composition": "Une bouche grande ouverte d'où s'échappe un souffle en volutes."
+ },
+ "単": {
+  "story": "Le TANdem SIMPLE (たん) se compose d'une selle et d'un guidon.",
+  "composition": "Un casque de samouraï stylisé surmontant un champ de riz quadrillé."
+ },
+ "座": {
+  "story": "Le ZAmpone SQUAT (ざ) sur ses talons en attendant le bus.",
+  "composition": "Deux personnes assises côte à côte sous un large toit protecteur."
+ },
+ "破": {
+  "story": "Le HAricot REND (は) l'écorce de la cosse en éclatant.",
+  "composition": "Une pierre frappe une peau tendue, provoquant un éclat et une fissure en étoile."
+ },
+ "除": {
+  "story": "Le JEU (じょ) de cartes EXCLUT les tricheurs",
+  "composition": "Une main qui balaie et repousse des objets hors d’une surface inclinée."
+ },
+ "完": {
+  "story": "Le CANon (かん) tire un coup PARFAIT à chaque fois",
+  "composition": "Un toit achevé et une base bien assise, formant une structure complète et stable."
+ },
+ "降": {
+  "story": "Un COUp (こう) de tonnerre fait DESCENDRE l’avion brutalement",
+  "composition": "Une colline escarpée avec un sentier en zigzag qui dévale vers le bas."
+ },
+ "責": {
+  "story": "Le SÉisme (せき) est pointé du doigt, on lui jette le BLÂME",
+  "composition": "Un empilement de dettes sous un toit, comme une charge qui accuse et pèse."
+ },
+ "捕": {
+  "story": "Le HOquet (ほ) surprend et CAPTURE l’attention de tous",
+  "composition": "Une main qui saisit fermement un objet latéral, comme pour l’attraper au vol."
+ },
+ "登": {
+  "story": "Un bateau TOUT neuf ASCEND (とう) la rivière en crue.",
+  "composition": "Une échelle raide qui monte vers une plate-forme, comme un observatoire perché."
+ },
+ "易": {
+  "story": "L’ÉKIdé simple est un quiz trop EASY (えき).",
+  "composition": "Un soleil qui éclaire un chemin tout droit, sans obstacle."
+ },
+ "速": {
+  "story": "La chaussette SÈCHE très QUICK (そく) au vent brûlant du désert.",
+  "composition": "Un véhicule profilé qui file, avec une traînée horizontale derrière lui."
+ },
+ "存": {
+  "story": "Le VIEIL homme EXISTE (ぞん) encore, assis sur un ZONage oublié.",
+  "composition": "Un abri solide avec un toit, où une présence immobile se tient debout."
+ },
+ "飛": {
+  "story": "Un HIBou FLY (ひ) au ras des toits, sans un bruit d’aile.",
+  "composition": "Un oiseau vu de face, ailes largement déployées et plumes écartées comme des doigts."
+ },
+ "富": {
+  "story": "Le FOU tonitruant amasse une grande RICHESSE (ふう) dans son palais.",
+  "composition": "Un toit surmontant un vase rempli de pièces d’or."
+ },
+ "彼": {
+  "story": "Un HEron aux longues pattes solitaires désigne ce GARÇON (かれ) du doigt.",
+  "composition": "Un homme debout de profil qui tend le bras vers l’avant."
+ },
+ "未": {
+  "story": "Un arbuste encore VERT (み) montre des fruits qui ne sont PAS ENCORE (み) mûrs.",
+  "composition": "Un arbre dont les branches supérieures sont plus courtes que les inférieures."
+ },
+ "舞": {
+  "story": "La plume du BOUvreuil virevolte en une DANSE (ぶ) aérienne au crépuscule.",
+  "composition": "Un danseur aux manches flottantes, un pied levé, sous un toit de temple."
+ },
+ "亡": {
+  "story": "Le BOUlet de canon anéantit et fait PÉRIR (ぼう) tout le régiment.",
+  "composition": "Une lame courbe et tranchante qui fauche une tige sans vie."
+ },
+ "危": {
+  "story": "Le funambule en **danger** sent le vent **frais** (き) sur son fil.",
+  "composition": "Un homme suspendu au-dessus du vide, les bras écartés pour garder l'équilibre."
+ },
+ "給": {
+  "story": "Le **salaire** tombe comme une **pluie** (きゅう) de pièces.",
+  "composition": "Une main tendue qui reçoit des gouttes d'argent tombant d'un nuage."
+ },
+ "苦": {
+  "story": "La **souffrance** est un long **coup** (く) porté au cœur.",
+  "composition": "Une bouche grande ouverte au sommet d'une croix, criant une douleur amère."
+ },
+ "迎": {
+  "story": "Un **accueil** chaleureux où l'invité reçoit un **gant** (げい) blanc.",
+  "composition": "Un bras ouvert qui se tend vers une porte pour saluer l'arrivant."
+ },
+ "園": {
+  "story": "Dans le **parc**, un enfant émerveillé sourit en voyant un **lapin** (えん).",
+  "composition": "Un enclos carré où un arbre en fleurs se dresse au milieu d'un chemin."
+ },
+ "具": {
+  "story": "Le GUérisseur prépare l'OUTIL (ぐ) pour soigner",
+  "composition": "Un établi en vue de face avec trois compartiments distincts sous un plateau lisse."
+ },
+ "辞": {
+  "story": "Le JItane DÉMISSIONNE (じ) et quitte le navire",
+  "composition": "Une langue pointue qui tranche une corde épaisse à gauche d'un pieu vertical."
+ },
+ "因": {
+  "story": "L'INtendant découvre la CAUSE (いん) du retard",
+  "composition": "Un grand enclos carré qui emprisonne une silhouette humaine aux bras écartés."
+ },
+ "馬": {
+  "story": "Le BArrage retient le CHEVAL (ば) fougueux au galop",
+  "composition": "Une crinière flamboyante au vent, quatre pattes lancées et une queue balayant le sol."
+ },
+ "愛": {
+  "story": "L'AÏeul ressent un AMOUR (あい) profond pour sa famille",
+  "composition": "Un cœur serré sous un toit protecteur, parcouru par une main douce qui descend lentement."
+ },
+ "冷": {
+  "story": "冷 — Le REÎtre gelé trouve l’eau trop COOL (れい) pour s’y baigner.",
+  "composition": "Un bloc de glace d’où tombent trois gouttes froides."
+ },
+ "適": {
+  "story": "適 — La TÉKtite choisit la cible la plus SUITABLE (てき) pour son impact cosmique.",
+  "composition": "Une flèche qui se plante droit dans un vase antique."
+ },
+ "婦": {
+  "story": "婦 — Le FUsil du chasseur s’abaisse devant la LADY (ふ) au chapeau élégant.",
+  "composition": "Une silhouette féminine agenouillée qui tient un balai."
+ },
+ "寄": {
+  "story": "寄 — La QUIlle roule pour se DRAW NEAR (き) du joueur sur la piste.",
+  "composition": "Un toit immense sous lequel une silhouette se penche pour murmurer."
+ },
+ "込": {
+  "story": "込 — Le KOMmandant ordonne à la foule CROWDED (こむ) de franchir la porte.",
+  "composition": "Une route sinueuse qui plonge dans un entonnoir saturé de monde."
+ },
+ "妻": {
+  "story": "Le grand SAInt bénit son épouse (つま) d'un geste sacré.",
+  "composition": "Une silhouette féminine agenouillée, les bras tendus vers le ciel, avec un voile qui retombe en cascade."
+ },
+ "背": {
+  "story": "Un randonneur épuisé s'adosse (せ) à un séquoia géant pour mesurer sa stature.",
+  "composition": "Un personnage debout, le dos bien droit, adossé à un grand arbre dont les branches s'étirent vers le haut."
+ },
+ "熱": {
+  "story": "Le champion de NATation plonge dans une eau brûlante (あつい) sous une chaleur écrasante.",
+  "composition": "Une flamme qui s'élève en ondulant au-dessus d'un chaudron posé sur un feu de camp."
+ },
+ "宿": {
+  "story": "Un voyageur marmonne un drôle de CHUCHotement en dormant (やど) dans une vieille auberge.",
+  "composition": "Un toit pointu qui abrite une petite fenêtre éclairée et un lit douillet en dessous."
+ },
+ "薬": {
+  "story": "Un enfant malade grimace devant un remède (くすり) qui sent le YAKourt fermenté.",
+  "composition": "Une plante médicinale aux longues racines qui pousse joyeusement sous un abri de feuillage."
+ },
+ "顔": {
+  "story": "Le GANGster sans FACE (かお) effraie la ville.",
+  "composition": "Un visage de profil avec un grand œil, une oreille et des cheveux qui tombent en cascade."
+ },
+ "類": {
+  "story": "Le roi LOUIS trie chaque SORTE (るい) de papillon dans sa collection.",
+  "composition": "Une grande page d’album où des spécimens sont rangés en lignes sous un couvercle incliné."
+ },
+ "余": {
+  "story": "Le YOga calme le TROP-PLEIN (あま.る) d’énergie nerveuse.",
+  "composition": "Une balance déséquilibrée dont un plateau déborde sous un toit pointu."
+ },
+ "王": {
+  "story": "Le OUI solennel fait de l’homme un ROI (おう).",
+  "composition": "Une couronne à trois pointes posée sur une ligne de terre ferme."
+ },
+ "返": {
+  "story": "La hyène RETOURNE (かえ.す) la charogne avec sa patte.",
+  "composition": "Une empreinte de patte griffue qui repart dans la direction opposée."
+ },
+ "険": {
+  "story": "険 — Le KENnel du chien est placé sur un terrain PRÉCIPITUEUX (けん).",
+  "composition": "Une montagne aux pentes raides, un visage scrutant le vide, et une tente fragile en équilibre au bord du gouffre."
+ },
+ "頼": {
+  "story": "頼 — Sur la lande de RYE, on fait CONFIANCE au boulanger (らい).",
+  "composition": "Une silhouette adossée à un mur, une main tenant un document et une tête penchée qui examine avec sérieux."
+ },
+ "覚": {
+  "story": "覚 — Le CACatoès MÉMORISE la mélodie sifflée (かく).",
+  "composition": "Un toit de temple, un oiseau perché et une main qui saisit une idée lumineuse au-dessus d'un œil attentif."
+ },
+ "船": {
+  "story": "船 — La SENne du pêcheur est hissée à bord du NAVIRE (せん).",
+  "composition": "Une barque à fond plat, une voile carrée, un passager assis et une rame plongeant dans l'eau calme."
+ },
+ "途": {
+  "story": "途 — Le TÔtier marche sur la ROUTE enneigée (と).",
+  "composition": "Une croisée de chemins, un toit protecteur et une trace de pas qui s'éloigne sur un sentier rectiligne."
+ },
+ "許": {
+  "story": "許 — La KYUvette de l'hôtel PERMET (きょ) d'accéder à la chambre.",
+  "composition": "Une balance à gauche et une hache à droite, comme un juge qui soupèse une autorisation."
+ },
+ "抜": {
+  "story": "抜 — Le plat de pâtes BAVE et un cheveu SLIP OUT (ばつ) de la bouche.",
+  "composition": "Une main qui retire une épingle d’un tissu, laissant une traînée derrière."
+ },
+ "便": {
+  "story": "便 — Le boulanger glisse un BIENfait dans le sac pour plus de CONVENIENCE (べん).",
+  "composition": "Un homme debout qui pousse un chariot plat, silhouetté dans une posture de service."
+ },
+ "留": {
+  "story": "留 — Le RYUtme cardiaque DETAIN (りゅう) le souffle un instant.",
+  "composition": "Un champ clôturé avec une ouverture étroite, où quelque chose reste bloqué."
+ },
+ "罪": {
+  "story": "罪 — Le vieux ZAIlou voit sa GUILT (ざい) reflétée dans le miroir.",
+  "composition": "Un filet au-dessus d’un visage amer, comme une faute emprisonnée dans la conscience."
+ },
+ "努": {
+  "story": "Le DOssier du TOILettage (ど) exige un effort TOILé quotidien.",
+  "composition": "Un bras musclé soulève une charge sous une pluie de gouttes de sueur."
+ },
+ "精": {
+  "story": "Une épée SAInte (せい) coupe le riz non RAFFINÉ pour le rendre très PUR.",
+  "composition": "Un filtre sacré qui tamise des grains de riz brillants sous la lune."
+ },
+ "散": {
+  "story": "Un coup de SANG (さん) fait éclater et DISPERSER la foule en mille morceaux.",
+  "composition": "Un croissant de lune qui éparpille des confettis sous un auvent."
+ },
+ "静": {
+  "story": "Un long moment de SIeste (せい) apporte un SILENCE calme et TRANQUILLE.",
+  "composition": "Une silhouette immobile qui médite au clair de lune à côté d’une jarre."
+ },
+ "婚": {
+  "story": "Le CONjoint (こん) offre une bague devant le temple pour sceller le MARIAGE.",
+  "composition": "Un visage de femme voilé qui s’incline sous un toit solennel."
+ },
+ "喜": {
+  "story": "Le roi (き) se RÉJOUIT (喜) en écoutant une symphonie joyeuse.",
+  "composition": "Un visage souriant aux yeux plissés, surmonté d'un tambour de fête et d'une bouche grande ouverte qui chante."
+ },
+ "浮": {
+  "story": "Le FOU (ふ) rit aux éclats en voyant un bouchon FLOTTER (浮) sur l'eau.",
+  "composition": "Une goutte d'eau à gauche, et à droite une griffe qui lâche une plume d'oiseau portée par les courants."
+ },
+ "絶": {
+  "story": "Le guet (ぜつ) met fin à la filature qui se DISCONTINUE (絶) brusquement.",
+  "composition": "Une corde qui se brise net en son milieu, ses deux brins coupés s'écartant d'un serpent immobile."
+ },
+ "幸": {
+  "story": "Le KO (こう) assomme son adversaire, mais trouve le BONHEUR (幸) dans la victoire.",
+  "composition": "Un trésor coiffé d'un chapeau pointu, posé sur un plateau stable aux pieds écartés."
+ },
+ "押": {
+  "story": "Le OÙ (おう) indique la porte qu'il faut POUSSER (押) pour entrer.",
+  "composition": "Une main ferme à gauche qui exerce une pression sur un battant rectangulaire à droite, prêt à céder."
+ },
+ "庭": {
+  "story": "Dans la cour, un nid va (にわ) s’installer sous l’arbre centenaire.",
+  "composition": "Un bâtiment avec un toit pointu qui entoure un espace ouvert où pousse un arbre solitaire."
+ },
+ "徒": {
+  "story": "Le tôt (と) matin voit des marcheurs à pied longer la grève déserte.",
+  "composition": "Deux silhouettes côte à côte qui avancent d’un même pas sur un chemin rectiligne."
+ },
+ "勤": {
+  "story": "Le quin (きん) cailliste appliqué fait preuve de diligence dans son travail d’orfèvrerie.",
+  "composition": "Un visage concentré penché sur un ouvrage, avec des lignes de tension autour des yeux et de la bouche."
+ },
+ "遅": {
+  "story": "Le chien (ち) boiteux reste lent et toujours en retard sur la meute.",
+  "composition": "Un animal à quatre pattes qui traîne la patte arrière, le corps allongé comme freiné par un poids."
+ },
+ "居": {
+  "story": "Au kyo (きょ) sk, le résident permanent occupe sa chambre face au lac gelé.",
+  "composition": "Un corps assis bien droit sous un toit protecteur, les jambes repliées dans une posture stable."
+ },
+ "倒": {
+  "story": "倒",
+  "composition": "Un TAUreau chargé comme une TOUR (とう) s’effondre et se RENVERSE lourdement sur le flanc. Une silhouette massive qui bascule en arrière, les jambes en l’air et un trait oblique marquant la chute."
+ },
+ "等": {
+  "story": "等",
+  "composition": "Sur le TOUret (とう) du potier, des bols IDENTIQUES et ÉGAUX (ひとしい) défilent EN SÉRIE, tous pareils. Un empilement de plateaux superposés sous un toit, comme des étagères remplies d’objets uniformes."
+ },
+ "老": {
+  "story": "老",
+  "composition": "Le dos rond, il marche avec une canne en OSIER tressé (ろう), silhouette fragile du VIEILLARD qui avance à petits pas. Une forme courbée appuyée sur un long bâton, coiffée d’un chapeau de paille vu de profil."
+ },
+ "曲": {
+  "story": "曲",
+  "composition": "La partition de musique se tord et fait une BOUCLE (きょく) quand le musicien la PLIE d’un geste sec. Un rectangle traversé de deux lignes sinueuses qui ondulent comme une portée musicale gondolée."
+ },
+ "払": {
+  "story": "払",
+  "composition": "D’un geste vif, la main jette des billets sur le comptoir pour PAYER la note de FÛT (ふつ) de saké. Une main tendue qui balance un objet loin d’elle, le geste du lancer ou du rejet."
+ },
+ "雑": {
+  "story": "雑 — Le ZATtrapeur attrape des objets MISCELLANEOUS (ざつ)",
+  "composition": "Un oiseau perché sur un arbre, picorant des objets éparpillés dans ses branches."
+ },
+ "招": {
+  "story": "招 — Le CHAton lève la patte pour BECKONER (しょう) quelqu'un",
+  "composition": "Une main qui s'ouvre et s'élève au-dessus d'une bouche qui appelle."
+ },
+ "困": {
+  "story": "困 — Le CONdamné se débat dans un QUANDARY (こん) sans issue",
+  "composition": "Un homme enfermé dans une boîte close, les bras serrés contre le corps."
+ },
+ "欠": {
+  "story": "欠 — Le QUÊTeur mendie car il LACK (けつ) tout",
+  "composition": "Une silhouette humaine agenouillée, la tête baissée et le dos voûté par le manque."
+ },
+ "更": {
+  "story": "更 — Le COUpable revient GROW LATE (こう) dans la nuit",
+  "composition": "Un soleil qui se couche derrière une barrière, la lumière qui décline lentement."
+ },
+ "刻": {
+  "story": "Le COUteau laser ENGRAVE (きざむ) le métal en crissant.",
+  "composition": "Une lame courbe qui mord une surface et des étincelles qui jaillissent en forme de croix."
+ },
+ "賛": {
+  "story": "L'assemblée crie SAN aux APPROBATIONS (さん) enthousiastes.",
+  "composition": "Deux mains levées au-dessus d'une foule pour applaudir et soutenir un orateur."
+ },
+ "抱": {
+  "story": "Le HOUrra retentit quand le lutteur EMBRASSE (だく) son adversaire vaincu.",
+  "composition": "Des bras enveloppants qui se referment autour d'un torse pour le serrer fort."
+ },
+ "犯": {
+  "story": "Le HANdicapé COMMET UN CRIME (おかす) en franchissant la ligne interdite.",
+  "composition": "Un chien en laisse qui bondit et mord une jambe malgré l'interdiction."
+ },
+ "恐": {
+  "story": "Le KYOtoïste terrifié CRAINT (こわい) le tremblement de terre imminent.",
+  "composition": "Une silhouette recroquevillée qui se cache les yeux et tremble sous une menace suspendue."
+ },
+ "息": {
+  "story": "息 — Le SOKu de la SOUCoupe résonne du SOUffle (そく) des pilotes dans leur casque.",
+  "composition": "Un nez surmonté d’un œil large qui expire une brume de dix traits flottant vers la droite."
+ },
+ "遠": {
+  "story": "遠 — Un chemin lointain (とおい) mène à une TOUr Ocre (とお) qui se dresse à l’horizon.",
+  "composition": "Une route enveloppée dans un manteau soulevé par le vent, avec une tour à l’autre bout."
+ },
+ "戻": {
+  "story": "戻 — La porte claque au retour (もどる) d’un MOTO DROit (もど) garé dans la cour.",
+  "composition": "Une grande porte entrebâillée, un battant rigide qui pivote sur ses gonds."
+ },
+ "願": {
+  "story": "願 — Un vœu (ねがう) s’élève d’une source, un NEz GArdé (ねが) hors de l’eau pour supplier.",
+  "composition": "Une page blanche inclinée sous une tête inclinée, deux petites cornes de supplique jaillissant du front."
+ },
+ "絵": {
+  "story": "絵 — Une image peinte (え) sur un Éventail (え) déploie ses couleurs en éventail.",
+  "composition": "Une réunion de fils qui se croisent sous un toit pointu, formant un tableau suspendu au mur."
+ },
+ "束": {
+  "story": "Un SOQuet électrique trop serré forme un BUNDLE (そく) de fils emmêlés.",
+  "composition": "Une corde serrée autour d'un arbre avec des branches jaillissant du lien."
+ },
+ "似": {
+  "story": "Un JIsteau d'eau prend une forme BECOMING (じ) en épousant le récipient.",
+  "composition": "Un reflet presque identique à la personne penchée qui le contemple."
+ },
+ "列": {
+  "story": "Les rats quittent le navire en FILE (れつ) pendant que le LETT-motif coule.",
+  "composition": "Une rangée d'épées alignées verticalement avec une ligne de coupe horizontale."
+ },
+ "探": {
+  "story": "Dans le noir, la main TÂTONNE (たん) pour trouver l'interrupteur du TEMps.",
+  "composition": "Un avant-bras plongé dans un trou obscur, la main ouverte cherchant un objet."
+ },
+ "逃": {
+  "story": "Le TÔT fait du vent fait ESCAPE (とう) les feuilles mortes par-dessus le mur.",
+  "composition": "Des empreintes de pas qui s'éloignent en zigzag et contournent un obstacle."
+ },
+ "越": {
+  "story": "Un navire en rade **surpasse** (こす) la barrière de corail",
+  "composition": "Un bateau stylisé franchissant une vague avec un gouvernail et une coque profilée."
+ },
+ "欲": {
+  "story": "Le **désir** ardent (ほしい) transforme le cœur en une vallée **assoiffée**",
+  "composition": "Un visage de profil avec la bouche grande ouverte sous une cascade de gouttes."
+ },
+ "痛": {
+  "story": "La **douleur** (いたい) foudroie comme une décharge électrique dans une pièce **étroite**",
+  "composition": "Un éclair zigzagant à travers une enceinte carrée qui emprisonne un corps tordu."
+ },
+ "笑": {
+  "story": "Un éclat de **rire** (わらう) s'échappe d'un visage aux yeux plissés comme des **bambous**",
+  "composition": "Deux yeux bridés en accent circonflexe au-dessus d'une bouche largement fendue et d'un nez retroussé."
+ },
+ "互": {
+  "story": "Deux aimants **mutuellement** (たがい) attirés dessinent une danse **géométrique**",
+  "composition": "Une double hélice ou deux crochets imbriqués qui s'emboîtent sans jamais se toucher."
+ },
+ "遊": {
+  "story": "Un enfant JOUE (あそ.ぶ) en lançant un A.S. (as de pique) sur un bateau naviguant sur la rivière.",
+  "composition": "Un personnage coiffé d'un chapeau carré agite une lance au-dessus d'un bateau à voile carrée qui avance sur l'eau."
+ },
+ "迷": {
+  "story": "Perdu, il erre, le chemin le MÈne (めい) à s'égarer toujours plus loin dans la forêt.",
+  "composition": "Un chemin sinueux avec une croix, comme un panneau indicateur tordu, qui mène un piéton égaré dans un dédale."
+ },
+ "夢": {
+  "story": "Dans son RÊVE (ゆめ), une licorne galope sur une prairie brumeuse sous la LUne MElancolique.",
+  "composition": "Un œil géant surmonté d'un couvercle orné d'herbes folles, comme un paysage onirique vu à travers une fenêtre embuée."
+ },
+ "君": {
+  "story": "Le jeune MISTER (きみ) lance un KIMI (grain de riz) à la figure du seigneur pour le défier.",
+  "composition": "Une main autoritaire tenant un bâton de commandement qui sort de la bouche d'un personnage assis, silhouette d'un maître donnant un ordre."
+ },
+ "閉": {
+  "story": "La porte est FERMÉE (と.じる), un domestique la verrouille en poussant un lourd TÔle de fer.",
+  "composition": "Un grand portail à deux battants barré d'une poutre, avec une serrure en forme de crochet solidement enclenchée."
+ },
+ "緒": {
+  "story": "Le CHOmage commence quand le cordonnier perd son dernier THONG (しょ).",
+  "composition": "Un fil emmêlé qui part d’une bobine et forme une boucle au bout, comme un lacet prêt à être noué."
+ },
+ "折": {
+  "story": "Sous le soleil de SETs, le linge propre se FOLD (せつ) tout seul sur le fil.",
+  "composition": "Une hache à gauche qui frappe une pièce de tissu à droite, laquelle se plie en deux sous le choc."
+ },
+ "草": {
+  "story": "Sur le SOl, la rosée du matin fait briller chaque brin de GRASS (そう).",
+  "composition": "Deux touffes d’herbes hautes coiffées d’une ligne de terre d’où sortent des racines croisées."
+ },
+ "暮": {
+  "story": "La BOrne au bord du chemin disparaît dans l’EVENING (ぼ) qui tombe.",
+  "composition": "Un grand soleil écrasé entre quatre herbes folles, vu au moment où il touche l’horizon."
+ },
+ "酒": {
+  "story": "Dans la CHUtte d’eau fraîche, le tonneau de SAKE (しゅ) se remplit en chantant.",
+  "composition": "Une jarre ventrue à gauche, coiffée d’un couvercle, d’où coule une goutte d’alcool vers la droite."
+ },
+ "悲": {
+  "story": "La HIène GRIÈVE (ひ) dans la savane, inconsolable.",
+  "composition": "Un cœur fendu en deux sous un masque de théâtre dont les yeux pleurent des gouttes."
+ },
+ "晴": {
+  "story": "Le SAInoux s’éCLAIRCIT (せい) après l’averse.",
+  "composition": "Un soleil qui surgit entre deux pans de nuages bleus, projetant des rayons rectilignes."
+ },
+ "掛": {
+  "story": "Le CAÏman ACCROCHE (かける) sa mâchoire à une branche.",
+  "composition": "Une main divinatoire qui lance des bâtonnets contre un mur où s’empilent des crochets."
+ },
+ "到": {
+  "story": "Le TÔt est ARRIVÉ (とう) au sommet de la tour.",
+  "composition": "Une lame de couteau plantée droite dans un sol d’argile, la pointe touchant le but."
+ },
+ "寝": {
+  "story": "Le SINge S’ALLONGE (しん) dans un lit de feuilles.",
+  "composition": "Un toit de tuiles au-dessus d’une couche où repose un corps, une main glissée sous la tête."
+ },
+ "暗": {
+  "story": "暗 — Un âne (あん) trébuche dans une ruelle SOMBRE (くら.い) sans lumière.",
+  "composition": "Un soleil écrasé sous une main qui se dresse, formant une silhouette de pièce plongée dans l’obscurité."
+ },
+ "盗": {
+  "story": "盗 — Un trône (とう) vidé de ses joyaux illustre l’action de VOLER (ぬす.む).",
+  "composition": "Un visage incliné au-dessus d’une coupe, comme un voleur masqué se penchant pour dérober un trésor."
+ },
+ "吸": {
+  "story": "吸 — Le cri « queue ! » (きゅう) poussé par une paille géante qui ASPIRE (す.う) une mare.",
+  "composition": "Une bouche grande ouverte à côté d’une main tendue, formant une silhouette qui inhale l’air."
+ },
+ "陽": {
+  "story": "陽 — Un yogi (よう) salue l’ASTRÉ SOLAIRE (ひ) sur une colline baignée de lumière.",
+  "composition": "Un monticule surmonté d’un soleil à rayons, dessinant un talus qui reçoit les premiers feux du jour."
+ },
+ "御": {
+  "story": "御 — Un gigot (ぎょ) présenté sur un plateau incarne l’offrande HONORABLE (おん-).",
+  "composition": "Une croix dressée au-dessus d’un sceau et d’une attache, évoquant un emblème cérémoniel porté en procession."
+ },
+ "誤": {
+  "story": "誤 — Le GOût amer de l'erreur persiste après une MISTAKE (ご)",
+  "composition": "Une bouche ouverte d'où s'échappent des paroles et un escargot qui symbolise la lenteur d'une correction."
+ },
+ "洗": {
+  "story": "洗 — La lessive SENSationnelle WASH (せん) le linge à grande eau",
+  "composition": "Un jet d'eau frappant un tissu tendu sur une planche, avec des gouttes qui ruissellent de chaque côté."
+ },
+ "慣": {
+  "story": "慣 — Le vieux chien CANtique s'est ACCUSTOMED (かん) au rythme de la maison",
+  "composition": "Un cœur traversé par une flèche qui traverse aussi une coquille, montrant une habitude qui transperce la carapace."
+ },
+ "礼": {
+  "story": "礼 — La RÉvérence élégante est une SALUTE (れい) pleine de grâce",
+  "composition": "Un homme agenouillé devant un autel, le dos courbé et les bras tendus vers l'avant en offrande."
+ },
+ "窓": {
+  "story": "窓 — Le SOUffle frais entre par la WINDOW (そう) et fait danser les rideaux",
+  "composition": "Un toit pointu au-dessus d'un cadre carré traversé de lignes, avec une petite fumée qui s'échappe par une fente."
+ },
+ "歯": {
+  "story": "Le vieillard montre sa DENT (は) en HAïssant le sucre.",
+  "composition": "Une bouche ouverte où les dents du haut et du bas s’emboîtent comme des engrenages dans un cadre carré."
+ },
+ "忘": {
+  "story": "Le BŒUF distrait OUBLIE (わす.れる) le chemin du pré.",
+  "composition": "Un cœur éteint sous un toit qui se dérobe, comme un souvenir qui s’efface dans la nuit."
+ },
+ "雪": {
+  "story": "Les flocons de NEIGE (ゆき) tombent sur les YUCCAs du jardin.",
+  "composition": "Une pluie de cristaux tenue par une main balai qui nettoie le ciel en longs traits horizontaux."
+ },
+ "吹": {
+  "story": "La bouche SOUFFLE (ふ.く) sur le FUton pour enlever la poussière.",
+  "composition": "Un souffle d’air qui sort d’une bouche grande ouverte et fait vibrer deux lignes comme des cordes vocales."
+ },
+ "娘": {
+  "story": "La FILLE (むすめ) MUSelée par l’émotion offre une pomme à sa mère.",
+  "composition": "Une silhouette gracieuse à gauche qui tend un fruit rond vers une main bienveillante à droite."
+ },
+ "昔": {
+  "story": "Le MOCHAs fumant évoque un souvenir d’autrefois (むかし).",
+  "composition": "Un couvercle posé sur un récipient, au-dessus d’un soleil couchant, comme une vieille histoire qu’on raconte."
+ },
+ "貧": {
+  "story": "Le dauPHIN est si pauvre qu’il n’a plus d’écailles (ひん).",
+  "composition": "Une coquille brisée sous un toit, divisée par un trait de misère, comme une maison vide."
+ },
+ "怒": {
+  "story": "Le sumo DOmine le ring, le visage gonflé de colère (ど).",
+  "composition": "Une main crispée au-dessus d’un cœur, sous une pente raide, comme un sourcil qui se fronce de fureur."
+ },
+ "泳": {
+  "story": "L’Élan s’élance dans l’eau et nage avec vigueur (えい).",
+  "composition": "Une goutte d’eau qui éclabousse, traversée par un nageur aux bras allongés."
+ },
+ "祖": {
+  "story": "Le SOleil éclaire la tombe du premier ancêtre (そ).",
+  "composition": "Une stèle dressée sur un autel, coiffée d’un trait horizontal, comme un portrait d’aïeul."
+ },
+ "杯": {
+  "story": "La coupe déborde de SAKÉ (さかずき) quand on trinque pour compter les COUPES.",
+  "composition": "Un verre à pied élancé avec un couvercle posé dessus, prêt à être levé en toast."
+ },
+ "疲": {
+  "story": "L’HIPpopotame (ひ) est ÉPUISÉ après avoir trop couru dans la savane.",
+  "composition": "Une silhouette voûtée enveloppée dans une couverture, la tête lourde appuyée sur un bâton."
+ },
+ "皆": {
+  "story": "Le CAÏman (かい) rassemble TOUS ses petits sur la berge d’un seul regard.",
+  "composition": "Un escalier blanc surmonté d’un large toit sous lequel tout le monde vient s’abriter."
+ },
+ "鳴": {
+  "story": "Le MAYonnais (めい) pique et l’oiseau se met à CHANTER (なく) de douleur.",
+  "composition": "Un oiseau perché à gauche qui ouvre un large bec tourné vers la droite pour lancer un cri."
+ },
+ "腹": {
+  "story": "Le FOU Couché (ふく) digère en se tenant l’ABDOMEN après un festin.",
+  "composition": "Une silhouette de corps humain dont la chair entoure une cavité centrale comme une poche ventrale."
+ },
+ "煙": {
+  "story": "Le feu de la CHEMinée produit une épaisse fumée (えん) qui s'élève en volutes.",
+  "composition": "Un feu sous un toit d'où s'échappent des volutes de fumée qui montent en tourbillonnant."
+ },
+ "眠": {
+  "story": "Le marin solitaire s'endort (みん) sur la mer calme en regardant les étoiles.",
+  "composition": "Un œil fermé par une paupière lourde qui tombe doucement sur le regard fatigué."
+ },
+ "怖": {
+  "story": "Dans la brume du petit matin, le FOU rôde et sème la terreur (ふ) dans le village endormi.",
+  "composition": "Un cœur serré par une main menaçante qui inspire la peur et l'effroi."
+ },
+ "耳": {
+  "story": "Le magicien sort un lapin (じ) de l'oreille du spectateur ébahi.",
+  "composition": "Le pavillon externe d'une oreille humaine avec ses courbes et son lobe bien distinct."
+ },
+ "頂": {
+  "story": "Le CHAT perché tout en haut (ちょう) du toit guette les oiseaux sur la place.",
+  "composition": "Une tête posée au sommet d'un corps comme un objet placé sur le crâne."
+ },
+ "猫": {
+  "story": "猫 — Un NÉgociant en COmmerce vend un CHAT (ねこ) au marché.",
+  "composition": "Un animal assis avec une tête large, des pattes avant posées et une longue queue qui s’enroule."
+ },
+ "幾": {
+  "story": "幾 — Un QUI-dam demande COMBIEN (いく) de tickets il lui reste.",
+  "composition": "Un assemblage serré de fils emmêlés sous un dais, comme un écheveau qu’on cherche à dénombrer."
+ },
+ "箱": {
+  "story": "Le HACOtier range sa précieuse BOX (はこ) en carton.",
+  "composition": "Un grand récipient rectangulaire avec une ouverture au sommet et des lignes croisées sur le corps."
+ },
+ "晩": {
+  "story": "Le BANquier quitte son bureau au NIGHTFALL (ばん).",
+  "composition": "Un soleil couchant écrasé sous un toit, avec une personne qui marche dans l'obscurité."
+ },
+ "寒": {
+  "story": "Le CANcre grelotte de COLD (かん) sous la neige.",
+  "composition": "Un toit glacé d'où pendent des stalactites au-dessus d'un sol gelé marqué de fissures."
+ },
+ "髪": {
+  "story": "L'HATtier coiffé d'une perruque en HAIR OF THE HEAD (かみ).",
+  "composition": "Une longue chevelure qui cascade depuis le sommet d'une tête, avec des mèches qui ondulent."
+ },
+ "忙": {
+  "story": "Le BOUcher est trop BUSY (ぼう) pour prendre sa pause.",
+  "composition": "Un cœur comprimé de chaque côté par des lignes pressantes, comme étouffé par le manque de temps."
+ },
+ "才": {
+  "story": "才",
+  "composition": "Un SAIge inventeur exhibe fièrement son GÉNIE (さい) Une silhouette d’enfant prodige levant un bras victorieux, la tête auréolée d’une idée brillante"
+ },
+ "靴": {
+  "story": "靴",
+  "composition": "Le CAche-cache se termine quand on repère les CHAUSSURES (くつ) dépassant du rideau Une paire de bottes à lacets vue de profil, la tige montante et la semelle épaisse bien dessinée"
+ },
+ "恥": {
+  "story": "恥",
+  "composition": "Le CHIen baisse la tête de HONTE (はじ) après avoir renversé la poubelle Un visage incliné vers le sol, l’oreille rougissante et le cœur serré par l’humiliation"
+ },
+ "偶": {
+  "story": "偶",
+  "composition": "Un GOUrdin tombe ACCIDENTELLEMENT (たま) d’un rayonnage sur le client distrait Deux silhouettes humaines côte à côte, dont l’une reçoit malencontreusement un objet sur la tête"
+ },
+ "偉": {
+  "story": "偉",
+  "composition": "Un héros ADMIRABLE (えらい) sauve un enfant sous les acclamations d’une foule en IESSE Une stature imposante et droite, le torse bombé, dominant une scène de respect et d’émerveillement"
+ }
+}

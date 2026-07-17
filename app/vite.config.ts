@@ -72,6 +72,22 @@ export default defineConfig({
     __BUILD_SHA__: JSON.stringify(BUILD_SHA),
     __BUILD_TIME__: JSON.stringify(BUILD_TIME),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Découpe le bundle pour rester sous la limite de precache Workbox (2 Mio par
+        // fichier) et pour que le hash de la DONNÉE soit découplé du hash du CODE :
+        // régénérer l'inventaire (ou livrer du code) n'invalide que le chunk concerné
+        // côté PWA. Les JSON de mnémotechniques ne sont PAS listés ici : importés
+        // dynamiquement (lib/mnemonics.ts), ils ont déjà leurs propres chunks.
+        manualChunks(id) {
+          if (id.includes("/data/inventory/") && !id.includes("-mnemonics")) return "inventory";
+          if (id.includes("/data/curriculum.json")) return "inventory";
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
+        },
+      },
+    },
+  },
   plugins: [
     rawGzipAssets(),
     react(),

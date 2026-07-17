@@ -10,6 +10,52 @@ export interface StoryTranslation {
   sentences: string[];
 }
 
+/**
+ * Moyen mnémotechnique d'un kanji ou d'un mot :
+ *  - `story` : LE mnémo — une seule phrase qui contient le SON de la lecture et évoque le
+ *    sens (méthode du mot-clé : 飲 のむ → « le NOMade assoiffé BOIT ») ;
+ *  - `composition` : complément visuel — pour un kanji, l'IMAGE que forme le tracé
+ *    (paréidolie : 飲 ressemble à une personne qui boit à une fontaine) ; pour un mot,
+ *    l'explication de la combinaison de ses kanji. Pas un second mnémo à retenir.
+ */
+export interface Mnemonic {
+  story: string;
+  composition: string;
+}
+
+/**
+ * Extrait un LOT de mnémotechniques d'une réponse « N. mnémo || composition » (une ligne par
+ * élément, cf. buildMnemonicPrompt / buildWordMnemonicPrompt côté Worker). Renvoie un tableau
+ * de longueur `n`, aligné sur l'ordre demandé ; case null si la ligne manque ou est vide (on
+ * préfère un trou à une donnée douteuse). Robuste au bruit : ignore les lignes non numérotées,
+ * tolère un champ surnuméraire (rattaché à la composition).
+ */
+// Libellés parasites que le modèle recopie parfois depuis le prompt en tête de champ :
+// « MNÉMO : » (précédé ou non de l'item, ex. « 安 — » ou « 皆さん (みなさん) — »), « IMAGE : »,
+// « COMPOSITION : ». Retirés au parsing — le prompt les interdit, ceci est la ceinture.
+const STORY_LABEL = /^(?:[^—|]{1,40}—\s*)?mnémo\s*[:：]\s*/i;
+const COMPOSITION_LABEL = /^(?:image|composition)\s*[:：]\s*/i;
+
+export function parseMnemonicBatch(raw: string, n: number): (Mnemonic | null)[] {
+  const out: (Mnemonic | null)[] = new Array(n).fill(null);
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*(\d+)\s*[.．)]\s*(.+)$/);
+    if (!m) continue;
+    const idx = Number(m[1]) - 1;
+    if (idx < 0 || idx >= n || out[idx]) continue;
+    const parts = m[2].split("||").map((s) => s.trim());
+    const story = (parts[0] ?? "").replace(STORY_LABEL, "");
+    const composition = parts
+      .slice(1)
+      .join(" ")
+      .trim() // 2ᵉ champ (+ surplus éventuel)
+      .replace(COMPOSITION_LABEL, "");
+    if (!story && !composition) continue;
+    out[idx] = { story, composition };
+  }
+  return out;
+}
+
 /** Extrait le titre et les N traductions du texte renvoyé par le modèle (robuste au bruit). */
 export function parseStoryTranslation(raw: string, n: number): StoryTranslation {
   const lines = raw

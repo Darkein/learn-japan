@@ -9,11 +9,14 @@
 import { useEffect, useState } from "react";
 import { allVocab, type ItemStatus } from "../lib/db";
 import { type InvVocab, kanjiDetail } from "../lib/inventory";
+import { kanjiMnemonic } from "../lib/mnemonics";
+import type { Mnemonic } from "../lib/genParsers";
 import { relatedWords } from "../lib/kanjiInfo";
 import { speakWord, stopSentence } from "../lib/tts";
 import { addInventoryWordToReview } from "../lib/vocab";
 import { StatusTag } from "./CatalogueInventory";
 import { Badge } from "./kit/Badge";
+import { Emphasis } from "./kit/Emphasis";
 import { Sheet } from "./kit/Sheet";
 
 const SUGGESTIONS_COLLAPSED = 8;
@@ -31,10 +34,22 @@ export function KanjiSheet({
 }) {
   const detail = kanjiDetail(ch);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus> | null>(null);
+  const [mnemonic, setMnemonic] = useState<Mnemonic | undefined>(undefined);
   const [showAll, setShowAll] = useState(false);
 
   // Coupe la synthèse vocale à la fermeture (même précaution que WordSheet).
   useEffect(() => () => stopSentence(), []);
+
+  // Mnémo kanji (corpus statique, chargé paresseusement — lib/mnemonics.ts).
+  useEffect(() => {
+    let cancelled = false;
+    void kanjiMnemonic(ch).then((m) => {
+      if (!cancelled) setMnemonic(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +102,28 @@ export function KanjiSheet({
         )}
         {detail.strokes != null && <span>{detail.strokes} traits</span>}
       </div>
+
+      {mnemonic && (mnemonic.story || mnemonic.composition) && (
+        <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
+          {/* UN mnémo (son + sens dans la même phrase) ; l'image = ce que le tracé évoque. */}
+          {mnemonic.story && (
+            <span>
+              <span className="text-muted">Mnémo :</span>{" "}
+              <span className="text-text">
+                <Emphasis text={mnemonic.story} />
+              </span>
+            </span>
+          )}
+          {mnemonic.composition && (
+            <span>
+              <span className="text-muted">Image :</span>{" "}
+              <span className="text-text">
+                <Emphasis text={mnemonic.composition} />
+              </span>
+            </span>
+          )}
+        </div>
+      )}
 
       {known.length > 0 && (
         <div className="flex flex-col gap-1">

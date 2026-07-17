@@ -13,13 +13,33 @@ export interface VocabItem {
   fr: string;
 }
 
+/** Un élément d'un lot de mnémotechniques (kanji OU mot) avec ses métadonnées. */
+export interface MnemonicItem {
+  /** Le kanji, ou la surface du mot. */
+  ja: string;
+  /** Lecture du mot (absente pour un kanji, qui porte on/kun). */
+  yomi?: string;
+  /** Traduction française curée — ancre du sens. */
+  fr: string;
+  /** Lectures on (kanji). */
+  on?: string[];
+  /** Lectures kun (kanji). */
+  kun?: string[];
+  /** Nombre de traits (kanji). */
+  strokes?: number;
+  /** Mot : glose « 漢字 = sens » de chaque kanji (matière à la composition). */
+  components?: string[];
+}
+
 export type GenKind =
   | "story"
   | "lesson"
   | "lesson-story"
   | "story-translation"
   | "comprehension-qcm"
-  | "vocab-examples";
+  | "vocab-examples"
+  | "mnemonic"
+  | "word-mnemonic";
 
 /** Requête de génération : UNIQUEMENT des paramètres structurés (aucun prompt brut). */
 export interface GenerateRequest {
@@ -45,6 +65,9 @@ export interface GenerateRequest {
   sentences?: string[];
   // kind: "vocab-examples" — lexique déjà connu à privilégier dans les phrases.
   allowedVocab?: string[];
+  // kind: "mnemonic" / "word-mnemonic" — LOT d'éléments (kanji ou mots) traités en UN appel,
+  // chacun avec ses métadonnées (le Worker n'a pas d'inventaire).
+  items?: MnemonicItem[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
   variant?: number;
@@ -69,6 +92,15 @@ const LIMITS = {
   exampleVocabList: 20,
   allowedVocabList: 400,
   allowedVocabItem: 40,
+  // kind: "mnemonic" / "word-mnemonic" — lot d'éléments + leurs lectures/sens/composants.
+  mnemonicItemsList: 15,
+  frMeaning: 80,
+  wordSurface: 40,
+  wordReading: 60,
+  readingList: 12,
+  readingItem: 24,
+  componentList: 12,
+  componentItem: 24,
   // Illustration : le texte d'histoire déjà généré sert de contexte de scène. Borne large
   // (une histoire N1 monte à ~750 caractères JP) mais fermée.
   illustrationText: 1200,
@@ -144,6 +176,26 @@ function cleanVocab(value: unknown): VocabItem[] {
       };
     })
     .filter((v) => v.ja || v.fr);
+}
+
+/** Assainit un lot d'éléments de mnémotechnique (kanji ou mots) : nombre et champs bornés. */
+function cleanMnemonicItems(value: unknown): MnemonicItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, LIMITS.mnemonicItemsList)
+    .map((v) => {
+      const it = (v ?? {}) as Record<string, unknown>;
+      return {
+        ja: clean(it.ja, LIMITS.wordSurface),
+        yomi: it.yomi != null ? clean(it.yomi, LIMITS.wordReading) : undefined,
+        fr: clean(it.fr, LIMITS.frMeaning),
+        on: cleanList(it.on, LIMITS.readingList, LIMITS.readingItem),
+        kun: cleanList(it.kun, LIMITS.readingList, LIMITS.readingItem),
+        strokes: cleanOrder(it.strokes) || undefined,
+        components: cleanList(it.components, LIMITS.componentList, LIMITS.componentItem),
+      } satisfies MnemonicItem;
+    })
+    .filter((it) => it.ja);
 }
 
 // ---------- Gabarits ---------------------------------------------------------
@@ -414,6 +466,87 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
     .join("\n");
 }
 
+/**
+ * Moyens mnémotechniques pour un LOT de kanji. UN SEUL mnémo par kanji (méthode du mot-clé) :
+ * une phrase française qui contient le SON de la lecture ET évoque le sens — voir le kanji
+ * doit rappeler d'un coup prononciation et sens, sans deux astuces séparées à retenir. En
+ * complément, une IMAGE : ce à quoi ressemble le tracé (paréidolie, « une personne qui boit
+ * à une fontaine » pour 飲), reliée au sens — pas la liste des composants. Style imposé :
+ * déclaratif, présent, impersonnel (pas de « imagine »/tutoiement), constant d'un item à
+ * l'autre. Corpus statique généré au build par scripts/build-mnemonics.ts. Sortie : UNE
+ * ligne par kanji « N. mnémo || image » (parsée côté client, parseMnemonicBatch).
+ */
+export function buildMnemonicPrompt(r: GenerateRequest): string {
+  const items = cleanMnemonicItems(r.items);
+  const numbered = items
+    .map((it, i) => {
+      const meta = [
+        it.fr ? `sens: ${it.fr}` : "",
+        it.on?.length ? `on: ${it.on.join("、")}` : "",
+        it.kun?.length ? `kun: ${it.kun.join("、")}` : "",
+        it.strokes ? `traits: ${it.strokes}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ; ");
+      return `${i + 1}. ${it.ja}${meta ? ` — ${meta}` : ""}`;
+    })
+    .join("\n");
+
+  return [
+    "Tu es un professeur de japonais qui aide des francophones à mémoriser les kanji.",
+    `Voici ${items.length} kanji, un par ligne numérotée (avec leur sens français et leurs lectures) :`,
+    numbered,
+    "",
+    "Pour CHAQUE kanji, donne deux champs EN FRANÇAIS :",
+    "- MNÉMO : UNE SEULE phrase mnémotechnique qui relie LE SON de la lecture la plus utile (en hiragana, entre parenthèses) ET le sens français, dans la même image. Exemple pour 飲 (のむ, boire) : « Le NOMade assoiffé BOIT (のむ) ». Le son doit s'entendre dans un mot français de la phrase, et la phrase doit raconter le sens. Jamais vide.",
+    "- IMAGE : ce à quoi RESSEMBLE le tracé du kanji, comme une silhouette vue dans un nuage, reliée au sens. Exemple pour 飲 : « Une personne penchée qui boit à une fontaine ». Décris l'image d'ensemble que forment les traits — pas la liste des composants ; les composants ne sont qu'un indice. Reste sur ce qui se voit.",
+    "",
+    "STYLE UNIFORME, obligatoire pour les deux champs et identique d'un kanji à l'autre :",
+    "phrase déclarative au présent, impersonnelle — ne t'adresse JAMAIS au lecteur : pas de « imagine », « visualise », « pense à », « retiens », aucun tutoiement ni vouvoiement. Décris directement la scène, comme dans les exemples ci-dessus.",
+    "",
+    "Format STRICT, une ligne par kanji, dans l'ordre, sans aucune autre ligne :",
+    "« N. mnémo || image » (le séparateur entre les deux champs est exactement « || »).",
+    "Chaque champ : une phrase concise (25 mots maximum), concrète et imagée, en français. Pas de puce, pas de ligne vide.",
+    "Chaque champ commence DIRECTEMENT par sa phrase : ne recopie ni le kanji, ni un libellé comme « MNÉMO : », « IMAGE : » ou « 安 — » en tête de champ.",
+  ].join("\n");
+}
+
+/**
+ * Moyens mnémotechniques pour un LOT de MOTS. UN SEUL mnémo par mot (méthode du mot-clé) :
+ * une phrase française qui contient le SON de la lecture entière ET raconte le sens. En
+ * complément, une courte EXPLICATION de la composition (comment les kanji du mot se
+ * combinent), assumée comme explication. Même format « N. mnémo || composition » et même
+ * parser que le mnémo kanji. Un seul appel LLM par lot.
+ */
+export function buildWordMnemonicPrompt(r: GenerateRequest): string {
+  const items = cleanMnemonicItems(r.items);
+  const numbered = items
+    .map((it, i) => {
+      const reading = it.yomi && it.yomi !== it.ja ? ` (${it.yomi})` : "";
+      const comp = it.components?.length ? ` ; kanji: ${it.components.join(", ")}` : "";
+      return `${i + 1}. ${it.ja}${reading} — sens: ${it.fr}${comp}`;
+    })
+    .join("\n");
+
+  return [
+    "Tu es un professeur de japonais qui aide des francophones à mémoriser le vocabulaire.",
+    `Voici ${items.length} mots, un par ligne numérotée (avec leur lecture, leur sens français et les kanji qui les composent) :`,
+    numbered,
+    "",
+    "Pour CHAQUE mot, donne deux champs EN FRANÇAIS :",
+    "- MNÉMO : UNE SEULE phrase mnémotechnique qui relie LE SON de la lecture ENTIÈRE du mot (en hiragana, entre parenthèses) ET son sens français, dans la même image. Exemple pour 勉強 (べんきょう, étudier) : « “BIEN, écOUTe !” dit le prof à qui ÉTUDIE (べんきょう) ». Le son doit s'entendre dans la phrase, et la phrase doit raconter le sens. Jamais vide.",
+    "- COMPOSITION : si le mot a plusieurs kanji, une courte explication de comment leurs sens se combinent (勉 effort + 強 fort → étudier avec effort) ; si un seul kanji ou aucun, laisse ce champ vide. C'est une explication, pas une devinette.",
+    "",
+    "STYLE UNIFORME, obligatoire pour les deux champs et identique d'un mot à l'autre :",
+    "phrase déclarative au présent, impersonnelle — ne t'adresse JAMAIS au lecteur : pas de « imagine », « visualise », « pense à », « retiens », aucun tutoiement ni vouvoiement. Décris directement la scène, comme dans l'exemple ci-dessus.",
+    "",
+    "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne :",
+    "« N. mnémo || composition » (le séparateur entre les deux champs est exactement « || »).",
+    "Chaque champ : une phrase concise (25 mots maximum), en français. Pas de puce, pas de ligne vide.",
+    "Chaque champ commence DIRECTEMENT par sa phrase : ne recopie ni le mot, ni un libellé comme « MNÉMO : » ou « COMPOSITION : » en tête de champ.",
+  ].join("\n");
+}
+
 // ---------- Illustration d'histoire (ukiyo-e) --------------------------------
 // L'image est produite CÔTÉ WORKER, juste après le texte d'une histoire (voir index.ts),
 // à partir de ce texte. Aucun endpoint image public : la génération est repliée dans
@@ -521,6 +654,10 @@ export function composePrompt(req: GenerateRequest): string {
       return buildComprehensionQcmPrompt(req);
     case "vocab-examples":
       return buildVocabExamplesPrompt(req);
+    case "mnemonic":
+      return buildMnemonicPrompt(req);
+    case "word-mnemonic":
+      return buildWordMnemonicPrompt(req);
     case "story":
     case undefined:
       return buildStoryPrompt(req);

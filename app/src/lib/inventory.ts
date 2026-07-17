@@ -38,6 +38,7 @@ interface GrammarInvEntry {
 }
 
 const kanjiById = new Map((kanjiInv as KanjiInvEntry[]).map((k) => [k.id, k]));
+// Moyens mnémotechniques : voir lib/mnemonics.ts (import dynamique, hors bundle principal).
 const vocabById = new Map((vocabInv as VocabInvEntry[]).map((v) => [v.id, v]));
 const grammarById = new Map(
   (grammarInv as { items: GrammarInvEntry[] }).items.map((g) => [g.id, g]),

@@ -18,6 +18,8 @@ import {
 } from "../lib/db";
 import { formatMinutes } from "../lib/time";
 import { newCard } from "../lib/srs";
+import { loadSettings } from "../lib/settings";
+import { effectiveNewPerDay, loadTuning, type FsrsTuning } from "../lib/tuning";
 import {
   accuracyKey,
   collectCards,
@@ -44,6 +46,7 @@ interface Data {
   grammar: GrammarItem[];
   comprehension: ComprehensionItem[];
   reviews: ReviewLog[];
+  tuning: FsrsTuning;
 }
 
 interface ResolvedItem {
@@ -128,14 +131,15 @@ export function Stats() {
   const [data, setData] = useState<Data | null>(null);
 
   async function refresh() {
-    const [vocab, grammar, comprehension, reviews, daily] = await Promise.all([
+    const [vocab, grammar, comprehension, reviews, daily, tuning] = await Promise.all([
       allVocab(),
       allGrammar(),
       allComprehension(),
       allReviews(),
       recentSrsDaily(7),
+      loadTuning(),
     ]);
-    setData({ vocab, grammar, comprehension, reviews, daily });
+    setData({ vocab, grammar, comprehension, reviews, daily, tuning });
   }
 
   useEffect(() => {
@@ -180,6 +184,8 @@ export function Stats() {
   const overdueToday = forecast[0]?.date === localDateString(now) ? forecast[0].count : 0;
   const leeches = resolveItems(data, leechIds(data.reviews), acc);
   const worst = worstItems(data, acc);
+  const newBase = loadSettings().newPerDay;
+  const effNew = effectiveNewPerDay(newBase, data.tuning.measuredRetention, data.tuning.backlog);
 
   return (
     <div className="flex flex-col gap-8">
@@ -197,6 +203,11 @@ export function Stats() {
             </span>
           </Card>
         )}
+        {/* Auto-réglage : cible de rétention et débit de nouveautés ajustés selon les erreurs. */}
+        <p className="text-xs text-muted">
+          Réglage auto — cible de rétention&nbsp;: {Math.round(data.tuning.requestRetention * 100)}%
+          {" · "}nouveautés&nbsp;: {effNew}/j{effNew < newBase ? ` (au lieu de ${newBase}, retard/erreurs)` : ""}
+        </p>
       </section>
 
       <section className="flex flex-col gap-3">

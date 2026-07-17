@@ -321,3 +321,53 @@ describe("buildVocabExamplesPrompt", () => {
     expect(prompt).not.toContain("n'utilise QUE ce vocabulaire");
   });
 });
+
+describe("buildMnemonicPrompt (lot)", () => {
+  it("numérote le lot, expose les métadonnées et impose UN mnémo son+sens par kanji", () => {
+    const prompt = composePrompt({
+      kind: "mnemonic",
+      items: [
+        { ja: "日", fr: "jour, soleil", on: ["にち", "じつ"], kun: ["ひ"], strokes: 4 },
+        { ja: "一", fr: "un", on: ["いち"], kun: ["ひと"] },
+      ],
+    });
+    expect(prompt).toContain("2 kanji");
+    expect(prompt).toContain("1. 日 — sens: jour, soleil");
+    expect(prompt).toContain("on: にち、じつ");
+    expect(prompt).toContain("traits: 4");
+    expect(prompt).toContain("2. 一 — sens: un");
+    // Un seul mnémo qui lie SON et SENS ; l'image = paréidolie du tracé ; style imposé.
+    expect(prompt).toContain("UNE SEULE phrase mnémotechnique");
+    expect(prompt).toContain("RESSEMBLE le tracé");
+    expect(prompt).toContain("mnémo || image");
+    expect(prompt).toContain("STYLE UNIFORME");
+    expect(prompt).toContain("EN FRANÇAIS");
+  });
+
+  it("borne le lot à mnemonicItemsList (15)", () => {
+    const items = Array.from({ length: 30 }, (_, i) => ({ ja: `字${i}`, fr: `sens${i}` }));
+    const prompt = composePrompt({ kind: "mnemonic", items });
+    expect(prompt).toContain("15 kanji");
+    expect(prompt).not.toContain("字20");
+  });
+});
+
+describe("buildWordMnemonicPrompt (lot)", () => {
+  it("numérote le lot, impose UN mnémo son+sens et la composition en explication", () => {
+    const prompt = composePrompt({
+      kind: "word-mnemonic",
+      items: [{ ja: "勉強", yomi: "べんきょう", fr: "étudier", components: ["勉 = effort", "強 = fort"] }],
+    });
+    expect(prompt).toContain("1. 勉強 (べんきょう) — sens: étudier");
+    expect(prompt).toContain("kanji: 勉 = effort, 強 = fort");
+    expect(prompt).toContain("UNE SEULE phrase mnémotechnique");
+    expect(prompt).toContain("mnémo || composition");
+    expect(prompt).toContain("STYLE UNIFORME");
+    expect(prompt).toContain("EN FRANÇAIS");
+  });
+
+  it("reste sûr sans composants (mot mono-kanji ou kana)", () => {
+    const prompt = composePrompt({ kind: "word-mnemonic", items: [{ ja: "ねこ", fr: "chat" }] });
+    expect(prompt).toContain("1. ねこ — sens: chat");
+  });
+});
