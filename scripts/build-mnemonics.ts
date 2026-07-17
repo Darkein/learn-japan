@@ -117,8 +117,10 @@ async function main(): Promise<void> {
     const rate = done / Math.max(elapsed, 0.001); // kanji/s
     const etaS = done > 1 && rate > 0 ? Math.round((total - done) / rate) : 0;
     const eta = etaS > 0 ? ` · ~${Math.floor(etaS / 60)}m${String(etaS % 60).padStart(2, "0")}` : "";
+    // Marqueurs à largeur fixe (1 cellule) : pas d'emoji « next track » qui, rendu sur
+    // 2 cellules par certains terminaux, chevaucherait le chiffre suivant.
     const counts =
-      `✓${stats.ok} ⏭${stats.skipped}` +
+      `✓${stats.ok} »${stats.skipped}` +
       (stats.empty ? ` ⚠${stats.empty}` : "") +
       (stats.failed ? ` ✗${stats.failed}` : "");
     return `${gauge} ${pct}% ${done}/${total} ${counts}${eta}  ${current}`;
@@ -130,6 +132,21 @@ async function main(): Promise<void> {
     if (isTty) process.stdout.write(`\r${bar(current)}\x1b[K`);
     else if (done % 10 === 0 || done === total) console.log(bar(current));
   };
+
+  // Masque le curseur pendant la barre (il clignoterait en fin de ligne), et le restaure
+  // à coup sûr — fin normale, erreur, ou interruption Ctrl-C (sinon terminal sans curseur).
+  const showCursor = (): void => {
+    if (isTty) process.stdout.write("\x1b[?25h");
+  };
+  if (isTty) {
+    process.stdout.write("\x1b[?25l");
+    process.on("exit", showCursor);
+    process.on("SIGINT", () => {
+      showCursor();
+      process.stdout.write("\n");
+      process.exit(130);
+    });
+  }
 
   for (const k of pool) {
     if (isTty) draw(`${k.id} …`); // feedback immédiat pendant l'appel réseau
@@ -160,6 +177,7 @@ async function main(): Promise<void> {
   }
 
   if (isTty) process.stdout.write("\n"); // quitte la ligne de la barre
+  showCursor();
 
   if (problems.length) {
     console.log(`\n${problems.length} problème(s) :`);
