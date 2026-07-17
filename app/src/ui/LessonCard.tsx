@@ -55,9 +55,8 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
       className="flex flex-col gap-2 border-t border-hairline py-4 last:border-b"
       aria-selected={selected}
     >
-      <div className="flex items-start gap-1">
       <button
-        className={`group flex min-w-0 flex-1 flex-col gap-2 text-left ${lesson.locked ? "cursor-default" : "cursor-pointer"}`}
+        className={`group flex min-w-0 flex-col gap-2 text-left ${lesson.locked ? "cursor-default" : "cursor-pointer"}`}
         onClick={() => { if (!lesson.locked) onOpen(lesson); }}
         disabled={lesson.locked}
       >
@@ -124,27 +123,31 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
           <ProgressBar value={Math.round(lesson.mastery * 100)} />
         ) : null}
 
+      </button>
+      {/* Actions en rangée SOUS la carte, hors de son <button> (bouton imbriqué invalide)
+          et sans colonne à droite qui volerait la largeur du texte sur mobile. La flèche
+          d'affordance partage la rangée. Présentes même verrouillée : télécharger/écouter
+          ne débloquent pas (cf. « Commencer quand même »). */}
+      <div className="-mb-2 flex items-center justify-end gap-1">
+        <Button
+          variant="quiet"
+          size="icon"
+          aria-label={isActiveLesson && podcast.playing ? "Mettre en pause" : "Écouter le podcast"}
+          title={isActiveLesson && podcast.playing ? "Mettre en pause" : "Écouter le podcast"}
+          className={isActiveLesson && podcast.playing ? "text-accent" : ""}
+          onClick={() => {
+            if (isActiveLesson) podcast.toggle();
+            else podcast.startLesson(lesson.id);
+          }}
+        >
+          {isActiveLesson && podcast.playing ? <IconPause size={16} /> : <IconPlay size={16} />}
+        </Button>
+        <DownloadButton target={{ kind: "lesson", lesson }} size={16} />
         {!lesson.locked && (
-          <span className="self-end text-muted transition-colors group-hover:text-accent">
+          <span className="ml-1 text-muted">
             <IconArrowRight size={16} />
           </span>
         )}
-      </button>
-      {/* Hors du <button> de la carte (bouton imbriqué invalide). Présents même verrouillée :
-          télécharger/écouter ne débloquent pas (cf. « Commencer quand même »). */}
-      <Button
-        variant="quiet"
-        size="icon"
-        aria-label={isActiveLesson && podcast.playing ? "Mettre en pause" : "Écouter le podcast"}
-        title={isActiveLesson && podcast.playing ? "Mettre en pause" : "Écouter le podcast"}
-        onClick={() => {
-          if (isActiveLesson) podcast.toggle();
-          else podcast.startLesson(lesson.id);
-        }}
-      >
-        {isActiveLesson && podcast.playing ? <IconPause size={16} /> : <IconPlay size={16} />}
-      </Button>
-      <DownloadButton target={{ kind: "lesson", lesson }} size={16} />
       </div>
 
       {lesson.locked && (

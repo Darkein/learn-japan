@@ -8,14 +8,14 @@ import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podc
 import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
 import { usePodcastPlayer } from "./usePodcastPlayer";
-import { ReaderBarSlot, ReaderHeaderSlot } from "./ReaderPage";
+import { ReaderBarSlot } from "./ReaderPage";
 import { useLessonGen } from "./useLessonGen";
 import { useSettings } from "./useSettings";
 import { Markdown } from "./LessonMarkdown";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
-import { IconArrowRight, IconPlay } from "./kit/Icon";
+import { IconArrowRight, IconPause, IconPlay } from "./kit/Icon";
 import { SectionLabel } from "./kit/SectionLabel";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import { StoryIllustration } from "./StoryIllustration";
@@ -83,47 +83,51 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stories, pendingVariant]);
 
-  const headerSlot = useContext(ReaderHeaderSlot);
   const barSlot = useContext(ReaderBarSlot);
 
-  const downloadButton = <DownloadButton target={{ kind: "lesson", lesson }} />;
-  const actionButtons = (
-    <>
+  // Actions de la barre sticky (icônes seules, à côté de la roue) : podcast et
+  // téléchargement — même registre que la page histoire et les lignes de liste.
+  // En aperçu (couche voisine du carrousel), rendu à l'identique pour la mise en
+  // page mais inerte, pour ne pas lancer le podcast de la voisine.
+  const lessonPlaying = playingThisLesson && podcast.playing;
+  const barActions = (
+    <div
+      className={`flex items-center gap-1 ${preview ? "pointer-events-none" : ""}`}
+      aria-hidden={preview || undefined}
+    >
       <Button
-        variant="primary"
-        // En aperçu (couche voisine du carrousel), le bouton est rendu à l'identique pour la
-        // mise en page (sinon il apparaîtrait au commit et décalerait le contenu), mais inerte :
-        // non-cliquable et hors tabulation, pour éviter de lancer le podcast de la voisine.
-        onClick={preview ? undefined : () => podcast.startLesson(lesson.id)}
+        size="icon"
+        variant="quiet"
+        aria-label={lessonPlaying ? "Mettre en pause" : "Écouter le podcast"}
+        title={
+          lessonPlaying
+            ? "Mettre en pause"
+            : "Podcast : cadrage parlé, quiz audio, puis l'histoire en écoute bilingue"
+        }
         disabled={podcastBusy}
-        aria-hidden={preview || undefined}
         tabIndex={preview ? -1 : undefined}
-        className={preview ? "pointer-events-none" : ""}
-        title="Cadrage parlé, quiz audio, puis l'histoire en écoute bilingue"
+        className={lessonPlaying ? "text-accent" : ""}
+        onClick={
+          preview
+            ? undefined
+            : () => {
+                if (playingThisLesson) podcast.toggle();
+                else podcast.startLesson(lesson.id);
+              }
+        }
       >
-        {podcastBusy ? (
-          `… ${podcast.preparing ?? ""}`
-        ) : (
-          <>
-            <IconPlay size={16} />
-            Podcast
-          </>
-        )}
+        {lessonPlaying ? <IconPause size={20} /> : <IconPlay size={20} />}
       </Button>
-    </>
+      <DownloadButton target={{ kind: "lesson", lesson }} />
+    </div>
   );
 
   return (
     <>
-      {headerSlot && createPortal(actionButtons, headerSlot)}
-      {/* Téléchargement hors-ligne dans la barre sticky, à côté de la roue des paramètres. */}
-      {barSlot && createPortal(downloadButton, barSlot)}
-
-      {!headerSlot && (
-        <div className="flex flex-wrap items-center gap-2 py-3">
-          {actionButtons}
-          {!barSlot && downloadButton}
-        </div>
+      {barSlot ? (
+        createPortal(barActions, barSlot)
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 py-3">{barActions}</div>
       )}
 
       <div className="flex flex-col gap-4 pt-4">

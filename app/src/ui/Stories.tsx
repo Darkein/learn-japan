@@ -72,37 +72,44 @@ export function Stories({ onOpen }: Props) {
                 key={s.id}
                 role="button"
                 tabIndex={0}
-                className="flex cursor-pointer items-start gap-3 border-t border-hairline py-4 last:border-b"
+                className="flex cursor-pointer flex-col border-t border-hairline py-4 last:border-b"
                 onClick={() => onOpen(s)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") onOpen(s);
                 }}
                 aria-label="Ouvrir l'histoire"
               >
-                <StoryIllustration storyId={s.id} thumb />
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <span className="font-jp text-lg">{s.title}</span>
-                  <span className="text-sm text-muted">
-                    {new Date(s.createdAt).toLocaleString("fr-FR")}
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    <ReadabilityBadge text={s.text} />
-                    {lesson && (
-                      <Badge variant="accent">
-                        Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
-                      </Badge>
-                    )}
-                    {derivedLessons.map((l) => (
-                      <Badge key={l.id} variant="accent">
-                        Leçon {l.order.toString().padStart(2, "0")} — {l.title}
-                      </Badge>
-                    ))}
-                    {chips(s.params).map((c) => (
-                      <Badge key={c}>{c}</Badge>
-                    ))}
+                <div className="flex items-start gap-3">
+                  <StoryIllustration storyId={s.id} thumb />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <span className="font-jp text-lg">{s.title}</span>
+                    <span className="text-sm text-muted">
+                      {new Date(s.createdAt).toLocaleString("fr-FR")}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <ReadabilityBadge text={s.text} />
+                      {lesson && (
+                        <Badge variant="accent">
+                          Leçon {lesson.order.toString().padStart(2, "0")} — {lesson.title}
+                        </Badge>
+                      )}
+                      {derivedLessons.map((l) => (
+                        <Badge key={l.id} variant="accent">
+                          Leçon {l.order.toString().padStart(2, "0")} — {l.title}
+                        </Badge>
+                      ))}
+                      {chips(s.params).map((c) => (
+                        <Badge key={c}>{c}</Badge>
+                      ))}
+                    </div>
                   </div>
+                  <span className="shrink-0 self-center text-muted">
+                    <IconArrowRight size={16} />
+                  </span>
                 </div>
-                <div className="flex shrink-0 flex-col items-end justify-between gap-4 self-stretch">
+                {/* Actions en rangée SOUS le contenu (pas de colonne à droite qui vole la
+                    largeur du texte, surtout sur mobile). stopPropagation : la ligne s'ouvre. */}
+                <div className="-mb-2 flex items-center justify-end gap-1">
                   <Button
                     variant="quiet"
                     size="icon"
@@ -128,6 +135,7 @@ export function Stories({ onOpen }: Props) {
                         ? "Mettre en pause"
                         : "Écouter l'histoire"
                     }
+                    className={podcast.activeStoryId === s.id && podcast.playing ? "text-accent" : ""}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (podcast.activeStoryId === s.id) podcast.toggle();
@@ -141,9 +149,6 @@ export function Stories({ onOpen }: Props) {
                     )}
                   </Button>
                   <DownloadButton target={{ kind: "story", storyId: s.id }} size={16} />
-                  <span className="text-muted">
-                    <IconArrowRight size={16} />
-                  </span>
                 </div>
               </div>
             );
