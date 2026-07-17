@@ -77,6 +77,8 @@ export interface StoryRecord {
   translation?: string[];
   /** QCM de compréhension (LLM) mis en cache pour ne pas régénérer à chaque ouverture. */
   comprehension?: ComprehensionQuestion[];
+  /** Provenance externe (onglet Articles). Absent = histoire générée/collée classique. */
+  source?: { kind: "article"; url?: string; siteName?: string };
 }
 
 /**
@@ -385,10 +387,15 @@ export async function deleteStory(id: string): Promise<void> {
   await db.delete("stories", id);
   await db.delete("storyImages", id); // l'illustration suit l'histoire
 }
-/** Histoires, les plus récentes d'abord. */
+/** Histoires (hors articles importés), les plus récentes d'abord. */
 export async function allStories(): Promise<StoryRecord[]> {
   const all = await (await getDB()).getAll("stories");
-  return all.sort((a, b) => b.createdAt - a.createdAt);
+  return all.filter((s) => s.source?.kind !== "article").sort((a, b) => b.createdAt - a.createdAt);
+}
+/** Articles importés (onglet Articles), les plus récents d'abord. */
+export async function allArticles(): Promise<StoryRecord[]> {
+  const all = await (await getDB()).getAll("stories");
+  return all.filter((s) => s.source?.kind === "article").sort((a, b) => b.createdAt - a.createdAt);
 }
 /** Histoires rattachées à une leçon (les plus anciennes d'abord : seed puis générées). */
 export async function storiesForLesson(lessonId: string): Promise<StoryRecord[]> {

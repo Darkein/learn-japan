@@ -4,11 +4,12 @@ import { useSyncExternalStore } from "react";
 // le serveur, donc le rechargement d'une « page » profonde fonctionne sur n'importe quel
 // hébergement statique (GitLab Pages, GitHub Pages) sans règle de réécriture vers index.html.
 
-export type Tab = "home" | "stories" | "catalogue";
+export type Tab = "home" | "stories" | "articles" | "catalogue";
 
 export type Route =
   | { kind: "home" }
   | { kind: "stories" }
+  | { kind: "articles" }
   | { kind: "catalogue" }
   | { kind: "review"; from: string }
   | { kind: "course"; id: string; from: string }
@@ -40,6 +41,8 @@ function parseRoute(location: string): Route {
   switch (segs[0]) {
     case "histoires":
       return { kind: "stories" };
+    case "articles":
+      return { kind: "articles" };
     case "catalogue":
       return { kind: "catalogue" };
     case "revision":
@@ -87,6 +90,8 @@ export function tabForRoute(route: Route): Tab {
   switch (route.kind) {
     case "stories":
       return "stories";
+    case "articles":
+      return "articles";
     case "catalogue":
       return "catalogue";
     default:

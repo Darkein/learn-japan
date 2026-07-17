@@ -45,6 +45,17 @@ export function IconBook(props: IconProps) {
   );
 }
 
+export function IconNews(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M16 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V8" />
+      <path d="M16 4h4v14.5" />
+      <path d="M7.5 8h5v4h-5z" />
+      <path d="M7.5 15h9" />
+    </Svg>
+  );
+}
+
 export function IconGrid(props: IconProps) {
   return (
     <Svg {...props}>

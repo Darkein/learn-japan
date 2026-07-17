@@ -20,6 +20,7 @@
 
 import { buildSceneBriefPrompt, buildStoryIllustrationPrompt, cleanRev, cleanSlug, cleanVariant, composePrompt, IMAGE_NEGATIVE, type GenerateRequest } from "./prompts";
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
+import { handleArticleFetch } from "./articleProxy";
 import { handleProgressPull, handleProgressPush } from "./progress";
 
 export interface Env {
@@ -86,7 +87,7 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Base-Updated-At,X-Force",
-  "Access-Control-Expose-Headers": "X-Updated-At",
+  "Access-Control-Expose-Headers": "X-Updated-At,X-Final-Url",
 };
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -534,6 +535,11 @@ export default {
     }
     if (req.method === "POST" && url.pathname === "/progress/push") {
       return handleProgressPush(req, env.PROGRESS, json);
+    }
+
+    // POST /article/fetch → octets bruts d'une page d'article (onglet Articles, voir articleProxy.ts)
+    if (req.method === "POST" && url.pathname === "/article/fetch") {
+      return handleArticleFetch(req, json, CORS);
     }
 
     // POST /generate → { text, cached } (synchrone, avec cache R2)

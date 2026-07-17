@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { Tab } from "./useHashRoute";
-import { IconBook, IconGrid, IconHome } from "./kit/Icon";
+import { IconBook, IconGrid, IconHome, IconNews } from "./kit/Icon";
 
 const ICONS: Record<Tab, ReactNode> = {
   home: <IconHome size={22} />,
   stories: <IconBook size={22} />,
+  articles: <IconNews size={22} />,
   catalogue: <IconGrid size={22} />,
 };
 

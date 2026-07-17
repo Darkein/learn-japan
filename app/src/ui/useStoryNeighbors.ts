@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { allStories } from "../lib/db";
+import { allArticles, allStories, getStory } from "../lib/db";
 import { useGenJobs } from "./useGenJobs";
 
-// Histoires adjacentes dans l'ordre de l'onglet Histoires (`allStories()`, du plus récent au
-// plus ancien) pour la navigation par swipe / flèches. Recharge quand l'histoire courante
-// change ou quand une génération aboutit (`dataVersion`), pour refléter une nouvelle histoire.
+// Histoires adjacentes dans l'ordre de l'onglet d'origine (du plus récent au plus ancien)
+// pour la navigation par swipe / flèches. Le voisinage reste DANS la même collection : un
+// article importé glisse vers les articles voisins, une histoire vers les histoires.
+// Recharge quand l'histoire courante change ou quand une génération aboutit (`dataVersion`).
 
 export function useStoryNeighbors(currentId: string | undefined): {
   prevId?: string;
@@ -19,7 +20,11 @@ export function useStoryNeighbors(currentId: string | undefined): {
       setNeighbors({});
       return;
     }
-    void allStories().then((stories) => {
+    void getStory(currentId)
+      .then((current) =>
+        current?.source?.kind === "article" ? allArticles() : allStories(),
+      )
+      .then((stories) => {
       if (cancelled) return;
       const i = stories.findIndex((s) => s.id === currentId);
       if (i === -1) {

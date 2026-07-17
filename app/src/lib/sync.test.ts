@@ -83,6 +83,25 @@ describe("export / import", () => {
     expect(stories[0].text).toBe("テキスト。");
   });
 
+  it("un article importé (source) survit au roundtrip snapshot", async () => {
+    const db = await getDB();
+    await db.put("stories", {
+      id: "a1", createdAt: 2, title: "記事", text: "記事のテキスト。", params: {},
+      source: { kind: "article", url: "https://example.jp/n/1", siteName: "example.jp" },
+    });
+
+    const restored = await gunzipJson<SyncSnapshot>(await gzipJson(await exportSnapshot()));
+    (globalThis as any).indexedDB = new IDBFactory();
+    _resetDbForTests();
+    await importSnapshot(restored);
+
+    const stories = await (await getDB()).getAll("stories");
+    expect(stories).toHaveLength(1);
+    expect(stories[0].source).toEqual({
+      kind: "article", url: "https://example.jp/n/1", siteName: "example.jp",
+    });
+  });
+
   it("exclut les meta locales de l'export et les préserve à l'import", async () => {
     await putMeta("sync:code", "K7MP-X2R9-4TQF");
     await putMeta("storyImageTried:s1", true);

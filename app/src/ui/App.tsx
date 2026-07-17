@@ -11,6 +11,7 @@ import { LoadingScreen } from "./kit/LoadingScreen";
 import { Catalogue } from "./Catalogue";
 import { CourseDetail } from "./CourseDetail";
 import { Stories } from "./Stories";
+import { Articles } from "./Articles";
 import { Home } from "./Home";
 import { PodcastPlayer } from "./PodcastPlayer";
 import { PodcastProvider, usePodcastPlayer } from "./usePodcastPlayer";
@@ -61,6 +62,7 @@ function shellPadding(navVisible: boolean, playerActive: boolean): string {
 const TABS: { id: Tab; label: string; path: string }[] = [
   { id: "home", label: "Apprendre", path: "/" },
   { id: "stories", label: "Histoires", path: "/histoires" },
+  { id: "articles", label: "Articles", path: "/articles" },
   { id: "catalogue", label: "Catalogue", path: "/catalogue" },
 ];
 
@@ -443,6 +445,7 @@ function AppShell() {
           />
         )}
         {tab === "stories" && <Stories onOpen={openStory} />}
+        {tab === "articles" && <Articles onOpen={openStory} />}
         {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={openCourse} />}
       </div>
 
