@@ -1,12 +1,13 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { analyze, peekAnalysis, type AnalyzedSentence } from "../lib/analyze";
 import { recordEncounters, type ReEncounter } from "../lib/encounters";
-import { getStory, type ItemStatus, type StoryRecord } from "../lib/db";
+import { getStory, type ArticleParagraph, type ItemStatus, type StoryRecord } from "../lib/db";
 import { getLesson } from "../lib/lessons";
 import type { AnnotatedToken } from "../lib/furigana";
 import { resolveGrammar } from "../lib/inventory";
 import { getCurriculumEntry, type LessonObjectives } from "../lib/curriculum";
+import { groupTokensByParagraphs } from "../lib/readerBlocks";
 import type { StoryParams } from "../lib/stories";
 import { applyStatus, isContent, itemIdFor, statusesFor, type StatusAction } from "../lib/vocab";
 import { Button } from "./kit/Button";
@@ -42,6 +43,9 @@ export interface IncomingStory {
   params: StoryParams;
   nonce: number;
   lessonContext?: LessonContext;
+  /** Structure titres/paragraphes source (articles importés) — absent pour une histoire
+   *  générée/collée, qui reste rendue comme un flux continu. */
+  paragraphs?: ArticleParagraph[];
 }
 
 // Construit le contexte de lecture à partir d'une histoire enregistrée. Si l'histoire est
@@ -54,6 +58,7 @@ export function incomingFromStory(story: StoryRecord): IncomingStory {
     title: story.titleFr ?? story.title,
     text: story.text,
     params: story.params,
+    paragraphs: story.paragraphs,
     nonce: Date.now(),
     lessonContext: entry
       ? {
@@ -106,6 +111,50 @@ export function Reader({ incoming, preview = false }: Props) {
   const podcast = usePodcastPlayer();
   const isActiveStory = !!incoming.id && podcast.activeStoryId === incoming.id;
   const currentTokenIndex = isActiveStory ? podcast.currentTokenIndex : null;
+
+  // Regroupement des tokens par paragraphe/titre source (articles importés uniquement) :
+  // rendu en blocs espacés au lieu d'un unique flux de mots. `currentTokenIndex` reste un
+  // index dans le tableau plat `result.tokens`, inchangé par ce regroupement d'affichage.
+  const blocks = useMemo(
+    () => groupTokensByParagraphs(incoming.paragraphs, result?.tokens ?? []),
+    [incoming.paragraphs, result],
+  );
+  const baseFontSize = `calc(var(--text-xl) * ${settings.readerFontScale})`;
+  const headingFontSize = `calc(var(--text-xl) * ${settings.readerFontScale} * 1.15)`;
+
+  function renderToken(res: AnalyzedSentence, i: number, fontSize: string): ReactNode {
+    const tok = res.tokens[i];
+    const g = res.gloss[i];
+    const active = i === currentTokenIndex;
+    // Estompage : un mot marqué « connu » perd ses béquilles (gloss, furigana) — le sens
+    // reste accessible au tap. Ne concerne que les mots de contenu suivis.
+    const known =
+      settings.glossHideKnown && isContent(tok.token) && statuses.get(itemIdFor(tok.token)) === "known";
+    return (
+      <span
+        key={i}
+        className="group inline-flex cursor-pointer flex-col items-center gap-0.5"
+        onClick={() => setOpenIdx(i)}
+        role="button"
+        tabIndex={0}
+      >
+        <span
+          className={`font-jp border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
+          style={{ borderBottomColor: underlineColor(tok, statuses), fontSize, lineHeight: "var(--text-xl--line-height)" } as CSSProperties}
+        >
+          <Ruby segments={tok.segments} reveal={settings.furiganaDefault && !known} reserve={settings.furiganaDefault} />
+        </span>
+        {settings.glossDefault && !known && (
+          <span
+            className={`max-w-28 truncate text-center font-sans text-xs text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
+            title={g.gloss}
+          >
+            {g.gloss}
+          </span>
+        )}
+      </span>
+    );
+  }
 
   // Régénération depuis la page histoire : l'histoire est supprimée puis regénérée en
   // arrière-plan → retour à la leçon (qui affiche la progression et notifie à la fin).
@@ -283,46 +332,30 @@ export function Reader({ incoming, preview = false }: Props) {
       {result && !loading && (
         <>
           <StoryIllustration storyId={incoming.id} />
-          <div className={`flex flex-wrap items-baseline gap-x-1.5 ${settings.furiganaDefault ? "gap-y-1" : "gap-y-3"}`}>
-            {result.tokens.map((tok, i) => {
-              const g = result.gloss[i];
-              const active = i === currentTokenIndex;
-              // Estompage : un mot marqué « connu » perd ses béquilles (gloss, furigana) —
-              // le sens reste accessible au tap. Ne concerne que les mots de contenu suivis.
-              const known =
-                settings.glossHideKnown &&
-                isContent(tok.token) &&
-                statuses.get(itemIdFor(tok.token)) === "known";
-              return (
-                <span
-                  key={i}
-                  className="group inline-flex cursor-pointer flex-col items-center gap-0.5"
-                  onClick={() => setOpenIdx(i)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <span
-                    className={`font-jp text-xl border-b-2 border-transparent pb-0.5 transition-colors group-hover:border-state-unknown ${active ? "rounded-sm bg-accent/20 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]" : ""}`}
-                    style={{ borderBottomColor: underlineColor(tok, statuses) }}
+          {blocks ? (
+            // Article importé : un bloc par paragraphe/titre source, espacés — le texte
+            // continu d'origine n'était plus lisible une fois converti en un flux de mots.
+            <div className="flex flex-col gap-5">
+              {blocks.map((b, bi) =>
+                b.tokenIndices.length === 0 ? null : (
+                  <div
+                    key={bi}
+                    className={
+                      b.type === "heading"
+                        ? "flex flex-wrap items-baseline gap-x-1.5 gap-y-1 font-semibold text-accent"
+                        : `flex flex-wrap items-baseline gap-x-1.5 ${settings.furiganaDefault ? "gap-y-1" : "gap-y-3"}`
+                    }
                   >
-                    <Ruby
-                      segments={tok.segments}
-                      reveal={settings.furiganaDefault && !known}
-                      reserve={settings.furiganaDefault}
-                    />
-                  </span>
-                  {settings.glossDefault && !known && (
-                    <span
-                      className={`max-w-28 truncate text-center font-sans text-xs text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
-                      title={g.gloss}
-                    >
-                      {g.gloss}
-                    </span>
-                  )}
-                </span>
-              );
-            })}
-          </div>
+                    {b.tokenIndices.map((i) => renderToken(result, i, b.type === "heading" ? headingFontSize : baseFontSize))}
+                  </div>
+                ),
+              )}
+            </div>
+          ) : (
+            <div className={`flex flex-wrap items-baseline gap-x-1.5 ${settings.furiganaDefault ? "gap-y-1" : "gap-y-3"}`}>
+              {result.tokens.map((_, i) => renderToken(result, i, baseFontSize))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="primary" onClick={() => setExoOpen(true)}>

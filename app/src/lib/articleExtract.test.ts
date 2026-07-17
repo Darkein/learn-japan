@@ -12,8 +12,10 @@ import {
   decodeHtml,
   japaneseRatio,
   normalizeArticleParagraphs,
+  normalizeTypedParagraphs,
   saveArticle,
   truncateAtSentenceBoundary,
+  truncateParagraphs,
 } from "./articleExtract";
 import { allArticles, allStories } from "./db";
 
@@ -71,6 +73,52 @@ describe("normalizeArticleParagraphs", () => {
   });
   it("retire l'indentation pleine chasse et compacte les espaces", () => {
     expect(normalizeArticleParagraphs(["　猫が  水を\t飲む。"])).toBe("猫が 水を 飲む。");
+  });
+});
+
+describe("normalizeTypedParagraphs", () => {
+  it("conserve le type de chaque bloc, retire les vides et compacte les espaces", () => {
+    expect(
+      normalizeTypedParagraphs([
+        { type: "heading", text: "　猫のニュース　" },
+        { type: "para", text: "" },
+        { type: "para", text: "猫が  水を\t飲む。" },
+      ]),
+    ).toEqual([
+      { type: "heading", text: "猫のニュース" },
+      { type: "para", text: "猫が 水を 飲む。" },
+    ]);
+  });
+});
+
+describe("truncateParagraphs", () => {
+  it("garde les paragraphes entièrement couverts par le texte tronqué", () => {
+    const paragraphs = [
+      { type: "heading" as const, text: "猫のニュース" },
+      { type: "para" as const, text: "猫が水を飲む。" },
+    ];
+    const text = paragraphs.map((p) => p.text).join("\n"); // rien de tronqué
+    expect(truncateParagraphs(paragraphs, text)).toEqual(paragraphs);
+  });
+
+  it("coupe le dernier paragraphe pile à la frontière et abandonne le reste", () => {
+    const paragraphs = [
+      { type: "heading" as const, text: "見出し" },
+      { type: "para" as const, text: "一段落目の文章。" },
+      { type: "para" as const, text: "二段落目は切られる。" },
+    ];
+    const full = paragraphs.map((p) => p.text).join("\n");
+    // Coupe au milieu du 2e paragraphe (après « 見出し\n一段落目の文章。\n二段落 »).
+    const cut = full.slice(0, full.indexOf("二段落") + "二段落".length);
+    expect(truncateParagraphs(paragraphs, cut)).toEqual([
+      { type: "heading", text: "見出し" },
+      { type: "para", text: "一段落目の文章。" },
+      { type: "para", text: "二段落" },
+    ]);
+  });
+
+  it("retourne un tableau vide si le texte tronqué est vide", () => {
+    expect(truncateParagraphs([{ type: "para", text: "猫" }], "")).toEqual([]);
   });
 });
 
@@ -155,5 +203,24 @@ describe("saveArticle", () => {
     const article = await saveArticle({ text });
     expect(article.text.length).toBeLessThanOrEqual(6000);
     expect(article.text.endsWith("。")).toBe(true);
+  });
+
+  it("conserve la structure titre/paragraphes fournie", async () => {
+    const paragraphs = [
+      { type: "heading" as const, text: "猫のニュース" },
+      { type: "para" as const, text: "猫が水を飲む。" },
+    ];
+    const article = await saveArticle({ text: paragraphs.map((p) => p.text).join("\n"), paragraphs });
+    expect(article.paragraphs).toEqual(paragraphs);
+  });
+
+  it("recale les paragraphes sur le texte tronqué à une frontière de phrase", async () => {
+    const sentence = "これはとても長い記事のための一つの文です。";
+    const paragraphs = [
+      { type: "heading" as const, text: "長い記事" },
+      { type: "para" as const, text: sentence.repeat(400) },
+    ];
+    const article = await saveArticle({ text: paragraphs.map((p) => p.text).join("\n"), paragraphs });
+    expect(article.paragraphs?.map((p) => p.text).join("\n")).toBe(article.text);
   });
 });

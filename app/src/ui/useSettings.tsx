@@ -31,6 +31,14 @@ export const STORY_RATES: { value: number; label: string }[] = [
   { value: 1.5, label: "1,5×" },
 ];
 
+/** Échelles de texte proposées pour le lecteur (leçons, histoires, articles). */
+export const READER_FONT_SCALES: { value: number; label: string }[] = [
+  { value: 0.85, label: "Petit" },
+  { value: 1, label: "Normal" },
+  { value: 1.15, label: "Grand" },
+  { value: 1.35, label: "Très grand" },
+];
+
 interface SettingsApi {
   settings: AppSettings;
   update: (patch: Partial<AppSettings>) => void;

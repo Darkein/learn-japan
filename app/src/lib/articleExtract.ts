@@ -2,7 +2,7 @@
 // « mode lecture » côté client (DOMParser + Readability), normalisation vers le format
 // texte du lecteur d'histoires, et enregistrement comme StoryRecord marqué `source`.
 // N.B. : ne pas confondre avec readability.ts (score de lisibilité JLPT).
-import { putStory, type StoryRecord } from "./db";
+import { putStory, type ArticleParagraph, type StoryRecord } from "./db";
 import { isKana, isKanji, isJaSentenceEnd } from "./kana";
 import { vocabLevel, vocabLevelByForm } from "./inventory";
 import { tokenize } from "./tokenizer";
@@ -65,6 +65,37 @@ export function normalizeArticleParagraphs(paragraphs: string[]): string {
     .join("\n");
 }
 
+/** Comme `normalizeArticleParagraphs`, mais conserve le type (titre/texte) de chaque bloc
+ *  source — c'est ce qui permet au lecteur de distinguer titres et paragraphes à l'affichage. */
+export function normalizeTypedParagraphs(blocks: ArticleParagraph[]): ArticleParagraph[] {
+  return blocks
+    .map((b) => ({ type: b.type, text: b.text.replace(/^[\s　]+|[\s　]+$/g, "").replace(/[ \t]+/g, " ") }))
+    .filter((b) => b.text.length > 0);
+}
+
+/**
+ * Recale `paragraphs` sur `text` (potentiellement raccourci par `truncateAtSentenceBoundary`) :
+ * les paragraphes tiennent entièrement dans `text` sont gardés, le dernier partiellement
+ * couvert est coupé pile à la frontière, le reste est abandonné. `text` doit être un préfixe
+ * de `paragraphs.map(p => p.text).join("\n")` (vrai par construction à l'import).
+ */
+export function truncateParagraphs(paragraphs: ArticleParagraph[], text: string): ArticleParagraph[] {
+  const out: ArticleParagraph[] = [];
+  let consumed = 0;
+  for (const p of paragraphs) {
+    if (consumed >= text.length) break;
+    const remaining = text.length - consumed;
+    if (p.text.length <= remaining) {
+      out.push(p);
+      consumed += p.text.length + 1; // +1 pour le "\n" qui joint les paragraphes
+    } else {
+      out.push({ type: p.type, text: p.text.slice(0, remaining) });
+      break;
+    }
+  }
+  return out;
+}
+
 // Estimation du niveau JLPT ----------------------------------------------------
 
 /**
@@ -111,6 +142,8 @@ export interface ArticleInput {
   url?: string;
   siteName?: string;
   level?: number;
+  /** Structure titres/paragraphes source (import URL uniquement) — absent pour un texte collé. */
+  paragraphs?: ArticleParagraph[];
 }
 
 function makeArticleTitle(text: string): string {
@@ -132,12 +165,14 @@ export async function saveArticle(input: ArticleInput): Promise<StoryRecord> {
   // Niveau JLPT toujours déduit du texte (sauf fourni) : l'utilisateur ne peut pas le
   // connaître, et il paramètre les générations dérivées (exercices, traduction).
   const level = input.level ?? (await estimateJlptLevel(text).catch(() => 3));
+  const paragraphs = input.paragraphs ? truncateParagraphs(input.paragraphs, text) : undefined;
   const article: StoryRecord = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
     title: input.title?.trim() || makeArticleTitle(text),
     text,
     params: { level },
+    ...(paragraphs && paragraphs.length > 0 ? { paragraphs } : {}),
     source: {
       kind: "article",
       ...(input.url ? { url: input.url } : {}),
@@ -210,6 +245,7 @@ export interface ExtractedArticle {
   title: string;
   text: string;
   siteName?: string;
+  paragraphs: ArticleParagraph[];
 }
 
 /** Balises de bloc dont on garde le texte, dans l'ordre du document. */
@@ -242,14 +278,23 @@ export async function extractReadable(html: string, baseUrl: string): Promise<Ex
   let blocks = Array.from(contentDoc.querySelectorAll(BLOCK_SELECTOR)) as HTMLElement[];
   // Garde les blocs feuilles : un <li> contenant des <p> ne doit pas dupliquer leur texte.
   blocks = blocks.filter((el) => !el.querySelector(BLOCK_SELECTOR));
-  let text = normalizeArticleParagraphs(
-    (blocks.length > 0 ? blocks.map((el) => el.textContent ?? "") : [contentDoc.body.textContent ?? ""])
-      .flatMap((t) => t.split("\n")),
-  );
+  // Typé titre/paragraphe par bloc source, pour que le lecteur respecte la mise en page
+  // d'origine (titres distincts, paragraphes espacés) — cf. groupTokensByParagraphs.
+  const typedLines: ArticleParagraph[] =
+    blocks.length > 0
+      ? blocks.flatMap((el) => {
+          const type: ArticleParagraph["type"] = /^H[1-6]$/.test(el.tagName) ? "heading" : "para";
+          return (el.textContent ?? "").split("\n").map((line) => ({ type, text: line }));
+        })
+      : [{ type: "para", text: contentDoc.body.textContent ?? "" }];
+  let paragraphs = normalizeTypedParagraphs(typedLines);
+  let text = paragraphs.map((p) => p.text).join("\n");
   // Readability garde souvent le <h1> dans le contenu : on retire cet écho du titre.
   const title = cleanArticleTitle(parsed.title ?? "");
-  const [firstLine, ...rest] = text.split("\n");
-  if (title && rest.length > 0 && firstLine.trim() === title) text = rest.join("\n");
+  if (title && paragraphs.length > 1 && paragraphs[0].text === title) {
+    paragraphs = paragraphs.slice(1);
+    text = paragraphs.map((p) => p.text).join("\n");
+  }
   if (!text) {
     throw new ArticleImportError(
       "Impossible d'extraire l'article (page vide ou paywall) — colle le texte directement.",
@@ -258,6 +303,7 @@ export async function extractReadable(html: string, baseUrl: string): Promise<Ex
   return {
     title,
     text,
+    paragraphs,
     ...(parsed.siteName ? { siteName: parsed.siteName } : {}),
   };
 }
@@ -280,5 +326,6 @@ export async function importArticleFromUrl(url: string): Promise<StoryRecord> {
     title: extracted.title,
     url: fetched.finalUrl,
     siteName,
+    paragraphs: extracted.paragraphs,
   });
 }

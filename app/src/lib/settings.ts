@@ -22,6 +22,8 @@ export interface AppSettings {
   silentReviews: boolean;
   /** Vitesse du lecteur audio — leçons et histoires (1 = vitesse normale). */
   storyRate: number;
+  /** Échelle du texte japonais — leçons, histoires et articles (1 = taille normale). */
+  readerFontScale: number;
   /** Rappels de révisions (notification locale + badge d'icône). Opt-in. */
   reminders: ReminderSettings;
 }
@@ -36,6 +38,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   warmupRomaji: true,
   silentReviews: false,
   storyRate: 1,
+  readerFontScale: 1,
   reminders: { enabled: false, hour: 9 },
 };
 

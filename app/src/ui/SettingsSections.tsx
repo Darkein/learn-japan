@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ensurePeriodicSync } from "../lib/reminders";
 import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
-import { useSettings, THEMES } from "./useSettings";
+import { useSettings, THEMES, READER_FONT_SCALES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { SectionLabel } from "./kit/SectionLabel";
@@ -62,6 +62,16 @@ export function SettingsSections({ quick }: Props) {
             value={settings.glossHideKnown}
             onChange={(v) => update({ glossHideKnown: v })}
           />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-text">Taille du texte</span>
+            <SegmentedControl
+              fullWidth={quick}
+              options={READER_FONT_SCALES.map((s) => ({ value: s.value, label: s.label }))}
+              value={settings.readerFontScale}
+              onChange={(v) => update({ readerFontScale: v })}
+              ariaLabel="Taille du texte des leçons, histoires et articles"
+            />
+          </div>
         </div>
       </section>
 
