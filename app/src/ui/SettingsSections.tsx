@@ -64,8 +64,10 @@ export function SettingsSections({ quick }: Props) {
           />
           <div className="flex flex-col gap-1">
             <span className="text-sm text-text">Taille du texte</span>
+            {/* Toujours pleine largeur : le tiroir rapide est étroit (5 crans courts y tiennent
+             *  déjà), et la page « Tous les paramètres » a largement la place, mobile compris. */}
             <SegmentedControl
-              fullWidth={quick}
+              fullWidth
               options={READER_FONT_SCALES.map((s) => ({ value: s.value, label: s.label }))}
               value={settings.readerFontScale}
               onChange={(v) => update({ readerFontScale: v })}

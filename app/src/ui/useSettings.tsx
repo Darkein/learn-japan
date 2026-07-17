@@ -31,12 +31,15 @@ export const STORY_RATES: { value: number; label: string }[] = [
   { value: 1.5, label: "1,5×" },
 ];
 
-/** Échelles de texte proposées pour le lecteur (leçons, histoires, articles). */
+/** Échelles de texte proposées pour le lecteur (leçons, histoires, articles) — 5 crans,
+ *  taille de base (1) au milieu. Libellés courts (convention taille de vêtement) pour
+ *  tenir sur une seule ligne dans le tiroir de réglages rapides (étroit). */
 export const READER_FONT_SCALES: { value: number; label: string }[] = [
-  { value: 0.85, label: "Petit" },
-  { value: 1, label: "Normal" },
-  { value: 1.15, label: "Grand" },
-  { value: 1.35, label: "Très grand" },
+  { value: 0.8, label: "XS" },
+  { value: 0.9, label: "S" },
+  { value: 1, label: "M" },
+  { value: 1.1, label: "L" },
+  { value: 1.2, label: "XL" },
 ];
 
 interface SettingsApi {
