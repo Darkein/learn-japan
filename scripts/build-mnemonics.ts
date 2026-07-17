@@ -84,6 +84,9 @@ function parseArgs(argv: string[]): Args {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  // Efface la vue (les lignes « > … » que npm imprime avant le script) pour partir sur un
+  // écran propre. TTY uniquement (n'affecte pas les logs CI) ; le scrollback est préservé.
+  if (process.stdout.isTTY) process.stdout.write("\x1b[2J\x1b[H");
   let pool = kanjiAll;
   if (args.level) pool = pool.filter((k) => k.level === args.level);
   if (args.limit) pool = pool.slice(0, args.limit);
@@ -103,6 +106,10 @@ async function main(): Promise<void> {
   // barre à une seule ligne.
   const problems: string[] = [];
   let done = 0;
+  // ETA calculée sur les kanji RÉELLEMENT générés (appels réseau) et le reste à générer —
+  // pas sur les repris, qui « avancent » instantanément et fausseraient l'estimation.
+  const toProcess = args.refresh ? total : pool.filter((k) => !results[k.id]).length;
+  let processed = 0;
 
   const isTty = process.stdout.isTTY === true;
   const BAR_WIDTH = 22;
@@ -114,8 +121,8 @@ async function main(): Promise<void> {
     const gauge = "█".repeat(filled) + "░".repeat(BAR_WIDTH - filled);
     const pct = String(Math.round(ratio * 100)).padStart(3);
     const elapsed = (Date.now() - started) / 1000;
-    const rate = done / Math.max(elapsed, 0.001); // kanji/s
-    const etaS = done > 1 && rate > 0 ? Math.round((total - done) / rate) : 0;
+    const rate = processed / Math.max(elapsed, 0.001); // kanji générés / s (hors repris)
+    const etaS = processed >= 2 && rate > 0 ? Math.round((toProcess - processed) / rate) : 0;
     const eta = etaS > 0 ? ` · ~${Math.floor(etaS / 60)}m${String(etaS % 60).padStart(2, "0")}` : "";
     // Marqueurs à largeur fixe (1 cellule) : pas d'emoji « next track » qui, rendu sur
     // 2 cellules par certains terminaux, chevaucherait le chiffre suivant.
@@ -169,6 +176,7 @@ async function main(): Promise<void> {
       stats.failed++;
       problems.push(`✗ ${k.id} — ${String(e)}`);
     }
+    processed++;
     done++;
     draw(k.id);
     // Sauvegarde incrémentale : une interruption ne perd pas le travail déjà fait.
