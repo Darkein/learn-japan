@@ -16,6 +16,7 @@ import { speakWord, stopSentence } from "../lib/tts";
 import { addInventoryWordToReview } from "../lib/vocab";
 import { StatusTag } from "./CatalogueInventory";
 import { Badge } from "./kit/Badge";
+import { Emphasis } from "./kit/Emphasis";
 import { Sheet } from "./kit/Sheet";
 
 const SUGGESTIONS_COLLAPSED = 8;
@@ -108,13 +109,17 @@ export function KanjiSheet({
           {mnemonic.story && (
             <span>
               <span className="text-muted">Mnémo :</span>{" "}
-              <span className="text-text">{mnemonic.story}</span>
+              <span className="text-text">
+                <Emphasis text={mnemonic.story} />
+              </span>
             </span>
           )}
           {mnemonic.composition && (
             <span>
               <span className="text-muted">Image :</span>{" "}
-              <span className="text-text">{mnemonic.composition}</span>
+              <span className="text-text">
+                <Emphasis text={mnemonic.composition} />
+              </span>
             </span>
           )}
         </div>

@@ -10,6 +10,7 @@ import type { Mnemonic } from "../lib/genParsers";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { KanjiBreakdown } from "./KanjiBreakdown";
 import { KanjiSheet } from "./KanjiSheet";
+import { Emphasis } from "./kit/Emphasis";
 import { Sheet } from "./kit/Sheet";
 
 const POS_FR: Record<string, string> = {
@@ -122,13 +123,17 @@ export function WordSheet({
           {mnemonic.story && (
             <span>
               <span className="text-muted">Mnémo :</span>{" "}
-              <span className="text-text">{mnemonic.story}</span>
+              <span className="text-text">
+                <Emphasis text={mnemonic.story} />
+              </span>
             </span>
           )}
           {mnemonic.composition && (
             <span>
               <span className="text-muted">Composition :</span>{" "}
-              <span className="text-text">{mnemonic.composition}</span>
+              <span className="text-text">
+                <Emphasis text={mnemonic.composition} />
+              </span>
             </span>
           )}
         </div>
