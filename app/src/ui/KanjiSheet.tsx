@@ -2,9 +2,10 @@
 // d'abord ceux déjà travaillés (ancrage), puis des suggestions à découvrir
 // qu'on peut ajouter au SRS d'un tap. Purement référentiel : pas de SRS kanji.
 //
-// S'empile au-dessus d'un WordSheet/VocabPeekSheet ouvert (rendue après dans le
-// DOM → au-dessus). Limitation connue du kit Sheet : Échap ferme les deux
-// feuilles empilées ; le clic sur le fond, lui, ne ferme que celle du dessus.
+// `KanjiDetail` est le contenu seul : WordSheet/VocabPeekSheet l'affichent dans
+// LEUR feuille (navigation mot → kanji avec retour, plus d'empilement de modales).
+// `KanjiSheet` l'enveloppe dans une BottomSheet pour l'ouverture directe
+// (inventaire du Catalogue).
 
 import { useEffect, useState } from "react";
 import { allVocab, type ItemStatus } from "../lib/db";
@@ -15,22 +16,20 @@ import { relatedWords } from "../lib/kanjiInfo";
 import { speakWord, stopSentence } from "../lib/tts";
 import { addInventoryWordToReview } from "../lib/vocab";
 import { StatusTag } from "./CatalogueInventory";
+import { BottomSheet } from "./BottomSheet";
 import { Badge } from "./kit/Badge";
 import { Emphasis } from "./kit/Emphasis";
-import { Sheet } from "./kit/Sheet";
 
 const SUGGESTIONS_COLLAPSED = 8;
 const SUGGESTIONS_EXPANDED = 30;
 
-export function KanjiSheet({
+export function KanjiDetail({
   ch,
   excludeVocabId,
-  onClose,
 }: {
   ch: string;
   /** Id du mot d'où l'on vient : exclu des mots liés (sa fiche est déjà ouverte). */
   excludeVocabId?: string;
-  onClose: () => void;
 }) {
   const detail = kanjiDetail(ch);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus> | null>(null);
@@ -74,7 +73,7 @@ export function KanjiSheet({
   }
 
   return (
-    <Sheet open onClose={onClose} className="gap-3 px-4 pt-6">
+    <>
       <div className="flex items-baseline gap-3">
         <span className="font-jp text-5xl">{detail.ja}</span>
         <span className="text-lg">{detail.fr}</span>
@@ -180,6 +179,22 @@ export function KanjiSheet({
       {known.length === 0 && suggestions.length === 0 && (
         <p className="text-sm text-muted">Aucun mot de l'inventaire ne contient ce kanji.</p>
       )}
-    </Sheet>
+    </>
+  );
+}
+
+export function KanjiSheet({
+  ch,
+  excludeVocabId,
+  onClose,
+}: {
+  ch: string;
+  excludeVocabId?: string;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} ariaLabel={`Fiche du kanji ${ch}`}>
+      <KanjiDetail ch={ch} excludeVocabId={excludeVocabId} />
+    </BottomSheet>
   );
 }

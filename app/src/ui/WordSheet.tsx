@@ -8,10 +8,10 @@ import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/voca
 import { vocabMnemonic } from "../lib/mnemonics";
 import type { Mnemonic } from "../lib/genParsers";
 import type { KuromojiToken } from "../lib/tokenizer";
+import { BottomSheet } from "./BottomSheet";
 import { KanjiBreakdown } from "./KanjiBreakdown";
-import { KanjiSheet } from "./KanjiSheet";
+import { KanjiDetail } from "./KanjiSheet";
 import { Emphasis } from "./kit/Emphasis";
-import { Sheet } from "./kit/Sheet";
 
 const POS_FR: Record<string, string> = {
   名詞: "nom",
@@ -87,9 +87,26 @@ export function WordSheet({
     };
   }, [token, content]);
 
+  // La fiche kanji remplace la vue mot DANS la même feuille (rangée retour en tête) :
+  // plus d'empilement de modales.
   return (
-    <>
-    <Sheet open onClose={onClose} className="gap-3 px-4 pt-6">
+    <BottomSheet
+      onClose={onClose}
+      resetKey={kanjiOpen}
+      ariaLabel={kanjiOpen ? `Fiche du kanji ${kanjiOpen}` : `Fiche du mot ${token.surface_form}`}
+    >
+      {kanjiOpen ? (
+        <>
+          <button
+            className="flex min-h-11 cursor-pointer items-center gap-2 self-start text-sm text-muted transition-colors hover:text-text"
+            onClick={() => setKanjiOpen(null)}
+          >
+            ← Retour à <span className="font-jp text-text">{token.surface_form}</span>
+          </button>
+          <KanjiDetail ch={kanjiOpen} excludeVocabId={itemIdFor(token)} />
+        </>
+      ) : (
+        <>
       <div className="flex items-baseline gap-3">
         <span className="font-jp text-2xl">{token.surface_form}</span>
         {reading && reading !== token.surface_form && (
@@ -161,16 +178,8 @@ export function WordSheet({
           Morphème grammatical — suivi dans la piste grammaire (à venir), pas en vocabulaire.
         </p>
       )}
-    </Sheet>
-
-    {/* Fiche kanji empilée : rendue après le Sheet parent → au-dessus (même z-50). */}
-    {kanjiOpen && (
-      <KanjiSheet
-        ch={kanjiOpen}
-        excludeVocabId={itemIdFor(token)}
-        onClose={() => setKanjiOpen(null)}
-      />
-    )}
-    </>
+        </>
+      )}
+    </BottomSheet>
   );
 }

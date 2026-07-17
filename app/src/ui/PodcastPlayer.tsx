@@ -11,6 +11,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { usePodcastPlayer } from "./usePodcastPlayer";
+import { useDragSheet, type SheetState } from "./kit/useDragSheet";
 import { STORY_RATES } from "./useSettings";
 import { navigate, useHashRoute } from "./useHashRoute";
 import { useMediaQuery } from "./useMediaQuery";
@@ -48,7 +49,6 @@ const REDUCED_KEY = "podcast.reduced";
 const EXPANDED_KEY = "podcast.expandedTracks";
 // Hauteur (px) réservée sous la barre du bas quand elle est visible (BOTTOM_NAV_HEIGHT = 3.5rem).
 const BOTTOM_NAV_PX = 56;
-type SheetState = "closed" | "open" | "full";
 
 /** Libellé de la vitesse courante (« 1× », « 1,25× ») pour le bouton de cycle. */
 function rateLabel(rate: number): string {
@@ -80,19 +80,15 @@ export function PodcastPlayer() {
       return new Set();
     }
   });
-  // Hauteur du tiroir pendant un glissement (null = calée sur le point d'ancrage `sheet`).
-  const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [vh, setVh] = useState<number>(() => (typeof window !== "undefined" ? window.innerHeight : 800));
   const [barH, setBarH] = useState(0);
+  // Zone scrollable interne de la liste (état : le hook de glissement s'y raccroche au montage).
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null); // tout le lecteur (panneau + barre)
   const contentRef = useRef<HTMLDivElement | null>(null); // contenu déroulant de la liste (hauteur animée)
-  const scrollRef = useRef<HTMLDivElement | null>(null); // zone scrollable interne de la liste
   const draggingRef = useRef(false); // scrub de la barre de progression
   const dragFrom = useRef<number | null>(null); // réordonnancement de la file
-  const sheetDrag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
-  // Géométrie courante lue par l'écouteur tactile de la liste (évite les closures périmées).
-  const envRef = useRef({ curSheetH: 0, openH: 0, fullH: 0 });
 
   // Le bottom nav n'apparaît qu'en mobile (pas grand écran) et que sur les 3 onglets
   // principaux (pas sur les sous-pages, qui portent toutes un `from`) — le lecteur se
@@ -105,13 +101,21 @@ export function PodcastPlayer() {
   const openH = Math.round(vh * 0.42);
   const fullH = Math.max(openH + 40, vh - barH - barBottomPx - 16);
   const snapHeight = (s: SheetState) => (s === "full" ? fullH : s === "open" ? openH : 0);
-  const sheetH = dragHeight != null ? dragHeight : snapHeight(sheet);
+  // Glissement du tiroir (poignée + continuité scroll ↔ tiroir) : logique partagée avec les
+  // fiches (BottomSheet) dans kit/useDragSheet.
+  const { sheetH, dragging, handleProps, cancelDrag } = useDragSheet({
+    snapH: snapHeight(sheet),
+    openH,
+    fullH,
+    scrollEl,
+    onSnap: setSheet,
+    onTap: () => setSheet((s) => (s === "closed" ? "open" : "closed")),
+  });
   const sheetVisible = sheetH > 0;
   // Le fond s'assombrit progressivement au fil de l'ouverture : opacité proportionnelle jusqu'au
   // point d'ancrage « ouvert » (atteint sa pleine intensité une fois la liste ouverte, puis
   // reste stable jusqu'au plein écran). Suit le glissement en direct, se fond au relâchement.
   const backdropOpacity = openH > 0 ? Math.min(1, sheetH / openH) * 0.6 : 0;
-  envRef.current = { curSheetH: snapHeight(sheet), openH, fullH };
 
   // Suit la hauteur de fenêtre (barres d'outils mobiles dynamiques) pour recalculer les ancrages.
   useEffect(() => {
@@ -154,65 +158,6 @@ export function PodcastPlayer() {
     if (typeof window !== "undefined") localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expandedTracks]));
   }, [expandedTracks]);
 
-  // Continuité scroll ↔ tiroir : quand la liste est scrollée à fond (en haut et qu'on tire vers
-  // le bas, ou en bas et qu'on tire vers le haut), le geste pilote la hauteur du panneau comme
-  // la poignée. On écoute le tactile en non-passif pour pouvoir couper le rebond natif au bon
-  // moment ; ailleurs, le scroll de la liste reste intact.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    let startY = 0;
-    let cap = false; // le geste pilote le tiroir
-    let capStartY = 0;
-    let capStartH = 0;
-    let lastH = 0;
-    const resolve = (h: number): SheetState => {
-      const { openH: o, fullH: f } = envRef.current;
-      if (h < 72) return "closed";
-      if (h > (o + f) / 2) return "full";
-      return "open";
-    };
-    const onStart = (e: TouchEvent) => {
-      startY = e.touches[0].clientY;
-      cap = false;
-    };
-    const onMove = (e: TouchEvent) => {
-      const y = e.touches[0].clientY;
-      const { curSheetH, fullH: f } = envRef.current;
-      if (!cap) {
-        const dy = startY - y; // vers le haut > 0
-        const atTop = el.scrollTop <= 0;
-        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-        if ((atTop && dy < -2) || (atBottom && dy > 2 && curSheetH < f - 1)) {
-          cap = true;
-          capStartY = y;
-          capStartH = curSheetH;
-        } else {
-          return; // laisse le scroll natif de la liste
-        }
-      }
-      e.preventDefault(); // coupe le rebond et pilote le tiroir
-      lastH = Math.min(f, Math.max(0, capStartH + (capStartY - y)));
-      setDragHeight(lastH);
-    };
-    const onEnd = () => {
-      if (!cap) return;
-      cap = false;
-      setSheet(resolve(lastH));
-      setDragHeight(null);
-    };
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: false });
-    el.addEventListener("touchend", onEnd);
-    el.addEventListener("touchcancel", onEnd);
-    return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchmove", onMove);
-      el.removeEventListener("touchend", onEnd);
-      el.removeEventListener("touchcancel", onEnd);
-    };
-  }, [p.active, reduced]);
-
   if (!p.active) return null;
 
   const current = p.segments[p.index];
@@ -251,41 +196,6 @@ export function PodcastPlayer() {
     p.seekFraction(frac);
   }
 
-  // Résolution du point d'ancrage au relâchement : plus tolérante qu'un simple « plus proche »
-  // — dès qu'on tire franchement vers le haut la liste s'ouvre, et un long glissement va au
-  // plein écran ; sous un petit seuil elle se referme.
-  function resolveSnap(h: number): SheetState {
-    if (h < 72) return "closed";
-    if (h > (openH + fullH) / 2) return "full";
-    return "open";
-  }
-
-  // Glissement du tiroir : on tire la poignée vers le haut pour ouvrir / plein écran, vers le
-  // bas pour refermer. Un simple tap (sans déplacement) bascule ouvert/fermé.
-  function onHandleDown(e: React.PointerEvent) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    sheetDrag.current = { startY: e.clientY, startH: snapHeight(sheet), moved: false };
-    setDragHeight(snapHeight(sheet));
-  }
-  function onHandleMove(e: React.PointerEvent) {
-    const d = sheetDrag.current;
-    if (!d) return;
-    const dy = d.startY - e.clientY;
-    if (Math.abs(dy) > 6) d.moved = true;
-    setDragHeight(Math.min(fullH, Math.max(0, d.startH + dy)));
-  }
-  function onHandleUp() {
-    const d = sheetDrag.current;
-    sheetDrag.current = null;
-    if (!d) return;
-    if (!d.moved) {
-      setSheet((s) => (s === "closed" ? "open" : "closed"));
-    } else {
-      setSheet(resolveSnap(dragHeight ?? d.startH));
-    }
-    setDragHeight(null);
-  }
-
   function toggleReduced() {
     setReduced((r) => {
       if (!r) setSheet("closed"); // on replie le tiroir en passant en mode réduit
@@ -308,11 +218,11 @@ export function PodcastPlayer() {
             // en thème sombre).
             backgroundColor: "#000",
             opacity: backdropOpacity,
-            transition: dragHeight != null ? "none" : "opacity 200ms cubic-bezier(0.2,0,0.2,1)",
+            transition: dragging ? "none" : "opacity 200ms cubic-bezier(0.2,0,0.2,1)",
           }}
           onPointerDown={() => {
             setSheet("closed");
-            setDragHeight(null);
+            cancelDrag();
           }}
         />
       )}
@@ -333,10 +243,7 @@ export function PodcastPlayer() {
                 glissement de déclencher le rafraîchissement de page (pull-to-refresh). */}
             <div
               className="flex touch-none cursor-grab justify-center py-2 active:cursor-grabbing"
-              onPointerDown={onHandleDown}
-              onPointerMove={onHandleMove}
-              onPointerUp={onHandleUp}
-              onPointerCancel={onHandleUp}
+              {...handleProps}
               role="button"
               aria-label={sheet === "closed" ? "Ouvrir la liste des pistes" : "Fermer la liste des pistes"}
               title="Glisser pour ouvrir la liste des pistes"
@@ -349,11 +256,11 @@ export function PodcastPlayer() {
               className="overflow-hidden"
               style={{
                 height: sheetH,
-                transition: dragHeight != null ? "none" : "height 200ms cubic-bezier(0.2,0,0.2,1)",
+                transition: dragging ? "none" : "height 200ms cubic-bezier(0.2,0,0.2,1)",
               }}
             >
               <div className="mx-auto flex h-full max-w-[44rem] flex-col px-4">
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
+                <div ref={setScrollEl} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
                 {/* File d'attente éditable (pistes) : réordonnancement par glisser-déposer + retrait. */}
                 {p.queue.length > 0 && (
                   <ol className="mb-3 list-none rounded-sm border border-hairline">

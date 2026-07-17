@@ -57,7 +57,7 @@ export function Sheet({ open, onClose, variant = "bottom", children, className =
         className={`relative z-10 flex flex-col overflow-y-auto bg-surface shadow-elev ${
           variant === "right"
             ? "h-full w-72 max-w-[85vw] border-l border-hairline"
-            : "w-full max-w-[44rem] animate-rise rounded-t-md border-t border-hairline"
+            : "max-h-full w-full max-w-[44rem] animate-rise rounded-t-md border-t border-hairline"
         } ${className}`}
         style={variant === "bottom" ? { paddingBottom: "calc(var(--safe-b) + 1.5rem)" } : undefined}
         onClick={(e) => e.stopPropagation()}

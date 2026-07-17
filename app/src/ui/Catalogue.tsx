@@ -149,20 +149,21 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
         </>
       )}
 
+      {/* À la fermeture des fiches, refresh() : des mots ont pu être ajoutés « à revoir »
+          depuis la vue kanji (interne à VocabPeekSheet, ou ouverte depuis l'inventaire). */}
       {vocabOpen && (
         <VocabPeekSheet
           v={vocabOpen}
           status={statusOf("vocab", vocabOpen.id)}
-          onOpenKanji={setKanjiOpen}
-          onClose={() => setVocabOpen(null)}
+          onClose={() => {
+            setVocabOpen(null);
+            void refresh();
+          }}
         />
       )}
-      {/* Fiche kanji rendue après la fiche mot → empilée au-dessus (même z-50).
-          À la fermeture, refresh() : des mots ont pu être ajoutés « à revoir ». */}
       {kanjiOpen && (
         <KanjiSheet
           ch={kanjiOpen}
-          excludeVocabId={vocabOpen?.id}
           onClose={() => {
             setKanjiOpen(null);
             void refresh();
