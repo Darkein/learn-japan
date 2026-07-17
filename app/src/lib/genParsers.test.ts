@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseComprehensionQcm, parseStoryTranslation } from "./genParsers";
+import { parseComprehensionQcm, parseMnemonic, parseStoryTranslation } from "./genParsers";
 
 // La composition des prompts (cadrage, histoire, traduction) vit désormais côté Worker
 // — voir worker/src/prompts.test.ts. Le client ne fait plus que parser la réponse.
@@ -83,5 +83,35 @@ describe("parseComprehensionQcm", () => {
     const r = parseComprehensionQcm(raw, grammarIds);
     expect(r[0].question).toBe("Pas de tag ?");
     expect(r[0].targetGrammarId).toBeUndefined();
+  });
+});
+
+describe("parseMnemonic", () => {
+  it("extrait les trois axes étiquetés", () => {
+    const raw = [
+      "LECTURE: « nichi » comme dans « niche » où dort le soleil.",
+      "SENS: le soleil qui marque le jour.",
+      "FORME: un cadre avec un trait au milieu, comme le soleil à l'horizon.",
+    ].join("\n");
+    const m = parseMnemonic(raw);
+    expect(m).not.toBeNull();
+    expect(m!.reading).toContain("niche");
+    expect(m!.meaning).toContain("jour");
+    expect(m!.form).toContain("soleil");
+  });
+
+  it("tolère « ： », la casse et un préfixe de puce", () => {
+    const raw = ["- lecture ：test lecture", "* Sens : test sens", "FORME:test forme"].join("\n");
+    const m = parseMnemonic(raw);
+    expect(m).toEqual({ reading: "test lecture", meaning: "test sens", form: "test forme" });
+  });
+
+  it("renvoie ce qui existe même si un axe manque", () => {
+    const m = parseMnemonic("SENS: seulement le sens");
+    expect(m).toEqual({ reading: "", meaning: "seulement le sens", form: "" });
+  });
+
+  it("renvoie null si aucune étiquette exploitable", () => {
+    expect(parseMnemonic("du texte sans étiquette")).toBeNull();
   });
 });

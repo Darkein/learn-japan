@@ -88,6 +88,27 @@ export function KanjiSheet({
         {detail.strokes != null && <span>{detail.strokes} traits</span>}
       </div>
 
+      {detail.mnemonic && (detail.mnemonic.reading || detail.mnemonic.meaning || detail.mnemonic.form) && (
+        <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
+          <p className="m-0 text-xs uppercase tracking-wider text-muted">Moyens mnémotechniques</p>
+          {detail.mnemonic.meaning && (
+            <span>
+              <span className="text-muted">Sens :</span> <span className="text-text">{detail.mnemonic.meaning}</span>
+            </span>
+          )}
+          {detail.mnemonic.reading && (
+            <span>
+              <span className="text-muted">Lecture :</span> <span className="text-text">{detail.mnemonic.reading}</span>
+            </span>
+          )}
+          {detail.mnemonic.form && (
+            <span>
+              <span className="text-muted">Forme :</span> <span className="text-text">{detail.mnemonic.form}</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {known.length > 0 && (
         <div className="flex flex-col gap-1">
           <p className="m-0 text-xs uppercase tracking-wider text-muted">Déjà connus</p>

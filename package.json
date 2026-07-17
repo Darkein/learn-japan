@@ -18,7 +18,8 @@
     "data:jmdict": "tsx scripts/build-jmdict.ts",
     "curriculum:check": "tsx scripts/check-curriculum.ts",
     "content:batch": "tsx scripts/pregenerate.ts",
-    "data:examples": "tsx scripts/build-examples.ts"
+    "data:examples": "tsx scripts/build-examples.ts",
+    "data:mnemonics": "tsx scripts/build-mnemonics.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

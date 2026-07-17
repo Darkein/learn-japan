@@ -321,3 +321,30 @@ describe("buildVocabExamplesPrompt", () => {
     expect(prompt).not.toContain("n'utilise QUE ce vocabulaire");
   });
 });
+
+describe("buildMnemonicPrompt", () => {
+  it("routé par composePrompt, expose les métadonnées et exige les 3 axes étiquetés", () => {
+    const prompt = composePrompt({
+      kind: "mnemonic",
+      kanji: "日",
+      meanings: ["Day", "Sun"],
+      on: ["にち", "じつ"],
+      kun: ["ひ"],
+      strokes: 4,
+    });
+    expect(prompt).toContain("日");
+    expect(prompt).toContain("Day, Sun");
+    expect(prompt).toContain("にち、じつ");
+    expect(prompt).toContain("Traits : 4");
+    expect(prompt).toContain("LECTURE:");
+    expect(prompt).toContain("SENS:");
+    expect(prompt).toContain("FORME:");
+    expect(prompt).toContain("EN FRANÇAIS");
+  });
+
+  it("reste sûr sans métadonnées (kanji seul)", () => {
+    const prompt = composePrompt({ kind: "mnemonic", kanji: "水" });
+    expect(prompt).toContain("水");
+    expect(prompt).toContain("FORME:");
+  });
+});

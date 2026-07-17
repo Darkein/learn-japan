@@ -7,8 +7,10 @@ import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import examplesInv from "../data/inventory/examples.json";
+import kanjiMnemonics from "../data/inventory/kanji-mnemonics.json";
 import { kataToHira, splitEntryForms } from "./kana";
 import type { VocabEntry } from "./curriculum";
+import type { Mnemonic } from "./genParsers";
 
 interface KanjiInvEntry {
   id: string;
@@ -38,6 +40,9 @@ interface GrammarInvEntry {
 }
 
 const kanjiById = new Map((kanjiInv as KanjiInvEntry[]).map((k) => [k.id, k]));
+// Moyens mnémotechniques (corpus statique généré par scripts/build-mnemonics.ts) : fichier
+// FRÈRE de kanji.json (le script ne réécrit que celui-ci, sans toucher la donnée curée).
+const mnemonicsById = kanjiMnemonics as Record<string, Mnemonic>;
 const vocabById = new Map((vocabInv as VocabInvEntry[]).map((v) => [v.id, v]));
 const grammarById = new Map(
   (grammarInv as { items: GrammarInvEntry[] }).items.map((g) => [g.id, g]),
@@ -148,6 +153,8 @@ export interface KanjiDetail {
   kun: string[];
   strokes?: number;
   level: number;
+  /** Moyens mnémotechniques (lecture / sens / forme), si générés. */
+  mnemonic?: Mnemonic;
 }
 
 /** Détail d'un kanji de l'inventaire (KANJIDIC), ou null s'il n'y figure pas. */
@@ -163,6 +170,7 @@ export function kanjiDetail(ch: string): KanjiDetail | null {
     kun: k.kun ?? [],
     strokes: k.strokes,
     level: k.level,
+    mnemonic: mnemonicsById[k.id],
   };
 }
 

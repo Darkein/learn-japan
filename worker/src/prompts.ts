@@ -19,7 +19,8 @@ export type GenKind =
   | "lesson-story"
   | "story-translation"
   | "comprehension-qcm"
-  | "vocab-examples";
+  | "vocab-examples"
+  | "mnemonic";
 
 /** Requête de génération : UNIQUEMENT des paramètres structurés (aucun prompt brut). */
 export interface GenerateRequest {
@@ -45,6 +46,13 @@ export interface GenerateRequest {
   sentences?: string[];
   // kind: "vocab-examples" — lexique déjà connu à privilégier dans les phrases.
   allowedVocab?: string[];
+  // kind: "mnemonic" — un kanji et ses métadonnées KANJIDIC (le Worker n'a pas d'inventaire).
+  kanji?: string;
+  meanings?: string[];
+  on?: string[];
+  kun?: string[];
+  strokes?: number;
+  components?: string[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
   variant?: number;
@@ -69,6 +77,14 @@ const LIMITS = {
   exampleVocabList: 20,
   allowedVocabList: 400,
   allowedVocabItem: 40,
+  // kind: "mnemonic" — un kanji + ses lectures/sens/composants.
+  kanjiChar: 4,
+  readingList: 12,
+  readingItem: 24,
+  meaningList: 12,
+  meaningItem: 60,
+  componentList: 12,
+  componentItem: 24,
   // Illustration : le texte d'histoire déjà généré sert de contexte de scène. Borne large
   // (une histoire N1 monte à ~750 caractères JP) mais fermée.
   illustrationText: 1200,
@@ -414,6 +430,48 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
     .join("\n");
 }
 
+/**
+ * Moyens mnémotechniques pour UN kanji, sur trois axes : la LECTURE (associer la lecture
+ * on/kun à un son mémorable), le SENS, et la FORME (histoire d'images à partir des traits
+ * et des composants). Corpus statique généré au build par scripts/build-mnemonics.ts.
+ * Toutes les métadonnées du kanji sont fournies dans le corps (le Worker n'a pas d'inventaire).
+ * Sortie à lignes étiquetées `LECTURE:` / `SENS:` / `FORME:` (parsée côté client, parseMnemonic).
+ */
+export function buildMnemonicPrompt(r: GenerateRequest): string {
+  const kanji = clean(r.kanji, LIMITS.kanjiChar);
+  const meanings = cleanList(r.meanings, LIMITS.meaningList, LIMITS.meaningItem);
+  const on = cleanList(r.on, LIMITS.readingList, LIMITS.readingItem);
+  const kun = cleanList(r.kun, LIMITS.readingList, LIMITS.readingItem);
+  const components = cleanList(r.components, LIMITS.componentList, LIMITS.componentItem);
+  const strokes = cleanOrder(r.strokes); // 0 si absent ; borné 1..999
+
+  const facts = [
+    `Kanji : ${kanji}`,
+    meanings.length ? `Sens : ${meanings.join(", ")}` : "",
+    on.length ? `Lectures on : ${on.join("、")}` : "",
+    kun.length ? `Lectures kun : ${kun.join("、")}` : "",
+    strokes ? `Traits : ${strokes}` : "",
+    components.length ? `Composants visibles : ${components.join("、")}` : "",
+  ].filter(Boolean);
+
+  return [
+    "Tu es un professeur de japonais qui aide des francophones à mémoriser les kanji.",
+    `Propose des moyens mnémotechniques EN FRANÇAIS pour le kanji ci-dessous.`,
+    ...facts,
+    "",
+    "Donne EXACTEMENT trois lignes, chacune préfixée par son étiquette, rien d'autre :",
+    "LECTURE: une astuce courte pour retenir la ou les lectures principales (associe le son à un mot français ou une image sonore).",
+    "SENS: une astuce courte pour retenir le sens du kanji.",
+    "FORME: une petite histoire visuelle reliant les traits ou les composants au sens (façon « histoire d'images »).",
+    "",
+    "Chaque ligne : une seule phrase concise (25 mots maximum), concrète et imagée, en français.",
+    "Appuie-toi sur des faits établis ; si un composant est incertain, reste sur la forme visible sans inventer d'étymologie douteuse.",
+    "N'ajoute ni titre, ni puce, ni ligne vide, ni commentaire — seulement les trois lignes étiquetées.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // ---------- Illustration d'histoire (ukiyo-e) --------------------------------
 // L'image est produite CÔTÉ WORKER, juste après le texte d'une histoire (voir index.ts),
 // à partir de ce texte. Aucun endpoint image public : la génération est repliée dans
@@ -521,6 +579,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildComprehensionQcmPrompt(req);
     case "vocab-examples":
       return buildVocabExamplesPrompt(req);
+    case "mnemonic":
+      return buildMnemonicPrompt(req);
     case "story":
     case undefined:
       return buildStoryPrompt(req);

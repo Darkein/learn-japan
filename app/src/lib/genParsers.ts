@@ -10,6 +10,34 @@ export interface StoryTranslation {
   sentences: string[];
 }
 
+/** Moyens mnémotechniques d'un kanji sur trois axes (lecture / sens / forme). */
+export interface Mnemonic {
+  reading: string;
+  meaning: string;
+  form: string;
+}
+
+/**
+ * Extrait les trois axes d'un moyen mnémotechnique (lignes étiquetées LECTURE:/SENS:/FORME:,
+ * cf. buildMnemonicPrompt côté Worker). Renvoie null si aucune étiquette exploitable — on
+ * préfère ne rien embarquer qu'une donnée douteuse. Robuste au bruit : accepte `:` ou `：`,
+ * tolère un préfixe de puce.
+ */
+export function parseMnemonic(raw: string): Mnemonic | null {
+  const grab = (label: string): string => {
+    for (const line of raw.split(/\r?\n/)) {
+      const m = line.match(new RegExp(`^\\s*[-*•]?\\s*${label}\\s*[:：]\\s*(.+)$`, "i"));
+      if (m) return m[1].trim();
+    }
+    return "";
+  };
+  const reading = grab("LECTURE");
+  const meaning = grab("SENS");
+  const form = grab("FORME");
+  if (!reading && !meaning && !form) return null;
+  return { reading, meaning, form };
+}
+
 /** Extrait le titre et les N traductions du texte renvoyé par le modèle (robuste au bruit). */
 export function parseStoryTranslation(raw: string, n: number): StoryTranslation {
   const lines = raw
