@@ -1,14 +1,15 @@
-// Corpus statique de moyens mnémotechniques — un jeu {lecture, sens, forme} par kanji de
-// l'inventaire. Généré via le Worker (kind "mnemonic", cache R2 → relances gratuites), puis
-// écrit dans app/src/data/inventory/kanji-mnemonics.json — fichier FRÈRE de kanji.json (que
-// build-inventory.ts régénère et écraserait). Reprise : les entrées déjà présentes sont
-// sautées (sauf --refresh). Le rendu (fiche kanji) fusionne ce fichier à l'exécution.
+// Corpus statique de moyens mnémotechniques par MOT (vocabulaire) — un jeu {lecture, sens,
+// composition} par mot de l'inventaire. Généré via le Worker (kind "word-mnemonic", cache R2
+// → relances gratuites), écrit dans app/src/data/inventory/vocab-mnemonics.json — fichier
+// FRÈRE de vocab.json. Reprise : les entrées présentes sont sautées (sauf --refresh). Le
+// rendu (fiche mot) fusionne ce fichier à l'exécution. Pendant complémentaire de
+// build-mnemonics.ts (niveau kanji).
 //
-//   npm run data:mnemonics                       # tous les kanji de l'inventaire
-//   npm run data:mnemonics -- --level 5          # seulement les kanji N5
-//   npm run data:mnemonics -- --limit 20         # test rapide sur 20 kanji
-//   npm run data:mnemonics -- --refresh          # ignore le cache R2 ET les entrées existantes
-//   WORKER_URL=https://… npm run data:mnemonics  # cibler un autre Worker
+//   npm run data:word-mnemonics                       # tout le vocabulaire de l'inventaire
+//   npm run data:word-mnemonics -- --level 5          # seulement le vocab N5
+//   npm run data:word-mnemonics -- --limit 20         # test rapide sur 20 mots
+//   npm run data:word-mnemonics -- --refresh          # ignore le cache R2 ET les entrées existantes
+//   WORKER_URL=https://… npm run data:word-mnemonics  # cibler un autre Worker
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -18,7 +19,7 @@ import { createProgressBar } from "./progress";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const INV = join(ROOT, "app", "src", "data", "inventory");
-const OUT = join(INV, "kanji-mnemonics.json");
+const OUT = join(INV, "vocab-mnemonics.json");
 const read = <T>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
 
 // `||` (pas `??`) : en CI la variable peut exister mais être VIDE → retomber sur le défaut.
@@ -30,30 +31,49 @@ const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-jap
 /** Espacement entre requêtes : évite les 429 du fournisseur (aligné sur GEN_GAP_MS client). */
 const GAP_MS = 1000;
 
-interface KanjiInvEntry {
+interface VocabInvEntry {
   id: string;
   level: number;
+  surface: string;
+  reading: string;
   fr?: string;
   meanings: string[];
-  on?: string[];
-  kun?: string[];
-  strokes?: number;
+}
+interface KanjiInvEntry {
+  id: string;
+  fr?: string;
+  meanings: string[];
 }
 
-const kanjiAll = read<KanjiInvEntry[]>(join(INV, "kanji.json"));
+const vocabAll = read<VocabInvEntry[]>(join(INV, "vocab.json"));
+const vocabFr = read<Record<string, string>>(join(INV, "vocab-fr.json"));
+const kanjiById = new Map(read<KanjiInvEntry[]>(join(INV, "kanji.json")).map((k) => [k.id, k]));
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-/** Un moyen mnémotechnique pour un kanji, ou null si le Worker ne renvoie rien d'exploitable. */
-async function generate(k: KanjiInvEntry, refresh: boolean): Promise<Mnemonic | null> {
+const frOf = (v: VocabInvEntry): string => v.fr ?? vocabFr[v.id] ?? v.meanings[0] ?? "";
+
+/** Glose « 漢字 = sens » de chaque kanji du mot (matière à l'axe composition). */
+function kanjiGloss(surface: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const ch of surface) {
+    if (!/\p{Script=Han}/u.test(ch) || seen.has(ch)) continue;
+    seen.add(ch);
+    const k = kanjiById.get(ch);
+    out.push(`${ch} = ${k?.fr ?? k?.meanings[0] ?? "?"}`);
+  }
+  return out;
+}
+
+/** Un moyen mnémotechnique pour un mot, ou null si le Worker ne renvoie rien d'exploitable. */
+async function generate(v: VocabInvEntry, refresh: boolean): Promise<Mnemonic | null> {
   const body = {
-    kind: "mnemonic",
-    kanji: k.id,
-    fr: k.fr, // traduction française curée — ancre du sens côté prompt
-    meanings: k.meanings,
-    on: k.on ?? [],
-    kun: k.kun ?? [],
-    strokes: k.strokes,
+    kind: "word-mnemonic",
+    word: v.surface,
+    yomi: v.reading,
+    fr: frOf(v),
+    components: kanjiGloss(v.surface),
     ...(refresh ? { refresh: true } : {}),
   };
   const res = await fetch(`${WORKER_URL}/generate`, {
@@ -86,11 +106,10 @@ function parseArgs(argv: string[]): Args {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  // Efface la vue (les lignes « > … » que npm imprime avant le script) pour partir sur un
-  // écran propre. TTY uniquement (n'affecte pas les logs CI) ; le scrollback est préservé.
+  // Efface la vue (les lignes « > … » de npm) pour partir sur un écran propre — TTY only.
   if (process.stdout.isTTY) process.stdout.write("\x1b[2J\x1b[H");
-  let pool = kanjiAll;
-  if (args.level) pool = pool.filter((k) => k.level === args.level);
+  let pool = vocabAll;
+  if (args.level) pool = pool.filter((v) => v.level === args.level);
   if (args.limit) pool = pool.slice(0, args.limit);
 
   const existing: Record<string, Mnemonic> = existsSync(OUT) ? read(OUT) : {};
@@ -98,34 +117,32 @@ async function main(): Promise<void> {
 
   console.log(`Worker : ${WORKER_URL}`);
   console.log(
-    `Kanji : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""}`,
+    `Mots : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""}`,
   );
 
   const total = pool.length;
-  // Ratés collectés pour être listés À LA FIN : les afficher pendant le run casserait la barre.
   const problems: string[] = [];
-  // ETA sur les kanji RÉELLEMENT générés (hors repris, qui « avancent » instantanément).
-  const toProcess = args.refresh ? total : pool.filter((k) => !results[k.id]).length;
+  const toProcess = args.refresh ? total : pool.filter((v) => !results[v.id]).length;
   const bar = createProgressBar(total, toProcess);
 
-  for (const k of pool) {
-    bar.preview(k.id); // feedback immédiat pendant l'appel réseau
-    if (!args.refresh && results[k.id]) {
-      bar.tick("skipped", k.id);
+  for (const v of pool) {
+    bar.preview(v.surface);
+    if (!args.refresh && results[v.id]) {
+      bar.tick("skipped", v.surface);
       continue;
     }
     try {
-      const m = await generate(k, args.refresh);
+      const m = await generate(v, args.refresh);
       if (m) {
-        results[k.id] = m;
-        bar.tick("ok", k.id);
+        results[v.id] = m;
+        bar.tick("ok", v.surface);
       } else {
-        problems.push(`⚠ ${k.id} — réponse non exploitable`);
-        bar.tick("empty", k.id);
+        problems.push(`⚠ ${v.surface} (${v.id}) — réponse non exploitable`);
+        bar.tick("empty", v.surface);
       }
     } catch (e) {
-      problems.push(`✗ ${k.id} — ${String(e)}`);
-      bar.tick("failed", k.id);
+      problems.push(`✗ ${v.surface} (${v.id}) — ${String(e)}`);
+      bar.tick("failed", v.surface);
     }
     // Sauvegarde incrémentale : une interruption ne perd pas le travail déjà fait.
     writeFileSync(OUT, JSON.stringify(results, null, 1) + "\n");

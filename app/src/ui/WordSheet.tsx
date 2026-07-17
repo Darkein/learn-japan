@@ -5,6 +5,7 @@ import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
 import { speakWord, stopSentence } from "../lib/tts";
 import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
+import { vocabMnemonic } from "../lib/inventory";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { KanjiBreakdown } from "./KanjiBreakdown";
 import { KanjiSheet } from "./KanjiSheet";
@@ -50,6 +51,9 @@ export function WordSheet({
 }) {
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
+  // Mnémo mot (corpus statique) : l'id du token (`basic_form|lecture`) coïncide avec l'id
+  // inventaire (`surface|lecture`) pour les mots usuels. Absent → rien affiché.
+  const mnemonic = content ? vocabMnemonic(itemIdFor(token)) : undefined;
   const [encounter, setEncounter] = useState<ReEncounter | null>(null);
   const [kanjiOpen, setKanjiOpen] = useState<string | null>(null);
 
@@ -96,6 +100,27 @@ export function WordSheet({
         <div className="text-sm text-muted">
           Croisé pour la {encounter.count}ᵉ fois
           {encounter.learnedAt != null && <> · appris {formatDaysAgo(encounter.learnedAt)}</>}
+        </div>
+      )}
+
+      {mnemonic && (mnemonic.reading || mnemonic.meaning || mnemonic.form) && (
+        <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
+          <p className="m-0 text-xs uppercase tracking-wider text-muted">Moyens mnémotechniques</p>
+          {mnemonic.meaning && (
+            <span>
+              <span className="text-muted">Sens :</span> <span className="text-text">{mnemonic.meaning}</span>
+            </span>
+          )}
+          {mnemonic.reading && (
+            <span>
+              <span className="text-muted">Lecture :</span> <span className="text-text">{mnemonic.reading}</span>
+            </span>
+          )}
+          {mnemonic.form && (
+            <span>
+              <span className="text-muted">Composition :</span> <span className="text-text">{mnemonic.form}</span>
+            </span>
+          )}
         </div>
       )}
 

@@ -350,3 +350,28 @@ describe("buildMnemonicPrompt", () => {
     expect(prompt).toContain("FORME:");
   });
 });
+
+describe("buildWordMnemonicPrompt", () => {
+  it("routé par composePrompt, ancre le sens FR, la lecture entière et la composition", () => {
+    const prompt = composePrompt({
+      kind: "word-mnemonic",
+      word: "勉強",
+      yomi: "べんきょう",
+      fr: "étudier",
+      components: ["勉 = effort", "強 = fort"],
+    });
+    expect(prompt).toContain("Mot : 勉強");
+    expect(prompt).toContain("べんきょう");
+    expect(prompt).toContain("étudier");
+    expect(prompt).toContain("勉 = effort ; 強 = fort");
+    expect(prompt).toContain("LECTURE: OBLIGATOIRE");
+    expect(prompt).toContain("FORME:");
+    expect(prompt).toContain("EN FRANÇAIS");
+  });
+
+  it("reste sûr sans composants (mot mono-kanji ou kana)", () => {
+    const prompt = composePrompt({ kind: "word-mnemonic", word: "ねこ", fr: "chat" });
+    expect(prompt).toContain("Mot : ねこ");
+    expect(prompt).toContain("chat");
+  });
+});

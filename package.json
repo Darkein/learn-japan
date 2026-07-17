@@ -19,7 +19,8 @@
     "curriculum:check": "tsx scripts/check-curriculum.ts",
     "content:batch": "tsx scripts/pregenerate.ts",
     "data:examples": "tsx scripts/build-examples.ts",
-    "data:mnemonics": "tsx scripts/build-mnemonics.ts"
+    "data:mnemonics": "tsx scripts/build-mnemonics.ts",
+    "data:word-mnemonics": "tsx scripts/build-word-mnemonics.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

@@ -20,7 +20,8 @@ export type GenKind =
   | "story-translation"
   | "comprehension-qcm"
   | "vocab-examples"
-  | "mnemonic";
+  | "mnemonic"
+  | "word-mnemonic";
 
 /** Requête de génération : UNIQUEMENT des paramètres structurés (aucun prompt brut). */
 export interface GenerateRequest {
@@ -55,6 +56,10 @@ export interface GenerateRequest {
   kun?: string[];
   strokes?: number;
   components?: string[];
+  // kind: "word-mnemonic" — un mot (surface + lecture), `fr` = sens, `components` = glose
+  // « 漢字 = sens » de chaque kanji du mot (matière à l'axe composition).
+  word?: string;
+  yomi?: string;
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
   variant?: number;
@@ -79,9 +84,11 @@ const LIMITS = {
   exampleVocabList: 20,
   allowedVocabList: 400,
   allowedVocabItem: 40,
-  // kind: "mnemonic" — un kanji + ses lectures/sens/composants.
+  // kind: "mnemonic" / "word-mnemonic" — un kanji ou un mot + ses lectures/sens/composants.
   kanjiChar: 4,
   frMeaning: 80,
+  wordSurface: 40,
+  wordReading: 60,
   readingList: 12,
   readingItem: 24,
   meaningList: 12,
@@ -482,6 +489,45 @@ export function buildMnemonicPrompt(r: GenerateRequest): string {
     .join("\n");
 }
 
+/**
+ * Moyens mnémotechniques pour UN MOT (vocabulaire), sur trois axes : LECTURE (cheville
+ * sonore de la lecture entière), SENS (traduction française), et COMPOSITION (comment les
+ * kanji du mot se combinent pour donner le sens). Réutilise le format à lignes étiquetées
+ * LECTURE:/SENS:/FORME: (même parser que le mnémo kanji) — l'UI affiche « FORME » comme
+ * « Composition » pour un mot. Sortie EN FRANÇAIS.
+ */
+export function buildWordMnemonicPrompt(r: GenerateRequest): string {
+  const word = clean(r.word, LIMITS.wordSurface);
+  const yomi = clean(r.yomi, LIMITS.wordReading);
+  const fr = clean(r.fr, LIMITS.frMeaning);
+  // `components` = glose « 漢字 = sens » de chaque kanji du mot (matière à la composition).
+  const components = cleanList(r.components, LIMITS.componentList, LIMITS.componentItem);
+
+  const facts = [
+    `Mot : ${word}`,
+    yomi ? `Lecture : ${yomi}` : "",
+    fr ? `Sens (français, à utiliser) : ${fr}` : "",
+    components.length ? `Kanji qui le composent : ${components.join(" ; ")}` : "",
+  ].filter(Boolean);
+
+  return [
+    "Tu es un professeur de japonais qui aide des francophones à mémoriser le vocabulaire.",
+    "Propose des moyens mnémotechniques EN FRANÇAIS pour le MOT ci-dessous. Ancre le SENS sur la traduction française fournie.",
+    ...facts,
+    "",
+    "Donne EXACTEMENT trois lignes, chacune préfixée par son étiquette, rien d'autre :",
+    "LECTURE: OBLIGATOIRE, jamais vide. Relie le SON de la lecture ENTIÈRE du mot (donnée ci-dessus) à un mot ou une image en français, et rattache-le au sens. Exemple pour 勉強 (べんきょう, « étudier ») : « benkyou → “bien, écoute !” quand on étudie ». Si aucun rapprochement n'est net, invente une petite phrase française qui contient le son de la lecture.",
+    "SENS: une astuce courte pour retenir le sens FRANÇAIS du mot.",
+    "FORME: si le mot a plusieurs kanji, explique comment leurs sens se combinent pour donner celui du mot (ex. 勉 « effort » + 強 « fort » → étudier avec effort) ; s'il n'a qu'un kanji ou aucun, laisse cette ligne vide après l'étiquette.",
+    "",
+    "Chaque ligne : une seule phrase concise (25 mots maximum), concrète et imagée, en français.",
+    "Appuie-toi sur des faits établis ; n'invente pas d'étymologie douteuse.",
+    "N'ajoute ni titre, ni puce, ni ligne vide, ni commentaire — seulement les trois lignes étiquetées.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // ---------- Illustration d'histoire (ukiyo-e) --------------------------------
 // L'image est produite CÔTÉ WORKER, juste après le texte d'une histoire (voir index.ts),
 // à partir de ce texte. Aucun endpoint image public : la génération est repliée dans
@@ -591,6 +637,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildVocabExamplesPrompt(req);
     case "mnemonic":
       return buildMnemonicPrompt(req);
+    case "word-mnemonic":
+      return buildWordMnemonicPrompt(req);
     case "story":
     case undefined:
       return buildStoryPrompt(req);

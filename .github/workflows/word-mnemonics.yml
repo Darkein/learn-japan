@@ -1,0 +1,67 @@
+name: Build word mnemonics corpus
+
+# Génère le corpus statique de moyens mnémotechniques par MOT
+# (app/src/data/inventory/vocab-mnemonics.json) via le Worker (kind word-mnemonic, cache R2)
+# puis committe le résultat sur la branche de dispatch. Manuel uniquement : la génération
+# consomme du quota côté Worker. Prérequis : le Worker déployé doit connaître le kind
+# word-mnemonic (deploy-worker.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      level:
+        description: "Niveau JLPT cible (5..1, vide = tout l'inventaire)"
+        required: false
+        default: "5"
+      limit:
+        description: "Nombre de mots (vide = tout le niveau)"
+        required: false
+        default: ""
+      refresh:
+        description: "Ignorer le cache R2 et les entrées existantes"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# Un seul run à la fois : deux générations concurrentes pousseraient des commits en conflit.
+concurrency:
+  group: build-word-mnemonics
+  cancel-in-progress: false
+
+jobs:
+  build-word-mnemonics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Générer le corpus
+        run: >-
+          npm run data:word-mnemonics --
+          ${{ inputs.level && format('--level {0}', inputs.level) || '' }}
+          ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
+          ${{ inputs.refresh && '--refresh' || '' }}
+        env:
+          # Même variable de repo que deploy.yml ; le script retombe sur le Worker déployé si absente.
+          WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+      # Garde-fou : un push du bot (GITHUB_TOKEN) ne déclenche pas la CI — on vérifie donc
+      # ICI que le nouveau corpus ne casse aucun test avant de le committer sur la branche.
+      - name: Tester avec le corpus regénéré
+        run: npm test
+      - name: Committer le corpus regénéré
+        run: |
+          if git diff --quiet app/src/data/inventory/vocab-mnemonics.json; then
+            echo "Corpus inchangé — rien à committer."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/data/inventory/vocab-mnemonics.json
+          git commit -m "data: régénération du corpus de mnémotechniques mot (workflow word-mnemonics)"
+          git push
