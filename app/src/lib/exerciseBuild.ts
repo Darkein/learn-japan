@@ -146,6 +146,30 @@ export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceEx
 }
 
 /**
+ * Occurrence du mot dans sa phrase d'exemple : graphie, lecture, ou FORME RENCONTRÉE
+ * (radical conjugué porté par l'id, ex. « し » pour する|し) — la phrase d'une histoire
+ * contient la forme conjuguée, pas la forme de dictionnaire stockée depuis
+ * newVocabItemFromToken. Null si le mot n'apparaît sous aucune forme.
+ */
+function exampleHit(v: VocabItem, ja?: string): string | null {
+  if (!ja) return null;
+  if (ja.includes(v.surface)) return v.surface;
+  if (ja.includes(v.reading)) return v.reading;
+  const stem = v.id.split("|")[1];
+  if (stem && stem !== v.reading && ja.includes(stem)) return stem;
+  return null;
+}
+
+/** Réponses acceptées quand la phrase masque `hit` : la forme masquée doit toujours
+    être acceptée telle quelle (taper « し » dans 宿題を◯◯ます。 est LA bonne réponse,
+    même si la carte porte する). */
+function answersWithHit(answers: string[], hit: string | null): string[] {
+  if (!hit) return answers;
+  const norm = normalizeReading(hit);
+  return answers.includes(norm) ? answers : [...answers, norm];
+}
+
+/**
  * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
  * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
  * entendu (exige un exemple). Le mot cible est masqué (◯◯) dans la phrase affichée quand
@@ -171,11 +195,7 @@ export function vocabTypeExercise(
     ? answerVariants(v.surface, v.reading)
     : answerVariants(v.reading);
   if (opts.produce) {
-    const hit = example?.ja.includes(v.surface)
-      ? v.surface
-      : example?.ja.includes(v.reading)
-        ? v.reading
-        : null;
+    const hit = exampleHit(v, example?.ja);
     const base = {
       mode: "type" as const,
       key: `vocab-produce:${v.id}`,
@@ -194,6 +214,7 @@ export function vocabTypeExercise(
         prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
         context: example.ja,
         ...(example.fr ? { contextFr: example.fr } : {}),
+        answers: answersWithHit(answers, hit),
         audioBack: { word: v.surface },
       };
     }
@@ -209,11 +230,7 @@ export function vocabTypeExercise(
       const ex = vocabTypeExercise(v, due, { produce: true });
       return { ...ex, key: `vocab-listen-silent:${v.id}`, skill: "oral" };
     }
-    const hit = example?.ja.includes(v.surface)
-      ? v.surface
-      : example?.ja.includes(v.reading)
-        ? v.reading
-        : null;
+    const hit = exampleHit(v, example?.ja);
     return {
       mode: "type",
       key: `vocab-listen:${v.id}`,
@@ -230,7 +247,7 @@ export function vocabTypeExercise(
       context: example?.ja,
       ...(example?.fr ? { contextFr: example.fr } : {}),
       prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
-      answers,
+      answers: answersWithHit(answers, hit),
       audioBack: { word: v.surface },
     };
   }

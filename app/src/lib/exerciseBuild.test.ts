@@ -349,6 +349,45 @@ describe("vocabTypeExercise — production en contexte (produce)", () => {
   });
 });
 
+describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", () => {
+  // Item créé depuis します puis réparé : surface/lecture = forme de dictionnaire する,
+  // l'id garde la lecture de la forme rencontrée (し), présente dans la phrase d'exemple.
+  const suru = {
+    id: "する|し",
+    surface: "する",
+    reading: "する",
+    meaning: "faire",
+    tags: [],
+    status: "review" as const,
+    cards: {},
+    example: { ja: "宿題をします。", fr: "Je fais mes devoirs." },
+  };
+
+  it("produce : masque la forme rencontrée et l'accepte en réponse (avec la forme de base)", () => {
+    const ex = vocabTypeExercise(suru, 0, { produce: true });
+    expect(ex.front).toBe("宿題を◯◯ます。");
+    expect(ex.answers).toEqual(expect.arrayContaining(["し", "する"]));
+  });
+
+  it("listen : masque la forme rencontrée et l'accepte en réponse", () => {
+    const ex = vocabTypeExercise(suru, 0, { listen: true });
+    expect(ex.front).toBe("宿題を◯◯ます。");
+    expect(ex.prompt).toBe("Écoute et tape le mot manquant");
+    expect(ex.answers).toEqual(expect.arrayContaining(["し", "する"]));
+  });
+
+  it("item curé (lecture = partie lecture de l'id) : comportement inchangé", () => {
+    const neko = {
+      id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat",
+      tags: [], status: "review" as const, cards: {},
+      example: { ja: "猫が走る。" },
+    };
+    const ex = vocabTypeExercise(neko, 0, { produce: true });
+    expect(ex.front).toBe("◯◯が走る。");
+    expect(ex.answers).toEqual(["猫", "ねこ"]);
+  });
+});
+
 describe("vocabTypeExercise — entrées du dico annotées", () => {
   function vocab(over: { surface: string; reading: string; meaning: string }) {
     return {
