@@ -25,7 +25,22 @@ const GRADE_TO_RATING: Record<SrsGrade, Grade> = {
   easy: Rating.Easy,
 };
 
-const scheduler = fsrs(generatorParameters({ enable_fuzz: true }));
+// Cible de rétention courante (`request_retention`). Ajustée à l'exécution par le module
+// d'auto-réglage (lib/tuning.ts) selon le taux d'erreur mesuré : le scheduler est reconstruit
+// à chaque changement. Défaut = 0.9 (défaut FSRS) tant qu'aucun réglage n'est appliqué.
+let requestRetention = 0.9;
+let scheduler = fsrs(generatorParameters({ request_retention: requestRetention, enable_fuzz: true }));
+
+/** Cible de rétention actuellement appliquée au scheduler. */
+export function getRequestRetention(): number {
+  return requestRetention;
+}
+
+/** Reconstruit le scheduler avec une nouvelle cible de rétention (auto-réglage). */
+export function setRequestRetention(r: number): void {
+  requestRetention = r;
+  scheduler = fsrs(generatorParameters({ request_retention: r, enable_fuzz: true }));
+}
 
 /** Nouvelle carte vierge (élément jamais révisé). */
 export function newCard(now: Date = new Date()): Card {
