@@ -1,8 +1,14 @@
 import "fake-indexeddb/auto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Le tokenizer kuromoji charge son dictionnaire par réseau : stubé (comme analyze.test.ts).
+// L'estimation JLPT sur tokens vides retombe sur N3 ; la logique est testée via computeJlptLevel.
+vi.mock("./tokenizer", () => ({ tokenize: async () => [] }));
+
 import {
   ArticleImportError,
   cleanArticleTitle,
+  computeJlptLevel,
   decodeHtml,
   japaneseRatio,
   normalizeArticleParagraphs,
@@ -83,6 +89,24 @@ describe("decodeHtml", () => {
   });
 });
 
+describe("computeJlptLevel", () => {
+  it("N5 si ≥ 90 % des mots sont N5", () => {
+    expect(computeJlptLevel([5, 5, 5, 5, 5, 5, 5, 5, 5, 4])).toBe(5);
+  });
+  it("descend au niveau couvrant 90 % des occurrences", () => {
+    expect(computeJlptLevel([5, 5, 5, 3, 3, 3, 3, 3, 3, 3])).toBe(3);
+  });
+  it("N2 si la couverture N3 reste ≥ 70 % (inventaire borné à N3)", () => {
+    expect(computeJlptLevel([3, 3, 3, 3, 3, 3, 3, 3, null, null])).toBe(2);
+  });
+  it("N1 si les mots hors inventaire dominent", () => {
+    expect(computeJlptLevel([null, null, null, 5, 5])).toBe(1);
+  });
+  it("N3 par défaut sans mots de contenu", () => {
+    expect(computeJlptLevel([])).toBe(3);
+  });
+});
+
 describe("saveArticle", () => {
   it("enregistre un article marqué source et le liste dans allArticles, pas allStories", async () => {
     const article = await saveArticle({
@@ -109,9 +133,10 @@ describe("saveArticle", () => {
     expect(article.text).toBe("iPhoneの新しい機能が発表された。日本でも人気だ。");
   });
 
-  it("dérive un titre de la première ligne si absent", async () => {
+  it("dérive un titre de la première ligne si absent, et estime le niveau JLPT", async () => {
     const article = await saveArticle({ text: "短い記事です。\n二行目。" });
     expect(article.title).toBe("短い記事です。");
+    expect(article.params.level).toBe(3); // tokenizer stubé → estimation par défaut
   });
 
   it("refuse un texte non japonais", async () => {

@@ -67,7 +67,7 @@ export function Articles({ onOpen }: Props) {
                   <div className="flex flex-wrap gap-2">
                     <ReadabilityBadge text={a.text} />
                     {a.source?.siteName && <Badge>{a.source.siteName}</Badge>}
-                    {a.params.level && <Badge>N{a.params.level}</Badge>}
+                    {a.params.level && <Badge>≈ N{a.params.level}</Badge>}
                   </div>
                 </div>
                 <span className="shrink-0 self-center text-muted">
@@ -132,7 +132,6 @@ export function Articles({ onOpen }: Props) {
 function ArticleImportPanel({ onImported }: { onImported: (article: StoryRecord) => void }) {
   const [url, setUrl] = useState("");
   const [paste, setPaste] = useState("");
-  const [level, setLevel] = useState(3);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,26 +166,9 @@ function ArticleImportPanel({ onImported }: { onImported: (article: StoryRecord)
             onChange={(e) => setUrl(e.target.value)}
           />
         </div>
-        <div className="flex shrink-0 grow-0 basis-20 flex-col gap-1">
-          <label className="font-sans text-xs uppercase tracking-wider text-muted" htmlFor="a-level">
-            JLPT
-          </label>
-          <select
-            className="h-11 appearance-none rounded-sm border border-hairline bg-bg p-2 text-text"
-            id="a-level"
-            value={level}
-            onChange={(e) => setLevel(Number(e.target.value))}
-          >
-            {[5, 4, 3, 2, 1].map((n) => (
-              <option key={n} value={n}>
-                N{n}
-              </option>
-            ))}
-          </select>
-        </div>
         <Button
           variant="primary"
-          onClick={() => void run(() => importArticleFromUrl(url.trim(), level))}
+          onClick={() => void run(() => importArticleFromUrl(url.trim()))}
           disabled={importing || !url.trim()}
         >
           {importing ? "Import…" : "Importer"}
@@ -208,7 +190,7 @@ function ArticleImportPanel({ onImported }: { onImported: (article: StoryRecord)
         <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="primary"
-            onClick={() => void run(() => saveArticle({ text: paste, level }))}
+            onClick={() => void run(() => saveArticle({ text: paste }))}
             disabled={importing || !paste.trim()}
           >
             Lire ce texte

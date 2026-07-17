@@ -117,6 +117,38 @@ export function staticExample(id: string): { ja: string; fr?: string } | null {
   return examplesById[canonicalVocabId(id)] ?? null;
 }
 
+/** Niveau JLPT (5..1) d'un id de vocabulaire dans l'inventaire, ou null s'il n'y figure pas. */
+export function vocabLevel(id: string): number | null {
+  return vocabById.get(canonicalVocabId(id))?.level ?? null;
+}
+
+/**
+ * Niveau JLPT d'une FORME isolée (surface OU lecture), pour l'estimation de difficulté
+ * d'un texte : l'id `basic_form|lecture` d'un token rate beaucoup d'entrées de
+ * l'inventaire (サ変 stockés « 準備|じゅんびする », mots écrits en kana dont l'entrée est
+ * kanji « 沢山|たくさん », verbes kana sous surface kanji « 在る|ある »). Les homophones
+ * partagent leur clé : on retient le niveau le plus ACCESSIBLE — estimation volontairement
+ * généreuse, jamais utilisée pour le SRS.
+ */
+export function vocabLevelByForm(form: string): number | null {
+  if (!levelByForm) {
+    levelByForm = new Map();
+    for (const v of vocabInv as VocabInvEntry[]) {
+      const [surfacePart, readingPart] = v.id.split("|");
+      const forms = [
+        ...splitEntryForms(surfacePart),
+        ...splitEntryForms(readingPart ?? "").map(kataToHira),
+      ];
+      for (const f of forms) {
+        const prev = levelByForm.get(f);
+        if (prev == null || v.level > prev) levelByForm.set(f, v.level);
+      }
+    }
+  }
+  return levelByForm.get(form) ?? null;
+}
+let levelByForm: Map<string, number> | null = null;
+
 /** Résout un id de vocabulaire `surface|reading` en entrée affichable. */
 export function resolveVocab(id: string): VocabEntry {
   const cid = canonicalVocabId(id);

@@ -4,6 +4,9 @@
 // N.B. : ne pas confondre avec readability.ts (score de lisibilité JLPT).
 import { putStory, type StoryRecord } from "./db";
 import { isKana, isKanji, isJaSentenceEnd } from "./kana";
+import { vocabLevel, vocabLevelByForm } from "./inventory";
+import { tokenize } from "./tokenizer";
+import { baseForm, isContent, itemIdFor } from "./vocab";
 import { WORKER_URL } from "./config";
 
 /**
@@ -62,6 +65,44 @@ export function normalizeArticleParagraphs(paragraphs: string[]): string {
     .join("\n");
 }
 
+// Estimation du niveau JLPT ----------------------------------------------------
+
+/**
+ * Niveau JLPT estimé depuis les niveaux inventaire des mots de contenu : le niveau le
+ * plus accessible dont les mots couvrent ≥ 90 % des occurrences (seuil de la lecture
+ * extensive). L'inventaire s'arrête à N3 : au-delà, on distingue N2 (couverture N3
+ * encore ≥ 70 %) de N1 (texte majoritairement hors inventaire). Un mot hors inventaire
+ * (null) compte comme difficile. Sans mot de contenu, N3 (défaut raisonnable presse).
+ */
+export function computeJlptLevel(levels: Array<number | null>): number {
+  if (levels.length === 0) return 3;
+  const coverage = (min: number) =>
+    levels.filter((l) => l != null && l >= min).length / levels.length;
+  for (const candidate of [5, 4, 3]) {
+    if (coverage(candidate) >= 0.9) return candidate;
+  }
+  return coverage(3) >= 0.7 ? 2 : 1;
+}
+
+/**
+ * Tokenise le texte et estime son niveau JLPT depuis l'inventaire de vocabulaire.
+ * L'id exact `basic_form|lecture` rate les formes conjuguées et les variantes
+ * d'écriture : on retombe sur l'index par forme de base (voir vocabLevelByForm).
+ */
+export async function estimateJlptLevel(text: string): Promise<number> {
+  // Noms propres, nombres et suffixes exclus : jamais dans l'inventaire, ils
+  // fausseraient l'estimation vers le difficile (fréquents dans un article de presse).
+  const tokens = (await tokenize(text)).filter(
+    (t) =>
+      isContent(t) &&
+      t.pos_detail_1 !== "固有名詞" &&
+      t.pos_detail_1 !== "数" &&
+      t.pos_detail_1 !== "接尾",
+  );
+  const levels = tokens.map((t) => vocabLevel(itemIdFor(t)) ?? vocabLevelByForm(baseForm(t)));
+  return computeJlptLevel(levels);
+}
+
 // Enregistrement -------------------------------------------------------------
 
 export interface ArticleInput {
@@ -88,12 +129,15 @@ export async function saveArticle(input: ArticleInput): Promise<StoryRecord> {
   if (japaneseRatio(text) < MIN_JA_RATIO) {
     throw new ArticleImportError("Ce texte ne semble pas être du japonais.");
   }
+  // Niveau JLPT toujours déduit du texte (sauf fourni) : l'utilisateur ne peut pas le
+  // connaître, et il paramètre les générations dérivées (exercices, traduction).
+  const level = input.level ?? (await estimateJlptLevel(text).catch(() => 3));
   const article: StoryRecord = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
     title: input.title?.trim() || makeArticleTitle(text),
     text,
-    params: input.level != null ? { level: input.level } : {},
+    params: { level },
     source: {
       kind: "article",
       ...(input.url ? { url: input.url } : {}),
@@ -219,7 +263,7 @@ export async function extractReadable(html: string, baseUrl: string): Promise<Ex
 }
 
 /** Chaîne complète : URL → proxy Worker → décodage → Readability → StoryRecord. */
-export async function importArticleFromUrl(url: string, level?: number): Promise<StoryRecord> {
+export async function importArticleFromUrl(url: string): Promise<StoryRecord> {
   const fetched = await fetchArticleBytes(url);
   const html = decodeHtml(fetched.bytes, fetched.contentType);
   const extracted = await extractReadable(html, fetched.finalUrl);
@@ -236,6 +280,5 @@ export async function importArticleFromUrl(url: string, level?: number): Promise
     title: extracted.title,
     url: fetched.finalUrl,
     siteName,
-    level,
   });
 }
