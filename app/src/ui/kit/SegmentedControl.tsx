@@ -10,6 +10,8 @@ interface Props<T extends string | number> {
   ariaLabel: string;
   /** Étire les segments pour occuper toute la largeur (ex. réglages) ; sinon largeur au contenu (ex. filtres catalogue). */
   fullWidth?: boolean;
+  /** Segment actif en aplat accent (bascule principale) au lieu de `surface-2` (filtres). */
+  accent?: boolean;
   className?: string;
 }
 
@@ -20,6 +22,7 @@ export function SegmentedControl<T extends string | number>({
   onChange,
   ariaLabel,
   fullWidth,
+  accent,
   className = "",
 }: Props<T>) {
   return (
@@ -31,7 +34,7 @@ export function SegmentedControl<T extends string | number>({
       {options.map((o) => (
         <button
           key={o.value}
-          className={`min-h-11 cursor-pointer border-l border-hairline text-xs tracking-wide text-muted first:border-l-0 aria-pressed:bg-surface-2 aria-pressed:font-medium aria-pressed:text-text ${fullWidth ? "flex-1 px-2" : "px-3"}`}
+          className={`min-h-11 cursor-pointer border-l border-hairline text-xs tracking-wide text-muted first:border-l-0 aria-pressed:font-medium ${accent ? "transition-colors aria-pressed:bg-accent aria-pressed:text-on-accent" : "aria-pressed:bg-surface-2 aria-pressed:text-text"} ${fullWidth ? "flex-1 px-2" : "px-3"}`}
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
         >
