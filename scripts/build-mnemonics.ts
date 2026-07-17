@@ -96,14 +96,30 @@ async function main(): Promise<void> {
     `Kanji : ${pool.length}${args.level ? ` (N${args.level})` : ""}${args.refresh ? " (refresh)" : ""}`,
   );
 
+  const total = pool.length;
+  let done = 0;
   let ok = 0;
   let skipped = 0;
   let empty = 0;
   let failed = 0;
+  const started = Date.now();
+
+  // Progression imprimée à CHAQUE kanji (succès compris) : sans ça, un long run silencieux
+  // ne dit jamais où il en est. Compteur [i/total], statut, et ETA grossière.
+  const progressLine = (k: KanjiInvEntry, mark: string): string => {
+    const pct = total ? Math.round((done / total) * 100) : 100;
+    const elapsed = (Date.now() - started) / 1000;
+    const rate = done / Math.max(elapsed, 0.001); // kanji/s
+    const etaS = rate > 0 ? Math.round((total - done) / rate) : 0;
+    const eta = done > 1 && etaS > 0 ? ` · ~${Math.floor(etaS / 60)}m${String(etaS % 60).padStart(2, "0")} restant` : "";
+    return `[${done}/${total} ${pct}%] ${k.id} ${mark}${eta}`;
+  };
 
   for (const k of pool) {
+    done++;
     if (!args.refresh && results[k.id]) {
       skipped++;
+      console.log(progressLine(k, "— déjà présent"));
       continue;
     }
     try {
@@ -111,13 +127,14 @@ async function main(): Promise<void> {
       if (m) {
         results[k.id] = m;
         ok++;
+        console.log(progressLine(k, "✓"));
       } else {
         empty++;
-        console.warn(`  ⚠ ${k.id} — réponse non exploitable`);
+        console.warn(progressLine(k, "⚠ réponse non exploitable"));
       }
     } catch (e) {
       failed++;
-      console.warn(`✗ ${k.id} — ${String(e)}`);
+      console.warn(progressLine(k, `✗ ${String(e)}`));
     }
     // Sauvegarde incrémentale : une interruption ne perd pas le travail déjà fait.
     writeFileSync(OUT, JSON.stringify(results, null, 1) + "\n");
