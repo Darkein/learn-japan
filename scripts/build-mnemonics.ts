@@ -28,7 +28,7 @@ const WORKER_URL = (process.env.WORKER_URL || "https://learn-japan-gen.learn-jap
 );
 
 /** Taille d'un lot (≤ LIMITS.mnemonicItemsList côté Worker) : lots plus courts = réponse plus rapide. */
-const BATCH = 10;
+const BATCH = 5;
 /** Lots simultanés : divise le temps total ; modéré pour rester sous les limites du fournisseur. */
 const CONCURRENCY = 3;
 /** Espacement entre lots d'un même slot : évite les 429 du fournisseur. */
