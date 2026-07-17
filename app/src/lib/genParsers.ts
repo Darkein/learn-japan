@@ -10,19 +10,24 @@ export interface StoryTranslation {
   sentences: string[];
 }
 
-/** Moyens mnémotechniques (kanji ou mot) sur trois axes. Pour un mot, `form` = composition. */
+/**
+ * Moyen mnémotechnique d'un kanji ou d'un mot :
+ *  - `story` : LE mnémo — une seule phrase qui contient le SON de la lecture et évoque le
+ *    sens (méthode du mot-clé : 飲 のむ → « le NOMade assoiffé BOIT ») ;
+ *  - `composition` : explication complémentaire (composants du kanji / kanji du mot), utile
+ *    mais assumée comme explication, pas comme second mnémo à retenir.
+ */
 export interface Mnemonic {
-  reading: string;
-  meaning: string;
-  form: string;
+  story: string;
+  composition: string;
 }
 
 /**
- * Extrait un LOT de mnémotechniques d'une réponse « N. lecture || sens || forme » (une ligne
- * par élément, cf. buildMnemonicPrompt / buildWordMnemonicPrompt côté Worker). Renvoie un
- * tableau de longueur `n`, aligné sur l'ordre demandé ; case null si la ligne manque ou est
- * vide (on préfère un trou à une donnée douteuse). Robuste au bruit : ignore les lignes non
- * numérotées, tolère un 4ᵉ champ surnuméraire (rattaché à la forme).
+ * Extrait un LOT de mnémotechniques d'une réponse « N. mnémo || composition » (une ligne par
+ * élément, cf. buildMnemonicPrompt / buildWordMnemonicPrompt côté Worker). Renvoie un tableau
+ * de longueur `n`, aligné sur l'ordre demandé ; case null si la ligne manque ou est vide (on
+ * préfère un trou à une donnée douteuse). Robuste au bruit : ignore les lignes non numérotées,
+ * tolère un champ surnuméraire (rattaché à la composition).
  */
 export function parseMnemonicBatch(raw: string, n: number): (Mnemonic | null)[] {
   const out: (Mnemonic | null)[] = new Array(n).fill(null);
@@ -32,11 +37,10 @@ export function parseMnemonicBatch(raw: string, n: number): (Mnemonic | null)[] 
     const idx = Number(m[1]) - 1;
     if (idx < 0 || idx >= n || out[idx]) continue;
     const parts = m[2].split("||").map((s) => s.trim());
-    const reading = parts[0] ?? "";
-    const meaning = parts[1] ?? "";
-    const form = parts.slice(2).join(" ").trim(); // 3ᵉ champ (+ surplus éventuel)
-    if (!reading && !meaning && !form) continue;
-    out[idx] = { reading, meaning, form };
+    const story = parts[0] ?? "";
+    const composition = parts.slice(1).join(" ").trim(); // 2ᵉ champ (+ surplus éventuel)
+    if (!story && !composition) continue;
+    out[idx] = { story, composition };
   }
   return out;
 }

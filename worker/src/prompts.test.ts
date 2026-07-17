@@ -323,7 +323,7 @@ describe("buildVocabExamplesPrompt", () => {
 });
 
 describe("buildMnemonicPrompt (lot)", () => {
-  it("numérote le lot, expose les métadonnées et impose le format « N. lec || sens || forme »", () => {
+  it("numérote le lot, expose les métadonnées et impose UN mnémo son+sens par kanji", () => {
     const prompt = composePrompt({
       kind: "mnemonic",
       items: [
@@ -336,7 +336,9 @@ describe("buildMnemonicPrompt (lot)", () => {
     expect(prompt).toContain("on: にち、じつ");
     expect(prompt).toContain("traits: 4");
     expect(prompt).toContain("2. 一 — sens: un");
-    expect(prompt).toContain("lecture || sens || forme");
+    // Un seul mnémo qui lie SON et SENS dans la même phrase, plus la composition à part.
+    expect(prompt).toContain("UNE SEULE phrase mnémotechnique");
+    expect(prompt).toContain("mnémo || composition");
     expect(prompt).toContain("EN FRANÇAIS");
   });
 
@@ -349,14 +351,15 @@ describe("buildMnemonicPrompt (lot)", () => {
 });
 
 describe("buildWordMnemonicPrompt (lot)", () => {
-  it("numérote le lot, ancre le sens FR, la lecture et la composition", () => {
+  it("numérote le lot, impose UN mnémo son+sens et la composition en explication", () => {
     const prompt = composePrompt({
       kind: "word-mnemonic",
       items: [{ ja: "勉強", yomi: "べんきょう", fr: "étudier", components: ["勉 = effort", "強 = fort"] }],
     });
     expect(prompt).toContain("1. 勉強 (べんきょう) — sens: étudier");
     expect(prompt).toContain("kanji: 勉 = effort, 強 = fort");
-    expect(prompt).toContain("lecture || sens || composition");
+    expect(prompt).toContain("UNE SEULE phrase mnémotechnique");
+    expect(prompt).toContain("mnémo || composition");
     expect(prompt).toContain("EN FRANÇAIS");
   });
 

@@ -88,22 +88,19 @@ export function KanjiSheet({
         {detail.strokes != null && <span>{detail.strokes} traits</span>}
       </div>
 
-      {detail.mnemonic && (detail.mnemonic.reading || detail.mnemonic.meaning || detail.mnemonic.form) && (
+      {detail.mnemonic && (detail.mnemonic.story || detail.mnemonic.composition) && (
         <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
-          <p className="m-0 text-xs uppercase tracking-wider text-muted">Moyens mnémotechniques</p>
-          {detail.mnemonic.meaning && (
+          {/* UN mnémo (son + sens dans la même phrase) ; la composition est une explication. */}
+          {detail.mnemonic.story && (
             <span>
-              <span className="text-muted">Sens :</span> <span className="text-text">{detail.mnemonic.meaning}</span>
+              <span className="text-muted">Mnémo :</span>{" "}
+              <span className="text-text">{detail.mnemonic.story}</span>
             </span>
           )}
-          {detail.mnemonic.reading && (
+          {detail.mnemonic.composition && (
             <span>
-              <span className="text-muted">Lecture :</span> <span className="text-text">{detail.mnemonic.reading}</span>
-            </span>
-          )}
-          {detail.mnemonic.form && (
-            <span>
-              <span className="text-muted">Forme :</span> <span className="text-text">{detail.mnemonic.form}</span>
+              <span className="text-muted">Composition :</span>{" "}
+              <span className="text-text">{detail.mnemonic.composition}</span>
             </span>
           )}
         </div>

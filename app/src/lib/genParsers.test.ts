@@ -87,34 +87,37 @@ describe("parseComprehensionQcm", () => {
 });
 
 describe("parseMnemonicBatch", () => {
-  it("aligne les lignes numérotées « N. lecture || sens || forme »", () => {
+  it("aligne les lignes numérotées « N. mnémo || composition »", () => {
     const raw = [
-      "1. のむ → nomade assoiffé || boire = porter un bol aux lèvres || 食 + 欠",
-      "2. いち → « inch » || un = un seul trait || un trait horizontal",
+      "1. Le NOMade assoiffé BOIT (のむ). || 食 manger + 欠 bâiller : bouche ouverte pour avaler.",
+      "2. « ITCHi » : UN seul trait, ça démange. || Un trait horizontal.",
     ].join("\n");
     const out = parseMnemonicBatch(raw, 2);
     expect(out[0]).toEqual({
-      reading: "のむ → nomade assoiffé",
-      meaning: "boire = porter un bol aux lèvres",
-      form: "食 + 欠",
+      story: "Le NOMade assoiffé BOIT (のむ).",
+      composition: "食 manger + 欠 bâiller : bouche ouverte pour avaler.",
     });
-    expect(out[1]!.meaning).toContain("un seul trait");
+    expect(out[1]!.story).toContain("UN seul trait");
   });
 
   it("laisse un trou (null) pour une ligne manquante, longueur = n", () => {
-    const out = parseMnemonicBatch("2. a || b || c", 3);
+    const out = parseMnemonicBatch("2. a || b", 3);
     expect(out).toHaveLength(3);
     expect(out[0]).toBeNull();
-    expect(out[1]).toEqual({ reading: "a", meaning: "b", form: "c" });
+    expect(out[1]).toEqual({ story: "a", composition: "b" });
     expect(out[2]).toBeNull();
   });
 
-  it("ignore les lignes non numérotées et rattache un 4ᵉ champ à la forme", () => {
-    const out = parseMnemonicBatch("Voici :\n1. lec || sens || part1 || part2", 1);
-    expect(out[0]).toEqual({ reading: "lec", meaning: "sens", form: "part1 part2" });
+  it("ignore les lignes non numérotées et rattache un champ surnuméraire à la composition", () => {
+    const out = parseMnemonicBatch("Voici :\n1. mnémo || part1 || part2", 1);
+    expect(out[0]).toEqual({ story: "mnémo", composition: "part1 part2" });
   });
 
-  it("null si la ligne est vide de contenu", () => {
-    expect(parseMnemonicBatch("1.  ||  || ", 1)[0]).toBeNull();
+  it("composition vide acceptée (mot en kana), ligne vide refusée", () => {
+    expect(parseMnemonicBatch("1. juste le mnémo ||", 1)[0]).toEqual({
+      story: "juste le mnémo",
+      composition: "",
+    });
+    expect(parseMnemonicBatch("1.  || ", 1)[0]).toBeNull();
   });
 });

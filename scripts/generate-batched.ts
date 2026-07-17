@@ -27,9 +27,9 @@ export interface BatchedOptions<T> {
   gapMs: number;
 }
 
-/** Un mnémo est exploitable s'il porte au moins un axe. */
+/** Un mnémo est exploitable s'il porte au moins l'histoire (la composition seule ne suffit pas). */
 function usable(m: Mnemonic | null): m is Mnemonic {
-  return !!m && (!!m.reading || !!m.meaning || !!m.form);
+  return !!m && !!m.story;
 }
 
 async function callWorker(

@@ -103,22 +103,19 @@ export function WordSheet({
         </div>
       )}
 
-      {mnemonic && (mnemonic.reading || mnemonic.meaning || mnemonic.form) && (
+      {mnemonic && (mnemonic.story || mnemonic.composition) && (
         <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
-          <p className="m-0 text-xs uppercase tracking-wider text-muted">Moyens mnémotechniques</p>
-          {mnemonic.meaning && (
+          {/* UN mnémo (son + sens dans la même phrase) ; la composition est une explication. */}
+          {mnemonic.story && (
             <span>
-              <span className="text-muted">Sens :</span> <span className="text-text">{mnemonic.meaning}</span>
+              <span className="text-muted">Mnémo :</span>{" "}
+              <span className="text-text">{mnemonic.story}</span>
             </span>
           )}
-          {mnemonic.reading && (
+          {mnemonic.composition && (
             <span>
-              <span className="text-muted">Lecture :</span> <span className="text-text">{mnemonic.reading}</span>
-            </span>
-          )}
-          {mnemonic.form && (
-            <span>
-              <span className="text-muted">Composition :</span> <span className="text-text">{mnemonic.form}</span>
+              <span className="text-muted">Composition :</span>{" "}
+              <span className="text-text">{mnemonic.composition}</span>
             </span>
           )}
         </div>

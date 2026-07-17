@@ -467,11 +467,12 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
 }
 
 /**
- * Moyens mnémotechniques pour un LOT de kanji, sur trois axes : LECTURE (associer une lecture
- * on/kun à un son mémorable), SENS, FORME (histoire d'images à partir des traits/composants).
- * Corpus statique généré au build par scripts/build-mnemonics.ts. Métadonnées fournies dans le
- * corps (le Worker n'a pas d'inventaire). Sortie : UNE ligne par kanji « N. lecture || sens ||
- * forme » (parsée côté client, parseMnemonicBatch) — un seul appel LLM pour tout le lot.
+ * Moyens mnémotechniques pour un LOT de kanji. UN SEUL mnémo par kanji (méthode du mot-clé) :
+ * une phrase française qui contient le SON de la lecture ET évoque le sens — voir le kanji
+ * doit rappeler d'un coup prononciation et sens, sans deux astuces séparées à retenir. En
+ * complément, une courte EXPLICATION de la forme (composants), assumée comme explication.
+ * Corpus statique généré au build par scripts/build-mnemonics.ts. Sortie : UNE ligne par
+ * kanji « N. mnémo || composition » (parsée côté client, parseMnemonicBatch).
  */
 export function buildMnemonicPrompt(r: GenerateRequest): string {
   const items = cleanMnemonicItems(r.items);
@@ -494,23 +495,22 @@ export function buildMnemonicPrompt(r: GenerateRequest): string {
     `Voici ${items.length} kanji, un par ligne numérotée (avec leur sens français et leurs lectures) :`,
     numbered,
     "",
-    "Pour CHAQUE kanji, propose trois moyens mnémotechniques EN FRANÇAIS, en ancrant le sens sur la traduction française fournie :",
-    "- LECTURE : relie le SON de la lecture la plus utile (en hiragana) à un mot ou une image en français, rattaché au sens ; jamais vide. Si aucun rapprochement n'est net, invente une petite phrase française contenant ce son.",
-    "- SENS : une astuce courte pour retenir le sens français.",
-    "- FORME : une petite histoire visuelle reliant les traits ou composants au sens (sans inventer d'étymologie douteuse).",
+    "Pour CHAQUE kanji, donne deux champs EN FRANÇAIS :",
+    "- MNÉMO : UNE SEULE phrase mnémotechnique qui relie LE SON de la lecture la plus utile (en hiragana, entre parenthèses) ET le sens français, dans la même image. Exemple pour 飲 (のむ, boire) : « Le NOMade assoiffé BOIT (のむ) ». Le son doit s'entendre dans un mot français de la phrase, et la phrase doit raconter le sens. Jamais vide.",
+    "- COMPOSITION : une courte explication de la forme — quels composants ou traits, et comment ils suggèrent le sens (sans étymologie douteuse). C'est une explication, pas une devinette.",
     "",
     "Format STRICT, une ligne par kanji, dans l'ordre, sans aucune autre ligne :",
-    "« N. lecture || sens || forme » (le séparateur entre les trois champs est exactement « || »).",
-    "Exemple de format : 1. accroche sonore de la lecture || astuce pour le sens || histoire de la forme",
-    "Chaque champ : une phrase concise (20 mots maximum), concrète et imagée, en français. Pas de puce, pas de ligne vide, pas de romaji superflu.",
+    "« N. mnémo || composition » (le séparateur entre les deux champs est exactement « || »).",
+    "Chaque champ : une phrase concise (25 mots maximum), concrète et imagée, en français. Pas de puce, pas de ligne vide.",
   ].join("\n");
 }
 
 /**
- * Moyens mnémotechniques pour un LOT de MOTS, sur trois axes : LECTURE (cheville sonore de la
- * lecture entière), SENS (traduction française), COMPOSITION (comment les kanji se combinent).
- * Réutilise le même format « N. lecture || sens || forme » et le même parser que le mnémo
- * kanji — l'UI affiche « FORME » comme « Composition » pour un mot. Un seul appel LLM par lot.
+ * Moyens mnémotechniques pour un LOT de MOTS. UN SEUL mnémo par mot (méthode du mot-clé) :
+ * une phrase française qui contient le SON de la lecture entière ET raconte le sens. En
+ * complément, une courte EXPLICATION de la composition (comment les kanji du mot se
+ * combinent), assumée comme explication. Même format « N. mnémo || composition » et même
+ * parser que le mnémo kanji. Un seul appel LLM par lot.
  */
 export function buildWordMnemonicPrompt(r: GenerateRequest): string {
   const items = cleanMnemonicItems(r.items);
@@ -527,14 +527,13 @@ export function buildWordMnemonicPrompt(r: GenerateRequest): string {
     `Voici ${items.length} mots, un par ligne numérotée (avec leur lecture, leur sens français et les kanji qui les composent) :`,
     numbered,
     "",
-    "Pour CHAQUE mot, propose trois moyens mnémotechniques EN FRANÇAIS, en ancrant le sens sur la traduction française fournie :",
-    "- LECTURE : relie le SON de la lecture ENTIÈRE du mot à un mot ou une image en français, rattaché au sens ; jamais vide. Ex. 勉強 (べんきょう, étudier) → « bien, écoute ! ». Si aucun rapprochement n'est net, invente une petite phrase française contenant ce son.",
-    "- SENS : une astuce courte pour retenir le sens français du mot.",
-    "- COMPOSITION : si plusieurs kanji, comment leurs sens se combinent (勉 effort + 強 fort → étudier avec effort) ; si un seul kanji ou aucun, laisse ce champ vide.",
+    "Pour CHAQUE mot, donne deux champs EN FRANÇAIS :",
+    "- MNÉMO : UNE SEULE phrase mnémotechnique qui relie LE SON de la lecture ENTIÈRE du mot (en hiragana, entre parenthèses) ET son sens français, dans la même image. Exemple pour 勉強 (べんきょう, étudier) : « “BIEN, écOUTe !” dit le prof à qui ÉTUDIE (べんきょう) ». Le son doit s'entendre dans la phrase, et la phrase doit raconter le sens. Jamais vide.",
+    "- COMPOSITION : si le mot a plusieurs kanji, une courte explication de comment leurs sens se combinent (勉 effort + 強 fort → étudier avec effort) ; si un seul kanji ou aucun, laisse ce champ vide. C'est une explication, pas une devinette.",
     "",
     "Format STRICT, une ligne par mot, dans l'ordre, sans aucune autre ligne :",
-    "« N. lecture || sens || composition » (le séparateur entre les trois champs est exactement « || »).",
-    "Chaque champ : une phrase concise (20 mots maximum), en français. Pas de puce, pas de ligne vide.",
+    "« N. mnémo || composition » (le séparateur entre les deux champs est exactement « || »).",
+    "Chaque champ : une phrase concise (25 mots maximum), en français. Pas de puce, pas de ligne vide.",
   ].join("\n");
 }
 
