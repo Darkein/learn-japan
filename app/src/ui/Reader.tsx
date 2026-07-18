@@ -130,6 +130,9 @@ export function Reader({ incoming, preview = false }: Props) {
     // reste accessible au tap. Ne concerne que les mots de contenu suivis.
     const known =
       settings.glossHideKnown && isContent(tok.token) && statuses.get(itemIdFor(tok.token)) === "known";
+    // Un mot latin/nombre n'est ni de contenu ni grammatical : son « gloss » se réduirait à
+    // recopier le mot (ou « * »). On n'affiche pas de boîte de traduction sous ces tokens.
+    const showGloss = settings.glossDefault && !known && (isContent(tok.token) || g.grammatical);
     return (
       <span
         key={i}
@@ -144,7 +147,7 @@ export function Reader({ incoming, preview = false }: Props) {
         >
           <Ruby segments={tok.segments} reveal={settings.furiganaDefault && !known} reserve={settings.furiganaDefault} />
         </span>
-        {settings.glossDefault && !known && (
+        {showGloss && (
           <span
             className={`max-w-28 truncate text-center font-sans text-xs text-muted ${g.grammatical ? "italic text-accent-2" : ""}`}
             title={g.gloss}

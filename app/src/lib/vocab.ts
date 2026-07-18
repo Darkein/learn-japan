@@ -3,7 +3,7 @@
 
 import { contentDictSnapshot } from "./data";
 import type { ContentDict } from "./gloss";
-import { kataToHira, normalizeReading } from "./kana";
+import { hasJapanese, kataToHira, normalizeReading } from "./kana";
 import {
   allVocab,
   getVocab,
@@ -18,15 +18,28 @@ import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞", "連体詞"]);
 
-/** Un token porte-t-il du sens lexical (candidat au SRS vocabulaire) ? */
+/**
+ * Un token porte-t-il du sens lexical (candidat au SRS vocabulaire) ? On exige au moins un
+ * caractère japonais : les mots latins et les nombres, étiquetés 名詞/固有名詞 par kuromoji
+ * faute d'entrée dans IPADIC, n'ont ni lecture ni forme de base — les suivre revenait à
+ * souligner et gloser du texte anglais, tous fondus sur le même id « *| ».
+ */
 export function isContent(token: KuromojiToken): boolean {
-  return CONTENT_POS.has(token.pos) && token.pos_detail_1 !== "非自立";
+  return (
+    CONTENT_POS.has(token.pos) &&
+    token.pos_detail_1 !== "非自立" &&
+    hasJapanese(token.surface_form)
+  );
 }
 
-/** Identifiant stable d'un item (forme de base + lecture pour distinguer les homographes). */
+/**
+ * Identifiant stable d'un item (forme de base + lecture pour distinguer les homographes).
+ * `baseForm` retombe sur la surface quand kuromoji ne donne pas de forme de base (`*`),
+ * sinon deux mots inconnus distincts partageraient l'id « *| ».
+ */
 export function itemIdFor(token: KuromojiToken): string {
   const reading = token.reading ? kataToHira(token.reading) : "";
-  return `${token.basic_form || token.surface_form}|${reading}`;
+  return `${baseForm(token)}|${reading}`;
 }
 
 /** Forme de base (dictionnaire) d'un token, ou sa surface si kuromoji ne la donne pas. */

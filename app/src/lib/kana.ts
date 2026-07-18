@@ -48,6 +48,17 @@ export function hasKanji(s: string): boolean {
 }
 
 /**
+ * Vrai si la chaîne contient au moins un caractère japonais (kana ou kanji). Sert à
+ * écarter les mots en écriture latine ou les nombres qui, faute d'entrée dans IPADIC,
+ * sont étiquetés 名詞/固有名詞 par kuromoji : ils n'ont ni lecture ni forme de base et
+ * ne doivent être ni glosés ni suivis en vocabulaire.
+ */
+export function hasJapanese(s: string): boolean {
+  for (const ch of s) if (isKana(ch) || isKanji(ch)) return true;
+  return false;
+}
+
+/**
  * Normalise une réponse pour le rappel actif (cloze à saisir) : katakana → hiragana,
  * espaces retirés, bornes nettoyées. Comparaison robuste saisie ↔ réponse attendue ; les
  * kanji sont laissés intacts (sert aussi à valider un mot tapé en kanji côté vocab).
