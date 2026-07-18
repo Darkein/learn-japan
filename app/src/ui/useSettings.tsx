@@ -35,11 +35,11 @@ export const STORY_RATES: { value: number; label: string }[] = [
  *  taille de base (1) au milieu. Libellés courts (convention taille de vêtement) pour
  *  tenir sur une seule ligne dans le tiroir de réglages rapides (étroit). */
 export const READER_FONT_SCALES: { value: number; label: string }[] = [
-  { value: 0.8, label: "XS" },
-  { value: 0.9, label: "S" },
+  { value: 0.7, label: "XS" },
+  { value: 0.85, label: "S" },
   { value: 1, label: "M" },
-  { value: 1.1, label: "L" },
-  { value: 1.2, label: "XL" },
+  { value: 1.15, label: "L" },
+  { value: 1.3, label: "XL" },
 ];
 
 interface SettingsApi {
