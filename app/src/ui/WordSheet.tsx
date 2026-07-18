@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { kataToHira } from "../lib/kana";
+import { hasJapanese, kataToHira } from "../lib/kana";
 import type { ItemStatus } from "../lib/db";
 import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
@@ -174,9 +174,13 @@ export function WordSheet({
             </button>
           ))}
         </div>
-      ) : (
+      ) : hasJapanese(token.surface_form) ? (
         <p className="text-sm text-muted">
           Morphème grammatical — suivi dans la piste grammaire (à venir), pas en vocabulaire.
+        </p>
+      ) : (
+        <p className="text-sm text-muted">
+          Mot en écriture latine — non suivi en vocabulaire japonais.
         </p>
       )}
         </>

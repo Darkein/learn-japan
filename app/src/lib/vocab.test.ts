@@ -5,6 +5,7 @@ import {
   addInventoryWordToReview,
   applyStatus,
   effectiveExample,
+  isContent,
   itemIdFor,
   meaningFor,
   refreshStoredMeanings,
@@ -39,6 +40,35 @@ function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }):
     ...p,
   };
 }
+
+describe("isContent", () => {
+  it("retient un mot de contenu japonais", () => {
+    const neko = tok({ surface_form: "猫", pos: "名詞", pos_detail_1: "一般", basic_form: "猫", reading: "ネコ" });
+    expect(isContent(neko)).toBe(true);
+  });
+
+  it("écarte un mot latin étiqueté 名詞 固有名詞 par kuromoji", () => {
+    // Kuromoji classe les mots inconnus en écriture latine en 名詞/固有名詞, sans forme de base.
+    const english = tok({ surface_form: "English", pos: "名詞", pos_detail_1: "固有名詞", basic_form: "*" });
+    expect(isContent(english)).toBe(false);
+  });
+
+  it("écarte un nombre en chiffres arabes (名詞 数)", () => {
+    const num = tok({ surface_form: "123", pos: "名詞", pos_detail_1: "数", basic_form: "*" });
+    expect(isContent(num)).toBe(false);
+  });
+});
+
+describe("itemIdFor", () => {
+  it("distingue deux mots inconnus sans forme de base (pas de fusion sur « *| »)", () => {
+    // Sans forme de base, itemIdFor doit retomber sur la surface : sinon « GitHub » et
+    // « JavaScript » partageaient l'id « *| » et donc le même compteur de vues.
+    const gh = tok({ surface_form: "コンピュータ", pos: "名詞", basic_form: "*", reading: "コンピュータ" });
+    const js = tok({ surface_form: "プログラム", pos: "名詞", basic_form: "*", reading: "プログラム" });
+    expect(itemIdFor(gh)).not.toBe(itemIdFor(js));
+    expect(itemIdFor(gh)).toBe("コンピュータ|こんぴゅーた");
+  });
+});
 
 describe("vocab ↔ SRS (IndexedDB)", () => {
   it("persiste un item et planifie la compétence écrite", async () => {
