@@ -59,6 +59,13 @@ export interface ComprehensionItem {
   card?: Card;
 }
 
+/** Bloc source d'un article importé (titre de section vs paragraphe de texte) — permet au
+ *  lecteur de respecter la mise en page d'origine (titres, paragraphes espacés). */
+export interface ArticleParagraph {
+  type: "heading" | "para";
+  text: string;
+}
+
 /** Histoire générée et enregistrée pour relecture (SPEC §4, §8). */
 export interface StoryRecord {
   id: string;
@@ -79,6 +86,9 @@ export interface StoryRecord {
   comprehension?: ComprehensionQuestion[];
   /** Provenance externe (onglet Articles). Absent = histoire générée/collée classique. */
   source?: { kind: "article"; url?: string; siteName?: string };
+  /** Structure des paragraphes source d'un article importé (titres vs texte), pour
+   *  l'affichage. Absent pour les histoires générées/collées (texte continu). */
+  paragraphs?: ArticleParagraph[];
 }
 
 /**

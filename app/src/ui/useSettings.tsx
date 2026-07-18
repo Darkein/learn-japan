@@ -31,6 +31,19 @@ export const STORY_RATES: { value: number; label: string }[] = [
   { value: 1.5, label: "1,5×" },
 ];
 
+/** Échelles de texte proposées pour le lecteur (leçons, histoires, articles) — 5 crans,
+ *  taille de base (1 = --text-xl, 26px par défaut) au milieu. Libellés courts (convention
+ *  taille de vêtement) pour tenir sur une seule ligne dans le tiroir de réglages rapides
+ *  (étroit). Pas linéaire en px (14/20/26/32/38px à taille de police par défaut du
+ *  navigateur) pour que XS soit nettement plus petit, pas seulement légèrement réduit. */
+export const READER_FONT_SCALES: { value: number; label: string }[] = [
+  { value: 0.538, label: "XS" }, // 14px
+  { value: 0.769, label: "S" }, // 20px
+  { value: 1, label: "M" }, // 26px
+  { value: 1.231, label: "L" }, // 32px
+  { value: 1.462, label: "XL" }, // 38px
+];
+
 interface SettingsApi {
   settings: AppSettings;
   update: (patch: Partial<AppSettings>) => void;

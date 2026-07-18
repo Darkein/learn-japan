@@ -3,6 +3,7 @@ import { parseBlocks, type Block } from "../lib/lessonMarkdown";
 import { annotateTokens, type RubySegment } from "../lib/furigana";
 import { tokenize } from "../lib/tokenizer";
 import { Ruby } from "./Ruby";
+import { useSettings } from "./useSettings";
 
 function renderBlock(b: Block, idx: number | string, reveal: boolean): ReactNode {
   if (b.kind === "heading") {
@@ -75,6 +76,7 @@ export function Markdown({
   /** Fait défiler jusqu'au bloc actif (suivi auto) — le surlignage, lui, est toujours rendu. */
   follow?: boolean;
 }) {
+  const { settings } = useSettings();
   const blocks = useMemo(() => parseBlocks(text), [text]);
   const activeRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -82,7 +84,7 @@ export function Markdown({
       activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [activeBlock, follow]);
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" style={{ fontSize: `${settings.readerFontScale}em` }}>
       {blocks.map((b, idx) =>
         idx === activeBlock ? (
           <div key={idx} ref={activeRef} className="-mx-2 rounded-sm bg-accent/10 px-2 py-1 transition-colors">
@@ -155,12 +157,16 @@ function JpText({ text, reveal }: { text: string; reveal: boolean }) {
 }
 
 function ExampleBlock({ pairs, reveal }: { pairs: { jp: string; fr?: string }[]; reveal: boolean }) {
+  const { settings } = useSettings();
   return (
     <div className="my-3 space-y-3 rounded-sm border border-hairline bg-surface px-4 py-3">
       {pairs.map((pair, i) => (
         <div key={i}>
           {pair.jp && (
-            <div className="font-jp text-lg leading-relaxed text-text">
+            <div
+              className="font-jp leading-relaxed text-text"
+              style={{ fontSize: `calc(var(--text-lg) * ${settings.readerFontScale})` }}
+            >
               {inlineContent(pair.jp, `ex${i}-jp`, reveal, "font-jp")}
             </div>
           )}
