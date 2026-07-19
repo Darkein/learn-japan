@@ -117,16 +117,17 @@ export async function repairConjugatedVocab(): Promise<number> {
 }
 
 /**
- * Sens français d'un token : JMdict-FR en priorité (forme de base puis surface) ;
- * à défaut, repli sur l'inventaire curé (via `resolveVocab`, qui résout les formes
- * composées « いい; よい » que le tokenizer ne produit jamais). Tiret si rien.
+ * Sens français d'un token. L'inventaire curé passe EN PREMIER : il est indexé par
+ * graphie + LECTURE (`本|ほん`), donc il désambiguïse les homographes que le JMdict, indexé
+ * par graphie SEULE, confond — dict["本"] renvoie « base, origine » (もと) alors que le mot
+ * lu ほん veut dire « livre ». Repli JMdict (forme de base puis surface) pour les mots hors
+ * inventaire ; tiret si rien.
  */
 export function meaningFor(token: KuromojiToken): string {
-  const dict = contentDictSnapshot();
-  const fromDict = dict[token.basic_form] ?? dict[token.surface_form];
-  if (fromDict) return fromDict;
   const fromInventory = resolveVocab(itemIdFor(token)).fr;
-  return fromInventory || "—";
+  if (fromInventory) return fromInventory;
+  const dict = contentDictSnapshot();
+  return dict[token.basic_form] ?? dict[token.surface_form] ?? "—";
 }
 
 /**
@@ -141,8 +142,10 @@ export async function refreshStoredMeanings(dict: ContentDict): Promise<number> 
   let updated = 0;
   for (const item of items) {
     const [base] = item.id.split("|");
+    // Même priorité que `meaningFor` : inventaire curé (par graphie+lecture) d'abord,
+    // repli JMdict (par graphie) ensuite.
     const fresh =
-      dict[base] ?? dict[item.surface] ?? (resolveVocab(item.id).fr || "—");
+      resolveVocab(item.id).fr || dict[base] || dict[item.surface] || "—";
     if (fresh !== item.meaning) {
       item.meaning = fresh;
       await putVocab(item);
