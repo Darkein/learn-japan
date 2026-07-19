@@ -74,7 +74,7 @@ export function ExerciseCard({
               <IconSpeaker size={18} /> Écoute la phrase…
             </div>
           ) : (
-            <JpFront text={ex.front} className="font-jp text-3xl" />
+            <JpFront text={ex.front} className="font-jp text-2xl" />
           )}
           <Button variant="primary" onClick={() => void handleListen()}>
             <IconPlay size={16} />

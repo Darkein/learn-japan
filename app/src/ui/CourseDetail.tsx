@@ -320,7 +320,7 @@ function Cours({
               <SectionLabel as="p" className="mb-2">Vocabulaire</SectionLabel>
               <ul className="flex list-none flex-col gap-1">
                 {lesson.objectives.vocab.map((v) => (
-                  <li key={v.ja} className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[6rem_1fr] sm:items-baseline sm:gap-3">
+                  <li key={v.ja} className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1">
                     <span className="font-jp text-sm text-text">
                       {v.ja}
                       {v.yomi && v.yomi !== v.ja && (

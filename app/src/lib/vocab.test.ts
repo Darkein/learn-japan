@@ -165,6 +165,13 @@ describe("meaningFor", () => {
     const x = tok({ surface_form: "架空語", pos: "名詞", basic_form: "架空語", reading: "カクウゴ" });
     expect(meaningFor(x)).toBe("—");
   });
+
+  it("désambiguïse un homographe via la lecture (本|ほん → « livre », pas « origine »)", () => {
+    // Le JMdict est indexé par graphie seule : 本 y donne les sens de もと (« origine »).
+    // L'inventaire, indexé par graphie+lecture, doit gagner pour ほん (« livre »).
+    const hon = tok({ surface_form: "本", pos: "名詞", pos_detail_1: "一般", basic_form: "本", reading: "ホン" });
+    expect(meaningFor(hon)).toBe("livre");
+  });
 });
 
 describe("refreshStoredMeanings", () => {
@@ -184,6 +191,16 @@ describe("refreshStoredMeanings", () => {
     await applyStatus(neko2, "review");
     await refreshStoredMeanings({ 猫: "chat" });
     expect((await getVocab(itemIdFor(neko2)))?.meaning).toBe("chat");
+  });
+
+  it("corrige un homographe mal figé : l'inventaire prime sur le gloss JMdict par graphie", async () => {
+    // Sens figé faux hérité de l'ancienne priorité JMdict-d'abord (dict["本"] = sens de もと).
+    const hon = tok({ surface_form: "本", pos: "名詞", pos_detail_1: "一般", basic_form: "本", reading: "ホン" });
+    const item = await applyStatus(hon, "review");
+    item.meaning = "base, commencement, origine";
+    await putVocab(item);
+    await refreshStoredMeanings({ 本: "base, commencement, origine" });
+    expect((await getVocab(itemIdFor(hon)))?.meaning).toBe("livre");
   });
 });
 

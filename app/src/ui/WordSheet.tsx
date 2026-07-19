@@ -109,7 +109,7 @@ export function WordSheet({
       ) : (
         <>
       <div className="flex items-baseline gap-3">
-        <span className="font-jp text-2xl">{token.surface_form}</span>
+        <span className="font-jp text-xl">{token.surface_form}</span>
         {reading && reading !== token.surface_form && (
           <span className="text-lg text-muted">{reading}</span>
         )}

@@ -120,7 +120,10 @@ export function BottomSheet({
   return (
     <>
       {/* Fond cliquable : scrim noir (foncé dans les deux thèmes). Rendu dans la page, donc
-          SOUS la nav (z-40, après dans le DOM) et le player (z-50) : ils restent utilisables. */}
+          SOUS la nav (z-40, après dans le DOM) et le player (z-50) : ils restent utilisables.
+          Fermeture sur `click` (pas `pointerdown`) : sur tactile, fermer au pointerdown démonte
+          le fond avant l'émission du `click`, qui retombe alors sur le mot dessous (rouvrant une
+          fiche). Le clic complet doit être absorbé par le fond avant qu'il ne disparaisse. */}
       <div
         className="fixed inset-0 z-40"
         aria-hidden="true"
@@ -129,7 +132,7 @@ export function BottomSheet({
           opacity: backdropOpacity,
           transition: dragging ? "none" : `opacity 200ms ${ease}`,
         }}
-        onPointerDown={() => {
+        onClick={() => {
           cancelDrag();
           onClose();
         }}

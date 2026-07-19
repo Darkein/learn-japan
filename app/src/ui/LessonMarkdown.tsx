@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { parseBlocks, type Block } from "../lib/lessonMarkdown";
 import { annotateTokens, type RubySegment } from "../lib/furigana";
 import { tokenize } from "../lib/tokenizer";
@@ -83,8 +83,24 @@ export function Markdown({
     if (follow && activeBlock >= 0)
       activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [activeBlock, follow]);
+  // La taille de police du lecteur s'applique à TOUT le cours. On surcharge les variables
+  // d'échelle typographique de Tailwind (les utilitaires text-* les référencent, ex.
+  // `.text-sm{font-size:var(--text-sm)}`) : sans ça, les tailles en rem (text-sm, text-lg…)
+  // ignoraient le réglage et seuls les textes sans classe de taille suivaient. `fontSize`
+  // couvre en plus ce texte nu. Valeurs de base = @theme (global.css) + défauts Tailwind.
+  const s = settings.readerFontScale;
+  const scale = {
+    fontSize: `${s}em`,
+    "--text-xs": `calc(0.8125rem * ${s})`,
+    "--text-sm": `calc(0.875rem * ${s})`,
+    "--text-base": `calc(1rem * ${s})`,
+    "--text-lg": `calc(1.25rem * ${s})`,
+    "--text-xl": `calc(1.625rem * ${s})`,
+    "--text-2xl": `calc(2.25rem * ${s})`,
+    "--text-3xl": `calc(3rem * ${s})`,
+  } as CSSProperties;
   return (
-    <div className="space-y-4" style={{ fontSize: `${settings.readerFontScale}em` }}>
+    <div className="space-y-4" style={scale}>
       {blocks.map((b, idx) =>
         idx === activeBlock ? (
           <div key={idx} ref={activeRef} className="-mx-2 rounded-sm bg-accent/10 px-2 py-1 transition-colors">
@@ -157,16 +173,14 @@ function JpText({ text, reveal }: { text: string; reveal: boolean }) {
 }
 
 function ExampleBlock({ pairs, reveal }: { pairs: { jp: string; fr?: string }[]; reveal: boolean }) {
-  const { settings } = useSettings();
+  // Tailles via classes text-* : elles suivent le scaling du cours (variables surchargées
+  // sur le wrapper Markdown), y compris la traduction FR — plus de police figée.
   return (
     <div className="my-3 space-y-3 rounded-sm border border-hairline bg-surface px-4 py-3">
       {pairs.map((pair, i) => (
         <div key={i}>
           {pair.jp && (
-            <div
-              className="font-jp leading-relaxed text-text"
-              style={{ fontSize: `calc(var(--text-lg) * ${settings.readerFontScale})` }}
-            >
+            <div className="font-jp text-lg leading-relaxed text-text">
               {inlineContent(pair.jp, `ex${i}-jp`, reveal, "font-jp")}
             </div>
           )}

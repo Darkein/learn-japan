@@ -11,8 +11,11 @@ import type { ContentDict } from "./gloss";
 // v2 : clés kana réattribuées au mot le plus fréquent (un « premier arrivé gagne » naïf
 // donnait いる → « abattre, tirer », ない → « décédé, mort »). Changer l'ID invalide le
 // cache IndexedDB des clients et déclenche la re-dérivation des sens stockés.
-const DICT_ID = "jmdict-fr-v2";
-const LEGACY_DICT_IDS = ["jmdict-fr"];
+// v3 : `meaningFor` privilégie désormais l'inventaire curé (indexé par graphie+lecture) sur
+// le JMdict indexé par graphie seule, pour désambiguïser les homographes (本|ほん « livre »
+// et non « origine »). Le bump re-dérive les sens déjà figés avec l'ancienne priorité.
+const DICT_ID = "jmdict-fr-v3";
+const LEGACY_DICT_IDS = ["jmdict-fr", "jmdict-fr-v2"];
 
 function assetUrl(): string {
   const base =

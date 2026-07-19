@@ -40,7 +40,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
 
   return (
     <>
-      <JpFront text={ex.front} className="font-jp text-3xl" />
+      <JpFront text={ex.front} className="font-jp text-2xl" />
       {result === null ? (
         <>
           {ex.prompt && <span className="text-sm text-muted">{ex.prompt}</span>}
