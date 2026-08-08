@@ -11,6 +11,7 @@ const WORD_MAX = 6;
  * française prend la sérif latine — `font-jp` lui donnait une Noto Serif JP incongrue.
  */
 export function JpFront({ text }: { text: string }) {
+  if (!text) return null; // exercice à l'aveugle (écoute) : rien à montrer avant la réponse
   const ja = hasJapanese(text);
   const cls = !ja
     ? "font-serif text-3xl"

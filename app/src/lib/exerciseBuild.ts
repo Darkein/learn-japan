@@ -275,7 +275,9 @@ export function vocabListenMeaningExercise(
     track: "vocab",
     skill: "oral",
     id: v.id,
-    front: "Quel mot as-tu entendu ?",
+    // Exercice à l'aveugle : rien à afficher en face avant, la question est la consigne.
+    front: "",
+    prompt: "Quel mot as-tu entendu ?",
     back: `${v.surface}（${v.reading}）`,
     meaning: v.meaning,
     due,
