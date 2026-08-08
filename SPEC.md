@@ -106,11 +106,14 @@ apprend le japonais) ait à valider quoi que ce soit, le curriculum repose sur d
    (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais. Une glose de vocabulaire est
    **discriminante** : deux mots ne partagent jamais le même libellé, sinon un exercice
    « sens FR → mot japonais » n'a pas de réponse unique (暑い et 暖かい tous deux « chaud
-   (climat) » refusaient une réponse juste sur deux). On qualifie donc ce qui distingue —
-   registre, domaine, lecture, nature (« doux, tiède (climat) », « chaud (au toucher) »).
-   Invariant testé (`synonyms.test.ts`). Quand deux mots sont réellement **interchangeables**
-   (しかし / でも), la glose reste commune et c'est `lib/synonyms.ts` qui accepte l'un pour
-   l'autre et empêche un synonyme de servir de distracteur dans un QCM de sens.
+   (climat) » refusaient une réponse juste sur deux). La réponse est la **glose, pas la
+   tolérance** : elle porte ce qui distingue les mots — registre (« cependant, toutefois
+   (écrit ou formel) » vs « mais (courant, à l'oral) »), domaine, lecture, nature. Accepter
+   les deux mots enseignerait qu'ils sont interchangeables. Invariant vérifié sur tout le
+   référentiel par `synonyms.test.ts`. `lib/synonyms.ts` ne sert plus qu'à un garde-fou :
+   les mots **hors référentiel** (glosés par le JMdict) peuvent encore tomber sur le même
+   libellé, et un QCM de sens n'y utilise jamais un synonyme de la réponse comme distracteur
+   — deux propositions justes rendent la question insoluble, pas seulement indulgente.
 2. **Curriculum** (`curriculum.json`, v3) — le « dans quel ordre » : **niveau → unité → leçon**.
    Chaque leçon **référence** l'inventaire via `introduces: { vocab, grammar }` (listes
    d'ids) au lieu de redéclarer le contenu → source unique de vérité, zéro doublon.

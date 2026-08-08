@@ -12,7 +12,7 @@ import { answerVariants, hasKanji, normalizeReading } from "./kana";
 import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
-import { alternateAnswers, sameMeaning } from "./synonyms";
+import { sameMeaning } from "./synonyms";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 import { baseForm, baseReading, effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
 
@@ -199,13 +199,6 @@ export function vocabTypeExercise(
   const answers = hasMeaning
     ? answerVariants(v.surface, v.reading)
     : answerVariants(v.reading);
-  // Rappel ISOLÉ (face avant = le sens FR seul) : la question ne désigne pas un mot unique
-  // quand plusieurs mots portent ce sens — on accepte aussi les synonymes du référentiel
-  // (voir lib/synonyms.ts). Volontairement limité à ce cadrage : un cloze sur la phrase
-  // d'exemple ou une dictée attendent LE mot de la phrase, pas un équivalent.
-  const recallAnswers = hasMeaning
-    ? [...new Set([...answers, ...alternateAnswers(v.id, v.meaning)])]
-    : answers;
   if (opts.produce) {
     const hit = exampleHit(v, example?.ja);
     const base = {
@@ -234,7 +227,6 @@ export function vocabTypeExercise(
       ...base,
       front: hasMeaning ? v.meaning : v.surface,
       prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-      answers: recallAnswers,
       audioBack: { word: v.surface },
     };
   }
@@ -274,7 +266,7 @@ export function vocabTypeExercise(
     meaning: hasMeaning ? v.meaning : undefined,
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-    answers: recallAnswers,
+    answers,
     ...(example?.ja ? { context: example.ja } : {}),
     ...(example?.fr ? { contextFr: example.fr } : {}),
     audioBack: { word: v.surface },
