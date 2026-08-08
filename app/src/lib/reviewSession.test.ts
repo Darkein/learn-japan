@@ -57,15 +57,17 @@ describe("échauffement SRS (existant)", () => {
     const due = await buildSession(NOW, { scope: "due" });
     const card = due.find((c) => c.id === "水|みず");
     expect(card).toBeDefined();
-    expect(card!.front).toBe("eau");
+    // La face avant est l'une des trois faces du mot — la direction est tirée au hasard.
+    expect(["水", "みず", "eau"]).toContain(card!.front);
     expect(card!.back).toBe("水（みず）");
+    expect(card!.word).toEqual({ id: "水|みず", surface: "水", reading: "みず" });
 
     await gradeCard(card!, "easy", NOW);
     const due2 = await buildSession(NOW, { scope: "due" });
     expect(due2.find((c) => c.id === "水|みず")).toBeUndefined();
   });
 
-  it("vocab : carte en saisie active, accepte le mot écrit OU la lecture", async () => {
+  it("vocab isolé (pas de distracteur) : saisie de la lecture, graphie acceptée aussi", async () => {
     await putVocab({
       id: "猫|ねこ",
       surface: "猫",
@@ -75,13 +77,73 @@ describe("échauffement SRS (existant)", () => {
       status: "review",
       cards: { written: newCard(new Date("2020-01-01")) },
     });
+    // Seul mot en base : aucun distracteur plausible, donc pas de QCM à deux options.
     const card = (await buildSession(NOW, { scope: "due" })).find((c) => c.id === "猫|ねこ")!;
     expect(card.mode).toBe("type");
-    expect(card.front).toBe("chat");
     if (card.mode !== "type") throw new Error("expected type exercise");
     expect(card.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 
+  it("vocab frais avec un pool fourni : QCM à 4 options", async () => {
+    for (const [id, meaning] of [
+      ["猫|ねこ", "chat"],
+      ["犬|いぬ", "chien"],
+      ["鳥|とり", "oiseau"],
+      ["本|ほん", "livre"],
+      ["水|みず", "eau"],
+    ]) {
+      const [surface, reading] = id.split("|");
+      await putVocab({
+        id,
+        surface,
+        reading,
+        meaning,
+        tags: [],
+        status: "review",
+        cards: { written: newCard(new Date("2020-01-01")) },
+      });
+    }
+    const card = (await buildSession(NOW, { scope: "due" })).find((c) => c.id === "猫|ねこ")!;
+    expect(card.mode).toBe("choice");
+    if (card.mode !== "choice") throw new Error("expected choice exercise");
+    expect(card.choices).toHaveLength(4);
+    expect(new Set(card.choices).size).toBe(4);
+  });
+});
+
+describe("ordre du deck", () => {
+  /** Sème `n` mots dus, échéances identiques → seul le mélange peut les départager. */
+  async function seedDue(n: number) {
+    for (let i = 0; i < n; i++) {
+      await putVocab({
+        id: `mot${i}|mot${i}`,
+        surface: `mot${i}`,
+        reading: `mot${i}`,
+        meaning: `sens${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: newCard(new Date("2020-01-01")) },
+      });
+    }
+  }
+
+  it("deux sessions successives ne servent pas les mots dans le même ordre", async () => {
+    await seedDue(12);
+    const orders = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      orders.add((await buildSession(NOW, { scope: "due" })).map((c) => c.id).join(","));
+    }
+    // 12! ordres possibles : obtenir 8 fois la même séquence signifierait qu'il n'y a
+    // pas de mélange du tout (c'était le symptôme : tri par échéance + clés IndexedDB).
+    expect(orders.size).toBeGreaterThan(1);
+  });
+
+  it("le mélange ne perd ni ne duplique d'exercice", async () => {
+    await seedDue(12);
+    const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
+    expect(ids).toHaveLength(12);
+    expect(new Set(ids).size).toBe(12);
+  });
 });
 
 describe("buildSession", () => {
@@ -240,14 +302,15 @@ describe("buildSession", () => {
 });
 
 describe("priorisation des nouveaux items", () => {
-  it("les objectifs d'une leçon commencée passent avant le vocabulaire incident", async () => {
+  it("budget serré : les objectifs d'une leçon commencée sont promus, pas l'incident", async () => {
     const { getCurriculum } = await import("./curriculum");
     const first = getCurriculum()[0];
     const lessonVocabIds = first.introduces.vocab.slice(0, 3);
     if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester
     await putLessonProgress({ id: first.id, startedAt: Date.now() });
 
-    // Mot incident (histoire) avec un id alphabétiquement AVANT ceux de la leçon.
+    // Mot incident (histoire) avec un id alphabétiquement AVANT ceux de la leçon : sans
+    // priorisation, l'ordre des clés IndexedDB le ferait passer en premier.
     await putVocab({
       id: "ああ|ああ",
       surface: "ああ",
@@ -270,14 +333,42 @@ describe("priorisation des nouveaux items", () => {
       });
     }
 
-    const session = await buildSession(NOW, { scope: "due" });
-    const ids = session.map((c) => c.id);
-    const incidentIdx = ids.indexOf("ああ|ああ");
-    for (const id of lessonVocabIds) {
-      const idx = ids.indexOf(id);
-      expect(idx).toBeGreaterThanOrEqual(0);
-      if (incidentIdx !== -1) expect(idx).toBeLessThan(incidentIdx);
-    }
+    // Budget du jour réduit au nombre exact de mots de la leçon : c'est le seul cadre où
+    // la priorisation se voit (l'ordre du deck, lui, est désormais mélangé).
+    await bumpSrsDaily(TODAY, { introduced: SRS.newPerDay - lessonVocabIds.length });
+
+    const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
+    for (const id of lessonVocabIds) expect(ids).toContain(id);
+    expect(ids).not.toContain("ああ|ああ");
+  });
+});
+
+describe("scope story (exercices du Lecteur)", () => {
+  async function seedWord(id: string, meaning: string) {
+    const [surface, reading] = id.split("|");
+    await putVocab({ id, surface, reading, meaning, tags: [], status: "unknown", cards: {} });
+  }
+
+  it("ne sert que les mots demandés, et n'amorce aucune carte FSRS", async () => {
+    await seedWord("猫|ねこ", "chat");
+    await seedWord("犬|いぬ", "chien");
+    await seedWord("鳥|とり", "oiseau");
+
+    const session = await buildSession(NOW, { scope: "story", vocabIds: ["猫|ねこ", "犬|いぬ"] });
+    expect(session.map((c) => c.id).sort()).toEqual(["猫|ねこ", "犬|いぬ"].sort());
+    // Lire une histoire n'introduit pas d'items dans la planification.
+    expect((await getVocab("猫|ねこ"))?.cards.written).toBeUndefined();
+    expect((await getSrsDaily(TODAY))?.introduced ?? 0).toBe(0);
+  });
+
+  it("ignore les ids absents de la base plutôt que d'échouer", async () => {
+    await seedWord("猫|ねこ", "chat");
+    const session = await buildSession(NOW, { scope: "story", vocabIds: ["猫|ねこ", "inconnu|x"] });
+    expect(session.map((c) => c.id)).toEqual(["猫|ねこ"]);
+  });
+
+  it("sans mot ni point de grammaire → []", async () => {
+    expect(await buildSession(NOW, { scope: "story" })).toEqual([]);
   });
 });
 

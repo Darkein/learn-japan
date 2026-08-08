@@ -127,6 +127,22 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
     unicode/emoji (⚙ ▶ ✕…) au rendu variable selon la plateforme.
 - **Listes (catalogue)** : lignes séparées par filets, libellés méta en petites capitales.
 - **Barre de progression** : filet de fond + remplissage `--accent`, hauteur 2–3px.
+- **Carte d'exercice** (`ui/exercise/`) — pensée pour la mémoire visuelle :
+  - *Face avant* (`JpFront`) : elle porte sa propre typographie, les appelants ne décident rien.
+    Un **mot japonais isolé** (≤ 6 caractères) passe en `text-6xl`/`text-7xl` — la reconnaissance
+    d'un kanji tient à ses traits, que du texte de corps écrase. Une phrase reste en `text-2xl`,
+    une face française prend la **sérif latine** (`font-serif`), pas la Noto Serif JP.
+  - *Consigne* : sous la face avant, en `text-sm text-muted`. La face avant montre le contenu,
+    jamais la question.
+  - *Options de QCM* : **grille 2×2 de grandes tuiles** (`min-h-24`, `text-3xl`) quand toutes les
+    options sont des formes japonaises courtes — on compare des formes, pas des lignes de texte.
+    Sens français et règles de grammaire restent en **liste**, qu'une tuile carrée tronquerait.
+    Ces tuiles posent leurs propres couleurs d'état (correct `--accent-2`, choix erroné `--accent`,
+    reste en `--muted`) au lieu de passer par `kit/Button` : `variant="ghost"` fixe déjà la bordure
+    et la couleur de texte, utilitaires de même spécificité — l'ordre de la feuille Tailwind
+    décidait du gagnant et la bonne réponse restait grise.
+  - *Correction* (`WordFeedback`) : le mot en **ruby** (`text-4xl`, furigana révélés), puis le
+    **mnémo** et la **décomposition en kanji**. C'est le moment d'étude de la carte.
 
 ## 7. Accessibilité
 

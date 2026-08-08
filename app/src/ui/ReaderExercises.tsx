@@ -1,40 +1,27 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { analyze } from "../lib/analyze";
 import { loadContentDict } from "../lib/data";
-import {
-  comprehensionExercises,
-  kanjiChoiceExercises,
-  kanjiReadingExercises,
-  particleExercises,
-  sentenceBuildExercises,
-} from "../lib/exerciseBuild";
+import { sentenceBuildExercises } from "../lib/exerciseBuild";
 import { daysBeforeGrade, gradeExercise, TRACK_FR, type Exercise } from "../lib/exercise";
-import type { GenState } from "../lib/genClient";
 import { splitJaSentences } from "../lib/kana";
 import { ensureStoryTranslationById } from "../lib/podcast";
+import { shuffle } from "../lib/random";
+import { buildSession } from "../lib/reviewSession";
 import type { SrsGrade } from "../lib/srs";
-import { ensureComprehensionQuiz } from "../lib/stories";
 import type { KuromojiToken } from "../lib/tokenizer";
+import { ensureVocabItems } from "../lib/vocab";
 import { ExerciseCard } from "./exercise/ExerciseCard";
 import { Button } from "./kit/Button";
 import { IconClose } from "./kit/Icon";
 import { Sheet } from "./kit/Sheet";
 import { SessionSummary } from "./SessionSummary";
 
-const STATE_LABEL: Record<GenState, string> = {
-  queued: "en file",
-  generating: "génération…",
-  ready: "prêt",
-  error: "erreur",
-  unknown: "…",
-};
-
 interface Props {
-  /** Identifiant de l'histoire en base (cache le QCM/la traduction). Absent pour une lecture libre. */
+  /** Identifiant de l'histoire en base (cache la traduction). Absent pour une lecture libre. */
   storyId?: string;
   text: string;
   level: number;
-  /** Tokens de l'article entier, pour le quiz de particules. */
+  /** Tokens de l'article entier : source des mots du deck. */
   tokens: KuromojiToken[];
   /** Points de grammaire de la leçon (mêmes index pour ids/labels) ; absent hors leçon. */
   grammar?: { ids: string[]; labels: string[] };
@@ -43,15 +30,6 @@ interface Props {
 
 /** Taille maximale du deck d'exercices d'une histoire. */
 const MAX_DECK = 10;
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 async function buildSentenceExercises(ja: string[], fr: string[]): Promise<Exercise[]> {
   const sentences: { fr: string; tokens: KuromojiToken[] }[] = [];
@@ -62,15 +40,30 @@ async function buildSentenceExercises(ja: string[], fr: string[]): Promise<Exerc
   return sentenceBuildExercises(sentences);
 }
 
+/** Reconstruction des phrases de l'histoire, ou rien si la traduction n'est pas joignable. */
+async function sentenceExercisesOrNone(
+  storyId: string | undefined,
+  text: string,
+  level: number,
+): Promise<Exercise[]> {
+  try {
+    const { sentences } = await ensureStoryTranslationById(storyId, text, level);
+    return await buildSentenceExercises(splitJaSentences(text), sentences);
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Session d'exercices du Lecteur, plein écran : particules, QCM de compréhension et
- * reconstruction de phrases mélangés en un seul deck, terminée par le Bilan partagé
- * (cf. `SessionSummary`, factorisé depuis l'Échauffement).
+ * Session d'exercices du Lecteur, plein écran. Même format que la révision — les cartes du
+ * triangle (kanji ↔ furigana ↔ traduction) sont bâties par `buildSession` en périmètre
+ * « story », restreint aux mots du texte — plus la reconstruction de ses phrases, qui a
+ * besoin de la traduction alignée propre au Lecteur. Terminée par le Bilan partagé
+ * (`SessionSummary`, factorisé depuis l'Échauffement).
  */
 export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose }: Props) {
   const [fullDeck, setFullDeck] = useState<Exercise[] | null>(null);
   const [deck, setDeck] = useState<Exercise[] | null>(null);
-  const [genState, setGenState] = useState<GenState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [i, setI] = useState(0);
   const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
@@ -78,46 +71,32 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    setGenState("queued");
     (async () => {
-      // Dico de contenu chargé d'abord : les exercices de kanji ont besoin des sens FR
-      // (meaningFor lit l'instantané synchrone). Idempotent et mis en cache après coup.
+      // Dico de contenu chargé d'abord : les sens FR des mots viennent de l'instantané
+      // synchrone lu par meaningFor. Idempotent et mis en cache après coup.
       await loadContentDict();
-      // Traduction alignée d'abord : partagée entre particules (contextFr de la phrase
-      // du trou) et reconstruction de phrases — elle était déjà sur leur chemin critique.
-      const compPromise = ensureComprehensionQuiz(
-        storyId, text, level, grammar ?? { ids: [], labels: [] },
-        (s) => {
-          if (!cancelled) setGenState(s);
-        },
-      ).then(comprehensionExercises);
-      const { sentences: fr } = await ensureStoryTranslationById(storyId, text, level);
-      const ja = splitJaSentences(text);
-      const particles = particleExercises(tokens, 8, { ja, fr });
-      const kanjiChoice = kanjiChoiceExercises(tokens);
-      const [comp, built, kanjiRead] = await Promise.all([
-        compPromise,
-        buildSentenceExercises(ja, fr),
-        kanjiReadingExercises(tokens),
+      const vocabIds = await ensureVocabItems(tokens);
+      const [triangle, built] = await Promise.all([
+        buildSession(new Date(), {
+          scope: "story",
+          vocabIds,
+          grammarIds: grammar?.ids ?? [],
+        }),
+        // La reconstruction de phrase a besoin de la traduction alignée, donc du Worker.
+        // Best-effort : hors ligne ou Worker en panne, on sert quand même les cartes du
+        // triangle, qui ne dépendent que de la base locale.
+        sentenceExercisesOrNone(storyId, text, level),
       ]);
-      // Deck plafonné : la compréhension (peu de questions, générées pour l'histoire)
-      // passe toujours, le reste complète jusqu'au plafond.
-      const rest = shuffle([...particles, ...built, ...kanjiRead, ...kanjiChoice]).slice(
-        0,
-        Math.max(0, MAX_DECK - comp.length),
-      );
-      return shuffle([...comp, ...rest]);
+      return shuffle([...triangle, ...built]).slice(0, MAX_DECK);
     })()
       .then((mixed) => {
         if (cancelled) return;
-        setGenState("ready");
         setFullDeck(mixed);
         setDeck(mixed);
         if (mixed.length === 0) setError("Pas d'exercice disponible pour cette histoire.");
       })
       .catch((e) => {
         if (cancelled) return;
-        setGenState("error");
         setError(String(e));
       });
     return () => {
@@ -143,13 +122,7 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
 
   if (error) return shell(<p className="text-sm text-accent">{error}</p>);
 
-  if (!deck) {
-    return shell(
-      <p className="text-sm text-muted">
-        Préparation des exercices… {genState ? STATE_LABEL[genState] : ""}
-      </p>,
-    );
-  }
+  if (!deck) return shell(<p className="text-sm text-muted">Préparation des exercices…</p>);
 
   if (i >= deck.length || !card) {
     function restart(replay?: Exercise[]) {

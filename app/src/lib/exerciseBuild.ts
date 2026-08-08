@@ -1,148 +1,138 @@
-// Construit des `Exercise` (lib/exercise.ts) à partir des sources du Lecteur :
-// particules (déterministe), QCM de compréhension (LLM, déjà généré), reconstruction de
-// phrase (tokenisation + traduction). Pas de logique de notation ici (voir gradeExercise).
+// Construit des `Exercise` (lib/exercise.ts). Cœur du fichier : le TRIANGLE de révision
+// du vocabulaire (kanji ↔ furigana ↔ traduction, cf. lib/vocabFaces.ts), servi aussi bien
+// en révision SRS que sur une leçon ou une histoire. À côté : les variantes d'écoute et de
+// production, la carte de grammaire et la reconstruction de phrase.
+// Pas de logique de notation ici (voir gradeExercise).
 
 import { toTiles, shuffleTiles } from "./builder";
-import type { ComprehensionItem, GrammarItem, VocabItem } from "./db";
-import { clozeSentence, clozeSentenceParts, type ChoiceExercise, type BuildExercise, type Exercise, type TypeExercise } from "./exercise";
-import type { ComprehensionQuestion } from "./genClient";
+import type { GrammarItem, VocabItem } from "./db";
+import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
 import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
-import { answerVariants, hasKanji, normalizeReading } from "./kana";
-import { particleDistractors } from "./particleDistractors";
-import { PARTICLE_GLOSS } from "./particles";
+import { answerVariants, normalizeReading } from "./kana";
 import { shuffle } from "./random";
 import { tokenize, type KuromojiToken } from "./tokenizer";
-import { baseForm, baseReading, effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
+import { effectiveExample } from "./vocab";
+import {
+  dirKey,
+  directionsFor,
+  faceText,
+  orderDirections,
+  pickInputMode,
+  promptFor,
+  type Direction,
+  type Face,
+} from "./vocabFaces";
 
-const CORE_PARTICLES = new Set(["は", "が", "を", "に", "で", "へ", "と"]);
+/** Nombre de distracteurs d'un QCM (soit 4 options en tout). */
+const CHOICES = 3;
 
-function particleChoices(answer: string): string[] {
-  return shuffle([answer, ...particleDistractors(answer)]);
+/**
+ * Distracteurs tirés sur LA MÊME face que la réponse : des graphies contre une graphie,
+ * des lectures contre une lecture, des sens contre un sens. Un QCM qui mélange les
+ * registres se résout sans connaître le mot. Les items du même niveau JLPT passent
+ * d'abord : un distracteur trop éloigné du niveau s'élimine tout seul.
+ */
+function faceDistractors(pool: VocabItem[], v: VocabItem, face: Face, answer: string): string[] {
+  const seen = new Set<string>([answer]);
+  const same: string[] = [];
+  const other: string[] = [];
+  for (const p of pool) {
+    if (p.id === v.id) continue;
+    const text = faceText(p, face);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    (p.jlpt !== undefined && p.jlpt === v.jlpt ? same : other).push(text);
+  }
+  return [...shuffle(same), ...shuffle(other)].slice(0, CHOICES);
+}
+
+/** Champs communs à toutes les cartes du triangle, quelle que soit la direction. */
+function triangleBase(v: VocabItem, dir: Direction, due: number, mode: "choice" | "type") {
+  const example = effectiveExample(v);
+  const hasMeaning = !!v.meaning && v.meaning !== "—";
+  return {
+    key: `vocab:${v.id}:${dirKey(dir)}`,
+    track: "vocab" as const,
+    skill: "written" as const,
+    id: v.id,
+    front: faceText(v, dir.from)!,
+    back: `${v.surface}（${v.reading}）`,
+    ...(hasMeaning ? { meaning: v.meaning } : {}),
+    word: { id: v.id, surface: v.surface, reading: v.reading },
+    prompt: promptFor(dir.to, mode),
+    due,
+    audioBack: { word: v.surface },
+    ...(example?.ja ? { context: example.ja } : {}),
+    ...(example?.fr ? { contextFr: example.fr } : {}),
+  };
+}
+
+/** Saisie de la lecture : la seule cible typable (le champ convertit romaji → kana). */
+function readingTypeExercise(v: VocabItem, dir: Direction, due: number): TypeExercise {
+  return {
+    ...triangleBase(v, dir, due, "type"),
+    mode: "type",
+    // La graphie est acceptée en plus de la lecture : un apprenant qui tape 日本 plutôt
+    // que にほん connaît le mot, ce n'est pas le moment de lui compter une faute.
+    answers: answerVariants(v.reading, v.surface),
+  };
+}
+
+/** Une direction donnée, ou null si elle n'est pas constructible (pool trop pauvre). */
+function triangleDirection(
+  v: VocabItem,
+  dir: Direction,
+  due: number,
+  pool: VocabItem[],
+  isLeech: boolean,
+): Exercise | null {
+  const answer = faceText(v, dir.to);
+  if (!answer || !faceText(v, dir.from)) return null;
+
+  if (pickInputMode(dir.to, v.streak ?? 0, isLeech) === "type") return readingTypeExercise(v, dir, due);
+
+  const distractors = faceDistractors(pool, v, dir.to, answer);
+  if (distractors.length < CHOICES) {
+    // Pas assez de distracteurs plausibles : plutôt que de servir un QCM à deux options
+    // (devinable à pile ou face), on demande la lecture en saisie quand c'est la cible.
+    return dir.to === "kana" ? readingTypeExercise(v, dir, due) : null;
+  }
+  const { choices, answerIndex } = shuffleWithAnswer(answer, distractors);
+  return { ...triangleBase(v, dir, due, "choice"), mode: "choice", choices, answerIndex };
 }
 
 /**
- * Quiz particule (rappel actif) : construit jusqu'à `max` questions à partir des tokens.
- * `translation` (phrases JA alignées avec leur FR, cf. `splitJaSentences`) : attache la
- * traduction FR de la phrase contenant le trou, affichée dans la correction.
+ * Carte du triangle kanji ↔ furigana ↔ traduction — LE format de révision du vocabulaire
+ * écrit (révision SRS, bilan de leçon, exercices d'histoire). La direction est tirée au
+ * hasard parmi celles que le mot porte, en évitant celle du passage précédent ; le mode
+ * suit la face cible et la suite de réussites (QCM tant que ce n'est pas su, saisie de la
+ * lecture ensuite).
+ *
+ * EFFET DE BORD : met à jour `v.lastDir`. L'appelant doit persister `v` (`putVocab`) pour
+ * que le prochain tirage évite bien la direction qui vient d'être servie.
  */
-export function particleExercises(
-  tokens: KuromojiToken[],
-  max = 8,
-  translation?: { ja: string[]; fr: string[] },
-): ChoiceExercise[] {
-  const surfaces = tokens.map((t) => t.surface_form);
-  const out: ChoiceExercise[] = [];
-
-  tokens.forEach((t, i) => {
-    if (t.pos === "助詞" && CORE_PARTICLES.has(t.surface_form)) {
-      const choices = particleChoices(t.surface_form);
-      // On ne montre que la PHRASE contenant le trou, pas tout l'article : on borne
-      // `before`/`after` à ses limites de phrase.
-      const cloze = clozeSentenceParts({
-        before: surfaces.slice(0, i).join(""),
-        after: surfaces.slice(i + 1).join(""),
-      });
-      const idx = translation ? translation.ja.indexOf(clozeSentence(cloze, t.surface_form)) : -1;
-      out.push({
-        mode: "choice",
-        key: `particle:${i}`,
-        track: "grammar",
-        id: `particle:${t.surface_form}`,
-        front: t.surface_form,
-        back: t.surface_form,
-        seedName: `particule ${t.surface_form}`,
-        seedRule: PARTICLE_GLOSS[t.surface_form] ?? "",
-        cloze,
-        choices,
-        answerIndex: choices.indexOf(t.surface_form),
-        ...(idx >= 0 && translation?.fr[idx] ? { contextFr: translation.fr[idx] } : {}),
-      });
+export function vocabTriangleExercise(
+  v: VocabItem,
+  due: number,
+  pool: VocabItem[],
+  opts: { isLeech?: boolean } = {},
+): Exercise {
+  const dirs = orderDirections(directionsFor(v), v.lastDir);
+  for (const dir of dirs) {
+    const ex = triangleDirection(v, dir, due, pool, opts.isLeech ?? false);
+    if (ex) {
+      v.lastDir = dirKey(dir);
+      return ex;
     }
-  });
-
-  return shuffle(out).slice(0, max);
-}
-
-/**
- * Lecture d'un kanji (rappel actif) : le mot est affiché sous sa FORME DE BASE en kanji,
- * l'apprenant tape sa lecture en kana (furigana). Construit depuis les mots de contenu de
- * l'histoire dont la forme de base porte au moins un kanji ; dédupliqué par item, borné à
- * `max`. Noté sur la compétence « écrite » (via `applyStatus`).
- */
-export async function kanjiReadingExercises(tokens: KuromojiToken[], max = 4): Promise<TypeExercise[]> {
-  const seen = new Set<string>();
-  const out: TypeExercise[] = [];
-  for (const t of tokens) {
-    const base = baseForm(t);
-    if (!isContent(t) || !hasKanji(base)) continue;
-    const id = itemIdFor(t);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const reading = await baseReading(t);
-    if (!reading) continue;
-    const meaning = meaningFor(t);
-    out.push({
-      mode: "type",
-      key: `kanji-reading:${id}`,
-      track: "vocab",
-      skill: "written",
-      id,
-      token: t,
-      front: base,
-      back: `${base}（${reading}）`,
-      meaning: meaning && meaning !== "—" ? meaning : undefined,
-      prompt: "Écris la lecture en kana (furigana)",
-      answers: [reading],
-      audioBack: { word: base },
-    });
   }
-  return shuffle(out).slice(0, max);
-}
-
-/**
- * Choix du bon kanji pour un mot donné en français : la face avant montre le sens FR,
- * l'apprenant choisit la graphie correcte parmi des mots-kanji de l'histoire. Ne se
- * construit que s'il y a assez de noms-kanji distincts (≥ 4) pour fournir 3 distracteurs
- * plausibles et de même niveau. Noté sur la compétence « écrite ».
- */
-export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceExercise[] {
-  const pool: { token: KuromojiToken; surface: string; meaning: string; id: string }[] = [];
-  const seen = new Set<string>();
-  for (const t of tokens) {
-    const base = baseForm(t);
-    if (t.pos !== "名詞" || t.pos_detail_1 === "非自立" || !hasKanji(base)) continue;
-    const meaning = meaningFor(t);
-    if (!meaning || meaning === "—") continue;
-    const id = itemIdFor(t);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    pool.push({ token: t, surface: base, meaning, id });
-  }
-  if (pool.length < 4) return []; // pas assez de distracteurs plausibles
-  const out: ChoiceExercise[] = [];
-  pool.forEach((item, i) => {
-    const distractors = shuffle(
-      pool.filter((p) => p.surface !== item.surface).map((p) => p.surface),
-    ).slice(0, 3);
-    if (distractors.length < 3) return;
-    const { choices, answerIndex } = shuffleWithAnswer(item.surface, distractors);
-    out.push({
-      mode: "choice",
-      key: `kanji-choice:${i}`,
-      track: "vocab",
-      skill: "written",
-      id: item.id,
-      token: item.token,
-      front: `Quel mot s'écrit « ${item.meaning} » ?`,
-      back: `${item.surface}（${normalizeReading(item.token.reading ?? "")}）`,
-      meaning: item.meaning,
-      choices,
-      answerIndex,
-      audioBack: { word: item.surface },
-    });
-  });
-  return shuffle(out).slice(0, max);
+  // Filet : `directionsFor` porte toujours une direction vers `kana`, et celle-ci est
+  // toujours constructible (repli saisie) — on ne passe donc jamais ici, sauf mot à une
+  // seule face que `isTrainableVocab` aurait laissé filer.
+  const from: Face = faceText(v, "fr") ? "fr" : "kanji";
+  const fallback: Direction = { from, to: "kana" };
+  v.lastDir = dirKey(fallback);
+  return readingTypeExercise(v, fallback, due);
 }
 
 /**
@@ -170,21 +160,23 @@ function answersWithHit(answers: string[], hit: string | null): string[] {
 }
 
 /**
- * Carte vocabulaire en saisie active (mot FR → japonais, ou lecture si pas de sens connu).
- * `listen` : variante écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot
- * entendu (exige un exemple). Le mot cible est masqué (◯◯) dans la phrase affichée quand
- * il s'y trouve tel quel.
+ * Carte vocabulaire en saisie active sur une compétence AUTRE que l'écrit — l'écrit passe
+ * par `vocabTriangleExercise`. La variante est obligatoire :
+ * `produce` : production en contexte (carte `production`) — cloze ◯◯ sur la phrase
+ * d'exemple avec la traduction FR en indice ; sans exemple exploitable, retombe sur le
+ * rappel isolé FR → mot, toujours noté sur la compétence production.
+ * `listen` : écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot entendu. Le
+ * mot cible est masqué (◯◯) dans la phrase affichée quand il s'y trouve tel quel.
  * `listen` + `silent` : remplacement écrit de l'écoute (réglage « sans le son ») — cloze
  * de production sur la phrase d'exemple, mais noté sur la carte ORALE pour que sa
  * planification continue d'avancer.
- * `produce` : variante production en contexte (carte `production`) — cloze ◯◯ sur la
- * phrase d'exemple avec la traduction FR en indice ; sans exemple exploitable, retombe
- * sur le rappel isolé FR → mot, toujours noté sur la compétence production.
  */
 export function vocabTypeExercise(
   v: VocabItem,
   due: number,
-  opts: { listen?: boolean; produce?: boolean; silent?: boolean } = {},
+  opts:
+    | { listen: true; produce?: false; silent?: boolean }
+    | { produce: true; listen?: false; silent?: never },
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
   const example = effectiveExample(v);
@@ -225,45 +217,28 @@ export function vocabTypeExercise(
       audioBack: { word: v.surface },
     };
   }
-  if (opts.listen) {
-    if (opts.silent) {
-      const ex = vocabTypeExercise(v, due, { produce: true });
-      return { ...ex, key: `vocab-listen-silent:${v.id}`, skill: "oral" };
-    }
-    const hit = exampleHit(v, example?.ja);
-    return {
-      mode: "type",
-      key: `vocab-listen:${v.id}`,
-      track: "vocab",
-      skill: "oral",
-      id: v.id,
-      // Le mot cible est masqué dans la phrase affichée : c'est la réponse — le laisser
-      // visible transformait l'exercice en recopie.
-      front: example?.ja && hit ? example.ja.replace(hit, "◯◯") : (example?.ja ?? v.surface),
-      back: `${v.surface}（${v.reading}）`,
-      meaning: hasMeaning ? v.meaning : undefined,
-      due,
-      audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
-      context: example?.ja,
-      ...(example?.fr ? { contextFr: example.fr } : {}),
-      prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
-      answers: answersWithHit(answers, hit),
-      audioBack: { word: v.surface },
-    };
+  if (opts.silent) {
+    const ex = vocabTypeExercise(v, due, { produce: true });
+    return { ...ex, key: `vocab-listen-silent:${v.id}`, skill: "oral" };
   }
+  const hit = exampleHit(v, example?.ja);
   return {
     mode: "type",
-    key: `vocab:${v.id}`,
+    key: `vocab-listen:${v.id}`,
     track: "vocab",
+    skill: "oral",
     id: v.id,
-    front: hasMeaning ? v.meaning : v.surface,
+    // Le mot cible est masqué dans la phrase affichée : c'est la réponse — le laisser
+    // visible transformait l'exercice en recopie.
+    front: example?.ja && hit ? example.ja.replace(hit, "◯◯") : (example?.ja ?? v.surface),
     back: `${v.surface}（${v.reading}）`,
     meaning: hasMeaning ? v.meaning : undefined,
     due,
-    prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-    answers,
-    ...(example?.ja ? { context: example.ja } : {}),
+    audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
+    context: example?.ja,
     ...(example?.fr ? { contextFr: example.fr } : {}),
+    prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
+    answers: answersWithHit(answers, hit),
     audioBack: { word: v.surface },
   };
 }
@@ -340,25 +315,6 @@ export async function vocabDictationExercise(v: VocabItem, due: number): Promise
     target,
     tokens,
   };
-}
-
-/** QCM de compréhension (LLM) déjà généré → exercices `choice` (piste compréhension). */
-export function comprehensionExercises(questions: ComprehensionQuestion[]): ChoiceExercise[] {
-  return questions.map((q, i) => {
-    const detail = q.targetGrammarId ? grammarDetail(q.targetGrammarId) : null;
-    return {
-      mode: "choice",
-      key: `comprehension:${i}`,
-      track: "comprehension",
-      id: q.targetGrammarId ?? `comprehension:${i}`,
-      front: q.question,
-      back: q.options[q.answerIndex],
-      seedName: detail?.name ?? q.targetGrammarId,
-      seedRule: detail?.ruleFr,
-      choices: q.options,
-      answerIndex: q.answerIndex,
-    };
-  });
 }
 
 /** Reconstruction de phrase : une tuile par phrase analysée, cible = surfaces hors ponctuation. */
@@ -446,28 +402,15 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
     key: `grammar:${g.id}`,
     track: "grammar",
     id: g.id,
-    front: `Que signifie « ${g.name} » ?`,
+    // Le point de grammaire est la face avant (rendu en grand) ; la question passe en
+    // consigne, comme pour les cartes du triangle.
+    front: g.name,
+    prompt: "Que signifie ce point de grammaire ?",
     back: rule,
     choices,
     answerIndex,
     due,
     audioBack: { word: g.name },
-  };
-}
-
-/** Carte de révision compréhension (ex-mode "reveal") : QCM "règle parmi des règles voisines". */
-export function comprehensionReviewExercise(c: ComprehensionItem, due: number): ChoiceExercise {
-  const { choices, answerIndex } = shuffleWithAnswer(c.rule, ruleDistractors(c.id));
-  return {
-    mode: "choice",
-    key: `comprehension:${c.id}`,
-    track: "comprehension",
-    id: c.id,
-    front: `Compréhension — ${c.name}`,
-    back: c.rule,
-    choices,
-    answerIndex,
-    due,
   };
 }
 

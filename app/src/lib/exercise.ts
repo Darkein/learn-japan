@@ -1,30 +1,18 @@
 // Modèle d'exercice unifié (Lecteur + Échauffement). Trois modes, tous avec INPUT :
 // QCM tap (choice), saisie texte (type), construction de phrase par tuiles (build).
-// Remplace WarmupCard + ParticleQ + ComprehensionQuestion-en-UI ; plus de mode "reveal"
-// (auto-note sans réponse produite).
+// Plus de mode "reveal" (auto-note sans réponse produite).
 
-import {
-  getComprehensionItem,
-  getGrammar,
-  getVocab,
-  logReview,
-  putComprehensionItem,
-  putGrammar,
-  putVocab,
-  type Skill,
-} from "./db";
+import { getGrammar, getVocab, logReview, putGrammar, putVocab, type Skill } from "./db";
 import { generateStoryTranslation } from "./genClient";
-import { isJaSentenceEnd } from "./kana";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
-import { applyStatus, isContent, type StatusAction } from "./vocab";
+import { applyStatus, isContent } from "./vocab";
 
-export type ExerciseTrack = "vocab" | "grammar" | "comprehension";
+export type ExerciseTrack = "vocab" | "grammar";
 
 export const TRACK_FR: Record<ExerciseTrack, string> = {
   vocab: "vocabulaire",
   grammar: "grammaire",
-  comprehension: "compréhension",
 };
 
 interface ExerciseBase {
@@ -35,9 +23,10 @@ interface ExerciseBase {
   /** Compétence notée (piste vocab uniquement) : carte FSRS dédiée par compétence.
    *  Absent = "written". "oral" = écoute, planifiée indépendamment de l'écrit. */
   skill?: Skill;
-  /** Id de l'item SRS (VocabItem.id | GrammarItem.id | ComprehensionItem.id). */
+  /** Id de l'item SRS (VocabItem.id | GrammarItem.id). */
   id: string;
-  /** Face avant : mot FR, point de grammaire, ou question. */
+  /** Face avant : le contenu à reconnaître (kanji, lecture, sens FR, point de grammaire,
+   *  phrase) — pas une question : la consigne va dans `prompt`. */
   front: string;
   /** Correction affichée après réponse. */
   back: string;
@@ -54,6 +43,11 @@ interface ExerciseBase {
   /** Exercice à l'aveugle : la face avant ne montre PAS le texte entendu (QCM de sens,
    *  dictée) — bouton « Réécouter » et échappatoire « Afficher le texte » dans la carte. */
   audioOnly?: boolean;
+  /** Consigne courte affichée au-dessus de la face avant. */
+  prompt?: string;
+  /** Mot source d'un exercice du triangle (lib/vocabFaces.ts) : la correction en tire les
+   *  furigana en ruby, la décomposition en kanji et le moyen mnémotechnique. */
+  word?: { id: string; surface: string; reading: string };
   /** Élément difficile (≥ SRS.leechLapses échecs). */
   isLeech?: boolean;
   /** Échéance FSRS (tri par urgence) ; absent côté Lecteur. */
@@ -61,25 +55,18 @@ interface ExerciseBase {
   /** Nom/règle utilisés pour CRÉER l'item SRS s'il n'existe pas encore (sinon `front`/`back`). */
   seedName?: string;
   seedRule?: string;
-  /** Token source (exercices mono-mot dérivés d'une histoire : lecture/choix de kanji) —
-   *  la note passe par `applyStatus`, qui CRÉE l'item vocab s'il n'existe pas encore. */
-  token?: KuromojiToken;
 }
 
 export interface TypeExercise extends ExerciseBase {
   mode: "type";
   /** Réponses NORMALISÉES acceptées. */
   answers: string[];
-  /** Consigne courte affichée au-dessus du champ. */
-  prompt?: string;
 }
 
 export interface ChoiceExercise extends ExerciseBase {
   mode: "choice";
   choices: string[];
   answerIndex: number;
-  /** Fragments autour du trou (particule à compléter), rendu inline si présent. */
-  cloze?: { before: string; after: string };
 }
 
 export interface BuildExercise extends ExerciseBase {
@@ -91,42 +78,6 @@ export interface BuildExercise extends ExerciseBase {
 }
 
 export type Exercise = TypeExercise | ChoiceExercise | BuildExercise;
-
-/**
- * Restreint un cloze à la SEULE phrase contenant le trou : `before`/`after` peuvent
- * couvrir l'article entier (quiz particules) ; on coupe aux bornes de phrase (。！？．!?
- * ou saut de ligne). Mêmes bornes que `splitJaSentences`. Sert à n'afficher que la phrase
- * en cours (plus tout l'article) et à retrouver la traduction alignée.
- */
-export function clozeSentenceParts(cloze: { before: string; after: string }): {
-  before: string;
-  after: string;
-} {
-  let start = 0;
-  for (let i = 0; i < cloze.before.length; i++) {
-    const ch = cloze.before[i];
-    if (ch === "\n" || isJaSentenceEnd(ch)) start = i + 1;
-  }
-  let end = cloze.after.length;
-  for (let i = 0; i < cloze.after.length; i++) {
-    const ch = cloze.after[i];
-    if (ch === "\n") {
-      end = i;
-      break;
-    }
-    if (isJaSentenceEnd(ch)) {
-      end = i + 1;
-      break;
-    }
-  }
-  return { before: cloze.before.slice(start).replace(/^\s+/, ""), after: cloze.after.slice(0, end) };
-}
-
-/** Phrase (trou comblé) contenant le cloze, tronquée à ses bornes de phrase. */
-export function clozeSentence(cloze: { before: string; after: string }, answer: string): string {
-  const { before, after } = clozeSentenceParts(cloze);
-  return (before + answer + after).trim();
-}
 
 /**
  * Traduction FR à la demande d'une phrase de contexte (bouton « Traduire » de la
@@ -147,22 +98,6 @@ export async function translateExampleFr(ja: string, ex: Exercise): Promise<stri
   return fr;
 }
 
-/**
- * Id de repli des questions de compréhension SANS point de grammaire ciblé (voir
- * `comprehensionExercises`) : propres à leur histoire, exclues de la planification SRS.
- */
-export function isStoryComprehensionId(id: string): boolean {
-  return id.startsWith("comprehension:");
-}
-
-/** Note FSRS → action de statut vocab (pour les exercices notés via `applyStatus`). */
-const GRADE_TO_STATUS: Record<SrsGrade, StatusAction> = {
-  again: "forgot",
-  hard: "review",
-  good: "review",
-  easy: "known",
-};
-
 /** Note un exercice et replanifie via FSRS. Crée l'item SRS s'il n'existe pas encore. */
 export async function gradeExercise(
   ex: Exercise,
@@ -179,42 +114,20 @@ export async function gradeExercise(
     return;
   }
 
-  // Exercice mono-mot dérivé d'une histoire (lecture d'un kanji, choix du kanji d'un mot
-  // FR) : reconnaissance ÉCRITE. On note via `applyStatus`, qui crée l'item vocab s'il
-  // n'existe pas encore — les mots d'histoire ne sont pas forcément déjà en base.
-  if (ex.track === "vocab" && ex.token && (ex.skill ?? "written") === "written") {
-    await applyStatus(ex.token, GRADE_TO_STATUS[grade], now);
-    return;
-  }
-
   if (ex.track === "vocab") {
     const v = await getVocab(ex.id);
     if (!v) return;
     const skill = ex.skill ?? "written";
     v.cards[skill] = review(v.cards[skill] ?? newCard(now), grade, now);
-    // Le statut affiché (soulignement du lecteur) reflète la reconnaissance écrite.
-    if (skill === "written") v.status = grade === "easy" ? "known" : "review";
-    await putVocab(v);
-  } else if (ex.track === "comprehension") {
-    // Question de compréhension propre à une histoire (pas de point de grammaire ciblé,
-    // id de repli « comprehension:N ») : notée mais JAMAIS planifiée en SRS — la question
-    // n'a de sens que dans son histoire, elle ne doit pas revenir en révision.
-    if (isStoryComprehensionId(ex.id)) {
-      await logReview({ itemId: ex.id, track: ex.track, grade, at: now.getTime() });
-      return;
+    if (skill === "written") {
+      // Le statut affiché (soulignement du lecteur) reflète la reconnaissance écrite.
+      v.status = grade === "easy" ? "known" : "review";
+      // Suite de réussites : pilote le passage du QCM à la saisie. « Difficile » compte
+      // comme une remise à zéro — c'est aussi la note d'une réponse à une coquille près,
+      // et taper un mot qu'on écrit de travers n'est pas encore acquis.
+      v.streak = grade === "again" || grade === "hard" ? 0 : (v.streak ?? 0) + 1;
     }
-    const c = (await getComprehensionItem(ex.id)) ?? {
-      id: ex.id,
-      name: ex.seedName ?? ex.front,
-      rule: ex.seedRule ?? ex.back,
-      status: "unknown" as const,
-      card: undefined,
-    };
-    c.card = review(c.card ?? newCard(now), grade, now);
-    // « Facile » = l'utilisateur déclare maîtriser (compté dans la maîtrise de la leçon),
-    // comme pour le vocab écrit ci-dessus.
-    c.status = grade === "easy" ? "known" : "review";
-    await putComprehensionItem(c);
+    await putVocab(v);
   } else {
     const g = (await getGrammar(ex.id)) ?? {
       id: ex.id,
@@ -245,11 +158,8 @@ export async function daysBeforeGrade(ex: Exercise): Promise<number> {
   if (ex.track === "vocab") {
     const item = await getVocab(ex.id);
     return item?.cards?.[ex.skill ?? "written"]?.scheduled_days ?? 0;
-  } else if (ex.track === "grammar") {
-    const item = await getGrammar(ex.id);
-    return item?.card?.scheduled_days ?? 0;
   } else {
-    const item = await getComprehensionItem(ex.id);
+    const item = await getGrammar(ex.id);
     return item?.card?.scheduled_days ?? 0;
   }
 }

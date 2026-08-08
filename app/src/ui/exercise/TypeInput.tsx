@@ -8,6 +8,7 @@ import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
 import { JpFront } from "./JpFront";
 import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
+import { WordFeedback } from "./WordFeedback";
 
 interface Props {
   exercise: TypeExercise;
@@ -40,7 +41,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
 
   return (
     <>
-      <JpFront text={ex.front} className="font-jp text-2xl" />
+      <JpFront text={ex.front} />
       {result === null ? (
         <>
           {ex.prompt && <span className="text-sm text-muted">{ex.prompt}</span>}
@@ -95,7 +96,11 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
               Ta réponse : <span className="font-jp">{entry}</span>
             </div>
           )}
-          <div className="font-jp text-xl text-muted">{ex.back}</div>
+          {ex.word ? (
+            <WordFeedback word={ex.word} />
+          ) : (
+            <div className="font-jp text-xl text-muted">{ex.back}</div>
+          )}
           {ex.meaning && ex.meaning !== ex.front && (
             <div className="text-sm text-text">
               <span className="text-muted">Sens : </span>

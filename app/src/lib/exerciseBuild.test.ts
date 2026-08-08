@@ -1,17 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { grammarLessonOrder } from "./curriculum";
-import type { ComprehensionItem, GrammarItem } from "./db";
+import type { GrammarItem, VocabItem } from "./db";
 import {
-  comprehensionReviewExercise,
   grammarReviewExercise,
-  kanjiChoiceExercises,
-  kanjiReadingExercises,
-  particleExercises,
   vocabListenMeaningExercise,
+  vocabTriangleExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import type { KuromojiToken } from "./tokenizer";
+import { TYPE_STREAK } from "./vocabFaces";
 
 // meaningFor lit l'instantané du dico de contenu (vide en test) : on l'alimente pour les
 // exercices de choix de kanji, qui exigent un sens FR.
@@ -91,200 +89,183 @@ describe("grammarReviewExercise (remplace le mode reveal)", () => {
   });
 });
 
-describe("comprehensionReviewExercise (remplace le mode reveal)", () => {
-  it("QCM règles voisines, jamais reveal", () => {
-    const c: ComprehensionItem = {
-      id: "n5-wa-topic",
-      name: "は (thème)",
-      rule: "Pose le décor de la phrase.",
-      status: "review",
-    };
-    const ex = comprehensionReviewExercise(c, 0);
+describe("grammarReviewExercise — QCM de repli", () => {
+  // Le tokenizer moqué ne rend des tuiles que pour 今日は本を読む。 : tout autre point
+  // retombe sur le QCM « règle parmi des règles voisines », la branche testée ici.
+  const g: GrammarItem = {
+    id: "n5-wo-object",
+    name: "を (objet)",
+    rule: "Marque le complément d'objet direct.",
+    examples: [],
+    tags: [],
+    status: "review",
+  };
+
+  it("la règle est la réponse, parmi des règles distinctes", async () => {
+    const ex = await grammarReviewExercise(g, 0);
     expect(ex.mode).toBe("choice");
-    expect(ex.choices).toContain("Pose le décor de la phrase.");
-    expect(ex.choices[ex.answerIndex]).toBe("Pose le décor de la phrase.");
+    if (ex.mode !== "choice") return;
+    expect(ex.choices[ex.answerIndex]).toBe("Marque le complément d'objet direct.");
+    expect(new Set(ex.choices).size).toBe(ex.choices.length);
+    // Le point lui-même est la face avant (rendue en grand), la question est la consigne.
+    expect(ex.front).toBe("を (objet)");
+    expect(ex.prompt).toBeTruthy();
   });
 
-  it("distracteurs tirés des points voisins dans le curriculum", () => {
-    // n5-wa-topic est introduit à la toute première leçon : ses 8 voisins les plus
-    // proches sont tous dans les ~6 premières leçons. Un point tardif (n5-soshite,
-    // n5-demo — leçon 25) ne doit jamais apparaître comme distracteur.
+  it("distracteurs tirés des points voisins dans le curriculum", async () => {
+    // n5-wo-object est introduit dans les toutes premières leçons : ses voisins le sont
+    // aussi. Un point tardif ne doit jamais apparaître comme distracteur.
     const order = grammarLessonOrder();
-    const target = order.get("n5-wa-topic")!;
-    const ruleToOrder = new Map(
-      allGrammarInv().map((g) => [g.ruleFr, order.get(g.id)]),
-    );
-    const c: ComprehensionItem = {
-      id: "n5-wa-topic",
-      name: "は (thème)",
-      rule: "Pose le décor de la phrase.",
-      status: "review",
-    };
+    const target = order.get(g.id)!;
+    const ruleToOrder = new Map(allGrammarInv().map((x) => [x.ruleFr, order.get(x.id)]));
     for (let i = 0; i < 20; i++) {
-      const ex = comprehensionReviewExercise(c, 0);
+      const ex = await grammarReviewExercise(g, 0);
+      if (ex.mode !== "choice") continue;
       for (const [idx, choice] of ex.choices.entries()) {
         if (idx === ex.answerIndex) continue;
         const o = ruleToOrder.get(choice);
         expect(o).toBeDefined();
-        expect(Math.abs(o! - target)).toBeLessThanOrEqual(6);
+        expect(Math.abs(o! - target)).toBeLessThanOrEqual(8);
       }
     }
   });
 });
 
-function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }): KuromojiToken {
+function vocabItem(over: Partial<VocabItem> & { id: string }): VocabItem {
+  const [surface, reading] = over.id.split("|");
   return {
-    pos_detail_1: "*",
-    pos_detail_2: "*",
-    pos_detail_3: "*",
-    conjugated_type: "*",
-    conjugated_form: "*",
-    basic_form: p.surface_form,
-    ...p,
+    surface,
+    reading,
+    meaning: "—",
+    tags: [],
+    status: "review",
+    cards: {},
+    ...over,
   };
 }
 
-describe("particleExercises", () => {
-  const tokens = [
-    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
-    tok({ surface_form: "が", pos: "助詞", pos_detail_1: "格助詞" }),
-    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
-    tok({ surface_form: "を", pos: "助詞", pos_detail_1: "格助詞" }),
-  ];
-  const exercises = particleExercises(tokens);
+/** Pool de distracteurs : quatre mots complets (kanji + lecture + sens) suffisent. */
+const POOL = [
+  vocabItem({ id: "犬|いぬ", meaning: "chien" }),
+  vocabItem({ id: "鳥|とり", meaning: "oiseau" }),
+  vocabItem({ id: "本|ほん", meaning: "livre" }),
+  vocabItem({ id: "水|みず", meaning: "eau" }),
+  vocabItem({ id: "山|やま", meaning: "montagne" }),
+];
 
-  it("génère un exercice choice pour chaque particule, avec 4 choix contenant la réponse", () => {
-    const p = exercises.find((e) => e.cloze && e.choices[e.answerIndex] === "が");
-    expect(p).toBeDefined();
-    expect(p!.choices).toHaveLength(4);
-    expect(p!.choices).toContain("が");
-    expect(new Set(p!.choices).size).toBe(4); // pas de doublon
-  });
+describe("vocabTriangleExercise — directions", () => {
+  const neko = () => vocabItem({ id: "猫|ねこ", meaning: "chat" });
 
-  it("n'exige aucun input vide : chaque exercice a un answerIndex valide", () => {
-    for (const e of exercises) {
-      expect(e.answerIndex).toBeGreaterThanOrEqual(0);
-      expect(e.choices[e.answerIndex]).toBeDefined();
+  it("la face avant est le contenu d'une face, la réponse celui d'une autre", () => {
+    const faces = new Set(["猫", "ねこ", "chat"]);
+    for (let i = 0; i < 40; i++) {
+      const v = neko();
+      const ex = vocabTriangleExercise(v, 0, POOL);
+      expect(faces).toContain(ex.front);
+      const answer = ex.mode === "choice" ? ex.choices[ex.answerIndex] : null;
+      if (answer) {
+        expect(faces).toContain(answer);
+        expect(answer).not.toBe(ex.front); // jamais une recopie
+      }
     }
   });
-});
 
-describe("particleExercises — n'affiche que la phrase du trou", () => {
-  const tokens = [
-    tok({ surface_form: "鳥", pos: "名詞", reading: "トリ" }),
-    tok({ surface_form: "は", pos: "助詞" }),
-    tok({ surface_form: "いる", pos: "動詞", reading: "イル" }),
-    tok({ surface_form: "。", pos: "記号" }),
-    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
-    tok({ surface_form: "が", pos: "助詞" }),
-    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
-    tok({ surface_form: "を", pos: "助詞" }),
-    tok({ surface_form: "飲む", pos: "動詞", reading: "ノム" }),
-    tok({ surface_form: "。", pos: "記号" }),
-  ];
+  it("couvre les six directions d'un mot complet", () => {
+    const seen = new Set<string>();
+    const v = neko();
+    for (let i = 0; i < 200; i++) {
+      vocabTriangleExercise(v, 0, POOL);
+      seen.add(v.lastDir!);
+    }
+    expect(seen.size).toBe(6);
+  });
 
-  it("borne le cloze à la phrase courante (pas tout l'article)", () => {
-    const exs = particleExercises(tokens, 8);
-    const ga = exs.find((e) => e.choices[e.answerIndex] === "が" && e.cloze)!;
-    // Le trou de « 猫が水を飲む。 » ne doit PAS embarquer la phrase précédente (鳥はいる。).
-    expect(ga.cloze!.before).toBe("猫");
-    expect(ga.cloze!.after).toBe("水を飲む。");
-    expect(ga.cloze!.before).not.toContain("鳥");
+  it("ne rejoue jamais la direction du passage précédent", () => {
+    const v = neko();
+    for (let i = 0; i < 40; i++) {
+      const before = v.lastDir;
+      vocabTriangleExercise(v, 0, POOL);
+      if (before) expect(v.lastDir).not.toBe(before);
+    }
+  });
+
+  it("mot sans sens exploitable : seules les directions kanji ↔ lecture", () => {
+    const v = vocabItem({ id: "猫|ねこ", meaning: "—" });
+    for (let i = 0; i < 20; i++) {
+      const ex = vocabTriangleExercise(v, 0, POOL);
+      expect(["猫", "ねこ"]).toContain(ex.front);
+    }
+  });
+
+  it("porte le mot source (correction : ruby, décomposition, mnémo)", () => {
+    const ex = vocabTriangleExercise(neko(), 0, POOL);
+    expect(ex.word).toEqual({ id: "猫|ねこ", surface: "猫", reading: "ねこ" });
   });
 });
 
-describe("kanjiReadingExercises", () => {
-  const tokens = [
-    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
-    tok({ surface_form: "が", pos: "助詞" }),
-    tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
-    tok({ surface_form: "を", pos: "助詞" }),
-    tok({ surface_form: "飲み", pos: "動詞", basic_form: "飲む", reading: "ノミ" }),
-    tok({ surface_form: "ます", pos: "助動詞" }),
-    tok({ surface_form: "ねこ", pos: "名詞", reading: "ネコ" }), // sans kanji → ignoré
-  ];
-
-  it("mot en kanji → saisie de la lecture en hiragana, noté sur la carte écrite", async () => {
-    const exs = await kanjiReadingExercises(tokens, 10);
-    const surfaces = exs.map((e) => e.front);
-    expect(surfaces).toContain("水");
-    expect(surfaces).not.toContain("ねこ"); // pas de kanji
-    expect(surfaces).not.toContain("が"); // particule, pas un mot de contenu
-    const mizu = exs.find((e) => e.front === "水")!;
-    expect(mizu.mode).toBe("type");
-    expect(mizu.skill).toBe("written");
-    expect(mizu.answers).toEqual(["みず"]);
-    expect(mizu.token).toBeDefined();
+describe("vocabTriangleExercise — QCM ou saisie selon la maîtrise", () => {
+  it("mot frais : toujours du QCM, avec 4 options distinctes dont la réponse", () => {
+    for (let i = 0; i < 40; i++) {
+      const ex = vocabTriangleExercise(vocabItem({ id: "猫|ねこ", meaning: "chat" }), 0, POOL);
+      expect(ex.mode).toBe("choice");
+      if (ex.mode === "choice") {
+        expect(ex.choices).toHaveLength(4);
+        expect(new Set(ex.choices).size).toBe(4);
+        expect(ex.choices[ex.answerIndex]).toBeDefined();
+      }
+    }
   });
 
-  it("verbe conjugué → affiché et interrogé sous sa FORME DE BASE", async () => {
-    const exs = await kanjiReadingExercises(tokens, 10);
-    // 飲み (surface) doit devenir 飲む (base), avec la lecture de la base のむ (pas のみ).
-    expect(exs.map((e) => e.front)).toContain("飲む");
-    expect(exs.map((e) => e.front)).not.toContain("飲み");
-    const nomu = exs.find((e) => e.front === "飲む")!;
-    expect(nomu.answers).toEqual(["のむ"]);
-    expect(nomu.back).toContain("飲む（のむ）");
+  it("après TYPE_STREAK réussites, la lecture se tape (les autres faces restent en QCM)", () => {
+    const v = vocabItem({ id: "猫|ねこ", meaning: "chat", streak: TYPE_STREAK });
+    const modes = new Map<string, string>();
+    for (let i = 0; i < 200; i++) {
+      const mode = vocabTriangleExercise(v, 0, POOL).mode;
+      modes.set(v.lastDir!, mode); // lastDir est écrit par la construction : lire APRÈS
+    }
+    expect(modes.size).toBe(6);
+    for (const [dir, mode] of modes) {
+      expect(mode, dir).toBe(dir.endsWith(">kana") ? "type" : "choice");
+    }
+  });
+
+  it("élément difficile : retour au QCM même au-dessus du seuil", () => {
+    const v = vocabItem({ id: "猫|ねこ", meaning: "chat", streak: TYPE_STREAK + 5 });
+    for (let i = 0; i < 40; i++) {
+      expect(vocabTriangleExercise(v, 0, POOL, { isLeech: true }).mode).toBe("choice");
+    }
+  });
+
+  it("pool trop pauvre pour un QCM honnête : saisie de la lecture plutôt que 2 options", () => {
+    const v = vocabItem({ id: "猫|ねこ", meaning: "chat" });
+    for (let i = 0; i < 20; i++) {
+      const ex = vocabTriangleExercise(v, 0, [], { isLeech: false });
+      expect(ex.mode).toBe("type");
+      if (ex.mode === "type") expect(ex.answers).toEqual(expect.arrayContaining(["ねこ"]));
+    }
+  });
+
+  it("saisie : la graphie est acceptée en plus de la lecture", () => {
+    const v = vocabItem({ id: "猫|ねこ", meaning: "chat", streak: TYPE_STREAK });
+    const ex = vocabTriangleExercise(v, 0, []);
+    expect(ex.mode).toBe("type");
+    if (ex.mode === "type") expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 });
 
-describe("kanjiChoiceExercises", () => {
-  it("sens FR → choix du bon kanji, avec 3 distracteurs (pool ≥ 4 mots-kanji)", () => {
-    const tokens = [
-      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
-      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
-      tok({ surface_form: "本", pos: "名詞", reading: "ホン" }),
-      tok({ surface_form: "牛乳", pos: "名詞", reading: "ギュウニュウ" }),
+describe("vocabTriangleExercise — entrées du dico annotées", () => {
+  it("suffixe (する) optionnel, alternatives « a; b », marqueur ～", () => {
+    const cases: [Partial<VocabItem> & { id: string }, string[]][] = [
+      [{ id: "勉強|べんきょう (する)", surface: "勉強", reading: "べんきょう (する)" }, ["勉強", "べんきょう", "べんきょうする"]],
+      [{ id: "いい; よい|いい; よい", surface: "いい; よい", reading: "いい; よい" }, ["いい", "よい"]],
+      [{ id: "～円|～えん", surface: "～円", reading: "～えん" }, ["円", "えん"]],
     ];
-    const exs = kanjiChoiceExercises(tokens, 10);
-    expect(exs.length).toBeGreaterThan(0);
-    const neko = exs.find((e) => e.id.startsWith("猫"))!;
-    expect(neko.front).toContain("chat");
-    expect(neko.choices).toHaveLength(4);
-    expect(neko.choices).toContain("猫");
-    expect(neko.choices[neko.answerIndex]).toBe("猫");
-    expect(new Set(neko.choices).size).toBe(4);
-  });
-
-  it("pool trop petit (< 4 mots-kanji distincts) → aucun exercice", () => {
-    const tokens = [
-      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
-      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
-    ];
-    expect(kanjiChoiceExercises(tokens)).toEqual([]);
-  });
-});
-
-describe("particleExercises — contextFr (traduction alignée)", () => {
-  const tokens = [
-    tok({ surface_form: "鳥", pos: "名詞", reading: "トリ" }),
-    tok({ surface_form: "は", pos: "助詞" }),
-    tok({ surface_form: "いる", pos: "動詞", reading: "イル" }),
-    tok({ surface_form: "。", pos: "記号" }),
-    tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
-    tok({ surface_form: "が", pos: "助詞" }),
-    tok({ surface_form: "走る", pos: "動詞", reading: "ハシル" }),
-    tok({ surface_form: "。", pos: "記号" }),
-  ];
-
-  it("attache la traduction de la phrase contenant le trou", () => {
-    const translation = {
-      ja: ["鳥はいる。", "猫が走る。"],
-      fr: ["Il y a un oiseau.", "Le chat court."],
-    };
-    const exs = particleExercises(tokens, 8, translation);
-    expect(exs.find((e) => e.front === "が")!.contextFr).toBe("Le chat court.");
-    expect(exs.find((e) => e.front === "は")!.contextFr).toBe("Il y a un oiseau.");
-  });
-
-  it("omet contextFr quand la phrase ne correspond à aucune traduction", () => {
-    const exs = particleExercises(tokens, 8, { ja: ["別の文。"], fr: ["Autre."] });
-    for (const e of exs) expect(e.contextFr).toBeUndefined();
-  });
-
-  it("omet contextFr sans traduction fournie", () => {
-    const exs = particleExercises(tokens, 8);
-    for (const e of exs) expect(e.contextFr).toBeUndefined();
+    for (const [over, expected] of cases) {
+      const v = vocabItem({ ...over, meaning: "x", streak: TYPE_STREAK });
+      const ex = vocabTriangleExercise(v, 0, []);
+      expect(ex.mode).toBe("type");
+      if (ex.mode === "type") expect(new Set(ex.answers)).toEqual(new Set(expected));
+    }
   });
 });
 
@@ -388,35 +369,6 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
   });
 });
 
-describe("vocabTypeExercise — entrées du dico annotées", () => {
-  function vocab(over: { surface: string; reading: string; meaning: string }) {
-    return {
-      id: `${over.surface}|${over.reading}`,
-      surface: over.surface,
-      reading: over.reading,
-      meaning: over.meaning,
-      tags: [],
-      status: "review" as const,
-      cards: {},
-    };
-  }
-
-  it("suffixe (する) optionnel : accepte la lecture avec et sans する", () => {
-    const ex = vocabTypeExercise(vocab({ surface: "勉強", reading: "べんきょう (する)", meaning: "étudier" }), 0);
-    expect(ex.answers).toEqual(["勉強", "べんきょう", "べんきょうする"]);
-  });
-
-  it("alternatives « a; b » : chaque variante est acceptée", () => {
-    const ex = vocabTypeExercise(vocab({ surface: "いい; よい", reading: "いい; よい", meaning: "bon, bien" }), 0);
-    expect(ex.answers).toEqual(["いい", "よい"]);
-  });
-
-  it("marqueur d'affixe ～ retiré des réponses", () => {
-    const ex = vocabTypeExercise(vocab({ surface: "～円", reading: "～えん", meaning: "yen" }), 0);
-    expect(ex.answers).toEqual(["円", "えん"]);
-  });
-});
-
 describe("vocabTypeExercise — contextFr", () => {
   function vocab(example?: { ja: string; fr?: string }) {
     return {
@@ -432,18 +384,16 @@ describe("vocabTypeExercise — contextFr", () => {
   }
 
   it("transmet la traduction FR de la phrase d'exemple", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0);
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
     expect(ex.context).toBe("猫が走る。");
     expect(ex.contextFr).toBe("Le chat court.");
   });
 
   it("porte le sens FR du mot (affiché dans la correction d'un échec)", () => {
-    // Écoute : face avant japonaise → le sens est nécessaire dans la correction.
-    const listen = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { listen: true });
-    expect(listen.meaning).toBe("chat");
-    // Rappel FR → JA : le sens est déjà la face avant, mais reste porté pour la correction.
-    const recall = vocabTypeExercise(vocab(), 0);
-    expect(recall.meaning).toBe("chat");
+    // Face avant japonaise (écoute) comme cloze de production : le sens est nécessaire
+    // dans la correction, la face avant ne le montre pas.
+    expect(vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { listen: true }).meaning).toBe("chat");
+    expect(vocabTypeExercise(vocab(), 0, { produce: true }).meaning).toBe("chat");
   });
 
   it("variante écoute : transmet aussi contextFr", () => {
@@ -488,7 +438,7 @@ describe("vocabTypeExercise — contextFr", () => {
   });
 
   it("absent quand l'exemple n'a pas de traduction", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0);
+    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { produce: true });
     expect(ex.contextFr).toBeUndefined();
   });
 });
