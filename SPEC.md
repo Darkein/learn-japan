@@ -103,7 +103,14 @@ apprend le japonais) ait à valider quoi que ce soit, le curriculum repose sur d
 1. **Référentiel / inventaire** (`app/src/data/inventory/`) — le « quoi », complet et sourcé :
    `kanji.json`, `vocab.json` (datasets ouverts, cf. README) et `grammar.json` (curé). Chaque item
    a un **id stable** et un **niveau JLPT**. Les sens **français** sont curés dans des overlays
-   (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais.
+   (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais. Une glose de vocabulaire est
+   **discriminante** : deux mots ne partagent jamais le même libellé, sinon un exercice
+   « sens FR → mot japonais » n'a pas de réponse unique (暑い et 暖かい tous deux « chaud
+   (climat) » refusaient une réponse juste sur deux). On qualifie donc ce qui distingue —
+   registre, domaine, lecture, nature (« doux, tiède (climat) », « chaud (au toucher) »).
+   Invariant testé (`synonyms.test.ts`). Quand deux mots sont réellement **interchangeables**
+   (しかし / でも), la glose reste commune et c'est `lib/synonyms.ts` qui accepte l'un pour
+   l'autre et empêche un synonyme de servir de distracteur dans un QCM de sens.
 2. **Curriculum** (`curriculum.json`, v3) — le « dans quel ordre » : **niveau → unité → leçon**.
    Chaque leçon **référence** l'inventaire via `introduces: { vocab, grammar }` (listes
    d'ids) au lieu de redéclarer le contenu → source unique de vérité, zéro doublon.

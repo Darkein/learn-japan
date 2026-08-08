@@ -3,7 +3,7 @@
 //   produit par `npm run data:jmdict`), chargé à la demande, décompressé, puis mis en cache
 //   (IndexedDB). Hors bundle JS, offline après le premier chargement.
 
-import { deleteDictCache, getDictCache, putDictCache } from "./db";
+import { deleteDictCache, getDictCache, getMeta, putDictCache, putMeta } from "./db";
 import { kanaGlossOverlay } from "./inventory";
 import type { ContentDict } from "./gloss";
 
@@ -61,6 +61,29 @@ function withInventoryOverlay(map: ContentDict): ContentDict {
 }
 
 /**
+ * Révision des gloses FR curées (data/inventory/vocab-fr.json). Le sens d'un mot est FIGÉ
+ * sur l'item de révision à sa création : quand la curation bouge — passe de désambiguïsation
+ * des mots qui portaient tous la même glose (暑い / 暖かい « chaud (climat) ») — les items
+ * déjà en base gardent l'ancien sens et continuent de poser des questions sans réponse
+ * unique. Bumper ce numéro re-dérive les sens stockés SANS invalider le cache du JMdict,
+ * qui, lui, n'a pas changé (pas de re-téléchargement de l'asset).
+ */
+const GLOSS_REVISION = 1;
+const GLOSS_REVISION_KEY = "glossRevision";
+
+/**
+ * Re-dérive les sens figés des items de révision quand c'est nécessaire : `force` pour un
+ * dictionnaire fraîchement téléchargé (nouvelle version = sens potentiellement faux),
+ * sinon uniquement si la révision des gloses curées a changé depuis la dernière fois.
+ */
+async function refreshStoredMeaningsIfStale(dict: ContentDict, force: boolean): Promise<void> {
+  if (!force && (await getMeta<number>(GLOSS_REVISION_KEY)) === GLOSS_REVISION) return;
+  const vocab = await import("./vocab");
+  await vocab.refreshStoredMeanings(dict);
+  await putMeta(GLOSS_REVISION_KEY, GLOSS_REVISION);
+}
+
+/**
  * Charge (une seule fois) le dictionnaire de contenu : cache IndexedDB d'abord, sinon
  * asset statique gzippé → décompression → parse → mise en cache. Si tout échoue, renvoie
  * le seul overlay inventaire (les autres mots retombent sur leur forme de base, jamais d'erreur).
@@ -70,16 +93,22 @@ export function loadContentDict(): Promise<ContentDict> {
     dictPromise = (async () => {
       try {
         const cached = await getDictCache(DICT_ID);
-        if (cached) return (loaded = withInventoryOverlay(cached));
+        if (cached) {
+          loaded = withInventoryOverlay(cached);
+          void refreshStoredMeaningsIfStale(loaded, false).catch((e) =>
+            console.warn("[dict] re-dérivation des sens échouée :", e),
+          );
+          return loaded;
+        }
         const map = await fetchAndDecompress(assetUrl());
         await putDictCache(DICT_ID, map);
         for (const id of LEGACY_DICT_IDS) await deleteDictCache(id);
         loaded = withInventoryOverlay(map);
         // Première ouverture avec cette version du dico : les items de révision créés
         // avec l'ancienne version portent des sens figés potentiellement faux → re-dérive.
-        void import("./vocab")
-          .then((m) => m.refreshStoredMeanings(loaded))
-          .catch((e) => console.warn("[dict] re-dérivation des sens échouée :", e));
+        void refreshStoredMeaningsIfStale(loaded, true).catch((e) =>
+          console.warn("[dict] re-dérivation des sens échouée :", e),
+        );
         return loaded;
       } catch (e) {
         console.warn("[dict] chargement JMdict-FR échoué :", e);

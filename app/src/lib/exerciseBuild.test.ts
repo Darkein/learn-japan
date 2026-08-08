@@ -492,3 +492,85 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.contextFr).toBeUndefined();
   });
 });
+
+describe("vocabTypeExercise — mots synonymes (lib/synonyms.ts)", () => {
+  function vocab(id: string, surface: string, reading: string, meaning: string) {
+    return { id, surface, reading, meaning, tags: [], status: "review" as const, cards: {} };
+  }
+
+  it("rappel isolé : le synonyme du référentiel est accepté", () => {
+    // しかし « cependant, mais » et でも « mais, cependant » : la face avant est le sens
+    // seul, elle ne désigne pas un mot unique — refuser でも était un faux négatif.
+    const ex = vocabTypeExercise(vocab("しかし|しかし", "しかし", "しかし", "cependant, mais"), 0);
+    expect(ex.front).toBe("cependant, mais");
+    expect(ex.answers).toContain("しかし");
+    expect(ex.answers).toContain("でも");
+  });
+
+  it("production sans exemple exploitable : même tolérance", () => {
+    const ex = vocabTypeExercise(vocab("切符|きっぷ", "切符", "きっぷ", "billet, ticket"), 0, {
+      produce: true,
+    });
+    expect(ex.skill).toBe("production");
+    expect(ex.answers).toEqual(expect.arrayContaining(["切符", "きっぷ", "券", "けん"]));
+  });
+
+  it("sens désambiguïsé : pas de synonyme accepté (暑い ≠ 暖かい)", () => {
+    const ex = vocabTypeExercise(vocab("暑い|あつい", "暑い", "あつい", "chaud (climat)"), 0);
+    expect(ex.answers).toEqual(["暑い", "あつい"]);
+  });
+
+  it("cloze sur la phrase d'exemple : la phrase attend SON mot, pas un équivalent", () => {
+    const v = {
+      ...vocab("しかし|しかし", "しかし", "しかし", "cependant, mais"),
+      example: { ja: "しかし、雨が降った。", fr: "Mais il a plu." },
+    };
+    const ex = vocabTypeExercise(v, 0, { produce: true });
+    expect(ex.front).toBe("◯◯、雨が降った。");
+    expect(ex.answers).not.toContain("でも");
+  });
+
+  it("dictée : le mot entendu est la seule réponse", () => {
+    const v = {
+      ...vocab("しかし|しかし", "しかし", "しかし", "cependant, mais"),
+      example: { ja: "しかし、雨が降った。" },
+    };
+    const ex = vocabTypeExercise(v, 0, { listen: true });
+    expect(ex.answers).not.toContain("でも");
+  });
+});
+
+describe("QCM de sens — pas deux bonnes réponses dans la liste", () => {
+  function vocab(id: string, meaning: string, example?: { ja: string }) {
+    const [surface, reading] = id.split("|");
+    return { id, surface, reading, meaning, tags: [], status: "review" as const, cards: {}, example };
+  }
+
+  it("vocabListenMeaningExercise écarte un distracteur synonyme de la réponse", () => {
+    const pool = [
+      vocab("でも|でも", "mais, cependant"), // synonyme de la réponse → écarté
+      vocab("犬|いぬ", "chien"),
+      vocab("鳥|とり", "oiseau"),
+      vocab("本|ほん", "livre"),
+    ];
+    const v = vocab("しかし|しかし", "cependant, mais", { ja: "しかし、雨が降った。" });
+    const ex = vocabListenMeaningExercise(v, 0, pool)!;
+    expect(ex).not.toBeNull();
+    expect(ex.choices).not.toContain("mais, cependant");
+    expect(ex.choices[ex.answerIndex]).toBe("cependant, mais");
+  });
+
+  it("kanjiChoiceExercises n'oppose pas deux graphies de même sens", () => {
+    // 牛乳 et ミルク partagent « lait » dans le dico simulé plus haut : ミルク n'est pas
+    // un mot-kanji, on vérifie donc sur une paire de sens identiques du pool.
+    const tokens = [
+      tok({ surface_form: "猫", pos: "名詞", reading: "ネコ" }),
+      tok({ surface_form: "水", pos: "名詞", reading: "ミズ" }),
+      tok({ surface_form: "本", pos: "名詞", reading: "ホン" }),
+      tok({ surface_form: "牛乳", pos: "名詞", reading: "ギュウニュウ" }),
+    ];
+    for (const ex of kanjiChoiceExercises(tokens, 10)) {
+      expect(new Set(ex.choices).size).toBe(ex.choices.length);
+    }
+  });
+});

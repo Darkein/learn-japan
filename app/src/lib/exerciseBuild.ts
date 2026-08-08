@@ -12,6 +12,7 @@ import { answerVariants, hasKanji, normalizeReading } from "./kana";
 import { particleDistractors } from "./particleDistractors";
 import { PARTICLE_GLOSS } from "./particles";
 import { shuffle } from "./random";
+import { alternateAnswers, sameMeaning } from "./synonyms";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 import { baseForm, baseReading, effectiveExample, isContent, itemIdFor, meaningFor } from "./vocab";
 
@@ -122,8 +123,12 @@ export function kanjiChoiceExercises(tokens: KuromojiToken[], max = 3): ChoiceEx
   if (pool.length < 4) return []; // pas assez de distracteurs plausibles
   const out: ChoiceExercise[] = [];
   pool.forEach((item, i) => {
+    // Un mot de même sens (« billet, ticket » : 切符 et 券) serait une SECONDE bonne
+    // réponse à « Quel mot s'écrit … ? » : il ne peut pas servir de distracteur.
     const distractors = shuffle(
-      pool.filter((p) => p.surface !== item.surface).map((p) => p.surface),
+      pool
+        .filter((p) => p.surface !== item.surface && !sameMeaning(p.meaning, item.meaning))
+        .map((p) => p.surface),
     ).slice(0, 3);
     if (distractors.length < 3) return;
     const { choices, answerIndex } = shuffleWithAnswer(item.surface, distractors);
@@ -194,6 +199,13 @@ export function vocabTypeExercise(
   const answers = hasMeaning
     ? answerVariants(v.surface, v.reading)
     : answerVariants(v.reading);
+  // Rappel ISOLÉ (face avant = le sens FR seul) : la question ne désigne pas un mot unique
+  // quand plusieurs mots portent ce sens — on accepte aussi les synonymes du référentiel
+  // (voir lib/synonyms.ts). Volontairement limité à ce cadrage : un cloze sur la phrase
+  // d'exemple ou une dictée attendent LE mot de la phrase, pas un équivalent.
+  const recallAnswers = hasMeaning
+    ? [...new Set([...answers, ...alternateAnswers(v.id, v.meaning)])]
+    : answers;
   if (opts.produce) {
     const hit = exampleHit(v, example?.ja);
     const base = {
@@ -222,6 +234,7 @@ export function vocabTypeExercise(
       ...base,
       front: hasMeaning ? v.meaning : v.surface,
       prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+      answers: recallAnswers,
       audioBack: { word: v.surface },
     };
   }
@@ -261,7 +274,7 @@ export function vocabTypeExercise(
     meaning: hasMeaning ? v.meaning : undefined,
     due,
     prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
-    answers,
+    answers: recallAnswers,
     ...(example?.ja ? { context: example.ja } : {}),
     ...(example?.fr ? { contextFr: example.fr } : {}),
     audioBack: { word: v.surface },
@@ -284,10 +297,15 @@ export function vocabListenMeaningExercise(
 ): ChoiceExercise | null {
   if (!v.meaning || v.meaning === "—") return null;
   const example = effectiveExample(v);
+  // On écarte les sens SYNONYMES de la réponse, pas seulement les libellés identiques :
+  // proposer « cependant, mais » (しかし) face à « mais, cependant » (でも) donnait deux
+  // bonnes réponses dans la même liste.
   const meanings = [
     ...new Set(
       pool
-        .filter((p) => p.id !== v.id && p.meaning && p.meaning !== "—" && p.meaning !== v.meaning)
+        .filter(
+          (p) => p.id !== v.id && p.meaning && p.meaning !== "—" && !sameMeaning(p.meaning, v.meaning),
+        )
         .map((p) => p.meaning),
     ),
   ];
