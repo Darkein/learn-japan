@@ -105,6 +105,20 @@ export function SettingsSections({ quick }: Props) {
               value={settings.silentReviews}
               onChange={(v) => update({ silentReviews: v })}
             />
+            {/* Pause posée depuis une carte (« Je ne peux pas écouter ») : elle expire
+                d'elle-même, mais reste annulable ici — sinon rien ne l'explique. */}
+            {settings.silentUntil > Date.now() && (
+              <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
+                Écoute en pause encore{" "}
+                {Math.ceil((settings.silentUntil - Date.now()) / 60000)} min.
+                <button
+                  className="cursor-pointer text-xs text-muted underline"
+                  onClick={() => update({ silentUntil: 0 })}
+                >
+                  Réactiver le son
+                </button>
+              </p>
+            )}
           </div>
         </section>
       )}
