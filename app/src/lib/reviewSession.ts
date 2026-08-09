@@ -35,6 +35,7 @@ import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
 import { effectiveExample, repairConjugatedVocab } from "./vocab";
+import { faceText } from "./vocabFaces";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
@@ -167,6 +168,10 @@ async function startedCurriculumEntries(): Promise<CurriculumEntry[]> {
  * commencées (dans l'ordre du curriculum), puis le vocabulaire incident des histoires.
  * Sans cela, l'ordre des clés IndexedDB (alphabétique) décidait quels mots entraient en
  * rotation — les mots-cibles d'une leçon pouvaient passer après un mot croisé au hasard.
+ *
+ * Le vocabulaire incident passe GRAPHIES EN KANJI D'ABORD : à budget de nouveautés égal,
+ * un mot qui s'écrit en kanji apporte plus qu'un mot déjà lisible tel quel en kana. Les
+ * objectifs de leçon, eux, gardent l'ordre du curriculum (il est curé).
  */
 function prioritizeNewVocab(vocabAll: VocabItem[], started: CurriculumEntry[]): VocabItem[] {
   const byId = new Map(vocabAll.filter((v) => !v.cards.written).map((v) => [v.id, v]));
@@ -180,7 +185,9 @@ function prioritizeNewVocab(vocabAll: VocabItem[], started: CurriculumEntry[]): 
       }
     }
   }
-  ordered.push(...byId.values());
+  const incidental = [...byId.values()];
+  const written = (v: VocabItem) => (faceText(v, "kanji") ? 0 : 1);
+  ordered.push(...incidental.sort((a, b) => written(a) - written(b)));
   return ordered;
 }
 

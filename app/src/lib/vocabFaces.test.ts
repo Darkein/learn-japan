@@ -5,6 +5,7 @@ import {
   dirKey,
   directionsFor,
   faceText,
+  involvesKanji,
   orderDirections,
   pickInputMode,
   promptFor,
@@ -94,6 +95,34 @@ describe("orderDirections", () => {
   it("une seule direction possible : elle ressort même si c'est la précédente", () => {
     const only = [{ from: "fr" as const, to: "kana" as const }];
     expect(orderDirections(only, "fr>kana")).toEqual(only);
+  });
+
+  it("privilégie les directions qui font intervenir le kanji", () => {
+    // 4 directions sur 6 touchent le kanji : un tirage uniforme en sortirait ~67 % en tête.
+    // Pondérées (KANJI_WEIGHT), elles doivent dominer nettement.
+    let kanjiFirst = 0;
+    const draws = 400;
+    for (let i = 0; i < draws; i++) {
+      if (involvesKanji(orderDirections(dirs)[0])) kanjiFirst++;
+    }
+    expect(kanjiFirst / draws).toBeGreaterThan(0.8);
+  });
+
+  it("mot sans face kanji : les directions kana restent servies", () => {
+    const kanaOnly = directionsFor(vocab({ id: "ねこ|ねこ", meaning: "chat" }));
+    const firsts = new Set<string>();
+    for (let i = 0; i < 50; i++) firsts.add(dirKey(orderDirections(kanaOnly)[0]));
+    expect(firsts).toEqual(new Set(["kana>fr", "fr>kana"]));
+  });
+});
+
+describe("involvesKanji", () => {
+  it("vrai dès que la face kanji est montrée ou demandée", () => {
+    expect(involvesKanji({ from: "kanji", to: "fr" })).toBe(true);
+    expect(involvesKanji({ from: "fr", to: "kanji" })).toBe(true);
+    expect(involvesKanji({ from: "kanji", to: "kana" })).toBe(true);
+    expect(involvesKanji({ from: "kana", to: "fr" })).toBe(false);
+    expect(involvesKanji({ from: "fr", to: "kana" })).toBe(false);
   });
 });
 
