@@ -10,7 +10,7 @@
 
 import type { VocabItem } from "./db";
 import { hasKanji, normalizeReading } from "./kana";
-import { shuffle } from "./random";
+import { weightedShuffle } from "./random";
 
 export type Face = "kanji" | "kana" | "fr";
 
@@ -62,13 +62,31 @@ export function dirKey(d: Direction): string {
 }
 
 /**
- * Ordre de tirage des directions : mélangées, celle du passage précédent reléguée en
- * dernier. Deux révisions d'affilée sous le même angle n'apprennent rien de plus que la
- * première — mais on la garde en repli, car une direction n'est pas toujours constructible
- * (pool de distracteurs trop pauvre) : l'appelant descend la liste jusqu'à ce qu'une passe.
+ * Combien de fois plus souvent une direction qui fait intervenir la face KANJI passe devant
+ * une direction purement kana (lecture ↔ sens). La graphie est ce qui coûte à apprendre :
+ * un mot qui porte des kanji se révise sur ses kanji, pas sur sa transcription en kana.
+ * Pondération, pas exclusion — les directions kana restent tirables (et sont les seules
+ * d'un mot sans face kanji).
+ */
+export const KANJI_WEIGHT = 4;
+
+/** Une direction « travaille » le kanji dès qu'elle le montre (from) ou le demande (to). */
+export function involvesKanji(d: Direction): boolean {
+  return d.from === "kanji" || d.to === "kanji";
+}
+
+/**
+ * Ordre de tirage des directions : mélangées EN FAVEUR du kanji (cf. KANJI_WEIGHT), celle du
+ * passage précédent reléguée en dernier. Deux révisions d'affilée sous le même angle
+ * n'apprennent rien de plus que la première — mais on la garde en repli, car une direction
+ * n'est pas toujours constructible (pool de distracteurs trop pauvre) : l'appelant descend la
+ * liste jusqu'à ce qu'une passe.
  */
 export function orderDirections(dirs: Direction[], lastDir?: string): Direction[] {
-  const fresh = shuffle(dirs.filter((d) => dirKey(d) !== lastDir));
+  const fresh = weightedShuffle(
+    dirs.filter((d) => dirKey(d) !== lastDir),
+    (d) => (involvesKanji(d) ? KANJI_WEIGHT : 1),
+  );
   const stale = dirs.filter((d) => dirKey(d) === lastDir);
   return [...fresh, ...stale];
 }
