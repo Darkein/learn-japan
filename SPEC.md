@@ -128,7 +128,11 @@ apprend le japonais) ait à valider quoi que ce soit, le curriculum repose sur d
 1. **Référentiel / inventaire** (`app/src/data/inventory/`) — le « quoi », complet et sourcé :
    `kanji.json`, `vocab.json` (datasets ouverts, cf. README) et `grammar.json` (curé). Chaque item
    a un **id stable** et un **niveau JLPT**. Les sens **français** sont curés dans des overlays
-   (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais.
+   (`kanji-fr.json`, `vocab-fr.json`), avec repli sur l'anglais. **Un gloss FR ne désigne qu'un
+   seul mot** : un exercice peut partir du sens et demander le mot, sans phrase pour trancher —
+   « oui » qui vaudrait はい *et* ええ serait une question sans réponse. Les glosses portent donc
+   leur propre désambiguïsation (registre, nature, graphie, domaine : « oui (poli) » / « oui
+   (familier) ») ; l'unicité est vérifiée par les tests (`lib/inventory.test.ts`).
 2. **Curriculum** (`curriculum.json`, v3) — le « dans quel ordre » : **niveau → unité → leçon**.
    Chaque leçon **référence** l'inventaire via `introduces: { vocab, grammar }` (listes
    d'ids) au lieu de redéclarer le contenu → source unique de vérité, zéro doublon.
