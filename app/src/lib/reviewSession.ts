@@ -31,7 +31,7 @@ import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
 import { normalizeReading } from "./kana";
 import { SRS } from "./config";
 import { shuffle } from "./random";
-import { loadSettings } from "./settings";
+import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
 import { effectiveExample, repairConjugatedVocab } from "./vocab";
@@ -128,6 +128,28 @@ export async function buildSession(
     if (leeches.has(ex.id)) ex.isLeech = true;
   }
   return exercises;
+}
+
+/**
+ * Retire le son d'une session DÉJÀ construite : chaque exercice d'écoute restant devient
+ * son équivalent écrit (cloze noté sur la carte orale, comme le mode sans le son), à la
+ * même place dans le deck. À appeler quand l'utilisateur déclare ne pas pouvoir écouter en
+ * cours de session — révéler le texte n'a pas de sens, c'est justement la réponse.
+ * Un exercice dont le mot n'est plus en base est simplement retiré (jamais de cul-de-sac).
+ */
+export async function silenceDeck(cards: Exercise[]): Promise<Exercise[]> {
+  const out: Exercise[] = [];
+  for (const ex of cards) {
+    if (!ex.audio) {
+      out.push(ex);
+      continue;
+    }
+    const v = ex.track === "vocab" ? await getVocab(ex.id) : undefined;
+    if (!v) continue;
+    const written = vocabTypeExercise(v, ex.due ?? 0, { listen: true, silent: true });
+    out.push(ex.isLeech ? { ...written, isLeech: true } : written);
+  }
+  return out;
 }
 
 /** Leçons commencées, dans l'ordre du curriculum (pour prioriser leurs objectifs). */
@@ -229,6 +251,8 @@ function triangleFactory(pool: VocabItem[], leeches: Set<string>) {
 
 async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercise[]> {
   const s = loadSettings();
+  // Sans le son : réglage permanent OU pause « je ne peux pas écouter » encore en cours.
+  const silent = isSilentMode(s, now);
   // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le backlog,
   // lui, est mesuré plus bas sur les items dus de CETTE session). Voir lib/tuning.ts.
   const tuning = await loadTuning();
@@ -263,7 +287,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
     if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
       // Mode sans le son : remplacement écrit, toujours noté sur la carte orale.
       due.push(
-        s.silentReviews
+        silent
           ? vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true, silent: true })
           : await oralExercise(v, v.cards.oral, vocabAll),
       );
@@ -294,7 +318,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // en remplacement écrit ci-dessus).
   let listenSeeds = 0;
   for (const v of vocabAll) {
-    if (s.silentReviews) break;
+    if (silent) break;
     if (room <= 0 || listenCount >= SRS.listenMax || listenSeeds >= SRS.listenSeeds) break;
     const example = effectiveExample(v);
     if (!v.cards.oral && example?.ja && v.cards.written?.state === State.Review) {

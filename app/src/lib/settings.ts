@@ -20,6 +20,9 @@ export interface AppSettings {
   /** Révisions sans le son : les exercices d'écoute sont remplacés par de l'écrit
    * (cloze de production noté sur la carte orale) tant que le réglage est actif. */
   silentReviews: boolean;
+  /** Pause d'écoute temporaire (« Je ne peux pas écouter ») : timestamp de fin, 0 = aucune.
+   * Même effet que `silentReviews` tant qu'elle court, mais elle expire toute seule. */
+  silentUntil: number;
   /** Vitesse du lecteur audio — leçons et histoires (1 = vitesse normale). */
   storyRate: number;
   /** Échelle du texte japonais — leçons, histoires et articles (1 = taille normale). */
@@ -37,10 +40,22 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
   warmupRomaji: true,
   silentReviews: false,
+  silentUntil: 0,
   storyRate: 1,
   readerFontScale: 1,
   reminders: { enabled: false, hour: 9 },
 };
+
+/** Durée de la pause d'écoute déclenchée par « Je ne peux pas écouter ». */
+export const SILENT_PAUSE_MS = 15 * 60 * 1000;
+
+/**
+ * Faut-il servir les révisions sans le son ? Réglage permanent, ou pause temporaire encore
+ * en cours — dans les deux cas les exercices d'écoute passent à leur équivalent écrit.
+ */
+export function isSilentMode(s: AppSettings, now: Date = new Date()): boolean {
+  return s.silentReviews || s.silentUntil > now.getTime();
+}
 
 export function loadSettings(): AppSettings {
   try {

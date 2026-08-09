@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../lib/exercise";
+import { SILENT_PAUSE_MS } from "../../lib/settings";
 import type { SrsGrade } from "../../lib/srs";
 import { speakWord, stopSentence } from "../../lib/tts";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
 import { IconPlay, IconSpeaker } from "../kit/Icon";
+import { useSettings } from "../useSettings";
 import { BuildInput } from "./BuildInput";
 import { ChoiceInput } from "./ChoiceInput";
 import { JpFront } from "./JpFront";
@@ -16,6 +18,10 @@ interface Props {
   onGraded: (grade: SrsGrade) => void;
   /** Appelé quand l'utilisateur passe à l'exercice suivant (pagination, pas de notation). */
   onNext: () => void;
+  /** Appelé après « Je ne peux pas écouter » (la pause est déjà enregistrée) : au parent de
+   *  remplacer les exercices d'écoute restants par leur équivalent écrit (`silenceDeck`).
+   *  Sans handler, la carte est simplement passée. */
+  onSilence?: () => void;
   /** Conversion romaji→kana (mode "type"). Sans objet pour les autres modes. */
   romaji?: boolean;
   onRomajiChange?: (v: boolean) => void;
@@ -32,15 +38,18 @@ export function ExerciseCard({
   exercise: ex,
   onGraded,
   onNext,
+  onSilence,
   romaji = true,
   onRomajiChange,
 }: Props) {
+  const { update } = useSettings();
   const [listened, setListened] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const speakToken = useRef(0);
-  // Échappatoire des exercices d'écoute : révèle la phrase (audio cassé, hors-ligne
-  // sans cache…) — l'exercice reste faisable, jamais de cul-de-sac. Couvre l'aveugle
-  // (audioOnly) et les fronts masqués (◯◯) dont la phrase complète est dans `context`.
+  // Échappatoire une fois la phrase écoutée : révèle le texte (audio inaudible, mot
+  // manqué…). Réservée à l'APRÈS-écoute — avant, elle donnerait la réponse, puisque
+  // retrouver ce texte EST l'exercice. Couvre l'aveugle (audioOnly) et les fronts
+  // masqués (◯◯) dont la phrase complète est dans `context`.
   const [textRevealed, setTextRevealed] = useState(false);
   const canReveal = !!ex.context && (!!ex.audioOnly || ex.context !== ex.front);
 
@@ -63,6 +72,18 @@ export function ExerciseCard({
     }
   }
 
+  /**
+   * « Je ne peux pas écouter » : on ne peut pas écouter MAINTENANT (transports, réunion,
+   * casque oublié) — pas seulement cet exercice-ci. On met donc l'écoute en pause pour un
+   * quart d'heure : la session en cours et les suivantes servent l'équivalent écrit à la
+   * place. Afficher le texte serait absurde, c'est la réponse attendue.
+   */
+  function pauseListening() {
+    update({ silentUntil: Date.now() + SILENT_PAUSE_MS });
+    if (onSilence) onSilence();
+    else onNext();
+  }
+
   return (
     <div className="flex flex-col items-center gap-4 rounded-md border border-hairline bg-surface px-4 py-12 text-center">
       {ex.isLeech && <Badge className="mb-1">Élément difficile</Badge>}
@@ -80,17 +101,9 @@ export function ExerciseCard({
             <IconPlay size={16} />
             {speaking ? "Lecture…" : "Écouter"}
           </Button>
-          {canReveal && (
-            <button
-              className="cursor-pointer text-xs text-muted underline"
-              onClick={() => {
-                setTextRevealed(true);
-                setListened(true);
-              }}
-            >
-              Je ne peux pas écouter — afficher le texte
-            </button>
-          )}
+          <button className="cursor-pointer text-xs text-muted underline" onClick={pauseListening}>
+            Je ne peux pas écouter — passer à l'écrit pour 15 min
+          </button>
         </>
       ) : (
         <>

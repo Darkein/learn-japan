@@ -5,7 +5,7 @@ import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession, pickOralVariant } from "./reviewSession";
+import { gradeCard, buildSession, pickOralVariant, silenceDeck } from "./reviewSession";
 import { getCurriculumEntry } from "./curriculum";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -482,6 +482,80 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("pause « je ne peux pas écouter » : écrit tant qu'elle court, écoute de nouveau après", async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      await putVocab({
+        id: "水|みず",
+        surface: "水",
+        reading: "みず",
+        meaning: "eau",
+        tags: [],
+        status: "review",
+        cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
+        example: { ja: "水を飲む" },
+      });
+
+      localStorage.setItem(
+        "settings",
+        JSON.stringify({ silentUntil: NOW.getTime() + 10 * 60 * 1000 }),
+      );
+      const paused = await buildSession(NOW, { scope: "due" });
+      expect(paused.find((c) => c.key === "vocab-listen-silent:水|みず")).toBeDefined();
+
+      // Pause expirée : le son revient tout seul, sans réglage à retoucher.
+      localStorage.setItem(
+        "settings",
+        JSON.stringify({ silentUntil: NOW.getTime() - 60 * 1000 }),
+      );
+      const after = await buildSession(NOW, { scope: "due" });
+      expect(after.find((c) => c.key === "vocab-listen:水|みず")).toBeDefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("silenceDeck : les exercices d'écoute restants passent à l'écrit, les autres ne bougent pas", async () => {
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
+      example: { ja: "水を飲む" },
+    });
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")) },
+    });
+
+    const deck = await buildSession(NOW, { scope: "due" });
+    const listen = deck.find((c) => c.audio);
+    expect(listen).toBeDefined();
+
+    const silenced = await silenceDeck(deck);
+    // Même nombre de cartes, aucune ne demande plus le son.
+    expect(silenced).toHaveLength(deck.length);
+    expect(silenced.every((c) => !c.audio)).toBe(true);
+    const replacement = silenced.find((c) => c.key === "vocab-listen-silent:水|みず");
+    expect(replacement?.skill).toBe("oral");
+    // Les cartes écrites traversent inchangées (même objet).
+    const written = deck.find((c) => c.key.startsWith("vocab:猫"));
+    expect(silenced).toContain(written);
   });
 
   it("amorçage : un mot stable à l'écrit (Review) avec exemple gagne une carte écoute", async () => {
