@@ -28,17 +28,39 @@ import {
 const CHOICES = 3;
 
 /**
+ * Mots du pool qui portent EXACTEMENT le même sens FR que `v` : depuis la face française,
+ * rien ne les distingue (« oui » → はい ou ええ). Le référentiel curé n'en produit aucun —
+ * chaque gloss FR y désigne un seul mot, et inventory.test.ts le vérifie — mais un mot
+ * rencontré dans le Lecteur tire son sens du JMdict, non curé : le doublon reste possible.
+ * Les jumeaux servent alors à rendre la question honnête plutôt qu'à la supprimer :
+ * exclus des distracteurs d'un QCM (deux bonnes réponses), acceptés en saisie.
+ */
+function frTwins(pool: VocabItem[], v: VocabItem): VocabItem[] {
+  const fr = faceText(v, "fr");
+  if (!fr) return [];
+  return pool.filter((p) => p.id !== v.id && faceText(p, "fr") === fr);
+}
+
+/**
  * Distracteurs tirés sur LA MÊME face que la réponse : des graphies contre une graphie,
  * des lectures contre une lecture, des sens contre un sens. Un QCM qui mélange les
  * registres se résout sans connaître le mot. Les items du même niveau JLPT passent
  * d'abord : un distracteur trop éloigné du niveau s'élimine tout seul.
+ * `excluded` écarte les mots dont la réponse serait AUSSI juste que la bonne (jumeaux de
+ * sens, quand la question part de la face française).
  */
-function faceDistractors(pool: VocabItem[], v: VocabItem, face: Face, answer: string): string[] {
+function faceDistractors(
+  pool: VocabItem[],
+  v: VocabItem,
+  face: Face,
+  answer: string,
+  excluded: Set<string> = new Set(),
+): string[] {
   const seen = new Set<string>([answer]);
   const same: string[] = [];
   const other: string[] = [];
   for (const p of pool) {
-    if (p.id === v.id) continue;
+    if (p.id === v.id || excluded.has(p.id)) continue;
     const text = faceText(p, face);
     if (!text || seen.has(text)) continue;
     seen.add(text);
@@ -68,14 +90,23 @@ function triangleBase(v: VocabItem, dir: Direction, due: number, mode: "choice" 
   };
 }
 
-/** Saisie de la lecture : la seule cible typable (le champ convertit romaji → kana). */
-function readingTypeExercise(v: VocabItem, dir: Direction, due: number): TypeExercise {
+/**
+ * Saisie de la lecture : la seule cible typable (le champ convertit romaji → kana).
+ * `twins` = mots indistinguables depuis la face française (cf. frTwins) : leur lecture est
+ * acceptée elle aussi, sans quoi « oui » attendrait はい et compterait ええ pour une faute.
+ */
+function readingTypeExercise(
+  v: VocabItem,
+  dir: Direction,
+  due: number,
+  twins: VocabItem[] = [],
+): TypeExercise {
   return {
     ...triangleBase(v, dir, due, "type"),
     mode: "type",
     // La graphie est acceptée en plus de la lecture : un apprenant qui tape 日本 plutôt
     // que にほん connaît le mot, ce n'est pas le moment de lui compter une faute.
-    answers: answerVariants(v.reading, v.surface),
+    answers: answerVariants(v.reading, v.surface, ...twins.flatMap((t) => [t.reading, t.surface])),
   };
 }
 
@@ -90,13 +121,18 @@ function triangleDirection(
   const answer = faceText(v, dir.to);
   if (!answer || !faceText(v, dir.from)) return null;
 
-  if (pickInputMode(dir.to, v.streak ?? 0, isLeech) === "type") return readingTypeExercise(v, dir, due);
+  // Partir du sens FR, c'est demander un mot que seule cette définition désigne : les
+  // jumeaux de sens sont écartés du QCM et acceptés en saisie (cf. frTwins).
+  const twins = dir.from === "fr" ? frTwins(pool, v) : [];
 
-  const distractors = faceDistractors(pool, v, dir.to, answer);
+  if (pickInputMode(dir.to, v.streak ?? 0, isLeech) === "type")
+    return readingTypeExercise(v, dir, due, twins);
+
+  const distractors = faceDistractors(pool, v, dir.to, answer, new Set(twins.map((t) => t.id)));
   if (distractors.length < CHOICES) {
     // Pas assez de distracteurs plausibles : plutôt que de servir un QCM à deux options
     // (devinable à pile ou face), on demande la lecture en saisie quand c'est la cible.
-    return dir.to === "kana" ? readingTypeExercise(v, dir, due) : null;
+    return dir.to === "kana" ? readingTypeExercise(v, dir, due, twins) : null;
   }
   const { choices, answerIndex } = shuffleWithAnswer(answer, distractors);
   return { ...triangleBase(v, dir, due, "choice"), mode: "choice", choices, answerIndex };
@@ -170,13 +206,15 @@ function answersWithHit(answers: string[], hit: string | null): string[] {
  * `listen` + `silent` : remplacement écrit de l'écoute (réglage « sans le son ») — cloze
  * de production sur la phrase d'exemple, mais noté sur la carte ORALE pour que sa
  * planification continue d'avancer.
+ * `pool` (facultatif) sert au seul rappel isolé FR → mot : la face avant y est le sens
+ * français, donc un jumeau de sens du pool est une réponse tout aussi juste (cf. frTwins).
  */
 export function vocabTypeExercise(
   v: VocabItem,
   due: number,
   opts:
-    | { listen: true; produce?: false; silent?: boolean }
-    | { produce: true; listen?: false; silent?: never },
+    | { listen: true; produce?: false; silent?: boolean; pool?: VocabItem[] }
+    | { produce: true; listen?: false; silent?: never; pool?: VocabItem[] },
 ): TypeExercise {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
   const example = effectiveExample(v);
@@ -210,15 +248,21 @@ export function vocabTypeExercise(
         audioBack: { word: v.surface },
       };
     }
+    // Rappel isolé : la question se réduit au sens FR, sans phrase pour trancher — les
+    // mots qui partagent ce sens répondent donc à la question posée.
+    const twins = hasMeaning ? frTwins(opts.pool ?? [], v) : [];
     return {
       ...base,
       front: hasMeaning ? v.meaning : v.surface,
       prompt: hasMeaning ? "Tape le mot en japonais" : "Tape la lecture",
+      answers: [
+        ...new Set([...answers, ...answerVariants(...twins.flatMap((t) => [t.surface, t.reading]))]),
+      ],
       audioBack: { word: v.surface },
     };
   }
   if (opts.silent) {
-    const ex = vocabTypeExercise(v, due, { produce: true });
+    const ex = vocabTypeExercise(v, due, { produce: true, pool: opts.pool });
     return { ...ex, key: `vocab-listen-silent:${v.id}`, skill: "oral" };
   }
   const hit = exampleHit(v, example?.ja);

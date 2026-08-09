@@ -40,7 +40,10 @@ npm run curriculum:check  # vérifie la cohérence du curriculum (couverture, pr
 L'**inventaire** (`app/src/data/inventory/`) est le référentiel committé : `kanji.json` et
 `vocab.json` sont (re)générés par `data:inventory` ; les sens **français** sont curés dans les
 overlays `kanji-fr.json` / `vocab-fr.json` (repli sur l'anglais sinon) ; `grammar.json` est curé à
-la main et n'est pas régénéré. Voir [`SPEC.md`](SPEC.md) §3.1 pour le modèle curriculum à deux couches.
+la main et n'est pas régénéré. Un gloss FR ne doit désigner **qu'un seul** mot (les exercices
+peuvent partir du sens pour demander le mot) : ajouter une entrée dont le sens existe déjà fait
+échouer `lib/inventory.test.ts`, qui attend un couple sens ↔ mot unique.
+Voir [`SPEC.md`](SPEC.md) §3.1 pour le modèle curriculum à deux couches.
 
 Le **gloss littéral** du lecteur s'appuie sur **JMdict-FR complet** (`data:jmdict` → asset gzippé
 `app/public/jmdict-fr.json.gz`, servi hors-bundle comme le dico kuromoji) : chargé à la demande,

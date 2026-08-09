@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import kanjiInv from "../data/inventory/kanji.json";
+import kanjiFrOverlay from "../data/inventory/kanji-fr.json";
+import vocabInv from "../data/inventory/vocab.json";
+import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import { canonicalVocabId, kanaGlossOverlay, resolveVocab } from "./inventory";
 
 // Ces tests s'appuient sur les entrées réelles de app/src/data/inventory/vocab.json
@@ -48,5 +52,39 @@ describe("resolveVocab — résolution via alias composé", () => {
   it("retrouve la définition curée d'un mot stocké en forme composée", () => {
     expect(resolveVocab("いい|いい").fr).toBe("bon, bien");
     expect(resolveVocab("足|あし").fr).toBe("pied, jambe");
+  });
+});
+
+/**
+ * Un exercice peut partir du sens FR et demander le mot (« Tape le mot en japonais »,
+ * QCM depuis la face française). La question n'a de réponse que si le gloss désigne UN
+ * mot : « oui » qui vaut はい ET ええ est insoluble sans contexte — or la carte n'en donne
+ * aucun. Les glosses du référentiel portent donc leur propre désambiguïsation (registre,
+ * nature, graphie, domaine) ; ce test interdit d'en réintroduire un partagé.
+ */
+describe("glosses FR du référentiel — un sens, un mot", () => {
+  it("aucun gloss de vocabulaire n'est porté par deux mots distincts", () => {
+    const byGloss = new Map<string, Set<string>>();
+    for (const id of [...Object.keys(vocabFrOverlay), ...vocabInv.map((v) => v.id)]) {
+      const fr = resolveVocab(id).fr;
+      if (!fr) continue;
+      // Les clés d'overlay redondantes (« 行く|いく » pour « 行く|いく; ゆく ») désignent le
+      // même mot : on regroupe sur l'id canonique, pas sur l'id d'origine.
+      (byGloss.get(fr) ?? byGloss.set(fr, new Set()).get(fr)!).add(canonicalVocabId(id));
+    }
+    const shared = [...byGloss].filter(([, ids]) => ids.size > 1);
+    expect(shared.map(([fr, ids]) => `${fr} → ${[...ids].join(" / ")}`)).toEqual([]);
+  });
+
+  it("aucun gloss de kanji n'est porté par deux caractères", () => {
+    const byGloss = new Map<string, string[]>();
+    const overlay = kanjiFrOverlay as Record<string, string | undefined>;
+    for (const k of kanjiInv) {
+      const fr = k.fr ?? overlay[k.id];
+      if (!fr) continue;
+      byGloss.set(fr, [...(byGloss.get(fr) ?? []), k.id]);
+    }
+    const shared = [...byGloss].filter(([, ids]) => ids.length > 1);
+    expect(shared.map(([fr, ids]) => `${fr} → ${ids.join(" / ")}`)).toEqual([]);
   });
 });

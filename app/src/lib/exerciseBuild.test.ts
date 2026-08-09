@@ -253,6 +253,42 @@ describe("vocabTriangleExercise — QCM ou saisie selon la maîtrise", () => {
   });
 });
 
+// Le référentiel curé garantit qu'un sens FR ne désigne qu'un mot (cf. inventory.test.ts),
+// mais un mot rencontré dans le Lecteur tire son sens du JMdict : le doublon reste possible.
+describe("vocabTriangleExercise — mots de même sens FR (はい / ええ)", () => {
+  const hai = () => vocabItem({ id: "はい|はい", meaning: "oui" });
+  const ee = vocabItem({ id: "ええ|ええ", meaning: "oui" });
+  const pool = [...POOL, ee];
+
+  it("QCM depuis le français : la lecture du jumeau n'est jamais proposée", () => {
+    for (let i = 0; i < 60; i++) {
+      const ex = vocabTriangleExercise(hai(), 0, pool);
+      if (ex.mode === "choice" && ex.front === "oui") expect(ex.choices).not.toContain("ええ");
+    }
+  });
+
+  it("le jumeau reste un distracteur valable quand la question ne part pas du français", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const v = vocabItem({ id: "猫|ねこ", meaning: "chat" });
+      const ex = vocabTriangleExercise(v, 0, pool);
+      if (ex.mode === "choice") ex.choices.forEach((c) => seen.add(c));
+    }
+    expect(seen.has("ええ") || seen.has("oui")).toBe(true);
+  });
+
+  it("saisie depuis le français : la lecture du jumeau est acceptée", () => {
+    const v = vocabItem({ id: "はい|はい", meaning: "oui", streak: TYPE_STREAK });
+    const answers = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      const ex = vocabTriangleExercise(v, 0, pool);
+      if (ex.mode === "type" && ex.front === "oui") ex.answers.forEach((a) => answers.add(a));
+    }
+    expect(answers).toContain("はい");
+    expect(answers).toContain("ええ");
+  });
+});
+
 describe("vocabTriangleExercise — entrées du dico annotées", () => {
   it("suffixe (する) optionnel, alternatives « a; b », marqueur ～", () => {
     const cases: [Partial<VocabItem> & { id: string }, string[]][] = [
@@ -327,6 +363,15 @@ describe("vocabTypeExercise — production en contexte (produce)", () => {
     expect(ex.skill).toBe("production");
     expect(ex.front).toBe("chat");
     expect(ex.key).toBe("vocab-produce:猫|ねこ");
+  });
+
+  it("rappel isolé : un mot de même sens dans le pool est accepté lui aussi", () => {
+    // « oui » ne désigne pas はい plutôt que ええ : les deux répondent à la question posée.
+    const hai = vocabItem({ id: "はい|はい", meaning: "oui" });
+    const ee = vocabItem({ id: "ええ|ええ", meaning: "oui" });
+    const ex = vocabTypeExercise(hai, 0, { produce: true, pool: [...POOL, ee] });
+    expect(ex.front).toBe("oui");
+    expect(ex.answers).toEqual(expect.arrayContaining(["はい", "ええ"]));
   });
 });
 
