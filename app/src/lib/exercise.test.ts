@@ -1,8 +1,8 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getComprehensionItem, getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
-import { clozeSentence, gradeExercise, type BuildExercise, type ChoiceExercise, type TypeExercise } from "./exercise";
+import { getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
+import { gradeExercise, type BuildExercise, type ChoiceExercise, type TypeExercise } from "./exercise";
 import { newCard } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -22,43 +22,6 @@ function tok(p: Partial<KuromojiToken> & { surface_form: string; pos: string }):
     ...p,
   };
 }
-
-describe("clozeSentence", () => {
-  it("tronque un article entier à la phrase contenant le trou", () => {
-    const cloze = { before: "猫がいます。犬", after: "水を飲みます。鳥もいます。" };
-    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます。");
-  });
-
-  it("trou dans la première phrase (before sans borne)", () => {
-    const cloze = { before: "犬", after: "水を飲みます。鳥もいます。" };
-    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます。");
-  });
-
-  it("trou dans la dernière phrase (after sans borne)", () => {
-    const cloze = { before: "猫がいます。犬", after: "水を飲みます" };
-    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます");
-  });
-
-  it("before finissant exactement par une borne de phrase", () => {
-    const cloze = { before: "猫がいます。", after: "元気です。" };
-    expect(clozeSentence(cloze, "とても")).toBe("とても元気です。");
-  });
-
-  it("coupe aussi sur les sauts de ligne (borne exclue côté after)", () => {
-    const cloze = { before: "一行目\n犬", after: "水を飲みます\n二行目" };
-    expect(clozeSentence(cloze, "は")).toBe("犬は水を飲みます");
-  });
-
-  it("texte sans ponctuation : renvoie le tout avec la réponse insérée", () => {
-    const cloze = { before: "犬", after: "好きです" };
-    expect(clozeSentence(cloze, "が")).toBe("犬が好きです");
-  });
-
-  it("gère les ponctuations ！ et ？", () => {
-    const cloze = { before: "すごい！犬", after: "来ますか？そうです。" };
-    expect(clozeSentence(cloze, "が")).toBe("犬が来ますか？");
-  });
-});
 
 describe("gradeExercise", () => {
   it("type/vocab : note la carte écrite existante", async () => {
@@ -84,6 +47,65 @@ describe("gradeExercise", () => {
     const v = await getVocab("猫|ねこ");
     expect(v?.status).toBe("review");
     expect(v?.cards.written?.reps).toBe(1);
+  });
+
+  it("streak : monte sur good/easy, remis à zéro sur again/hard", async () => {
+    const base = {
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review" as const,
+    };
+    const ex: TypeExercise = {
+      mode: "type",
+      key: "vocab:猫|ねこ:fr>kana",
+      track: "vocab",
+      id: "猫|ねこ",
+      front: "chat",
+      back: "猫（ねこ）",
+      answers: ["ねこ"],
+    };
+
+    for (const [grade, before, after] of [
+      ["good", 0, 1],
+      ["easy", 1, 2],
+      ["again", 3, 0],
+      ["hard", 3, 0],
+    ] as const) {
+      await putVocab({ ...base, cards: { written: newCard(new Date("2020-01-01")) }, streak: before });
+      await gradeExercise(ex, grade, new Date());
+      expect((await getVocab("猫|ねこ"))?.streak, grade).toBe(after);
+    }
+  });
+
+  it("streak : les compétences orale et production ne le touchent pas", async () => {
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")), oral: newCard(new Date("2020-01-01")) },
+      streak: 2,
+    });
+    await gradeExercise(
+      {
+        mode: "type",
+        key: "vocab-listen:猫|ねこ",
+        track: "vocab",
+        skill: "oral",
+        id: "猫|ねこ",
+        front: "◯◯が走る。",
+        back: "猫（ねこ）",
+        answers: ["ねこ"],
+      },
+      "again",
+      new Date(),
+    );
+    expect((await getVocab("猫|ねこ"))?.streak).toBe(2);
   });
 
   it("type/vocab skill production : note cards.production, sans toucher written ni status", async () => {
@@ -114,58 +136,25 @@ describe("gradeExercise", () => {
     expect(v?.status).toBe("known");
   });
 
-  it("choice/grammar : crée l'item s'il n'existe pas (particule), avec seedName/seedRule", async () => {
+  it("choice/grammar : crée l'item s'il n'existe pas, avec seedName/seedRule", async () => {
     const ex: ChoiceExercise = {
       mode: "choice",
-      key: "particle:0",
+      key: "grammar:てもいい",
       track: "grammar",
-      id: "particle:が",
-      front: "が",
-      back: "が",
-      seedName: "particule が",
-      seedRule: "[sujet]",
-      choices: ["が", "は", "を", "に"],
-      answerIndex: 0,
-    };
-    await gradeExercise(ex, "good", new Date());
-    const g = await getGrammar("particle:が");
-    expect(g?.name).toBe("particule が");
-    expect(g?.rule).toBe("[sujet]");
-    expect(g?.card?.reps).toBe(1);
-  });
-
-  it("choice/comprehension : crée l'item s'il n'existe pas, note again si incorrect", async () => {
-    const ex: ChoiceExercise = {
-      mode: "choice",
-      key: "comprehension:てもいい",
-      track: "comprehension",
       id: "てもいい",
-      front: "Que signifie « てもいい » ?",
+      front: "てもいい",
+      prompt: "Que signifie ce point de grammaire ?",
       back: "permission",
       seedName: "てもいい",
       seedRule: "permission",
       choices: ["permission", "obligation", "interdiction"],
       answerIndex: 0,
     };
-    await gradeExercise(ex, "again", new Date());
-    const c = await getComprehensionItem("てもいい");
-    expect(c?.status).toBe("review");
-    expect(c?.card?.reps).toBe(1);
-  });
-
-  it("choice/comprehension d'histoire (id de repli) : notée mais JAMAIS planifiée en SRS", async () => {
-    const ex: ChoiceExercise = {
-      mode: "choice",
-      key: "comprehension:0",
-      track: "comprehension",
-      id: "comprehension:0",
-      front: "Que fait le chat ?",
-      back: "Il dort.",
-      choices: ["Il dort.", "Il mange.", "Il court."],
-      answerIndex: 0,
-    };
     await gradeExercise(ex, "good", new Date());
-    expect(await getComprehensionItem("comprehension:0")).toBeUndefined();
+    const g = await getGrammar("てもいい");
+    expect(g?.name).toBe("てもいい");
+    expect(g?.rule).toBe("permission");
+    expect(g?.card?.reps).toBe(1);
   });
 
   it("build/vocab : note le vocabulaire de contenu de la phrase, pas la piste grammaire", async () => {

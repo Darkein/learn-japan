@@ -187,6 +187,27 @@ async function loadOrCreate(token: KuromojiToken): Promise<VocabItem> {
 }
 
 /**
+ * Matérialise en base les mots de contenu d'un texte et renvoie leurs ids, dédoublonnés.
+ * Les exercices d'une histoire passent par le même assembleur que la révision, qui
+ * travaille sur des `VocabItem` — or un mot croisé dans une histoire n'est pas forcément
+ * déjà en base. Ne touche NI au statut NI aux cartes FSRS : un mot rencontré n'est pas un
+ * mot appris, il n'entre en planification que via `buildSession`.
+ */
+export async function ensureVocabItems(tokens: KuromojiToken[]): Promise<string[]> {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    if (!isContent(t)) continue;
+    const id = itemIdFor(t);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+    if (!(await getVocab(id))) await putVocab(await newVocabItemFromToken(t));
+  }
+  return ids;
+}
+
+/**
  * Applique une action au token : met à jour le statut, planifie la compétence
  * « reconnaissance écrite » via FSRS, persiste et journalise.
  */

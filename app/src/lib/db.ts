@@ -23,6 +23,15 @@ export interface VocabItem {
   /** Une carte FSRS par compétence. */
   cards: Partial<Record<Skill, Card>>;
   example?: { ja: string; fr?: string };
+  /**
+   * Réussites consécutives sur la compétence écrite. Pilote le passage du QCM à la saisie
+   * (`pickInputMode`, lib/vocabFaces.ts) : remis à zéro par un échec ou un « Difficile ».
+   * Absent = jamais révisé (lu avec `?? 0`, aucune migration nécessaire).
+   */
+  streak?: number;
+  /** Direction servie au passage précédent (`dirKey`, ex. « kanji>kana ») : le tirage
+   *  suivant l'évite pour ne pas revoir le mot deux fois sous le même angle. */
+  lastDir?: string;
 }
 
 export interface GrammarItem {

@@ -17,30 +17,34 @@ import {
   putGrammar,
   putVocab,
 } from "./db";
-import { conjugationExercise, type DrillVerb } from "./conjugation";
 import type { GrammarItem, VocabItem } from "./db";
-import { gradeExercise, isStoryComprehensionId, type Exercise } from "./exercise";
+import { gradeExercise, type Exercise } from "./exercise";
 import {
-  comprehensionReviewExercise,
   grammarReviewExercise,
   vocabDictationExercise,
   vocabListenMeaningExercise,
+  vocabTriangleExercise,
   vocabTypeExercise,
 } from "./exerciseBuild";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
 import { isDue, newCard, State, type Card, type SrsGrade } from "./srs";
 import { normalizeReading } from "./kana";
 import { SRS } from "./config";
+import { shuffle } from "./random";
 import { loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
 import { effectiveExample, repairConjugatedVocab } from "./vocab";
 
 export interface SessionOpts {
-  /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute la leçon. */
-  scope?: "due" | "all";
+  /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
+   *  la leçon. "story" = les mots d'un texte lu, hors planification. */
+  scope?: "due" | "all" | "story";
   /** Si fourni et scope="all", filtre sur les ids introduces de cette leçon. */
   lessonId?: string;
+  /** scope "story" : ids des mots (`itemIdFor`) et des points de grammaire du texte. */
+  vocabIds?: string[];
+  grammarIds?: string[];
 }
 
 async function leechIds(): Promise<Set<string>> {
@@ -62,9 +66,7 @@ export interface SessionStats {
 }
 
 export async function sessionStats(now: Date = new Date()): Promise<SessionStats> {
-  const [vocab, grammar, comprehension] = await Promise.all([
-    allVocab(), allGrammar(), allComprehension(),
-  ]);
+  const [vocab, grammar] = await Promise.all([allVocab(), allGrammar()]);
   // +15 min : inclut les cartes dues imminentes (step relearning FSRS = 10 min)
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
   let dueCount = 0;
@@ -84,23 +86,17 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
     else newCount++;
   }
-  for (const c of comprehension) {
-    if (isStoryComprehensionId(c.id)) continue; // purgé au montage de session
-    if (c.card) { if (isDue(c.card, horizon)) dueCount++; }
-  }
   return { dueCount, newCount };
 }
 
 /**
- * Purge les items de compréhension propres à une histoire, créés par une ancienne version
- * de gradeExercise (voir `isStoryComprehensionId`) : leurs questions n'ont pas de sens
- * hors de leur histoire et polluaient les révisions. Idempotent.
+ * Purge le store de compréhension : la piste a été retirée des exercices (le QCM de
+ * compréhension faisait doublon avec la carte de grammaire du même point). Sans purge, ces
+ * items resteraient comptés comme dus dans les stats et le badge de révisions. Idempotent.
  */
-async function purgeStoryComprehension(): Promise<void> {
+async function purgeComprehension(): Promise<void> {
   const items = await allComprehension();
-  await Promise.all(
-    items.filter((c) => isStoryComprehensionId(c.id)).map((c) => deleteComprehensionItem(c.id)),
-  );
+  await Promise.all(items.map((c) => deleteComprehensionItem(c.id)));
 }
 
 export async function buildSession(
@@ -110,19 +106,24 @@ export async function buildSession(
   const scope = opts.scope ?? "due";
 
   // Hygiène des stores avant de construire : formes conjuguées stockées en surface
-  // (révisions FR → JA qui exigeaient « し » pour faire) et compréhension d'histoire.
+  // (révisions FR → JA qui exigeaient « し » pour faire) et piste compréhension retirée.
   await repairConjugatedVocab();
-  await purgeStoryComprehension();
+  await purgeComprehension();
+
+  // Les éléments difficiles sont connus AVANT la construction : un leech repasse au QCM
+  // même s'il avait atteint le seuil de saisie (cf. pickInputMode).
+  const leeches = await leechIds();
 
   let exercises: Exercise[];
   if (scope === "all") {
     if (!opts.lessonId) return [];
-    exercises = await buildSessionAll(opts.lessonId, now);
+    exercises = await buildSessionAll(opts.lessonId, now, leeches);
+  } else if (scope === "story") {
+    exercises = await buildSessionStory(opts.vocabIds ?? [], opts.grammarIds ?? [], now, leeches);
   } else {
-    exercises = await buildSessionDue(now);
+    exercises = await buildSessionDue(now, leeches);
   }
 
-  const leeches = await leechIds();
   for (const ex of exercises) {
     if (leeches.has(ex.id)) ex.isLeech = true;
   }
@@ -175,13 +176,6 @@ function prioritizeNewGrammar(grammarAll: GrammarItem[], started: CurriculumEntr
   return ordered;
 }
 
-/** Pool de verbes pour les drills de conjugaison : mots déjà en rotation SRS. */
-function drillVerbPool(vocab: VocabItem[]): DrillVerb[] {
-  return vocab
-    .filter((v) => v.cards.written)
-    .map((v) => ({ surface: v.surface, reading: v.reading, meaning: v.meaning }));
-}
-
 export type OralVariant = "type" | "meaning" | "dictation";
 
 /**
@@ -213,19 +207,27 @@ async function oralExercise(v: VocabItem, card: Card, pool: VocabItem[]): Promis
 }
 
 /**
- * Exercice de révision d'un point de grammaire : drill de conjugaison (production sur un
- * verbe du pool) quand le point est une forme couverte, sinon QCM/reconstruction.
+ * Fabrique de cartes du triangle. `vocabTriangleExercise` tire la direction et met à jour
+ * `v.lastDir` EN MÉMOIRE ; la persistance est différée à `flush`, qui n'écrit que les mots
+ * dont la carte a survécu au plafond de session — sinon un mot jamais montré consommerait
+ * quand même sa direction, et le tirage suivant l'éviterait pour rien.
  */
-async function grammarSessionExercise(
-  g: GrammarItem,
-  due: number,
-  verbs: DrillVerb[],
-): Promise<Exercise> {
-  const drill = await conjugationExercise(g, verbs, due);
-  return drill ?? grammarReviewExercise(g, due);
+function triangleFactory(pool: VocabItem[], leeches: Set<string>) {
+  const pending = new Map<string, VocabItem>();
+  return {
+    build(v: VocabItem, due: number): Exercise {
+      const ex = vocabTriangleExercise(v, due, pool, { isLeech: leeches.has(v.id) });
+      pending.set(ex.key, v);
+      return ex;
+    },
+    async flush(kept: Exercise[]): Promise<void> {
+      const items = kept.map((ex) => pending.get(ex.key)).filter((v): v is VocabItem => !!v);
+      await Promise.all(items.map((v) => putVocab(v)));
+    },
+  };
 }
 
-async function buildSessionDue(now: Date): Promise<Exercise[]> {
+async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercise[]> {
   const s = loadSettings();
   // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le backlog,
   // lui, est mesuré plus bas sur les items dus de CETTE session). Voir lib/tuning.ts.
@@ -234,26 +236,20 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
   // Un seul chargement de chaque store (réutilisé par les passes dues / écoute / nouveaux).
-  const [vocabAll, grammarAll, comprehensionAll] = await Promise.all([
-    allVocab(), allGrammar(), allComprehension(),
-  ]);
-  const verbPool = drillVerbPool(vocabAll);
+  const [vocabAll, grammarAll] = await Promise.all([allVocab(), allGrammar()]);
+  // Le pool de distracteurs, c'est tout le vocabulaire connu : un QCM tire ses options
+  // sur la même face que la réponse (cf. faceDistractors).
+  const triangle = triangleFactory(vocabAll, leeches);
 
   // Collecte items dus (avec carte FSRS)
   for (const v of vocabAll) {
     if (!isTrainableVocab(v)) continue;
     const c = v.cards.written;
-    if (c && isDue(c, horizon)) due.push(vocabTypeExercise(v, c.due.getTime()));
+    if (c && isDue(c, horizon)) due.push(triangle.build(v, c.due.getTime()));
   }
   for (const g of grammarAll) {
     if (g.card && isDue(g.card, horizon)) {
-      due.push(await grammarSessionExercise(g, g.card.due.getTime(), verbPool));
-    }
-  }
-  for (const c of comprehensionAll) {
-    if (isStoryComprehensionId(c.id)) continue;
-    if (c.card && isDue(c.card, horizon)) {
-      due.push(comprehensionReviewExercise(c, c.card.due.getTime()));
+      due.push(await grammarReviewExercise(g, g.card.due.getTime()));
     }
   }
 
@@ -353,9 +349,8 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
       if (!isTrainableVocab(v)) continue;
       const card = newCard(now);
       v.cards.written = card;
-      await putVocab(v);
       await bumpSrsDaily(dateStr, { introduced: 1 });
-      newCards.push(vocabTypeExercise(v, card.due.getTime()));
+      newCards.push(triangle.build(v, card.due.getTime()));
     }
 
     // Grammaire sans carte — même priorisation.
@@ -366,39 +361,44 @@ async function buildSessionDue(now: Date): Promise<Exercise[]> {
         g.card = card;
         await putGrammar(g);
         await bumpSrsDaily(dateStr, { introduced: 1 });
-        newCards.push(await grammarSessionExercise(g, card.due.getTime(), verbPool));
+        newCards.push(await grammarReviewExercise(g, card.due.getTime()));
       }
     }
 
     out.push(...newCards);
   }
 
-  return out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
+  // Le tri par urgence ci-dessus sert à CHOISIR les items qui tiennent dans la session ;
+  // il ne doit pas dicter l'ordre de passage. Sans mélange, les échéances (identiques pour
+  // toutes les cartes neuves) retombent sur l'ordre des clés IndexedDB : mêmes mots dans
+  // la même séquence, session après session.
+  const deck = shuffle(out);
+  await triangle.flush(deck);
+  return deck;
 }
 
-async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]> {
+async function buildSessionAll(
+  lessonId: string,
+  now: Date,
+  leeches: Set<string>,
+): Promise<Exercise[]> {
   const entry = getCurriculumEntry(lessonId);
   if (!entry) return [];
 
   const out: Exercise[] = [];
   const { vocab: vocabIds, grammar: grammarIds } = entry.introduces;
-  const lessonVerbs: DrillVerb[] = [];
+  // Distracteurs tirés dans TOUT le vocabulaire connu, pas seulement la leçon : quatre
+  // options venues des seuls mots du jour se devinent par élimination.
+  const triangle = triangleFactory(await allVocab(), leeches);
 
   // Vocab
   for (const id of vocabIds) {
     const v = await getVocab(id);
-    if (!v) continue;
-    lessonVerbs.push({ surface: v.surface, reading: v.reading, meaning: v.meaning });
-    if (!isTrainableVocab(v)) continue;
-    if (!v.cards.written) {
-      v.cards.written = newCard(now);
-      await putVocab(v);
-    }
-    out.push(vocabTypeExercise(v, v.cards.written!.due.getTime()));
+    if (!v || !isTrainableVocab(v)) continue;
+    if (!v.cards.written) v.cards.written = newCard(now);
+    out.push(triangle.build(v, v.cards.written.due.getTime()));
   }
 
-  // Grammaire — drill de conjugaison si possible, sur les verbes de la leçon d'abord.
-  const verbPool = lessonVerbs.length ? lessonVerbs : drillVerbPool(await allVocab());
   for (const id of grammarIds) {
     const g = await getGrammar(id);
     if (!g) continue;
@@ -406,11 +406,48 @@ async function buildSessionAll(lessonId: string, now: Date): Promise<Exercise[]>
       g.card = newCard(now);
       await putGrammar(g);
     }
-    out.push(await grammarSessionExercise(g, g.card!.due.getTime(), verbPool));
+    out.push(await grammarReviewExercise(g, g.card!.due.getTime()));
   }
 
-  // Urgents d'abord, nouveaux à la fin ; bilan plafonné pour rester digeste.
-  return out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0)).slice(0, SRS.sessionAllCap);
+  // Les plus urgents sont retenus, puis mélangés : le bilan reste plafonné pour rester
+  // digeste, mais ne repasse pas les mêmes questions dans le même ordre.
+  const deck = shuffle(out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0)).slice(0, SRS.sessionAllCap));
+  await triangle.flush(deck);
+  return deck;
+}
+
+/**
+ * Exercices d'un texte lu (Lecteur) : le MÊME format que la révision, restreint aux mots
+ * du texte. Les ids attendus sont ceux d'items EXISTANTS — l'appelant matérialise d'abord
+ * les mots du texte (`ensureVocabItems`). Aucune carte FSRS n'est amorcée ici : lire une
+ * histoire n'introduit pas d'items dans la planification, seule la note le fait
+ * (`gradeExercise`, qui crée la carte au premier passage).
+ */
+async function buildSessionStory(
+  vocabIds: string[],
+  grammarIds: string[],
+  now: Date,
+  leeches: Set<string>,
+): Promise<Exercise[]> {
+  const pool = await allVocab();
+  const triangle = triangleFactory(pool, leeches);
+  const byId = new Map(pool.map((v) => [v.id, v]));
+
+  const out: Exercise[] = [];
+  for (const id of vocabIds) {
+    const v = byId.get(id);
+    if (!v || !isTrainableVocab(v)) continue;
+    out.push(triangle.build(v, v.cards.written?.due.getTime() ?? now.getTime()));
+  }
+
+  for (const id of grammarIds) {
+    const g = await getGrammar(id);
+    if (g) out.push(await grammarReviewExercise(g, g.card?.due.getTime() ?? now.getTime()));
+  }
+
+  const deck = shuffle(out).slice(0, SRS.sessionAllCap);
+  await triangle.flush(deck);
+  return deck;
 }
 
 /** Note un exercice d'échauffement et replanifie via FSRS. */

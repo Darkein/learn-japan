@@ -40,6 +40,31 @@ S'activent **progressivement**, dans cet ordre :
 
 L'état SRS est suivi **par compétence**.
 
+### 2.2b Le triangle de révision (reconnaissance écrite)
+Un mot porte trois **faces** : **kanji** (sa graphie), **furigana** (sa lecture en kana) et
+**traduction** (son sens FR). La révision écrite part de l'une et en demande une autre — **six
+directions**, tirées au hasard, celle du passage précédent exclue (`lib/vocabFaces.ts`).
+
+Une face n'existe que si elle apporte quelque chose : pas de face kanji pour un mot en kana (elle
+ferait doublon avec la lecture), pas de face française pour un mot sans sens connu. Un mot à deux
+faces se révise donc dans deux directions.
+
+Le **mode d'entrée** suit la face demandée et la maîtrise :
+
+| Face demandée | Mode |
+|---|---|
+| furigana | **QCM** tant que le mot n'est pas su, **saisie** ensuite |
+| kanji | **QCM** toujours — le champ convertit romaji → kana, on ne peut pas y taper de kanji |
+| traduction | **QCM** toujours — les synonymes rendraient la saisie injuste |
+
+Le seuil est un **compteur de réussites consécutives** (`VocabItem.streak`, seuil `TYPE_STREAK = 2`),
+pas un intervalle : lisible et affichable. Un échec ou un « Difficile » le remet à zéro, et un
+**élément difficile** (leech) repasse au QCM même au-dessus du seuil.
+
+Les distracteurs d'un QCM sont tirés sur **la même face que la réponse** (des graphies contre une
+graphie, des sens contre un sens), en préférant le même niveau JLPT. Sans trois distracteurs
+plausibles, une cible « furigana » bascule en saisie plutôt que de servir un QCM devinable.
+
 ### 2.3 Algorithme SRS
 **FSRS** (lib `ts-fsrs`), pas SM-2 : meilleure rétention pour moins de révisions. Chaque élément a
 une date de prochaine révision qui s'éloigne après une bonne réponse, se rapproche après une erreur.
@@ -180,10 +205,17 @@ de noms propres** (JMnedict + entrées manuelles).
 histoire déjà lue sert d'exercice d'écoute.
 
 ### Types de quiz
-- Compréhension (QCM ou réponse libre)
-- Grammaire (« pourquoi が et pas は ? », compléter la particule)
+- **Triangle** kanji ↔ furigana ↔ traduction (§2.2b) — le format de base du vocabulaire écrit
+- Grammaire (« que signifie てもいい ? », parmi des règles voisines du curriculum)
 - Reconstruction (remettre une phrase mélangée dans l'ordre)
 - Écoute (audio joué, comprendre sans le texte)
+
+**Un seul assembleur** (`buildSession`, `lib/reviewSession.ts`) sert les trois entrées — révision
+SRS du jour, vérification des acquis d'une leçon, exercices d'une histoire. Seule la **source** des
+mots change (`scope: "due" | "all" | "story"`), jamais le format.
+
+L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
+le plafond de session, pas à décider de leur ordre de passage.
 
 ## 6. Catalogue / révision à la demande *(nouveau)*
 Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou apprend :

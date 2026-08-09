@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getComprehensionItem, getGrammar, getVocab } from "../lib/db";
+import { getGrammar, getVocab } from "../lib/db";
 import type { Exercise } from "../lib/exercise";
 import { isMastered, isUnlockReady, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
@@ -45,21 +45,15 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
         if (r.card.track === "vocab") {
           const item = await getVocab(r.card.id);
           fsrsCard = item?.cards?.[r.card.skill ?? "written"];
-        } else if (r.card.track === "grammar") {
+        } else {
           const item = await getGrammar(r.card.id);
           fsrsCard = item?.card;
-        } else {
-          const item = await getComprehensionItem(r.card.id);
-          fsrsCard = item?.card;
         }
-        // La piste compréhension ne compte pas dans le déblocage des leçons (voir
-        // computeUnlockProgress) : le badge n'a de sens que pour vocab/grammaire.
-        const countsForUnlock = r.card.track === "vocab" || r.card.track === "grammar";
         entries.push({
           card: r.card,
           grade: r.grade,
           mastered: fsrsCard ? isMastered(fsrsCard) : false,
-          unlockReady: countsForUnlock && fsrsCard ? isUnlockReady(fsrsCard) : false,
+          unlockReady: fsrsCard ? isUnlockReady(fsrsCard) : false,
           intervalDaysBefore: r.daysBefore,
           intervalDays: fsrsCard?.scheduled_days ?? 0,
         });
