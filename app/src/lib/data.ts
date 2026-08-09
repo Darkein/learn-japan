@@ -3,7 +3,7 @@
 //   produit par `npm run data:jmdict`), chargé à la demande, décompressé, puis mis en cache
 //   (IndexedDB). Hors bundle JS, offline après le premier chargement.
 
-import { deleteDictCache, getDictCache, putDictCache } from "./db";
+import { deleteDictCache, getDictCache, getMeta, putDictCache, putMeta } from "./db";
 import { kanaGlossOverlay } from "./inventory";
 import type { ContentDict } from "./gloss";
 
@@ -16,6 +16,35 @@ import type { ContentDict } from "./gloss";
 // et non « origine »). Le bump re-dérive les sens déjà figés avec l'ancienne priorité.
 const DICT_ID = "jmdict-fr-v3";
 const LEGACY_DICT_IDS = ["jmdict-fr", "jmdict-fr-v2"];
+
+/**
+ * Révision des SENS dérivables — dictionnaire ET overlay curé de l'inventaire réunis.
+ * `meaningFor` fige le sens sur l'item au moment où il est créé : corriger un gloss dans
+ * `vocab-fr.json` ne changeait rien pour un mot déjà en base, l'apprenant continuait de
+ * réviser l'ancien. Le cache du JMdict ne le disait pas non plus, puisqu'il n'a pas bougé.
+ * Bumper la partie `gloss` redéclenche donc la re-dérivation une seule fois, sans forcer
+ * le retéléchargement de l'asset (plusieurs Mo).
+ * gloss-v1 : un sens FR ne désigne plus qu'un mot (« oui » valait はい ET ええ) et les
+ * qualificatifs trop étroits sont resserrés (あたたかい n'est pas réservé au climat).
+ */
+const MEANINGS_REV = `${DICT_ID}+gloss-v1`;
+const MEANINGS_REV_KEY = "meanings.rev";
+
+/**
+ * Re-dérive les sens figés des items stockés quand `MEANINGS_REV` a changé depuis le
+ * dernier passage — au plus une fois par révision. Best-effort : un échec ne doit jamais
+ * empêcher le lecteur de s'ouvrir, la révision n'est alors pas marquée et sera retentée.
+ */
+async function refreshMeaningsIfStale(dict: ContentDict): Promise<void> {
+  try {
+    if ((await getMeta<string>(MEANINGS_REV_KEY)) === MEANINGS_REV) return;
+    const { refreshStoredMeanings } = await import("./vocab");
+    await refreshStoredMeanings(dict);
+    await putMeta(MEANINGS_REV_KEY, MEANINGS_REV);
+  } catch (e) {
+    console.warn("[dict] re-dérivation des sens échouée :", e);
+  }
+}
 
 function assetUrl(): string {
   const base =
@@ -70,16 +99,19 @@ export function loadContentDict(): Promise<ContentDict> {
     dictPromise = (async () => {
       try {
         const cached = await getDictCache(DICT_ID);
-        if (cached) return (loaded = withInventoryOverlay(cached));
+        if (cached) {
+          loaded = withInventoryOverlay(cached);
+          // Le cache du dico est à jour, mais les glosses curés ont pu bouger depuis.
+          void refreshMeaningsIfStale(loaded);
+          return loaded;
+        }
         const map = await fetchAndDecompress(assetUrl());
         await putDictCache(DICT_ID, map);
         for (const id of LEGACY_DICT_IDS) await deleteDictCache(id);
         loaded = withInventoryOverlay(map);
         // Première ouverture avec cette version du dico : les items de révision créés
         // avec l'ancienne version portent des sens figés potentiellement faux → re-dérive.
-        void import("./vocab")
-          .then((m) => m.refreshStoredMeanings(loaded))
-          .catch((e) => console.warn("[dict] re-dérivation des sens échouée :", e));
+        void refreshMeaningsIfStale(loaded);
         return loaded;
       } catch (e) {
         console.warn("[dict] chargement JMdict-FR échoué :", e);
