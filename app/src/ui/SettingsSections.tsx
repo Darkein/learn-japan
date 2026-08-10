@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
-import { ensurePeriodicSync } from "../lib/reminders";
+import { pushAvailable, syncPushSubscription, type PushState } from "../lib/push";
+import { ensurePeriodicSync, showReminderNow } from "../lib/reminders";
 import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
 import { useSettings, THEMES, READER_FONT_SCALES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { SectionLabel } from "./kit/SectionLabel";
 import { SyncSection } from "./SyncSection";
-
-const REMINDER_HOURS: { value: number; label: string }[] = [
-  { value: 9, label: "Matin" },
-  { value: 13, label: "Midi" },
-  { value: 19, label: "Soir" },
-];
 
 interface Props {
   /** Mode compact du tiroir latéral : masque la section Révision (réglages avancés)
@@ -23,24 +18,6 @@ interface Props {
  * mêmes libellés et mêmes sections partout, une seule source. */
 export function SettingsSections({ quick }: Props) {
   const { settings, update } = useSettings();
-  const [reminderError, setReminderError] = useState<string | null>(null);
-
-  async function toggleReminders(enabled: boolean) {
-    setReminderError(null);
-    if (enabled) {
-      if (typeof Notification === "undefined") {
-        setReminderError("Les notifications ne sont pas disponibles dans ce navigateur.");
-        return;
-      }
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") {
-        setReminderError("Autorisation refusée par le navigateur — rappels impossibles.");
-        return;
-      }
-    }
-    update({ reminders: { ...settings.reminders, enabled } });
-    void ensurePeriodicSync(enabled);
-  }
 
   return (
     <div className={`flex flex-col ${quick ? "gap-6" : "gap-8"}`}>
@@ -123,32 +100,7 @@ export function SettingsSections({ quick }: Props) {
         </section>
       )}
 
-      {!quick && (
-        <section>
-          <SectionLabel as="h3" className="mb-3">Rappels</SectionLabel>
-          <div className="flex flex-col gap-3">
-            <Toggle
-              label="Me rappeler mes révisions"
-              value={settings.reminders.enabled}
-              onChange={(v) => void toggleReminders(v)}
-            />
-            {reminderError && <p className="m-0 text-sm text-accent">{reminderError}</p>}
-            {settings.reminders.enabled && (
-              <SegmentedControl
-                options={REMINDER_HOURS}
-                value={settings.reminders.hour}
-                onChange={(v) => update({ reminders: { ...settings.reminders, hour: v } })}
-                ariaLabel="Heure du rappel"
-              />
-            )}
-            <p className="m-0 text-xs leading-relaxed text-muted">
-              Notification locale quand des révisions t'attendent, au mieux des capacités du
-              navigateur (app installée sur Android recommandée). Aucune donnée ne quitte
-              l'appareil.
-            </p>
-          </div>
-        </section>
-      )}
+      {!quick && <ReminderSection />}
 
       {!quick && <SyncSection />}
 
@@ -165,6 +117,133 @@ export function SettingsSections({ quick }: Props) {
         />
       </section>
     </div>
+  );
+}
+
+/** Heures proposées : la nuit n'a pas d'intérêt pour un rappel d'étude. */
+const REMINDER_HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
+
+/** iOS n'autorise les notifications web QUE dans une app ajoutée à l'écran d'accueil. Sans ce
+ *  message, `requestPermission()` échoue sans que rien ne l'explique. (iPadOS se déclare
+ *  « Macintosh » : on le reconnaît à la présence du tactile.) */
+function appleNeedsInstall(): boolean {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  const ua = navigator.userAgent;
+  const apple = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  return apple && !window.matchMedia("(display-mode: standalone)").matches;
+}
+
+/** Ce que l'état du push signifie CONCRÈTEMENT pour l'utilisateur — jamais un code d'erreur. */
+const PUSH_NOTE: Partial<Record<PushState, string>> = {
+  subscribed: "Rappel programmé actif : il arrivera à l'heure choisie, même app fermée.",
+  unsupported:
+    "Ce navigateur ne sait pas recevoir de rappel programmé. Tu seras rappelé à l'ouverture de l'app.",
+  unconfigured:
+    "Le rappel programmé n'est pas configuré côté serveur. Seul le rappel à l'ouverture de l'app fonctionnera.",
+  error:
+    "Serveur injoignable : le rappel programmé sera réessayé au prochain démarrage de l'app.",
+};
+
+/**
+ * Rappel du programme du jour. Trois choses valent d'être dites ici plutôt que devinées :
+ * l'heure est libre, iOS exige l'installation, et un bouton d'essai évite d'attendre l'heure
+ * dite pour découvrir que la permission manquait.
+ */
+function ReminderSection() {
+  const { settings, update } = useSettings();
+  const { enabled, hour } = settings.reminders;
+  const [error, setError] = useState<string | null>(null);
+  const [pushState, setPushState] = useState<PushState | null>(null);
+  const [tested, setTested] = useState(false);
+
+  async function toggle(next: boolean) {
+    setError(null);
+    setTested(false);
+    if (next) {
+      if (typeof Notification === "undefined") {
+        setError("Les notifications ne sont pas disponibles dans ce navigateur.");
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        setError(
+          appleNeedsInstall()
+            ? "Autorisation refusée. Sur iPhone, il faut d'abord ajouter l'app à l'écran d'accueil."
+            : "Autorisation refusée par le navigateur — rappels impossibles.",
+        );
+        return;
+      }
+    }
+    const reminders = { ...settings.reminders, enabled: next };
+    update({ reminders });
+    void ensurePeriodicSync(next);
+    setPushState(next ? await syncPushSubscription(reminders) : null);
+  }
+
+  async function changeHour(next: number) {
+    const reminders = { ...settings.reminders, hour: next };
+    update({ reminders });
+    // Le Worker garde l'heure par abonnement : il faut la lui redéclarer, pas seulement la stocker.
+    setPushState(await syncPushSubscription(reminders));
+  }
+
+  return (
+    <section>
+      <SectionLabel as="h3" className="mb-3">Rappels</SectionLabel>
+      <div className="flex flex-col gap-3">
+        <Toggle
+          label="Me rappeler mes exercices du jour"
+          value={enabled}
+          onChange={(v) => void toggle(v)}
+        />
+        {error && <p className="m-0 text-sm text-accent">{error}</p>}
+        {enabled && (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-text">Heure du rappel</span>
+              <select
+                className="h-11 rounded-sm border border-hairline-strong bg-surface px-2 text-right text-sm text-text"
+                value={hour}
+                aria-label="Heure du rappel"
+                onChange={(e) => void changeHour(Number(e.target.value))}
+              >
+                {REMINDER_HOURS.map((h) => (
+                  <option key={h} value={h}>
+                    {String(h).padStart(2, "0")}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="h-11 rounded-sm border border-hairline-strong bg-surface px-3 text-sm text-text"
+              onClick={() => void showReminderNow().then(setTested)}
+            >
+              Tester le rappel
+            </button>
+            {tested && (
+              <p className="m-0 text-xs leading-relaxed text-muted">
+                Notification envoyée — si tu ne la vois pas, vérifie les réglages système.
+              </p>
+            )}
+            {pushState && PUSH_NOTE[pushState] && (
+              <p className="m-0 text-xs leading-relaxed text-muted">{PUSH_NOTE[pushState]}</p>
+            )}
+          </>
+        )}
+        {appleNeedsInstall() && (
+          <p className="m-0 text-xs leading-relaxed text-muted">
+            Sur iPhone et iPad, ajoute d'abord l'app à l'écran d'accueil (Partager → « Sur
+            l'écran d'accueil ») : iOS n'autorise les notifications que dans ce mode.
+          </p>
+        )}
+        <p className="m-0 text-xs leading-relaxed text-muted">
+          {pushAvailable()
+            ? "À l'heure choisie, un rappel arrive même app fermée si ton programme du jour n'est pas terminé. Seuls un identifiant d'appareil opaque, l'heure et le fuseau quittent l'appareil — jamais ton contenu d'étude, qui reste calculé localement."
+            : "Rappel au mieux des capacités du navigateur (app installée recommandée). Aucune donnée ne quitte l'appareil."}
+        </p>
+      </div>
+    </section>
   );
 }
 

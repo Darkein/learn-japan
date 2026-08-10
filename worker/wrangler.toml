@@ -65,7 +65,28 @@ bucket_name = "learn-japan-audio"
 binding = "PROGRESS"
 bucket_name = "learn-japan-progress"
 
+# Rappel quotidien (Web Push sans charge utile — voir src/push.ts). Une passe par heure :
+# chaque abonnement porte SON heure locale, le cron ne notifie que ceux dont c'est l'heure.
+# La granularité du réglage étant l'heure, une passe horaire suffit (une dérive de quelques
+# minutes du planificateur Cloudflare est sans conséquence).
+[triggers]
+crons = [ "0 * * * *" ]
+
 [secrets]
+# ATTENTION — cette liste est une LISTE BLANCHE pour le DEV LOCAL : `wrangler dev` n'injecte
+# de .dev.vars/.env que les clés nommées ici (les autres sont ignorées en silence). En
+# PRODUCTION elle ne filtre rien : un secret posé par `wrangler secret put` est toujours
+# injecté. Un nom listé mais absent ne produit qu'un avertissement au démarrage, jamais un
+# échec — c'est pourquoi des secrets optionnels peuvent y figurer.
+#
 # TOGETHER_API_KEY : requis (texte + images). GOOGLE_TTS_API_KEY : optionnel (TTS).
 # GEMINI_API_KEY : seulement si tu ajoutes un repli "gemini" dans MODEL_CHAIN.
-required = [ "TOGETHER_API_KEY", "GOOGLE_TTS_API_KEY" ]
+# VAPID_* : optionnels, pour le rappel quotidien. Sans eux, /push/* répond 503 et le cron ne
+# fait rien → l'app garde ses rappels locaux. Génération des clés : voir README.
+required = [
+  "TOGETHER_API_KEY",
+  "GOOGLE_TTS_API_KEY",
+  "VAPID_PUBLIC_KEY",
+  "VAPID_PRIVATE_KEY",
+  "VAPID_SUBJECT",
+]
