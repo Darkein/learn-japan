@@ -56,8 +56,10 @@ export function normalizeSyncCode(input: string): string | null {
 /** Nombre max de lignes du journal de révisions embarquées (le local garde tout). */
 const REVIEWS_CAP = 20_000;
 
-/** Clés meta locales à l'appareil, JAMAIS synchronisées. */
-const LOCAL_META = /^(sync:|storyImageTried:)/;
+/** Clés meta locales à l'appareil, JAMAIS synchronisées. `push:` en fait partie : un
+ *  abonnement Web Push appartient à UN navigateur, le propager reviendrait à désabonner
+ *  l'autre appareil au premier démarrage. */
+const LOCAL_META = /^(sync:|storyImageTried:|push:)/;
 
 export interface SyncSnapshot {
   formatVersion: 1;

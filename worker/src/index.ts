@@ -22,6 +22,7 @@ import { buildSceneBriefPrompt, buildStoryIllustrationPrompt, cleanRev, cleanSlu
 import { cacheGet, cachePut, genCacheKey, lessonCacheKey, lessonStoryCacheKey, listGenerated, ttsCacheKey } from "./cache";
 import { handleArticleFetch } from "./articleProxy";
 import { handleProgressPull, handleProgressPush } from "./progress";
+import { handlePushSubscribe, handlePushUnsubscribe, pushConfigured, runPushCron } from "./push";
 
 export interface Env {
   // FOURNISSEUR PAR DÉFAUT : Together AI (API compatible OpenAI). Une SEULE clé suffit
@@ -59,7 +60,15 @@ export interface Env {
   // Sauvegardes d'avancement utilisateur (sync multi-appareils). SÉPARÉ des caches :
   // seules données NON régénérables du système. Optionnel : sans binding, /progress/* → 503.
   //   PROGRESS → bucket learn-japan-progress
+  // Porte AUSSI les abonnements Web Push du rappel quotidien (préfixe push/, voir push.ts).
   PROGRESS?: R2Bucket;
+  // Rappel quotidien (Web Push sans charge utile, cron horaire — voir push.ts). Trois
+  // SECRETS, tous optionnels : absents, /push/* répond 503 et le cron est inerte (l'app
+  // retombe sur ses rappels locaux). Générer les clés une fois puis :
+  //   wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
 interface TtsRequest {
@@ -537,6 +546,15 @@ export default {
       return handleProgressPush(req, env.PROGRESS, json);
     }
 
+    // POST /push/subscribe|unsubscribe → abonnement au rappel quotidien (voir push.ts).
+    // Le corps ne contient qu'un endpoint opaque, une heure et un fuseau : aucune donnée d'étude.
+    if (req.method === "POST" && url.pathname === "/push/subscribe") {
+      return handlePushSubscribe(req, env.PROGRESS, env, json);
+    }
+    if (req.method === "POST" && url.pathname === "/push/unsubscribe") {
+      return handlePushUnsubscribe(req, env.PROGRESS, env, json);
+    }
+
     // POST /article/fetch → octets bruts d'une page d'article (onglet Articles, voir articleProxy.ts)
     if (req.method === "POST" && url.pathname === "/article/fetch") {
       return handleArticleFetch(req, json, CORS);
@@ -662,8 +680,23 @@ export default {
         ok: true,
         service: "learn-japan-gen",
         cache: { gen: Boolean(env.GEN_CACHE), tts: Boolean(env.TTS_CACHE) },
+        // `false` ⇒ le rappel quotidien reste local (secrets VAPID ou bucket manquants).
+        push: pushConfigured(env) && Boolean(env.PROGRESS),
       });
     }
     return json({ error: "not found" }, 404);
+  },
+
+  // Cron horaire (wrangler.toml → [triggers]) : envoie le rappel aux appareils dont c'est
+  // l'heure locale. Inerte sans secrets VAPID. `wrangler dev` ne déclenche PAS le cron tout
+  // seul — le provoquer avec : curl "http://localhost:8787/cdn-cgi/handler/scheduled".
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      runPushCron(env.PROGRESS, env).then((r) => {
+        // Loggé même à vide : c'est le seul moyen de diagnostiquer « je n'ai rien reçu »
+        // depuis `wrangler tail` (envoyé ? filtré ? abonnement mort ?).
+        console.log(`push cron: ${r.sent} envoyé(s), ${r.skipped} ignoré(s), ${r.removed} supprimé(s)`);
+      }),
+    );
   },
 } satisfies ExportedHandler<Env>;

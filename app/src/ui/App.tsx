@@ -39,7 +39,7 @@ import { Stats } from "./Stats";
 import { Voyage } from "./Voyage";
 import { ReviewSession } from "./ReviewSession";
 import { SettingsProvider, useSettings } from "./useSettings";
-import { initReminders, updateBadge } from "../lib/reminders";
+import { initReminders, refreshReminderState } from "../lib/reminders";
 import { stopSentence } from "../lib/tts";
 
 const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
@@ -117,7 +117,8 @@ function AppShell() {
   const { openPanel, settings } = useSettings();
   const podcast = usePodcastPlayer();
 
-  // Rappels : badge d'icône, periodic sync et notification « à l'ouverture ».
+  // Rappels : abonnement au push (heure, fuseau), badge d'icône, periodic sync et
+  // notification « à l'ouverture ». Voir lib/reminders.ts.
   useEffect(
     () => initReminders(settings.reminders),
     [settings.reminders],
@@ -264,8 +265,9 @@ function AppShell() {
   function back() {
     const from = "from" in route ? route.from : "/";
     setRefreshKey((n) => n + 1);
-    // Retour d'une session (révision, flux…) : le compte de cartes dues a pu changer.
-    void updateBadge();
+    // Retour d'une session (révision, flux…) : le compte de cartes dues a pu changer, et la
+    // journée vient peut-être d'être bouclée — c'est le moment de le dire au rappel.
+    void refreshReminderState(settings.reminders);
     navigate(from);
   }
 

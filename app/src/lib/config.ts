@@ -8,6 +8,14 @@ export const WORKER_URL = (
   import.meta.env.VITE_WORKER_URL ?? FALLBACK_WORKER_URL
 ).replace(/\/+$/, "");
 
+/**
+ * Clé PUBLIQUE VAPID du rappel quotidien (Web Push), injectée au build par
+ * VITE_VAPID_PUBLIC_KEY. Publique par nature : elle identifie le serveur de push auprès du
+ * navigateur, elle ne signe rien (la privée reste un secret du Worker). Vide = pas de push :
+ * l'app garde ses rappels locaux (badge, notification à l'ouverture, periodic sync).
+ */
+export const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "").trim();
+
 // Voix Cloud TTS par langue. Le japonais sert au lecteur d'article et aux réponses de quiz ;
 // le français sert au mode podcast (cadrage, transitions, quiz, phrases traduites).
 export const TTS_VOICES = {
