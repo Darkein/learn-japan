@@ -11,12 +11,20 @@ const hint = (over: Partial<ReminderHint> = {}): ReminderHint => ({
 
 describe("reminderBody", () => {
   it("annonce le dû en priorité, au bon nombre", () => {
-    expect(reminderBody(1, undefined, TODAY)).toBe("1 révision t'attend — 5 minutes suffisent.");
-    expect(reminderBody(12, undefined, TODAY)).toBe(
-      "12 révisions t'attendent — 5 minutes suffisent.",
-    );
+    expect(reminderBody(1, undefined, TODAY)).toBe("1 révision t'attend — c'est vite plié.");
+    expect(reminderBody(7, undefined, TODAY)).toBe("7 révisions t'attendent — 5 minutes suffisent.");
     // Le dû passe devant l'indice d'activité, même s'il y en a un.
     expect(reminderBody(3, hint({ label: "Les nombres" }), TODAY)).toContain("3 révisions");
+  });
+
+  it("ne promet pas 5 minutes quand le backlog ne tient pas dedans", () => {
+    // Un gros dû : on propose la première bouchée, pas une durée intenable.
+    expect(reminderBody(51, undefined, TODAY)).toBe(
+      "51 révisions t'attendent — commence par les 10 plus urgentes, le reste attendra.",
+    );
+    // Frontière : 10 tient dans cinq minutes, 11 non.
+    expect(reminderBody(10, undefined, TODAY)).toContain("5 minutes suffisent");
+    expect(reminderBody(11, undefined, TODAY)).not.toContain("5 minutes");
   });
 
   it("nomme la leçon ou l'histoire quand rien n'est dû", () => {

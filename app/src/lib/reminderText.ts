@@ -17,6 +17,18 @@ export const REMINDER_TAG = "revision";
 /** Repli quand rien n'est identifiable : une invitation, jamais une affirmation. */
 const GENERIC = "Cinq minutes de japonais ?";
 
+/**
+ * Combien de cartes tiennent VRAIMENT dans cinq minutes. Une carte prend ~20–30 s (lecture,
+ * audio, saisie, correction) : au-delà d'une dizaine, promettre « 5 minutes suffisent » est
+ * un mensonge — et un backlog de 51 cartes annoncé comme une broutille décourage au lieu
+ * d'engager. Volontairement distinct de `SRS.sessionCap` (30), qui borne la session, pas la
+ * promesse.
+ */
+const FIVE_MIN_CARDS = 10;
+
+/** En dessous, le nombre parle de lui-même : pas la peine d'annoncer une durée. */
+const TRIVIAL = 3;
+
 /** Un titre de leçon/histoire trop long tronquerait la notification côté OS. */
 const MAX_LABEL = 60;
 
@@ -27,6 +39,18 @@ export interface ReminderHint {
   kind: FlowActivityKind;
   /** Titre de la leçon ou de l'histoire visée, quand l'activité en désigne une. */
   label?: string;
+}
+
+/**
+ * Le dû, avec une promesse taillée à sa taille. La marche est ce qu'on demande, pas ce qui
+ * reste : sur un gros backlog, on propose la première bouchée (les plus urgentes passent
+ * d'abord dans la session) plutôt qu'une durée intenable.
+ */
+function duePhrase(due: number): string {
+  const head = `${due} révision${due > 1 ? "s" : ""} t'attend${due > 1 ? "ent" : ""}`;
+  if (due <= TRIVIAL) return `${head} — c'est vite plié.`;
+  if (due <= FIVE_MIN_CARDS) return `${head} — 5 minutes suffisent.`;
+  return `${head} — commence par les ${FIVE_MIN_CARDS} plus urgentes, le reste attendra.`;
 }
 
 function clamp(label: string | undefined): string | undefined {
@@ -41,9 +65,7 @@ function clamp(label: string | undefined): string | undefined {
  */
 export function reminderBody(due: number, hint: ReminderHint | undefined, today: string): string {
   // Le dû passe avant tout : c'est le plus concret et le plus urgent.
-  if (due > 0) {
-    return `${due} révision${due > 1 ? "s" : ""} t'attend${due > 1 ? "ent" : ""} — 5 minutes suffisent.`;
-  }
+  if (due > 0) return duePhrase(due);
   if (!hint || hint.date !== today) return GENERIC;
   const label = clamp(hint.label);
   switch (hint.kind) {
