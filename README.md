@@ -126,7 +126,59 @@ Deux workflows tournent à chaque push : `deploy.yml` (PWA → Pages) et
 | Settings → Secrets and variables → Actions → **Secrets** | `CLOUDFLARE_API_TOKEN` | token Cloudflare (perm. *Edit Cloudflare Workers*) |
 | idem → **Secrets** | `CLOUDFLARE_ACCOUNT_ID` | *(optionnel, si le token couvre plusieurs comptes)* |
 | idem → **Variables** | `VITE_WORKER_URL` | `https://learn-japan-gen.<sous-domaine>.workers.dev` |
+| idem → **Variables** | `VITE_VAPID_PUBLIC_KEY` | *(optionnel — rappel quotidien, voir ci-dessous)* |
 
 Le secret Together (`wrangler secret put TOGETHER_API_KEY`) reste posé directement sur le
 Worker, hors GitHub. Une fois ces réglages faits, **tout se teste depuis l'URL Pages**,
 génération réelle incluse — plus aucun dev local requis.
+
+### Rappel quotidien (Web Push) — optionnel
+
+Sans configuration, les rappels restent **locaux** : badge d'icône, notification à
+l'ouverture de l'app, et periodic background sync sur Chrome/Edge installé. Aucun de ces
+mécanismes ne peut sonner **à une heure choisie app fermée**, et aucun n'existe sur iOS.
+
+Le Web Push comble ce trou. Le Worker envoie un push **sans charge utile** à l'heure dite : il
+ne transporte rien, il réveille le service worker, qui rédige la notification sur l'appareil
+depuis IndexedDB. Le serveur ne stocke qu'un endpoint opaque, l'heure et le fuseau — jamais
+une carte, jamais un mot. Voir `worker/src/push.ts` et `app/src/sw.ts`.
+
+Générer la paire de clés VAPID (aucune dépendance à installer) :
+
+```bash
+node -e 'const c=require("crypto").webcrypto;(async()=>{
+const k=await c.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);
+console.log("VAPID_PUBLIC_KEY ",Buffer.from(await c.subtle.exportKey("raw",k.publicKey)).toString("base64url"));
+console.log("VAPID_PRIVATE_KEY",(await c.subtle.exportKey("jwk",k.privateKey)).d)})()'
+```
+
+Puis, **une fois** :
+
+| Où | Quoi |
+|---|---|
+| Worker | `wrangler secret put VAPID_PUBLIC_KEY` (la clé publique) |
+| Worker | `wrangler secret put VAPID_PRIVATE_KEY` (la clé privée — ne quitte jamais le Worker) |
+| Worker | `wrangler secret put VAPID_SUBJECT` → `mailto:toi@exemple.fr` (Apple l'exige) |
+| GitHub → **Variables** | `VITE_VAPID_PUBLIC_KEY` = la **même clé publique** |
+
+Le bucket `learn-japan-progress` (déjà créé pour la sync) porte aussi les abonnements, sous le
+préfixe `push/` — rien de plus à provisionner. Le cron horaire est déclaré dans
+`wrangler.toml` (`[triggers]`) : chaque abonnement porte son heure locale, la passe ne notifie
+que ceux dont c'est l'heure et dont la journée n'est pas déjà bouclée.
+
+Vérifier : `curl https://<worker>/` renvoie `"push": true` quand tout est en place.
+
+En **dev local**, mettre les trois clés dans `worker/.dev.vars` (ignoré par git), puis :
+
+```bash
+npx wrangler dev                                    # dans worker/
+curl "http://localhost:8787/cdn-cgi/handler/scheduled"   # déclenche la passe sans attendre l'heure
+```
+
+À savoir : `[secrets] required` dans `wrangler.toml` est une **liste blanche pour le dev
+local** — `wrangler dev` n'injecte de `.dev.vars` que les clés qui y sont nommées. En
+production elle ne filtre rien (un `wrangler secret put` est toujours injecté), et un nom
+listé mais absent ne produit qu'un avertissement au démarrage.
+
+**Sur iPhone/iPad, l'app doit être ajoutée à l'écran d'accueil** (iOS 16.4+) : c'est la seule
+façon dont iOS autorise les notifications web. Les réglages de l'app le rappellent sur place.

@@ -341,6 +341,35 @@ describe("priorisation des nouveaux items", () => {
     for (const id of lessonVocabIds) expect(ids).toContain(id);
     expect(ids).not.toContain("ああ|ああ");
   });
+
+  it("vocabulaire incident : les graphies en kanji entrent en rotation d'abord", async () => {
+    // Deux mots incidents (aucune leçon commencée), le mot kana AVANT le mot en kanji dans
+    // l'ordre des clés : seule la priorisation peut inverser les deux.
+    await putVocab({
+      id: "あめ|あめ",
+      surface: "あめ",
+      reading: "あめ",
+      meaning: "bonbon",
+      tags: [],
+      status: "unknown",
+      cards: {},
+    });
+    await putVocab({
+      id: "山|やま",
+      surface: "山",
+      reading: "やま",
+      meaning: "montagne",
+      tags: [],
+      status: "unknown",
+      cards: {},
+    });
+    // Une seule nouveauté promue aujourd'hui : c'est le mot en kanji qui doit la prendre.
+    await bumpSrsDaily(TODAY, { introduced: SRS.newPerDay - 1 });
+
+    const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
+    expect(ids).toContain("山|やま");
+    expect(ids).not.toContain("あめ|あめ");
+  });
 });
 
 describe("scope story (exercices du Lecteur)", () => {

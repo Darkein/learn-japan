@@ -2,14 +2,17 @@
 // Service worker custom (injectManifest). Reproduit EXACTEMENT le comportement de
 // l'ancienne config generateSW — precache + autoUpdate (skipWaiting/clientsClaim) +
 // runtime cache `kuromoji-dict` (même cacheName : ne pas re-télécharger ~12 Mo) —
-// et ajoute les rappels de révisions : periodic background sync → notification locale.
+// et ajoute les rappels du programme du jour : Web Push (app fermée, à l'heure choisie)
+// et periodic background sync en repli, tous deux vers une notification locale.
 
 import { clientsClaim } from "workbox-core";
 import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
+import { WORKER_URL } from "./lib/config";
 import { countDueFromIndexedDB, readMetaRaw, writeMetaRaw } from "./lib/dueCount";
+import { REMINDER_TAG, REMINDER_TITLE, reminderBody, type ReminderHint } from "./lib/reminderText";
 import type { ReminderSettings } from "./lib/settings";
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -37,7 +40,7 @@ registerRoute(
   }),
 );
 
-// ---- Rappels de révisions (app fermée) -------------------------------------------
+// ---- Rappels du programme du jour (app fermée) ------------------------------------
 
 const PERIODIC_SYNC_TAG = "revision-reminder";
 
@@ -47,6 +50,68 @@ function localDateString(d: Date): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/**
+ * Affiche le rappel du jour. Le texte est calculé ICI, sur l'appareil : le compte de cartes
+ * dues est relu dans IndexedDB (donc exact à la seconde), l'activité proposée vient de
+ * l'indice que l'app a laissé en meta (voir refreshReminderState). Rien de tout cela n'a
+ * transité par le réseau.
+ */
+async function showDailyReminder(now: Date = new Date()): Promise<void> {
+  const today = localDateString(now);
+  const due = await countDueFromIndexedDB(now);
+  const hint = await readMetaRaw<ReminderHint>("reminder.hint");
+  await writeMetaRaw("reminder.lastShown", today);
+  const nav = self.navigator as Navigator & { setAppBadge?: (n: number) => Promise<void> };
+  if (nav.setAppBadge && due > 0) await nav.setAppBadge(due).catch(() => {});
+  await self.registration.showNotification(REMINDER_TITLE, {
+    body: reminderBody(due, hint, today),
+    tag: REMINDER_TAG,
+    icon: "icon.svg",
+  });
+}
+
+// Web Push : le push est VIDE (il ne transporte rien, il réveille juste ce SW). Il DOIT
+// aboutir à une notification visible — c'est le contrat `userVisibleOnly`, et à défaut Chrome
+// finit par afficher « ce site a été mis à jour en arrière-plan » puis révoque le push.
+// Aucune garde d'heure ici : le Worker a déjà choisi le moment et sauté les journées bouclées.
+self.addEventListener("push", (event) => {
+  (event as ExtendableEvent).waitUntil(showDailyReminder());
+});
+
+/**
+ * Le navigateur a renouvelé l'abonnement (rotation de clé, réinstallation) : on déclare le
+ * nouvel endpoint. L'ancien restera côté Worker jusqu'au prochain cron, qui le supprimera sur
+ * le 410 du service de push. Sans clé VAPID à manipuler ici : `newSubscription` suffit, et à
+ * défaut l'abonnement courant — sinon le prochain démarrage de l'app s'en chargera.
+ */
+async function onSubscriptionChange(next?: PushSubscription): Promise<void> {
+  const reminders = await readMetaRaw<ReminderSettings>("reminders");
+  if (!reminders?.enabled) return;
+  const sub = next ?? (await self.registration.pushManager.getSubscription());
+  if (!sub) return;
+  await writeMetaRaw("push:endpoint", sub.endpoint);
+  await fetch(`${WORKER_URL}/push/subscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      endpoint: sub.endpoint,
+      hour: reminders.hour,
+      zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      tzOffsetMinutes: new Date().getTimezoneOffset(),
+    }),
+  }).catch(() => {});
+}
+
+self.addEventListener("pushsubscriptionchange", (event) => {
+  const e = event as ExtendableEvent & { newSubscription?: PushSubscription };
+  e.waitUntil(onSubscriptionChange(e.newSubscription));
+});
+
+/**
+ * Repli sans push (Chrome/Edge installé) : le navigateur choisit le moment, on garde donc la
+ * garde d'heure et la garde « une fois par jour » ici. On se taît si l'app a noté que la
+ * journée était bouclée — le Worker ne peut pas filtrer ce chemin.
+ */
 async function remindIfDue(): Promise<void> {
   const reminders = await readMetaRaw<ReminderSettings>("reminders");
   if (!reminders?.enabled) return;
@@ -54,16 +119,10 @@ async function remindIfDue(): Promise<void> {
   if (now.getHours() < reminders.hour) return;
   const today = localDateString(now);
   if ((await readMetaRaw<string>("reminder.lastShown")) === today) return;
-  const due = await countDueFromIndexedDB(now);
-  if (due === 0) return;
-  await writeMetaRaw("reminder.lastShown", today);
-  const nav = self.navigator as Navigator & { setAppBadge?: (n: number) => Promise<void> };
-  if (nav.setAppBadge) await nav.setAppBadge(due).catch(() => {});
-  await self.registration.showNotification("Learn Japan", {
-    body: `${due} révision${due > 1 ? "s" : ""} t'attend${due > 1 ? "ent" : ""} — 5 minutes suffisent.`,
-    tag: "revision",
-    icon: "icon.svg",
-  });
+  const hint = await readMetaRaw<ReminderHint>("reminder.hint");
+  if (hint?.date === today && hint.kind === "done") return;
+  if ((await countDueFromIndexedDB(now)) === 0 && !hint) return; // rien à annoncer honnêtement
+  await showDailyReminder(now);
 }
 
 self.addEventListener("periodicsync", (event) => {

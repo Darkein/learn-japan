@@ -4,7 +4,9 @@ export type Theme = "system" | "dark" | "light";
 
 export interface ReminderSettings {
   enabled: boolean;
-  /** Heure locale à partir de laquelle le rappel du jour peut se montrer (9, 13 ou 19). */
+  /** Heure LOCALE du rappel du jour (0-23, réglable librement — l'UI propose 6 h à 23 h).
+   *  Le Web Push l'honore à l'heure dite ; les replis locaux la traitent comme un seuil
+   *  « pas avant » (le navigateur choisit alors le moment). Voir lib/reminders.ts. */
   hour: number;
 }
 

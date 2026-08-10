@@ -49,6 +49,13 @@ Une face n'existe que si elle apporte quelque chose : pas de face kanji pour un 
 ferait doublon avec la lecture), pas de face française pour un mot sans sens connu. Un mot à deux
 faces se révise donc dans deux directions.
 
+Le tirage **privilégie la face kanji** (`KANJI_WEIGHT`) : une direction qui montre ou demande la
+graphie passe devant une direction purement kana (lecture ↔ traduction) — c'est la graphie qui
+coûte à apprendre, la transcription en kana d'un mot qu'on sait lire n'apprend plus rien. C'est une
+pondération, pas une exclusion : les directions kana restent tirables, et sont les seules d'un mot
+sans face kanji. Même intention côté nouveautés : à budget égal, le vocabulaire **incident** entre
+en rotation graphies en kanji d'abord (les objectifs de leçon gardent l'ordre curé du curriculum).
+
 Le **mode d'entrée** suit la face demandée et la maîtrise :
 
 | Face demandée | Mode |
