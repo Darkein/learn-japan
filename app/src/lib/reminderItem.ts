@@ -1,11 +1,17 @@
-// Choix de l'élément mis en avant par le rappel du jour — PUR (données en argument).
-// L'app le calcule au dernier passage et le range dans `reminder.hint` ; le service worker
-// se contente d'en faire une phrase (voir reminderText.ts). Rien ne part sur le réseau :
-// le hint vit dans le store `meta` local, comme le reste.
+// Choix des éléments mis en avant par le rappel du jour — PUR (données en argument).
+// L'app calcule un PELOTON de candidats au dernier passage et le range dans `reminder.hint` ;
+// le service worker y pioche au moment d'afficher (voir `pickFromPool`, reminderText.ts).
+// Rien ne part sur le réseau : le hint vit dans le store `meta` local, comme le reste.
+//
+// POURQUOI UN PELOTON ET NON UN SEUL ÉLÉMENT : le hint n'est réécrit qu'à l'ouverture de
+// l'app. Quelqu'un qui ne l'ouvre pas de la semaine verrait sinon le même mot tous les soirs.
+// C'est donc le SW, qui sait quel jour on est, qui tranche.
 //
 // RÈGLE : on ne met en avant qu'un élément DÉJÀ RÉVISÉ au moins une fois (`reps > 0`).
 // Une carte fraîchement créée est due immédiatement, et « tu te souviens de … ? » sur un
 // mot jamais vu serait un mensonge.
+
+import type { ReminderItem } from "./reminderText";
 
 /** Sous-ensemble d'une carte FSRS nécessaire au choix (pas d'import ts-fsrs ici). */
 export interface PickCardLike {
@@ -22,50 +28,38 @@ export interface PickGrammarLike {
   card?: PickCardLike;
 }
 
-export interface ReminderItem {
-  /** Ce qui s'affiche tel quel : 「花火」 pour un mot, « は (thème) » pour la grammaire. */
-  text: string;
-  kind: "vocab" | "grammar";
-}
+/**
+ * Taille du peloton. Assez large pour que les soirs ne se ressemblent pas, assez court pour
+ * rester dans un enregistrement `meta` léger — et pour ne proposer que du vraiment en retard.
+ */
+export const POOL_SIZE = 12;
 
 /**
- * Nombre de candidats parmi lesquels la date du jour tranche. Prendre systématiquement le
- * plus en retard servirait le même mot tous les soirs tant que le backlog n'est pas entamé.
+ * Les éléments dus à mettre en avant, les plus en retard d'abord (ce sont eux qui risquent
+ * l'oubli). Vide si rien de révisé n'est dû.
  */
-const POOL = 12;
-
-/** Index stable dérivé de la date locale : varie d'un jour à l'autre, jamais dans la journée. */
-function dayIndex(today: string, n: number): number {
-  let h = 0;
-  for (let i = 0; i < today.length; i++) h = (h * 31 + today.charCodeAt(i)) >>> 0;
-  return h % n;
-}
-
-/**
- * L'élément dû à mettre en avant, ou `undefined` si rien de révisé n'est dû. Les plus en
- * retard d'abord (ce sont eux qui risquent l'oubli), puis la date du jour choisit dans ce
- * peloton. Déterministe : même entrée, même jour → même élément, dans l'app comme en test.
- */
-export function pickReminderItem(
+export function reminderItemPool(
   vocab: PickVocabLike[],
   grammar: PickGrammarLike[],
   now: Date,
-  today: string,
-): ReminderItem | undefined {
-  const seen = (c: PickCardLike | undefined) => !!c && c.reps > 0 && c.due.getTime() <= now.getTime();
+): ReminderItem[] {
+  const seen = (c: PickCardLike | undefined) =>
+    !!c && c.reps > 0 && c.due.getTime() <= now.getTime();
   const candidates: { item: ReminderItem; due: number }[] = [];
   for (const v of vocab) {
     // La compétence écrite seule : c'est la face qu'on peut nommer dans une notification.
     const c = v.cards.written;
-    if (seen(c) && v.surface) candidates.push({ item: { text: v.surface, kind: "vocab" }, due: c!.due.getTime() });
+    if (seen(c) && v.surface) {
+      candidates.push({ item: { text: v.surface, kind: "vocab" }, due: c!.due.getTime() });
+    }
   }
   for (const g of grammar) {
-    if (seen(g.card) && g.name) candidates.push({ item: { text: g.name, kind: "grammar" }, due: g.card!.due.getTime() });
+    if (seen(g.card) && g.name) {
+      candidates.push({ item: { text: g.name, kind: "grammar" }, due: g.card!.due.getTime() });
+    }
   }
-  if (candidates.length === 0) return undefined;
   // Tri par retard, puis par texte : deux cartes dues à la même milliseconde (import,
   // amorçage en lot) ne doivent pas dépendre de l'ordre de lecture d'IndexedDB.
   candidates.sort((a, b) => a.due - b.due || a.item.text.localeCompare(b.item.text));
-  const pool = candidates.slice(0, POOL);
-  return pool[dayIndex(today, pool.length)].item;
+  return candidates.slice(0, POOL_SIZE).map((c) => c.item);
 }

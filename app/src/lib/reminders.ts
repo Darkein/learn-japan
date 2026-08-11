@@ -13,8 +13,13 @@
 import { allGrammar, allVocab, getMeta, localDateString, putMeta, recentSrsDaily } from "./db";
 import { gatherFlowState, pickNext, type FlowActivityKind, type FlowState } from "./flow";
 import { syncPushSubscription } from "./push";
-import { pickReminderItem } from "./reminderItem";
-import { REMINDER_TAG, reminderNotification, type ReminderHint } from "./reminderText";
+import { reminderItemPool } from "./reminderItem";
+import {
+  REMINDER_TAG,
+  reminderNotification,
+  type ReminderEvent,
+  type ReminderHint,
+} from "./reminderText";
 import { sessionStats } from "./reviewSession";
 import type { ReminderSettings } from "./settings";
 import { reviewStreak } from "./stats";
@@ -23,6 +28,8 @@ export const PERIODIC_SYNC_TAG = "revision-reminder";
 
 /** Clé meta lue par le service worker pour rédiger la notification (voir reminderText.ts). */
 const HINT_KEY = "reminder.hint";
+/** Dernier rendez-vous annoncé (miroir, leçon, histoire) : on ne le rejoue pas chaque soir. */
+const LAST_EVENT_KEY = "reminder.lastEvent";
 
 type NavigatorBadge = Navigator & {
   setAppBadge?: (n: number) => Promise<void>;
@@ -63,18 +70,34 @@ export async function ensurePeriodicSync(enabled: boolean): Promise<void> {
   }
 }
 
-/** Titre concret de l'activité proposée, quand elle en désigne un (leçon, histoire). */
-function hintLabel(kind: FlowActivityKind, s: FlowState): string | undefined {
-  switch (kind) {
-    case "lesson":
-      return s.nextLesson?.title;
-    case "read-story":
-      return s.currentLesson?.unreadStoryTitle;
-    case "mirror":
-      return s.mirrorCandidate?.title;
-    default:
-      return undefined;
+/**
+ * Le rendez-vous du moment, s'il y en a un — INDÉPENDAMMENT du dû. `pickNext` sert le flux :
+ * dès qu'une carte est due, il répond `review` et l'on ne saurait plus qu'une relecture-miroir
+ * attend. Le rappel, lui, n'a qu'une phrase par jour à dépenser et préfère le rare au quotidien.
+ * D'où cet ordre propre au rappel : le miroir (une quinzaine au mieux), puis la leçon
+ * fraîchement débloquée, puis l'histoire jamais lue.
+ */
+function pickEvent(s: FlowState): ReminderEvent | undefined {
+  if (s.mirrorCandidate) {
+    return {
+      key: `mirror:${s.mirrorCandidate.storyId}`,
+      kind: "mirror",
+      label: s.mirrorCandidate.title,
+      ageDays: s.mirrorCandidate.ageDays,
+    };
   }
+  if (s.nextLesson?.ready) {
+    return { key: `lesson:${s.nextLesson.id}`, kind: "lesson", label: s.nextLesson.title };
+  }
+  const storyId = s.currentLesson?.unreadStoryId;
+  if (storyId) {
+    return {
+      key: `story:${storyId}`,
+      kind: "read-story",
+      label: s.currentLesson?.unreadStoryTitle,
+    };
+  }
+  return undefined;
 }
 
 /**
@@ -96,15 +119,14 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
     const { state } = await gatherFlowState();
     void updateBadge(state.dueCount);
     next = pickNext(state);
-    // L'élément à mettre en avant et la série : le SW ne sait pas les calculer (ts-fsrs,
-    // log de révisions), et ils restent dans le store `meta` local — rien ne part au push.
+    // Le peloton d'éléments et la série : le SW ne sait pas les calculer (ts-fsrs, log de
+    // révisions), et ils restent dans le store `meta` local — rien ne part au push.
     const [vocab, grammar, daily] = await Promise.all([allVocab(), allGrammar(), recentSrsDaily(60)]);
     const hint: ReminderHint = {
       date: today,
       kind: next.kind,
-      label: hintLabel(next.kind, state),
-      item: pickReminderItem(vocab, grammar, new Date(), today),
-      ageDays: state.mirrorCandidate?.ageDays,
+      items: reminderItemPool(vocab, grammar, new Date()),
+      event: pickEvent(state),
       streak: reviewStreak(daily, state.dailyGoal, today),
     };
     await putMeta(HINT_KEY, hint);
@@ -136,7 +158,12 @@ export async function maybeNotifyOnOpen(reminders: ReminderSettings): Promise<vo
   await putMeta("reminder.lastShown", today);
   try {
     const reg = await navigator.serviceWorker.ready;
-    const { title, body } = reminderNotification(due, await getMeta<ReminderHint>(HINT_KEY), today);
+    const [hint, lastEvent] = await Promise.all([
+      getMeta<ReminderHint>(HINT_KEY),
+      getMeta<string>(LAST_EVENT_KEY),
+    ]);
+    const { title, body, eventShown } = reminderNotification(due, hint, today, lastEvent);
+    if (eventShown) await putMeta(LAST_EVENT_KEY, eventShown);
     await reg.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
   } catch {
     /* Pas de SW prêt (dev) : tant pis pour cette fois. */
@@ -154,7 +181,13 @@ export async function showReminderNow(): Promise<boolean> {
     const reg = await navigator.serviceWorker.ready;
     const today = localDateString();
     const due = (await sessionStats()).dueCount;
-    const { title, body } = reminderNotification(due, await getMeta<ReminderHint>(HINT_KEY), today);
+    // Un essai ne consomme rien : ni le rappel du jour, ni le rendez-vous en attente. On lit
+    // `lastEvent` sans le réécrire, pour montrer exactement ce qui sortira le soir venu.
+    const [hint, lastEvent] = await Promise.all([
+      getMeta<ReminderHint>(HINT_KEY),
+      getMeta<string>(LAST_EVENT_KEY),
+    ]);
+    const { title, body } = reminderNotification(due, hint, today, lastEvent);
     await reg.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
     return true;
   } catch {
