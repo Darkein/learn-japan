@@ -10,12 +10,14 @@
 // drapeau « journée bouclée ». Jamais une carte, jamais un mot, jamais un compte de révisions —
 // le contenu de la notification est calculé localement.
 
-import { getMeta, localDateString, putMeta } from "./db";
+import { allGrammar, allVocab, getMeta, localDateString, putMeta, recentSrsDaily } from "./db";
 import { gatherFlowState, pickNext, type FlowActivityKind, type FlowState } from "./flow";
 import { syncPushSubscription } from "./push";
-import { REMINDER_TAG, REMINDER_TITLE, reminderBody, type ReminderHint } from "./reminderText";
+import { pickReminderItem } from "./reminderItem";
+import { REMINDER_TAG, reminderNotification, type ReminderHint } from "./reminderText";
 import { sessionStats } from "./reviewSession";
 import type { ReminderSettings } from "./settings";
+import { reviewStreak } from "./stats";
 
 export const PERIODIC_SYNC_TAG = "revision-reminder";
 
@@ -94,7 +96,17 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
     const { state } = await gatherFlowState();
     void updateBadge(state.dueCount);
     next = pickNext(state);
-    const hint: ReminderHint = { date: today, kind: next.kind, label: hintLabel(next.kind, state) };
+    // L'élément à mettre en avant et la série : le SW ne sait pas les calculer (ts-fsrs,
+    // log de révisions), et ils restent dans le store `meta` local — rien ne part au push.
+    const [vocab, grammar, daily] = await Promise.all([allVocab(), allGrammar(), recentSrsDaily(60)]);
+    const hint: ReminderHint = {
+      date: today,
+      kind: next.kind,
+      label: hintLabel(next.kind, state),
+      item: pickReminderItem(vocab, grammar, new Date(), today),
+      ageDays: state.mirrorCandidate?.ageDays,
+      streak: reviewStreak(daily, state.dailyGoal, today),
+    };
     await putMeta(HINT_KEY, hint);
   } catch {
     // Base illisible / profil vierge : on n'écrit pas d'indice (le SW se rabattra sur son
@@ -124,11 +136,8 @@ export async function maybeNotifyOnOpen(reminders: ReminderSettings): Promise<vo
   await putMeta("reminder.lastShown", today);
   try {
     const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification(REMINDER_TITLE, {
-      body: reminderBody(due, await getMeta<ReminderHint>(HINT_KEY), today),
-      tag: REMINDER_TAG,
-      icon: "icon.svg",
-    });
+    const { title, body } = reminderNotification(due, await getMeta<ReminderHint>(HINT_KEY), today);
+    await reg.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
   } catch {
     /* Pas de SW prêt (dev) : tant pis pour cette fois. */
   }
@@ -145,11 +154,8 @@ export async function showReminderNow(): Promise<boolean> {
     const reg = await navigator.serviceWorker.ready;
     const today = localDateString();
     const due = (await sessionStats()).dueCount;
-    await reg.showNotification(REMINDER_TITLE, {
-      body: reminderBody(due, await getMeta<ReminderHint>(HINT_KEY), today),
-      tag: REMINDER_TAG,
-      icon: "icon.svg",
-    });
+    const { title, body } = reminderNotification(due, await getMeta<ReminderHint>(HINT_KEY), today);
+    await reg.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
     return true;
   } catch {
     return false;

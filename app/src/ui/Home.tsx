@@ -5,6 +5,7 @@ import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
+import { reviewStreak } from "../lib/stats";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
 import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
@@ -33,19 +34,11 @@ interface Props {
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
   const todayStr = localDateString();
   const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
-  // Série de jours consécutifs à objectif atteint. Un aujourd'hui encore incomplet ne
-  // casse pas la série (la journée n'est pas finie) : on l'ignore et on compte depuis hier.
-  let streak = 0;
-  const sorted = daily.filter((d) => d.date !== todayStr).sort((a, b) => b.date.localeCompare(a.date));
-  for (const d of sorted) {
-    if (d.reviewed >= dailyGoal) streak++;
-    else break;
-  }
-  if (today.reviewed >= dailyGoal) streak++;
   return {
     reviewed: today.reviewed,
     goal: dailyGoal,
-    streak,
+    // Même calcul que le rappel du soir : les deux doivent annoncer le même chiffre.
+    streak: reviewStreak(daily, dailyGoal, todayStr),
     dueCount: stats.dueCount,
     flowMs: today.flowMs ?? 0,
   };

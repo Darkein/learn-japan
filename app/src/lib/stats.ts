@@ -121,3 +121,37 @@ export function leechIds(reviews: ReviewLog[]): Set<string> {
   }
   return ids;
 }
+
+/** Veille d'une date calendaire (YYYY-MM-DD), sans fuseau : on ne compare que des chaînes. */
+function prevDay(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Série de jours consécutifs à objectif atteint. Un aujourd'hui encore incomplet ne casse
+ * pas la série (la journée n'est pas finie) : on l'ignore et on compte depuis hier.
+ * Partagée entre l'accueil et les rappels, qui doivent afficher le MÊME chiffre.
+ *
+ * Un jour d'absence n'a PAS d'entrée dans `srsDaily` : parcourir les seules entrées connues
+ * compterait la série à travers le trou. On avance donc de veille en veille, et le premier
+ * jour manquant ou en dessous de l'objectif arrête le compte.
+ */
+export function reviewStreak(
+  daily: { date: string; reviewed: number }[],
+  dailyGoal: number,
+  today: string,
+): number {
+  const byDate = new Map(daily.map((d) => [d.date, d.reviewed]));
+  let streak = 0;
+  // Borne `streak < byDate.size` : sans elle, un objectif à 0 ferait boucler à l'infini.
+  for (
+    let date = prevDay(today);
+    streak < byDate.size && (byDate.get(date) ?? 0) >= dailyGoal;
+    date = prevDay(date)
+  ) {
+    streak++;
+  }
+  if ((byDate.get(today) ?? 0) >= dailyGoal) streak++;
+  return streak;
+}
