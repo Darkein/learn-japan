@@ -12,7 +12,7 @@ import { CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { WORKER_URL } from "./lib/config";
 import { countDueFromIndexedDB, readMetaRaw, writeMetaRaw } from "./lib/dueCount";
-import { REMINDER_TAG, REMINDER_TITLE, reminderBody, type ReminderHint } from "./lib/reminderText";
+import { REMINDER_TAG, reminderNotification, type ReminderHint } from "./lib/reminderText";
 import type { ReminderSettings } from "./lib/settings";
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -60,14 +60,14 @@ async function showDailyReminder(now: Date = new Date()): Promise<void> {
   const today = localDateString(now);
   const due = await countDueFromIndexedDB(now);
   const hint = await readMetaRaw<ReminderHint>("reminder.hint");
+  const lastEvent = await readMetaRaw<string>("reminder.lastEvent");
   await writeMetaRaw("reminder.lastShown", today);
   const nav = self.navigator as Navigator & { setAppBadge?: (n: number) => Promise<void> };
   if (nav.setAppBadge && due > 0) await nav.setAppBadge(due).catch(() => {});
-  await self.registration.showNotification(REMINDER_TITLE, {
-    body: reminderBody(due, hint, today),
-    tag: REMINDER_TAG,
-    icon: "icon.svg",
-  });
+  const { title, body, eventShown } = reminderNotification(due, hint, today, lastEvent);
+  // Mémorise le rendez-vous annoncé : demain, ce sera au tour d'autre chose.
+  if (eventShown) await writeMetaRaw("reminder.lastEvent", eventShown);
+  await self.registration.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
 }
 
 // Web Push : le push est VIDE (il ne transporte rien, il réveille juste ce SW). Il DOIT
