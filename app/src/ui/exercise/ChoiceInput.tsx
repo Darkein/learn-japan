@@ -19,8 +19,9 @@ const TILE_MAX = 8;
 
 /**
  * Options courtes et japonaises (graphies, lectures) : on compare des FORMES, elles
- * méritent une grille de grandes tuiles. Des règles de grammaire ou des sens français
- * restent en liste — les mettre en tuiles carrées ne ferait que tronquer le texte.
+ * méritent une grille de grandes tuiles. Des règles de grammaire, des sens français ou
+ * des lectures longues restent en liste (une option par ligne, pleine largeur) — les
+ * serrer en colonnes étroites cassait le texte caractère par caractère à la verticale.
  */
 function isTileGrid(choices: string[]): boolean {
   return choices.every((c) => hasJapanese(c) && [...c].length <= TILE_MAX);
@@ -49,7 +50,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
         className={
           tiles
             ? "grid w-full max-w-sm grid-cols-2 gap-3"
-            : "flex flex-wrap justify-center gap-3"
+            : "flex w-full max-w-sm flex-col gap-3"
         }
       >
         {ex.choices.map((c, idx) => {
@@ -65,7 +66,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
                 : idx === picked
                   ? "border-accent text-accent"
                   : "border-hairline text-muted";
-          const size = tiles ? "min-h-24 font-jp text-3xl" : "grow basis-16 min-h-11 font-jp text-lg";
+          const size = tiles ? "min-h-24 font-jp text-3xl" : "min-h-11 w-full font-jp text-lg";
           return (
             <button
               key={idx}
