@@ -101,12 +101,26 @@ function pickEvent(s: FlowState): ReminderEvent | undefined {
 }
 
 /**
+ * La journée est-elle bouclée AU POINT DE FAIRE TAIRE le rappel du soir ?
+ *
+ * `pickNext` répondant `done` ne suffit pas : il décrit l'INSTANT présent, pas la journée.
+ * Ouvrir l'app deux minutes le matin, quand rien n'est encore dû, donne déjà `done` — et le
+ * rappel du soir serait annulé pour la journée entière, alors que des cartes deviendront dues
+ * d'ici là. Le symptôme, côté utilisateur : « je ne reçois plus rien dès que j'ai lancé l'app ».
+ *
+ * On exige donc du TRAVAIL fait aujourd'hui, sous l'une des deux formes qui valent « c'est
+ * fait » : l'objectif du jour atteint (même définition que la série, voir `reviewStreak`), ou
+ * plus rien à faire APRÈS avoir révisé (journée courte : quatre cartes dues, quatre révisées).
+ */
+export function dayIsDone(s: FlowState, kind: FlowActivityKind): boolean {
+  if (s.reviewedToday === 0) return false;
+  return s.reviewedToday >= s.dailyGoal || kind === "done";
+}
+
+/**
  * Rafraîchit tout ce dont les rappels ont besoin, en UN seul parcours de l'état du flux :
  * le badge, l'indice de texte pour le service worker, et l'abonnement au push (heure + fuseau
  * + drapeau « journée bouclée »).
- *
- * On réutilise `pickNext` plutôt que de redéfinir « la journée est faite » : c'est déjà lui qui
- * répond `done` (« Tout est fait pour aujourd'hui »), et une seconde règle divergerait tôt ou tard.
  *
  * Le SERVICE WORKER ne peut pas appeler `pickNext` (flow.ts tire reviewSession → ts-fsrs, qu'on
  * ne veut pas dans le bundle du SW — c'est déjà la raison d'être de dueCount.ts). D'où l'indice
@@ -114,11 +128,13 @@ function pickEvent(s: FlowState): ReminderEvent | undefined {
  */
 export async function refreshReminderState(reminders: ReminderSettings): Promise<void> {
   const today = localDateString();
-  let next: { kind: FlowActivityKind } = { kind: "done" };
+  // `undefined` = laisser le marqueur « journée bouclée » tel quel côté Worker. C'est l'état
+  // honnête tant qu'on n'a pas pu lire le flux : ni « c'est fait », ni « c'est à faire ».
+  let skipDate: string | undefined;
   try {
     const { state } = await gatherFlowState();
     void updateBadge(state.dueCount);
-    next = pickNext(state);
+    const next = pickNext(state);
     // Le peloton d'éléments et la série : le SW ne sait pas les calculer (ts-fsrs, log de
     // révisions), et ils restent dans le store `meta` local — rien ne part au push.
     const [vocab, grammar, daily] = await Promise.all([allVocab(), allGrammar(), recentSrsDaily(60)]);
@@ -130,13 +146,14 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
       streak: reviewStreak(daily, state.dailyGoal, today),
     };
     await putMeta(HINT_KEY, hint);
+    // `""` efface le marqueur : la journée n'est plus bouclée (nouveau jour, cartes à venir).
+    skipDate = dayIsDone(state, next.kind) ? today : "";
   } catch {
-    // Base illisible / profil vierge : on n'écrit pas d'indice (le SW se rabattra sur son
-    // texte générique) mais on continue — l'abonnement au push ne doit pas en dépendre.
-    return;
+    // Base illisible / profil vierge : pas d'indice (le SW se rabattra sur son texte
+    // générique). On enchaîne QUAND MÊME sur l'abonnement — sans lui, cet appareil ne
+    // recevrait plus jamais de rappel à l'heure dite.
   }
-  // `""` efface le marqueur : la journée n'est plus bouclée (nouveau jour, nouvelles cartes dues).
-  await syncPushSubscription(reminders, next.kind === "done" ? today : "");
+  await syncPushSubscription(reminders, skipDate);
 }
 
 /**

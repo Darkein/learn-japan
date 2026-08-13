@@ -130,6 +130,30 @@ describe("shouldSendNow", () => {
     const sentYesterday = new Date("2026-08-09T17:00:00Z").getTime();
     expect(shouldSendNow(record({ lastSentAt: sentYesterday }), at19)).toBe(true);
   });
+
+  it("rattrape une passe manquée, mais pas indéfiniment", () => {
+    const at21 = new Date("2026-08-10T19:00:00Z"); // 21:00 à Paris, deux heures trop tard
+    const at22 = new Date("2026-08-10T20:00:00Z"); // 22:00 : hors fenêtre de rattrapage
+    expect(shouldSendNow(record({ hour: 19 }), at21)).toBe(true);
+    expect(shouldSendNow(record({ hour: 19 }), at22)).toBe(false);
+    // Rattraper n'est pas devancer : avant l'heure, rien ne part.
+    expect(shouldSendNow(record({ hour: 21 }), at19)).toBe(false);
+    // Et le rattrapage reste soumis aux mêmes gardes que l'envoi à l'heure.
+    expect(shouldSendNow(record({ hour: 19, skipDate: "2026-08-10" }), at21)).toBe(false);
+    const sentAt19 = new Date("2026-08-10T17:00:00Z").getTime();
+    expect(shouldSendNow(record({ hour: 19, lastSentAt: sentAt19 }), at21)).toBe(false);
+  });
+
+  it("ne rattrape pas pour un abonnement créé le jour même", () => {
+    // Activer les rappels à 20 h pour 19 h ne doit pas sonner dans la minute.
+    const at20 = new Date("2026-08-10T18:00:00Z");
+    const createdAt = new Date("2026-08-10T18:00:00Z").getTime();
+    expect(shouldSendNow(record({ hour: 19, createdAt }), at20)).toBe(false);
+    // Le lendemain, le même abonnement rattrape normalement.
+    expect(shouldSendNow(record({ hour: 19, createdAt }), new Date("2026-08-11T18:00:00Z"))).toBe(
+      true,
+    );
+  });
 });
 
 describe("parseSubscribe", () => {
