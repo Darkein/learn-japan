@@ -11,6 +11,7 @@ import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
 import { answerVariants, normalizeReading } from "./kana";
 import { shuffle } from "./random";
+import { wordSpeechText } from "./speech";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 import { effectiveExample } from "./vocab";
 import {
@@ -84,7 +85,7 @@ function triangleBase(v: VocabItem, dir: Direction, due: number, mode: "choice" 
     word: { id: v.id, surface: v.surface, reading: v.reading },
     prompt: promptFor(dir.to, mode),
     due,
-    audioBack: { word: v.surface },
+    audioBack: { word: wordSpeechText(v.surface, v.reading) },
     ...(example?.ja ? { context: example.ja } : {}),
     ...(example?.fr ? { contextFr: example.fr } : {}),
   };
@@ -245,7 +246,7 @@ export function vocabTypeExercise(
         context: example.ja,
         ...(example.fr ? { contextFr: example.fr } : {}),
         answers: answersWithHit(answers, hit),
-        audioBack: { word: v.surface },
+        audioBack: { word: wordSpeechText(v.surface, v.reading) },
       };
     }
     // Rappel isolé : la question se réduit au sens FR, sans phrase pour trancher — les
@@ -258,7 +259,7 @@ export function vocabTypeExercise(
       answers: [
         ...new Set([...answers, ...answerVariants(...twins.flatMap((t) => [t.surface, t.reading]))]),
       ],
-      audioBack: { word: v.surface },
+      audioBack: { word: wordSpeechText(v.surface, v.reading) },
     };
   }
   if (opts.silent) {
@@ -278,12 +279,12 @@ export function vocabTypeExercise(
     back: `${v.surface}（${v.reading}）`,
     meaning: hasMeaning ? v.meaning : undefined,
     due,
-    audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
+    audio: example?.ja ? { sentence: example.ja } : { word: wordSpeechText(v.surface, v.reading) },
     context: example?.ja,
     ...(example?.fr ? { contextFr: example.fr } : {}),
     prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
     answers: answersWithHit(answers, hit),
-    audioBack: { word: v.surface },
+    audioBack: { word: wordSpeechText(v.surface, v.reading) },
   };
 }
 
@@ -326,12 +327,12 @@ export function vocabListenMeaningExercise(
     meaning: v.meaning,
     due,
     audioOnly: true,
-    audio: example?.ja ? { sentence: example.ja } : { word: v.surface },
+    audio: example?.ja ? { sentence: example.ja } : { word: wordSpeechText(v.surface, v.reading) },
     context: example?.ja,
     ...(example?.fr ? { contextFr: example.fr } : {}),
     choices,
     answerIndex,
-    audioBack: { word: v.surface },
+    audioBack: { word: wordSpeechText(v.surface, v.reading) },
   };
 }
 
@@ -456,7 +457,7 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
     choices,
     answerIndex,
     due,
-    audioBack: { word: g.name },
+    audioBack: { word: wordSpeechText(g.name) },
   };
 }
 

@@ -464,10 +464,12 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.prompt).toBe("Écoute et tape le mot entendu");
   });
 
-  it("variante écoute sans exemple : joue le mot seul", () => {
+  it("variante écoute sans exemple : joue le mot seul, par sa LECTURE", () => {
     const ex = vocabTypeExercise(vocab(), 0, { listen: true });
     expect(ex.front).toBe("猫");
-    expect(ex.audio).toEqual({ word: "猫" });
+    // Hors phrase, la graphie ferait deviner la synthèse (cf. lib/speech.ts).
+    expect(ex.audio).toEqual({ word: "ねこ" });
+    expect(ex.audioBack).toEqual({ word: "ねこ" });
   });
 
   it("variante écoute sans le son : cloze écrit noté sur la carte orale, sans audio", () => {

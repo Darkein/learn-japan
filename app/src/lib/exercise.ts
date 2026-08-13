@@ -36,9 +36,12 @@ interface ExerciseBase {
   context?: string;
   /** Traduction FR de la phrase de contexte (affichée dans la correction). */
   contextFr?: string;
-  /** Lecture audio à faire avant de répondre : phrase ou mot (Web Speech). */
+  /** Lecture audio à faire avant de répondre : phrase ou mot (Web Speech). `word` porte le
+   *  texte À PRONONCER (la lecture en kana, cf. lib/speech.ts), pas la graphie affichée :
+   *  hors phrase, la synthèse devine mal les kanji. */
   audio?: { word?: string; sentence?: string };
-  /** Écoute proposée APRÈS la réponse (correction) quand il n'y a pas de phrase de contexte. */
+  /** Écoute proposée APRÈS la réponse (correction) quand il n'y a pas de phrase de contexte.
+   *  Même convention que `audio` pour `word`. */
   audioBack?: { word?: string; sentence?: string };
   /** Exercice à l'aveugle : la face avant ne montre PAS le texte entendu (QCM de sens,
    *  dictée) — bouton « Réécouter » et échappatoire « Afficher le texte » dans la carte. */
