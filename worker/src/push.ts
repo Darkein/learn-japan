@@ -44,6 +44,14 @@ const PREFIX = "push/";
 /** Nombre d'abonnements traités par exécution du cron — garde-fou, jamais atteint en usage réel. */
 const MAX_PER_RUN = 200;
 
+/**
+ * Fenêtre de RATTRAPAGE, en heures locales, après l'heure choisie. Les crons Cloudflare sont
+ * au mieux de l'effort : une passe sautée ou décalée au-delà de l'heure ronde mangerait
+ * silencieusement le rappel de la journée — un « je n'ai rien reçu » impossible à distinguer
+ * d'un bug. La passe suivante repêche donc l'abonnement, dans la même journée locale.
+ */
+const CATCHUP_HOURS = 2;
+
 /** Bornes de validation du corps de /push/subscribe. */
 const MAX_ENDPOINT = 1024;
 const MAX_ZONE = 64;
@@ -195,11 +203,16 @@ export function localHM(
 /** Cet abonnement doit-il être notifié maintenant ? Pur : c'est le cœur testable du cron. */
 export function shouldSendNow(r: PushRecord, now: Date): boolean {
   const { hour, date } = localHM(now, r.zone, r.tzOffsetMinutes);
-  if (hour !== r.hour) return false;
   if (r.skipDate === date) return false; // journée déjà bouclée
   // Un seul rappel par journée locale, même si le cron repasse (dérive, redéploiement).
-  if (!r.lastSentAt) return true;
-  return localHM(new Date(r.lastSentAt), r.zone, r.tzOffsetMinutes).date !== date;
+  if (r.lastSentAt && localHM(new Date(r.lastSentAt), r.zone, r.tzOffsetMinutes).date === date) {
+    return false;
+  }
+  if (hour === r.hour) return true;
+  // Rattrapage d'une passe manquée (voir CATCHUP_HOURS). Jamais pour un abonnement créé
+  // aujourd'hui : activer les rappels à 20 h pour 19 h ne doit pas sonner dans la minute.
+  if (hour <= r.hour || hour > r.hour + CATCHUP_HOURS) return false;
+  return localHM(new Date(r.createdAt), r.zone, r.tzOffsetMinutes).date !== date;
 }
 
 // ---- Validation du corps --------------------------------------------------------

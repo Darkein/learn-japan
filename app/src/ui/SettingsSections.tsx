@@ -136,6 +136,8 @@ function appleNeedsInstall(): boolean {
 /** Ce que l'état du push signifie CONCRÈTEMENT pour l'utilisateur — jamais un code d'erreur. */
 const PUSH_NOTE: Partial<Record<PushState, string>> = {
   subscribed: "Rappel programmé actif : il arrivera à l'heure choisie, même app fermée.",
+  denied:
+    "Les notifications sont bloquées pour ce site. À réautoriser dans les réglages du navigateur (ou du système).",
   unsupported:
     "Ce navigateur ne sait pas recevoir de rappel programmé. Tu seras rappelé à l'ouverture de l'app.",
   unconfigured:
@@ -155,6 +157,28 @@ function ReminderSection() {
   const [error, setError] = useState<string | null>(null);
   const [pushState, setPushState] = useState<PushState | null>(null);
   const [tested, setTested] = useState(false);
+
+  // État de l'abonnement DÈS L'OUVERTURE des réglages (la section n'est montée que là).
+  // Sans ça, un abonnement cassé — permission révoquée, Worker injoignable, navigateur sans
+  // pushManager — reste invisible : « Tester le rappel » marche toujours, lui, puisqu'il
+  // n'emprunte ni le réseau ni le serveur. Réabonner au passage ne coûte rien (idempotent)
+  // et répare l'abonnement le cas échéant.
+  useEffect(() => {
+    if (!enabled) {
+      setPushState(null);
+      return;
+    }
+    let alive = true;
+    void syncPushSubscription(settings.reminders).then((s) => {
+      if (alive) setPushState(s);
+    });
+    return () => {
+      alive = false;
+    };
+    // Même dépendance que `initReminders` (App.tsx) : l'objet ne change que si un réglage de
+    // rappel change. C'est donc aussi ce qui redéclare la nouvelle heure au Worker, qui la
+    // garde par abonnement — la ranger en local ne suffirait pas.
+  }, [enabled, settings.reminders]);
 
   async function toggle(next: boolean) {
     setError(null);
@@ -177,14 +201,15 @@ function ReminderSection() {
     const reminders = { ...settings.reminders, enabled: next };
     update({ reminders });
     void ensurePeriodicSync(next);
-    setPushState(next ? await syncPushSubscription(reminders) : null);
+    // Activer : l'effet ci-dessus s'en charge (et affiche l'état). Couper, en revanche, doit
+    // être dit au Worker — sans désabonnement il continuerait d'envoyer le rappel du soir.
+    if (!next) void syncPushSubscription(reminders);
   }
 
-  async function changeHour(next: number) {
-    const reminders = { ...settings.reminders, hour: next };
-    update({ reminders });
-    // Le Worker garde l'heure par abonnement : il faut la lui redéclarer, pas seulement la stocker.
-    setPushState(await syncPushSubscription(reminders));
+  function changeHour(next: number) {
+    // Le Worker garde l'heure par abonnement : la redéclarer est indispensable, et c'est
+    // l'effet (dépendant de `hour`) qui le fait — ici on ne fait que ranger le réglage.
+    update({ reminders: { ...settings.reminders, hour: next } });
   }
 
   return (
@@ -205,7 +230,7 @@ function ReminderSection() {
                 className="h-11 rounded-sm border border-hairline-strong bg-surface px-2 text-right text-sm text-text"
                 value={hour}
                 aria-label="Heure du rappel"
-                onChange={(e) => void changeHour(Number(e.target.value))}
+                onChange={(e) => changeHour(Number(e.target.value))}
               >
                 {REMINDER_HOURS.map((h) => (
                   <option key={h} value={h}>
