@@ -86,6 +86,7 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
           )}
           <SentenceFeedback
             tokens={ex.tokens}
+            speech={ex.contextSpeech}
             fr={ex.contextFr}
             onTranslate={() => translateExampleFr(ex.target.join(""), ex)}
           />
@@ -96,6 +97,7 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
           <div className="text-sm text-accent">✗ Ordre attendu : {ex.target.join(" ")}</div>
           <SentenceFeedback
             tokens={ex.tokens}
+            speech={ex.contextSpeech}
             fr={ex.contextFr}
             onTranslate={() => translateExampleFr(ex.target.join(""), ex)}
           />

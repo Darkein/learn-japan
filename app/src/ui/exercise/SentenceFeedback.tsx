@@ -11,6 +11,9 @@ interface Props {
   ja?: string;
   /** Tokens déjà disponibles (mode build) : furigana synchrones, pas de re-tokenisation. */
   tokens?: KuromojiToken[];
+  /** Texte à PRONONCER s'il diffère de l'affiché (lecture du mot cible substituée, cf.
+      Exercise.contextSpeech) : la synthèse lirait sinon les kanji à sa façon. */
+  speech?: string;
   /** Traduction FR, affichée sous la phrase quand elle existe. */
   fr?: string;
   /** Traduction à la demande (bouton « Traduire ») quand `fr` manque. */
@@ -65,7 +68,7 @@ export function AudioBackButton({
  * bouton d'écoute (Web Speech) et traduction FR — stockée, ou générée à la demande
  * via `onTranslate`.
  */
-export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
+export function SentenceFeedback({ ja, tokens, fr, speech, onTranslate }: Props) {
   const text = tokens?.length ? tokens.map((t) => t.surface_form).join("") : (ja ?? "");
   const preAnnotated = useMemo(
     () => (tokens?.length ? annotateTokens(tokens).flatMap((t) => t.segments) : null),
@@ -101,7 +104,7 @@ export function SentenceFeedback({ ja, tokens, fr, onTranslate }: Props) {
     const my = ++speakToken.current;
     setSpeaking(true);
     try {
-      await speakWord(text);
+      await speakWord(speech ?? text);
     } finally {
       if (speakToken.current === my) setSpeaking(false);
     }

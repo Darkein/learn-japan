@@ -197,6 +197,29 @@ describe("vocabTriangleExercise — directions", () => {
     }
   });
 
+  // Le moteur de synthèse choisit SA lecture des kanji : 宝物 sort « takaramono » (les kun
+  // des deux caractères) là où la carte enseigne ほうもつ. Mot et phrase sont donc envoyés
+  // à la synthèse avec la lecture substituée, l'affichage restant en kanji.
+  it("audio : la lecture enseignée remplace la graphie, dans le mot ET dans la phrase", () => {
+    const v = vocabItem({
+      id: "宝物|ほうもつ",
+      meaning: "objet précieux, trésor",
+      example: { ja: "猫の本は先生の宝物です。", fr: "Le livre sur les chats est le trésor du professeur." },
+    });
+    const ex = vocabTriangleExercise(v, 0, POOL);
+    expect(ex.audioBack).toEqual({ word: "ほうもつ" });
+    expect(ex.context).toBe("猫の本は先生の宝物です。"); // affichage inchangé
+    expect(ex.contextSpeech).toBe("猫の本は先生のほうもつです。");
+  });
+
+  it("audio : phrase inchangée quand le mot cible est déjà en kana ou absent", () => {
+    const kana = vocabItem({ id: "ねこ|ねこ", meaning: "chat", example: { ja: "ねこがいる。" } });
+    expect(vocabTriangleExercise(kana, 0, POOL).contextSpeech).toBe("ねこがいる。");
+    // Forme conjuguée dans la phrase : la graphie de dictionnaire n'y figure pas.
+    const verbe = vocabItem({ id: "走る|はしる", meaning: "courir", example: { ja: "猫が走った。" } });
+    expect(vocabTriangleExercise(verbe, 0, POOL).contextSpeech).toBe("猫が走った。");
+  });
+
   it("porte le mot source (correction : ruby, décomposition, mnémo)", () => {
     const ex = vocabTriangleExercise(neko(), 0, POOL);
     expect(ex.word).toEqual({ id: "猫|ねこ", surface: "猫", reading: "ねこ" });
@@ -323,7 +346,9 @@ describe("vocabListenMeaningExercise", () => {
     expect(ex).not.toBeNull();
     expect(ex!.audioOnly).toBe(true);
     expect(ex!.skill).toBe("oral");
-    expect(ex!.audio).toEqual({ sentence: "猫がいる。" });
+    // Le mot cible est prononcé par sa lecture, le reste de la phrase tel quel.
+    expect(ex!.audio).toEqual({ sentence: "ねこがいる。" });
+    expect(ex!.context).toBe("猫がいる。");
     expect(ex!.choices).toHaveLength(4);
     expect(ex!.choices[ex!.answerIndex]).toBe("chat");
     expect(new Set(ex!.choices).size).toBe(4);
@@ -453,8 +478,9 @@ describe("vocabTypeExercise — contextFr", () => {
       listen: true,
     });
     expect(ex.front).toBe("◯◯が走る。");
-    expect(ex.audio).toEqual({ sentence: "猫が走る。" });
+    expect(ex.audio).toEqual({ sentence: "ねこが走る。" });
     expect(ex.context).toBe("猫が走る。");
+    expect(ex.contextSpeech).toBe("ねこが走る。");
     expect(ex.prompt).toBe("Écoute et tape le mot manquant");
   });
 
@@ -464,10 +490,12 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.prompt).toBe("Écoute et tape le mot entendu");
   });
 
-  it("variante écoute sans exemple : joue le mot seul", () => {
+  it("variante écoute sans exemple : joue le mot seul, par sa LECTURE", () => {
     const ex = vocabTypeExercise(vocab(), 0, { listen: true });
     expect(ex.front).toBe("猫");
-    expect(ex.audio).toEqual({ word: "猫" });
+    // Hors phrase, la graphie ferait deviner la synthèse (cf. lib/speech.ts).
+    expect(ex.audio).toEqual({ word: "ねこ" });
+    expect(ex.audioBack).toEqual({ word: "ねこ" });
   });
 
   it("variante écoute sans le son : cloze écrit noté sur la carte orale, sans audio", () => {

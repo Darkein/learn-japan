@@ -3,6 +3,7 @@ import { hasJapanese, kataToHira } from "../lib/kana";
 import type { ItemStatus } from "../lib/db";
 import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
+import { wordSpeechText } from "../lib/speech";
 import { speakWord, stopSentence } from "../lib/tts";
 import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
 import { vocabMnemonic } from "../lib/mnemonics";
@@ -115,7 +116,7 @@ export function WordSheet({
         )}
         <button
           className="cursor-pointer self-center rounded-sm border border-hairline px-2 py-1 leading-none transition-colors hover:border-accent"
-          onClick={() => speakWord(token.surface_form)}
+          onClick={() => speakWord(wordSpeechText(token.surface_form, reading))}
           aria-label="Écouter le mot"
           title="Écouter"
         >

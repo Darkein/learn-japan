@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import type { ItemStatus } from "../lib/db";
 import type { InvVocab } from "../lib/inventory";
+import { wordSpeechText } from "../lib/speech";
 import { speakWord, stopSentence } from "../lib/tts";
 import { BottomSheet } from "./BottomSheet";
 import { KanjiBreakdown } from "./KanjiBreakdown";
@@ -56,7 +57,7 @@ export function VocabPeekSheet({
             {v.yomi && <span className="text-lg text-muted">{v.yomi}</span>}
             <button
               className="cursor-pointer self-center rounded-sm border border-hairline px-2 py-1 leading-none transition-colors hover:border-accent"
-              onClick={() => speakWord(v.ja)}
+              onClick={() => speakWord(wordSpeechText(v.ja, v.yomi))}
               aria-label="Écouter le mot"
               title="Écouter"
             >

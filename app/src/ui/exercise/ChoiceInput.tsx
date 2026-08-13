@@ -97,6 +97,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
           {ex.context && (
             <SentenceFeedback
               ja={ex.context}
+              speech={ex.contextSpeech}
               fr={ex.contextFr}
               onTranslate={() => translateExampleFr(ex.context!, ex)}
             />

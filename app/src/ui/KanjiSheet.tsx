@@ -13,6 +13,7 @@ import { type InvVocab, kanjiDetail } from "../lib/inventory";
 import { kanjiMnemonic } from "../lib/mnemonics";
 import type { Mnemonic } from "../lib/genParsers";
 import { relatedWords } from "../lib/kanjiInfo";
+import { kanjiSpeechText } from "../lib/speech";
 import { speakWord, stopSentence } from "../lib/tts";
 import { addInventoryWordToReview } from "../lib/vocab";
 import { StatusTag } from "./CatalogueInventory";
@@ -64,6 +65,10 @@ export function KanjiDetail({
   if (!detail) return null;
 
   const { known, suggestions } = relatedWords(ch, statuses ?? new Map(), excludeVocabId);
+  // Le caractère seul ne dit pas comment le prononcer : la synthèse devinerait (et 宝
+  // sortirait « takaramono »). On lui donne UNE lecture du référentiel, celle affichée
+  // dans le bouton.
+  const spoken = kanjiSpeechText(detail.kun, detail.on) || detail.ja;
   const shown = suggestions.slice(0, showAll ? SUGGESTIONS_EXPANDED : SUGGESTIONS_COLLAPSED);
   const hidden = suggestions.length - shown.length;
 
@@ -80,9 +85,9 @@ export function KanjiDetail({
         <span className="text-lg">{detail.fr}</span>
         <button
           className="cursor-pointer self-center rounded-sm border border-hairline px-2 py-1 leading-none transition-colors hover:border-accent"
-          onClick={() => speakWord(detail.ja)}
-          aria-label="Écouter le mot"
-          title="Écouter"
+          onClick={() => speakWord(spoken)}
+          aria-label={`Écouter la lecture ${spoken}`}
+          title={`Écouter « ${spoken} »`}
         >
           <IconSpeaker size={16} />
         </button>

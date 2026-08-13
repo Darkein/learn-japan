@@ -30,6 +30,10 @@ function pickJaVoice(): SpeechSynthesisVoice | null {
  * Lit un mot (ou une courte chaîne) en japonais via la Web Speech API. La promesse se
  * résout à la FIN de l'énoncé (ou tout de suite si la synthèse n'est pas supportée), afin
  * que l'appelant puisse afficher un état « lecture en cours » sur toute la durée réelle.
+ *
+ * `text` est ce qui sera PRONONCÉ : pour un mot ou un kanji isolé, passer sa lecture en
+ * kana (lib/speech.ts) et non sa graphie — hors phrase, le moteur devine les kanji et se
+ * trompe (宝 seul sort « takaramono »).
  */
 export function speakWord(text: string): Promise<void> {
   return new Promise((resolve) => {

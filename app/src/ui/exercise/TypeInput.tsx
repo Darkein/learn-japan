@@ -110,6 +110,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
           {ex.context && (
             <SentenceFeedback
               ja={ex.context}
+              speech={ex.contextSpeech}
               fr={ex.contextFr}
               onTranslate={() => translateExampleFr(ex.context!, ex)}
             />
