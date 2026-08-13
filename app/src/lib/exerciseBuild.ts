@@ -9,7 +9,7 @@ import type { GrammarItem, VocabItem } from "./db";
 import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
 import { grammarLessonOrder } from "./curriculum";
 import { allGrammarInv, grammarDetail } from "./inventory";
-import { answerVariants, normalizeReading } from "./kana";
+import { answerVariants, hasKanji, normalizeReading } from "./kana";
 import { shuffle } from "./random";
 import { wordSpeechText } from "./speech";
 import { tokenize, type KuromojiToken } from "./tokenizer";
@@ -70,6 +70,31 @@ function faceDistractors(
   return [...shuffle(same), ...shuffle(other)].slice(0, CHOICES);
 }
 
+/**
+ * Phrase d'exemple telle qu'elle doit être PRONONCÉE : l'occurrence du mot cible y est
+ * remplacée par sa lecture en kana. Sans ça, le moteur de synthèse applique SA lecture
+ * des kanji, qui n'est pas forcément celle qu'enseigne la carte — 宝物 sort
+ * « takaramono » (les kun des deux kanji) là où la carte apprend ほうもつ.
+ * Le reste de la phrase est laissé tel quel : le contexte suffit au moteur pour les mots
+ * courants, et tout passer en kana ferait perdre les frontières de mots (は/へ lus à la
+ * lettre) sans rien garantir de plus.
+ */
+function sentenceSpeechText(v: VocabItem, ja: string): string {
+  if (!hasKanji(v.surface) || !ja.includes(v.surface)) return ja;
+  const spoken = wordSpeechText(v.surface, v.reading);
+  return spoken === v.surface ? ja : ja.split(v.surface).join(spoken);
+}
+
+/** Contexte d'une carte : la phrase affichée + la phrase à prononcer (lecture substituée). */
+function contextFields(v: VocabItem, example: { ja?: string; fr?: string } | null) {
+  if (!example?.ja) return {};
+  return {
+    context: example.ja,
+    contextSpeech: sentenceSpeechText(v, example.ja),
+    ...(example.fr ? { contextFr: example.fr } : {}),
+  };
+}
+
 /** Champs communs à toutes les cartes du triangle, quelle que soit la direction. */
 function triangleBase(v: VocabItem, dir: Direction, due: number, mode: "choice" | "type") {
   const example = effectiveExample(v);
@@ -86,8 +111,7 @@ function triangleBase(v: VocabItem, dir: Direction, due: number, mode: "choice" 
     prompt: promptFor(dir.to, mode),
     due,
     audioBack: { word: wordSpeechText(v.surface, v.reading) },
-    ...(example?.ja ? { context: example.ja } : {}),
-    ...(example?.fr ? { contextFr: example.fr } : {}),
+    ...contextFields(v, example),
   };
 }
 
@@ -243,8 +267,7 @@ export function vocabTypeExercise(
         ...base,
         front: example.ja.replace(hit, "◯◯"),
         prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
-        context: example.ja,
-        ...(example.fr ? { contextFr: example.fr } : {}),
+        ...contextFields(v, example),
         answers: answersWithHit(answers, hit),
         audioBack: { word: wordSpeechText(v.surface, v.reading) },
       };
@@ -279,9 +302,10 @@ export function vocabTypeExercise(
     back: `${v.surface}（${v.reading}）`,
     meaning: hasMeaning ? v.meaning : undefined,
     due,
-    audio: example?.ja ? { sentence: example.ja } : { word: wordSpeechText(v.surface, v.reading) },
-    context: example?.ja,
-    ...(example?.fr ? { contextFr: example.fr } : {}),
+    audio: example?.ja
+      ? { sentence: sentenceSpeechText(v, example.ja) }
+      : { word: wordSpeechText(v.surface, v.reading) },
+    ...contextFields(v, example),
     prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
     answers: answersWithHit(answers, hit),
     audioBack: { word: wordSpeechText(v.surface, v.reading) },
@@ -327,9 +351,10 @@ export function vocabListenMeaningExercise(
     meaning: v.meaning,
     due,
     audioOnly: true,
-    audio: example?.ja ? { sentence: example.ja } : { word: wordSpeechText(v.surface, v.reading) },
-    context: example?.ja,
-    ...(example?.fr ? { contextFr: example.fr } : {}),
+    audio: example?.ja
+      ? { sentence: sentenceSpeechText(v, example.ja) }
+      : { word: wordSpeechText(v.surface, v.reading) },
+    ...contextFields(v, example),
     choices,
     answerIndex,
     audioBack: { word: wordSpeechText(v.surface, v.reading) },
@@ -356,9 +381,8 @@ export async function vocabDictationExercise(v: VocabItem, due: number): Promise
     back: target.join(" "),
     due,
     audioOnly: true,
-    audio: { sentence: example.ja },
-    context: example.ja,
-    ...(example.fr ? { contextFr: example.fr } : {}),
+    audio: { sentence: sentenceSpeechText(v, example.ja) },
+    ...contextFields(v, example),
     target,
     tokens,
   };

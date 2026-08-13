@@ -34,6 +34,10 @@ interface ExerciseBase {
    *  revoir la traduction du mot raté quand la face avant ne la montre pas déjà. */
   meaning?: string;
   context?: string;
+  /** Phrase de contexte telle qu'elle doit être PRONONCÉE : la lecture enseignée du mot
+   *  cible y remplace sa graphie, que la synthèse lirait à sa façon (cf. lib/speech.ts).
+   *  Absente = prononcer `context` tel quel. */
+  contextSpeech?: string;
   /** Traduction FR de la phrase de contexte (affichée dans la correction). */
   contextFr?: string;
   /** Lecture audio à faire avant de répondre : phrase ou mot (Web Speech). `word` porte le
