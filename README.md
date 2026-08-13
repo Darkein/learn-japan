@@ -168,6 +168,13 @@ que ceux dont c'est l'heure et dont la journée n'est pas déjà bouclée.
 
 Vérifier : `curl https://<worker>/` renvoie `"push": true` quand tout est en place.
 
+⚠️ `"push": true` ne dit RIEN du cron — il ne regarde que les secrets et le bucket. Il faut
+vérifier le trigger **séparément** (dashboard Cloudflare → le Worker → *Settings* →
+*Triggers* → *Cron Triggers*, ou `npx wrangler triggers deploy` depuis `worker/`) : sans lui,
+la passe horaire n'a jamais lieu et aucun rappel programmé ne part, alors que tout le reste a
+l'air en ordre. C'est un piège vécu — le token CI peut très bien uploader le script et se voir
+refuser l'appel à `/schedules`, `wrangler deploy` échouant *après* un « Uploaded » rassurant.
+
 En **dev local**, mettre les trois clés dans `worker/.dev.vars` (ignoré par git), puis :
 
 ```bash
