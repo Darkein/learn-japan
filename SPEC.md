@@ -32,6 +32,14 @@ Justification : apprendre les mots expose naturellement leurs kanji en contexte.
 une logique différente. Les kanji restent visibles dans le **Catalogue** en référence (sens, lectures,
 niveau JLPT) mais ne sont pas une cible SRS à part entière.
 
+**Noms propres exclus du vocabulaire** : un nom de personne, de lieu ou d'organisation (kuromoji
+`固有名詞`) n'est pas une cible d'apprentissage — le JMdict n'indexe pas les noms propres, une carte
+« 田中 → ? » est donc une question sans réponse. Ils restent lus, prononcés et découpés en kanji dans
+le lecteur, simplement jamais suivis. **Exception** : les entrées du référentiel JLPT (日本, アメリカ,
+ヨーロッパ…) — le tokenizer les étiquette aussi `固有名詞`, mais c'est du vocabulaire à part entière ;
+hors contexte il étiquette d'ailleurs ainsi quantité de mots courants (池, 森, 毎日…), et l'inventaire
+curé tranche toujours.
+
 ### 2.2 Trois compétences par élément (vocabulaire)
 S'activent **progressivement**, dans cet ordre :
 1. **Reconnaissance écrite** (voir 猫 → comprendre « chat »)

@@ -6,29 +6,49 @@ import type { ContentDict } from "./gloss";
 import { hasJapanese, kataToHira, normalizeReading } from "./kana";
 import {
   allVocab,
+  deleteVocab,
+  getMeta,
   getVocab,
   logReview,
+  putMeta,
   putVocab,
   type ItemStatus,
   type VocabItem,
 } from "./db";
-import { resolveVocab, staticExample, type InvVocab } from "./inventory";
+import { resolveVocab, staticExample, vocabLevel, type InvVocab } from "./inventory";
 import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞", "連体詞"]);
 
 /**
+ * Nom propre (personne, lieu, organisation) à NE PAS suivre en vocabulaire. Apprendre
+ * « 田中 » ou « 朝日新聞 » n'apporte rien — et le JMdict n'indexant pas les noms propres,
+ * ces items arrivaient en révision avec un sens « — », question sans réponse possible.
+ *
+ * L'inventaire curé l'emporte toujours sur l'étiquette du tokenizer : hors contexte,
+ * IPADIC classe 固有名詞 quantité de mots courants (池, 森, 毎日, 日本…), et c'est justement
+ * la graphie stockée qu'on retokenise à la purge. Un mot du référentiel JLPT reste donc
+ * suivi (日本, アメリカ, ヨーロッパ…), quelle que soit l'étiquette rendue.
+ */
+export function isProperNoun(token: KuromojiToken): boolean {
+  return token.pos_detail_1 === "固有名詞" && vocabLevel(itemIdFor(token)) == null;
+}
+
+/**
  * Un token porte-t-il du sens lexical (candidat au SRS vocabulaire) ? On exige au moins un
  * caractère japonais : les mots latins et les nombres, étiquetés 名詞/固有名詞 par kuromoji
  * faute d'entrée dans IPADIC, n'ont ni lecture ni forme de base — les suivre revenait à
- * souligner et gloser du texte anglais, tous fondus sur le même id « *| ».
+ * souligner et gloser du texte anglais, tous fondus sur le même id « *| ». Les noms propres
+ * hors référentiel sont exclus au même titre (voir isProperNoun) : c'est LE filtre commun
+ * au SRS, au soulignement du lecteur et aux mesures de couverture.
  */
 export function isContent(token: KuromojiToken): boolean {
   return (
     CONTENT_POS.has(token.pos) &&
     token.pos_detail_1 !== "非自立" &&
-    hasJapanese(token.surface_form)
+    hasJapanese(token.surface_form) &&
+    !isProperNoun(token)
   );
 }
 
@@ -114,6 +134,44 @@ export async function repairConjugatedVocab(): Promise<number> {
     }
   }
   return updated;
+}
+
+/** Drapeau `meta` de la purge des noms propres : une seule passe complète suffit. */
+const PROPER_NOUN_PURGE_KEY = "purge.properNouns";
+
+/**
+ * Supprime les items de vocabulaire qui sont des noms propres — créés avant que `isContent`
+ * ne les écarte, ils remontaient en révision (« 田中 » → sens « — »). La nature grammaticale
+ * n'étant pas stockée, on retokenise la graphie : un item purgé est donc un mot dont la
+ * graphie SEULE s'analyse en 固有名詞 et qui n'est pas au référentiel JLPT.
+ *
+ * Passe unique (drapeau `meta`), appelée au montage d'une session : plus aucun nom propre
+ * ne peut entrer ensuite. Le drapeau n'est posé que si TOUS les items ont pu être analysés
+ * — dictionnaire kuromoji indisponible ⇒ on réessaiera à la session suivante.
+ * Renvoie le nombre d'items supprimés.
+ */
+export async function purgeProperNouns(): Promise<number> {
+  if (await getMeta<boolean>(PROPER_NOUN_PURGE_KEY)) return 0;
+  const items = await allVocab();
+  let removed = 0;
+  let complete = true;
+  for (const item of items) {
+    // Mot du référentiel : jamais un nom propre, inutile de le retokeniser.
+    if (vocabLevel(item.id) != null) continue;
+    let tokens: KuromojiToken[];
+    try {
+      tokens = await tokenize(item.surface);
+    } catch {
+      complete = false;
+      continue;
+    }
+    // Graphie qui se découpe en plusieurs mots : ce n'est pas un nom propre isolé.
+    if (tokens.length !== 1 || !isProperNoun(tokens[0])) continue;
+    await deleteVocab(item.id);
+    removed++;
+  }
+  if (complete) await putMeta(PROPER_NOUN_PURGE_KEY, true);
+  return removed;
 }
 
 /**

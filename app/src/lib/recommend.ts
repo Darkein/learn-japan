@@ -68,11 +68,18 @@ interface StoryTokensCache {
   ids: string[];
 }
 
+/**
+ * Version du filtre de tokens (`isContent`) incluse dans le hash : une entrée mise en cache
+ * sous une version antérieure est réanalysée, même si le texte n'a pas bougé. v2 = exclusion
+ * des noms propres, qui restaient sinon comptés comme des mots à connaître.
+ */
+const CONTENT_FILTER_VERSION = 2;
+
 /** Hash rapide (djb2) du texte, pour invalider le cache si l'histoire change. */
 function hashText(text: string): string {
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
-  return `${text.length}:${h >>> 0}`;
+  return `v${CONTENT_FILTER_VERSION}:${text.length}:${h >>> 0}`;
 }
 
 /** Suite d'ids de mots de contenu (avec répétitions) d'une histoire, mise en cache dans `meta`. */

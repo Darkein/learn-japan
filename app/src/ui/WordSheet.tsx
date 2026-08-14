@@ -5,7 +5,7 @@ import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
 import { wordSpeechText } from "../lib/speech";
 import { speakWord, stopSentence } from "../lib/tts";
-import { isContent, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
+import { isContent, isProperNoun, itemIdFor, meaningFor, type StatusAction } from "../lib/vocab";
 import { vocabMnemonic } from "../lib/mnemonics";
 import type { Mnemonic } from "../lib/genParsers";
 import type { KuromojiToken } from "../lib/tokenizer";
@@ -41,6 +41,21 @@ const ACTIONS: { id: StatusAction; label: string }[] = [
   { id: "review", label: "À revoir" },
   { id: "forgot", label: "Oublié" },
 ];
+
+/**
+ * Pourquoi ce mot n'est pas suivi en vocabulaire — n'a de sens que pour un token écarté
+ * par `isContent` (l'ordre des cas suit celui du filtre : écriture latine, nom propre,
+ * morphème grammatical).
+ */
+function untrackedReason(token: KuromojiToken): string {
+  if (!hasJapanese(token.surface_form)) {
+    return "Mot en écriture latine — non suivi en vocabulaire japonais.";
+  }
+  if (isProperNoun(token)) {
+    return "Nom propre (personne, lieu, organisation) — non suivi en vocabulaire.";
+  }
+  return "Morphème grammatical — suivi dans la piste grammaire (à venir), pas en vocabulaire.";
+}
 
 export function WordSheet({
   token,
@@ -123,7 +138,9 @@ export function WordSheet({
           <IconSpeaker size={16} />
         </button>
         <span className="ml-auto font-sans text-xs uppercase tracking-wider text-muted">
-          {POS_FR[token.pos] ?? token.pos}
+          {token.pos === "名詞" && token.pos_detail_1 === "固有名詞"
+            ? "nom propre"
+            : (POS_FR[token.pos] ?? token.pos)}
         </span>
       </div>
 
@@ -175,14 +192,8 @@ export function WordSheet({
             </button>
           ))}
         </div>
-      ) : hasJapanese(token.surface_form) ? (
-        <p className="text-sm text-muted">
-          Morphème grammatical — suivi dans la piste grammaire (à venir), pas en vocabulaire.
-        </p>
       ) : (
-        <p className="text-sm text-muted">
-          Mot en écriture latine — non suivi en vocabulaire japonais.
-        </p>
+        <p className="text-sm text-muted">{untrackedReason(token)}</p>
       )}
         </>
       )}

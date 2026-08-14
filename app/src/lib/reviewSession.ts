@@ -34,7 +34,7 @@ import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
-import { effectiveExample, repairConjugatedVocab } from "./vocab";
+import { effectiveExample, purgeProperNouns, repairConjugatedVocab } from "./vocab";
 import { faceText } from "./vocabFaces";
 
 export interface SessionOpts {
@@ -107,8 +107,10 @@ export async function buildSession(
   const scope = opts.scope ?? "due";
 
   // Hygiène des stores avant de construire : formes conjuguées stockées en surface
-  // (révisions FR → JA qui exigeaient « し » pour faire) et piste compréhension retirée.
+  // (révisions FR → JA qui exigeaient « し » pour faire), noms propres croisés dans un
+  // article (« 田中 » → sens « — ») et piste compréhension retirée.
   await repairConjugatedVocab();
+  await purgeProperNouns();
   await purgeComprehension();
 
   // Les éléments difficiles sont connus AVANT la construction : un leech repasse au QCM
