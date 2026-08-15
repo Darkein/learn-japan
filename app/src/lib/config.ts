@@ -58,4 +58,12 @@ export const SRS = {
   /** Idem pour la production en contexte (cloze FR→JA sur la phrase d'exemple). */
   prodMax: 4,
   prodSeeds: 2,
+  /**
+   * Espacement minimal (jours) entre deux passages d'un MÊME mot, quelle que soit la
+   * compétence. Un mot porte trois cartes FSRS indépendantes (écrit / écoute / production) :
+   * rien n'empêchait leurs échéances de se suivre, et un mot appris tôt (私, 今日) revenait
+   * un jour sur deux alors que l'utilisateur répondait « facile » à chaque fois. FSRS reste
+   * seul maître des intervalles — on ne fait que décaler l'échéance d'une carte sœur.
+   */
+  skillGapDays: 3,
 } as const;

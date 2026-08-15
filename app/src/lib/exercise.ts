@@ -4,7 +4,7 @@
 
 import { getGrammar, getVocab, logReview, putGrammar, putVocab, type Skill } from "./db";
 import { generateStoryTranslation } from "./genClient";
-import { newCard, review, type SrsGrade } from "./srs";
+import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 import { applyStatus, isContent } from "./vocab";
 
@@ -126,6 +126,10 @@ export async function gradeExercise(
     if (!v) return;
     const skill = ex.skill ?? "written";
     v.cards[skill] = review(v.cards[skill] ?? newCard(now), grade, now);
+    // Le mot vient de passer : ses AUTRES compétences ne doivent pas retomber dans la
+    // foulée (cf. spaceSkillCards). Un échec ne change rien à la règle — c'est FSRS qui
+    // ramène la carte ratée, et les autres n'ont pas à l'accompagner le même jour.
+    spaceSkillCards(v.cards, skill, now);
     if (skill === "written") {
       // Le statut affiché (soulignement du lecteur) reflète la reconnaissance écrite.
       v.status = grade === "easy" ? "known" : "review";

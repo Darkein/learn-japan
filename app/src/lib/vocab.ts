@@ -13,7 +13,7 @@ import {
   type VocabItem,
 } from "./db";
 import { resolveVocab, staticExample, type InvVocab } from "./inventory";
-import { newCard, review, type SrsGrade } from "./srs";
+import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞", "連体詞"]);
@@ -220,6 +220,9 @@ export async function applyStatus(
   item.status = ACTION_TO_STATUS[action];
   const base = item.cards.written ?? newCard(now);
   item.cards.written = review(base, ACTION_TO_GRADE[action], now);
+  // Le mot vient d'être travaillé (tap du Lecteur, reconstruction de phrase) : ses cartes
+  // d'écoute et de production ne repassent pas dans la foulée (cf. spaceSkillCards).
+  spaceSkillCards(item.cards, "written", now);
   await putVocab(item);
   await logReview({
     itemId: item.id,
