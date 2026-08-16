@@ -18,6 +18,7 @@ import {
   dirKey,
   directionsFor,
   faceText,
+  isTrainableVocab,
   orderDirections,
   pickInputMode,
   promptFor,
@@ -62,6 +63,9 @@ function faceDistractors(
   const other: string[] = [];
   for (const p of pool) {
     if (p.id === v.id || excluded.has(p.id)) continue;
+    // Un mot qu'on ne révisera jamais (nom d'un personnage d'histoire, mot kana sans sens)
+    // n'a pas à s'inviter comme option : le QCM proposerait un mot qui n'en est pas un.
+    if (!isTrainableVocab(p)) continue;
     const text = faceText(p, face);
     if (!text || seen.has(text)) continue;
     seen.add(text);

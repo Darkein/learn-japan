@@ -28,14 +28,13 @@ import {
 } from "./exerciseBuild";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
 import { isDue, newCard, SKILL_GAP_MS, State, type Card, type SrsGrade } from "./srs";
-import { normalizeReading } from "./kana";
 import { SRS } from "./config";
 import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
-import { effectiveExample, purgeProperNouns, repairConjugatedVocab } from "./vocab";
-import { faceText } from "./vocabFaces";
+import { effectiveExample, purgeNameVocab, repairConjugatedVocab } from "./vocab";
+import { faceText, isTrainableVocab } from "./vocabFaces";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
@@ -53,13 +52,10 @@ async function leechIds(): Promise<Set<string>> {
   return leechIdsFromReviews(await db.getAll("reviews"));
 }
 
-/**
- * Item testable en saisie : un sens FR exploitable, ou une graphie ≠ lecture. Sinon
- * (mot kana sans sens) le front de l'exercice EST la réponse — recopie sans intérêt.
- */
-export function isTrainableVocab(v: VocabItem): boolean {
-  return (!!v.meaning && v.meaning !== "—") || normalizeReading(v.surface) !== normalizeReading(v.reading);
-}
+// Défini avec les faces du triangle (lib/vocabFaces.ts) — c'est la même notion, et les
+// constructeurs d'exercices en ont besoin sans dépendre de ce module. Réexporté ici : c'est
+// la session qui en fait le filtre d'entrée de toutes ses passes.
+export { isTrainableVocab } from "./vocabFaces";
 
 export interface SessionStats {
   dueCount: number;
@@ -107,10 +103,10 @@ export async function buildSession(
   const scope = opts.scope ?? "due";
 
   // Hygiène des stores avant de construire : formes conjuguées stockées en surface
-  // (révisions FR → JA qui exigeaient « し » pour faire), noms propres croisés dans un
-  // article (« 田中 » → sens « — ») et piste compréhension retirée.
+  // (révisions FR → JA qui exigeaient « し » pour faire), noms croisés dans un article ou
+  // inventés par une histoire (田中, クロ le chat) et piste compréhension retirée.
   await repairConjugatedVocab();
-  await purgeProperNouns();
+  await purgeNameVocab();
   await purgeComprehension();
 
   // Les éléments difficiles sont connus AVANT la construction : un leech repasse au QCM

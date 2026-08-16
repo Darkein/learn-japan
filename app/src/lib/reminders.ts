@@ -23,6 +23,7 @@ import {
 import { sessionStats } from "./reviewSession";
 import type { ReminderSettings } from "./settings";
 import { reviewStreak } from "./stats";
+import { isTrainableVocab } from "./vocabFaces";
 
 export const PERIODIC_SYNC_TAG = "revision-reminder";
 
@@ -141,7 +142,9 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
     const hint: ReminderHint = {
       date: today,
       kind: next.kind,
-      items: reminderItemPool(vocab, grammar, new Date()),
+      // Mêmes mots que la session : « tu te souviens de クロ ? » sur un mot qu'aucune
+      // révision ne servira jamais (cf. isTrainableVocab) serait une fausse promesse.
+      items: reminderItemPool(vocab.filter(isTrainableVocab), grammar, new Date()),
       event: pickEvent(state),
       streak: reviewStreak(daily, state.dailyGoal, today),
     };

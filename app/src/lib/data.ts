@@ -81,6 +81,15 @@ export function contentDictSnapshot(): ContentDict {
 }
 
 /**
+ * Le dictionnaire est-il chargé ? Un appelant qui DÉDUIT quelque chose d'un sens absent
+ * (voir isTrackedWord, lib/vocab.ts) doit distinguer « mot sans gloss » de « dico pas
+ * encore là » — sans quoi un démarrage à froid ferait passer tout le texte pour du néant.
+ */
+export function hasContentDict(): boolean {
+  return Object.keys(loaded).length > 0;
+}
+
+/**
  * Superpose les glosses curés de l'inventaire aux clés kana du JMdict : pour une
  * forme kana ambiguë (いる, ない…), le mot du curriculum doit gagner sur l'homophone
  * choisi par le dictionnaire. Appliqué à chaque chargement (le cache stocke la map brute).
