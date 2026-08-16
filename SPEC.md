@@ -292,6 +292,17 @@ révision** (pas de minuterie, pas d'acharnement sur le même sujet), avec un **
 Chaque copie est conservée (store `exams`, synchronisée) et relisible depuis la leçon ;
 franchir la barrière fait gagner du chemin sur la route en cours.
 
+**Repasser un contrôle réussi** est toujours possible — pour la note, jamais pour le droit de
+passer : **seule la meilleure note compte**, et une copie ratée derrière une admission ne
+referme jamais la leçon suivante.
+
+**Où la note se lit** :
+- sur la **carte de leçon** — badge `16/20`, et sous la jauge « contrôle 16/20 — Très bien » ;
+  une fois la barrière franchie, la jauge d'ouverture cède la place à la **maîtrise** (objectif
+  long terme, intervalle ≥ 21 j) ;
+- dans les **Statistiques**, un **bulletin** : une ligne par leçon présentée (meilleure note,
+  mention, nombre de tentatives) et la **moyenne générale**, chaque leçon comptant pour une.
+
 ## 6. Catalogue / révision à la demande *(nouveau)*
 Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou apprend :
 - **Listes** vocab / grammaire, avec leur **statut** (inconnu / à réviser / connu) et leur

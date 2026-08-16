@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   allComprehension,
+  allExams,
   allGrammar,
   allReviews,
   allVocab,
@@ -13,9 +14,13 @@ import {
   type GrammarItem,
   type ReviewLog,
   type Skill,
+  type ExamRecord,
   type SrsDailyRecord,
   type VocabItem,
 } from "../lib/db";
+import { getCurriculumEntry } from "../lib/curriculum";
+import { buildBulletin, type Bulletin } from "../lib/exam";
+import { EXAM } from "../lib/config";
 import { formatMinutes } from "../lib/time";
 import { newCard } from "../lib/srs";
 import { loadSettings } from "../lib/settings";
@@ -47,6 +52,8 @@ interface Data {
   comprehension: ComprehensionItem[];
   reviews: ReviewLog[];
   tuning: FsrsTuning;
+  /** Copies rendues aux contrôles de fin de leçon (bulletin, lib/exam.ts). */
+  exams: ExamRecord[];
 }
 
 interface ResolvedItem {
@@ -131,15 +138,16 @@ export function Stats() {
   const [data, setData] = useState<Data | null>(null);
 
   async function refresh() {
-    const [vocab, grammar, comprehension, reviews, daily, tuning] = await Promise.all([
+    const [vocab, grammar, comprehension, reviews, daily, tuning, exams] = await Promise.all([
       allVocab(),
       allGrammar(),
       allComprehension(),
       allReviews(),
       recentSrsDaily(7),
       loadTuning(),
+      allExams(),
     ]);
-    setData({ vocab, grammar, comprehension, reviews, daily, tuning });
+    setData({ vocab, grammar, comprehension, reviews, daily, tuning, exams });
   }
 
   useEffect(() => {
@@ -186,6 +194,7 @@ export function Stats() {
   const worst = worstItems(data, acc);
   const newBase = loadSettings().newPerDay;
   const effNew = effectiveNewPerDay(newBase, data.tuning.measuredRetention, data.tuning.backlog);
+  const bulletin = buildBulletin(data.exams, (id) => getCurriculumEntry(id)?.title);
 
   return (
     <div className="flex flex-col gap-8">
@@ -209,6 +218,8 @@ export function Stats() {
           {" · "}nouveautés&nbsp;: {effNew}/j{effNew < newBase ? ` (au lieu de ${newBase}, retard/erreurs)` : ""}
         </p>
       </section>
+
+      {bulletin.rows.length > 0 && <BulletinSection bulletin={bulletin} />}
 
       <section className="flex flex-col gap-3">
         <SectionLabel>Charge des 7 prochains jours</SectionLabel>
@@ -310,5 +321,44 @@ export function Stats() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * Bulletin — relevé des contrôles de fin de leçon (le 関所). Une ligne par leçon présentée,
+ * avec sa MEILLEURE note : repasser un contrôle peut faire monter la moyenne, jamais la
+ * faire baisser. La moyenne générale compte chaque leçon une fois, comme un bulletin.
+ */
+function BulletinSection({ bulletin }: { bulletin: Bulletin }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionLabel>Bulletin — contrôles de fin de leçon</SectionLabel>
+      <Card className="flex items-baseline gap-4">
+        <span className="font-serif text-4xl text-text">{bulletin.average}</span>
+        <span className="font-serif text-xl text-muted">/ 20</span>
+        <span className="text-sm text-muted">
+          moyenne générale sur {bulletin.rows.length} leçon{bulletin.rows.length > 1 ? "s" : ""}
+          {" · "}
+          {bulletin.passedCount} admise{bulletin.passedCount > 1 ? "s" : ""}
+        </span>
+      </Card>
+      <div className="flex flex-col gap-1.5">
+        {bulletin.rows.map((row) => (
+          <div key={row.lessonId} className="flex items-baseline justify-between gap-4 text-sm">
+            <span className="min-w-0 truncate">
+              <span className="text-text">{row.title}</span>
+              {row.attempts > 1 && (
+                <span className="text-muted"> — {row.attempts} tentatives</span>
+              )}
+            </span>
+            <span
+              className={`shrink-0 ${row.note >= EXAM.passMark ? "text-accent-2" : "text-accent"}`}
+            >
+              {row.note}/20 <span className="text-muted">{row.mention}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

@@ -876,6 +876,63 @@ export async function submitExam(
   return result;
 }
 
+// ---- Bulletin (relevé de notes) --------------------------------------------------
+
+export interface BulletinRow {
+  lessonId: string;
+  title: string;
+  /** Meilleure note obtenue sur la leçon (les rattrapages ne l'écrasent jamais). */
+  note: number;
+  mention: string;
+  passed: boolean;
+  attempts: number;
+  /** Date de la dernière copie rendue sur cette leçon. */
+  lastAt: number;
+}
+
+export interface Bulletin {
+  /** Une ligne par leçon présentée, de la plus récente copie à la plus ancienne. */
+  rows: BulletinRow[];
+  /** Moyenne générale = moyenne des MEILLEURES notes, une leçon comptant pour une. */
+  average: number | null;
+  passedCount: number;
+}
+
+/**
+ * Relevé de notes, façon bulletin scolaire — fonction PURE (l'appelant fournit les copies
+ * et le titre de chaque leçon). Une leçon ne compte qu'UNE fois, avec sa meilleure note :
+ * repasser un contrôle déjà réussi peut faire monter la moyenne, jamais la faire baisser.
+ */
+export function buildBulletin(
+  records: ExamRecord[],
+  titleOf: (lessonId: string) => string | undefined,
+): Bulletin {
+  const byLesson = new Map<string, ExamRecord[]>();
+  for (const r of records) {
+    const list = byLesson.get(r.lessonId);
+    if (list) list.push(r);
+    else byLesson.set(r.lessonId, [r]);
+  }
+  const rows: BulletinRow[] = [...byLesson.entries()].map(([lessonId, list]) => {
+    const best = list.reduce((a, b) => (b.note > a.note ? b : a));
+    return {
+      lessonId,
+      title: titleOf(lessonId) ?? lessonId,
+      note: best.note,
+      mention: best.mention,
+      passed: list.some((r) => r.passed),
+      attempts: list.length,
+      lastAt: Math.max(...list.map((r) => r.submittedAt)),
+    };
+  });
+  rows.sort((a, b) => b.lastAt - a.lastAt);
+  return {
+    rows,
+    average: rows.length ? roundHalf(rows.reduce((s, r) => s + r.note, 0) / rows.length) : null,
+    passedCount: rows.filter((r) => r.passed).length,
+  };
+}
+
 // ---- État du contrôle d'une leçon (IO) ------------------------------------------
 
 export interface ExamStatus {

@@ -232,6 +232,9 @@ function ExamCover({
   const eligible = lesson.unlockProgress >= SRS.examEligibility;
   const ready = eligible && status.retakeReady;
   const last = status.records[0];
+  // Contrôle déjà franchi : on repasse pour la note, jamais pour le droit de passer —
+  // une copie ratée derrière une admission ne referme rien (cf. lib/lessons.ts).
+  const alreadyPassed = status.passed;
 
   return (
     <div className="flex flex-col gap-4">
@@ -239,7 +242,9 @@ function ExamCover({
         <SectionLabel>関所 — poste de contrôle</SectionLabel>
         <h2 className="m-0 font-serif text-2xl text-text">Contrôle — {lesson.title}</h2>
         <p className="m-0 text-sm text-muted">
-          Franchir la barrière ouvre la leçon suivante. Admission à {EXAM.passMark}/20.
+          {alreadyPassed
+            ? `Barrière déjà franchie${status.bestNote != null ? ` (${status.bestNote}/20)` : ""} — tu repasses pour la note : seule la meilleure compte, et un échec ne referme rien.`
+            : `Franchir la barrière ouvre la leçon suivante. Admission à ${EXAM.passMark}/20.`}
         </p>
       </div>
 
@@ -290,7 +295,7 @@ function ExamCover({
             </Button>
           )}
         </Card>
-      ) : !status.retakeReady ? (
+      ) : !status.retakeReady && !alreadyPassed ? (
         <Card className="flex flex-col gap-2" accentFlag>
           <p className="m-0 text-sm text-text">
             Rattrapage : il reste {status.pendingItems.length} élément
@@ -311,9 +316,11 @@ function ExamCover({
         <Button variant="primary" onClick={onStart} disabled={!ready || busy}>
           {busy
             ? "Préparation du sujet…"
-            : status.attempts > 0
-              ? `Passer le rattrapage (sujet ${status.nextAttempt})`
-              : "Commencer l'épreuve"}
+            : alreadyPassed
+              ? `Repasser le contrôle (sujet ${status.nextAttempt})`
+              : status.attempts > 0
+                ? `Passer le rattrapage (sujet ${status.nextAttempt})`
+                : "Commencer l'épreuve"}
         </Button>
         <Button variant="quiet" onClick={onExit}>
           Retour

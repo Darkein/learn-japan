@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { EXAM, SRS } from "../lib/config";
+import { mentionFor } from "../lib/exam";
 import { grammarDetail } from "../lib/inventory";
 import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
@@ -165,21 +166,20 @@ export function CourseDetail({
         {/* Deux gestes distincts, et il ne faut pas les confondre : l'ENTRAÎNEMENT (corrigé
             au fil de l'eau, auto-noté, à volonté) et le CONTRÔLE (une épreuve notée, qui
             seule ouvre la leçon suivante). */}
-        {/* Le CONTRÔLE, lui, ne dépend pas du cours généré : son sujet sort de l'inventaire
-            et des cartes SRS de la leçon — il reste donc passable hors-ligne. */}
-        {!busy && (
-          <div className="flex flex-col items-center gap-3 py-2">
-            {onStartReview && ready && (
-              <Button
-                onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
-                title="Questions sur tout le vocabulaire et la grammaire de la leçon — les réponses alimentent la répétition espacée"
-              >
-                S'entraîner sur la leçon
-              </Button>
-            )}
-            {onStartExam && <ExamEntry lesson={lesson} onStartExam={onStartExam} />}
-          </div>
-        )}
+        {/* Le CONTRÔLE ne dépend NI du cours généré NI d'une génération en cours : son sujet
+            sort de l'inventaire et des cartes SRS de la leçon — il reste donc passable
+            pendant que le cours se génère, et hors-ligne. */}
+        <div className="flex flex-col items-center gap-3 py-2">
+          {onStartReview && ready && !busy && (
+            <Button
+              onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
+              title="Questions sur tout le vocabulaire et la grammaire de la leçon — les réponses alimentent la répétition espacée"
+            >
+              S'entraîner sur la leçon
+            </Button>
+          )}
+          {onStartExam && <ExamEntry lesson={lesson} onStartExam={onStartExam} />}
+        </div>
 
         {ready ? (
           <>
@@ -308,7 +308,8 @@ function ExamEntry({
     return (
       <div className="flex flex-col items-center gap-1">
         <span className="text-sm text-accent-2">
-          関所 franchi — contrôle réussi{lesson.examNote != null ? ` (${lesson.examNote}/20)` : ""}
+          関所 franchi — contrôle réussi
+          {lesson.examNote != null ? ` : ${lesson.examNote}/20, ${mentionFor(lesson.examNote)}` : ""}
         </span>
         <button
           className="cursor-pointer text-sm text-muted underline"
@@ -316,6 +317,9 @@ function ExamEntry({
         >
           Repasser le contrôle →
         </button>
+        <span className="text-xs text-muted">
+          Seule la meilleure note compte — un échec ne referme pas la leçon suivante.
+        </span>
       </div>
     );
   }

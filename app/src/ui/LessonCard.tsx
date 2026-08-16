@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Lesson } from "../lib/lessons";
 import { markLessonStarted } from "../lib/lessons";
 import { SRS } from "../lib/config";
+import { mentionFor } from "../lib/exam";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
 import { DownloadButton } from "./DownloadButton";
@@ -79,6 +80,16 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
               {lesson.completedAt ? "terminée" : available ? "prête" : "à générer"}
             </Badge>
           )}
+          {lesson.examNote != null && (
+            <Badge
+              variant={lesson.examPassed ? "accent" : "default"}
+              title={`Contrôle : ${lesson.examNote}/20 — ${mentionFor(lesson.examNote)}${
+                lesson.examAttempts > 1 ? ` (${lesson.examAttempts} tentatives)` : ""
+              }`}
+            >
+              {lesson.examNote}/20
+            </Badge>
+          )}
           <Badge>N{lesson.level}</Badge>
           {lesson.locked && (
             <Badge aria-label="Leçon verrouillée">
@@ -92,12 +103,14 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
 
         {lesson.locked ? (
           <p className="m-0 text-sm text-muted">
-            Passe le contrôle{lesson.prevTitle ? (
+            Verrouillée tant que le contrôle{lesson.prevTitle ? (
               <> de <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
-            ) : null}{" "}
-            pour débloquer cette leçon
+            ) : (
+              " précédent"
+            )}{" "}
+            n'est pas réussi
           </p>
-        ) : inProgress ? (
+        ) : inProgress && !lesson.examPassed ? (
           <div className="flex flex-col gap-1.5">
             <div className="relative h-2 w-full">
               <div className="absolute inset-0 rounded-full bg-hairline" />
@@ -113,16 +126,27 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
             <div className="flex justify-between text-xs text-muted">
               <span>{gaugeWidth} %</span>
               <span>
-                {lesson.examPassed
-                  ? `contrôle réussi ✓${lesson.examNote != null ? ` (${lesson.examNote}/20)` : ""}`
-                  : lesson.unlockProgress >= SRS.examEligibility
-                    ? "contrôle ouvert — à passer"
-                    : `contrôle à ${Math.round(SRS.examEligibility * 100)} %`}
+                {lesson.unlockProgress >= SRS.examEligibility
+                  ? "contrôle ouvert — à passer"
+                  : `contrôle à ${Math.round(SRS.examEligibility * 100)} %`}
               </span>
             </div>
           </div>
-        ) : lesson.mastery > 0 ? (
-          <ProgressBar value={Math.round(lesson.mastery * 100)} />
+        ) : lesson.mastery > 0 || lesson.examPassed ? (
+          // Contrôle franchi : la jauge d'ouverture n'a plus d'objet, la MAÎTRISE reprend
+          // la main — c'est l'objectif long terme (intervalle ≥ 21 j), et la note du
+          // contrôle l'accompagne comme une appréciation.
+          <div className="flex flex-col gap-1">
+            <ProgressBar value={Math.round(lesson.mastery * 100)} />
+            <div className="flex justify-between text-xs text-muted">
+              <span>maîtrise {Math.round(lesson.mastery * 100)} %</span>
+              {lesson.examNote != null && (
+                <span>
+                  contrôle {lesson.examNote}/20 — {mentionFor(lesson.examNote)}
+                </span>
+              )}
+            </div>
+          </div>
         ) : null}
 
       </button>

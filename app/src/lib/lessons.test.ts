@@ -141,24 +141,26 @@ describe("computeMastery", () => {
   });
 });
 
-/** Copie admise à la leçon `id` — c'est ELLE qui débloque la suivante (lib/exam.ts). */
-async function seedPassedExam(id: string): Promise<void> {
+/** Copie rendue à la leçon `id` (admise par défaut) — c'est elle qui débloque la suivante. */
+async function seedExam(id: string, attempt = 1, note = 17): Promise<void> {
   await putExam({
-    id: `${id}#1`,
+    id: `${id}#${attempt}`,
     lessonId: id,
-    attempt: 1,
+    attempt,
     startedAt: Date.now() - 60_000,
     submittedAt: Date.now(),
-    obtained: 17,
+    obtained: note,
     max: 20,
-    note: 17,
-    mention: "Très bien",
-    passed: true,
+    note,
+    mention: note >= 12 ? "Assez bien" : "Ajourné",
+    passed: note >= 12,
     sections: [],
     answers: [],
     missed: [],
   });
 }
+
+const seedPassedExam = (id: string) => seedExam(id);
 
 describe("locked / contrôle de fin de leçon dans listLessons", () => {
   it("première leçon jamais locked", async () => {
@@ -250,6 +252,18 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
     // La copie admise, et seulement elle, ouvre la leçon suivante.
     await seedPassedExam(lessons[0].id);
     expect((await listLessons())[1].locked).toBe(false);
+  });
+
+  it("repasser un contrôle réussi et le rater NE REFERME PAS la leçon suivante", async () => {
+    const lessons = await listLessons();
+    if (lessons.length < 2) return;
+    await seedExam(lessons[0].id, 1, 17); // admis
+    await seedExam(lessons[0].id, 2, 4); // repassé, raté
+    const after = await listLessons();
+    expect(after[0].examPassed).toBe(true);
+    expect(after[0].examNote).toBe(17); // la MEILLEURE note est conservée
+    expect(after[0].examAttempts).toBe(2);
+    expect(after[1].locked).toBe(false);
   });
 
   it("le contrôle ne s'ouvre pas tant que la leçon n'est pas travaillée", async () => {

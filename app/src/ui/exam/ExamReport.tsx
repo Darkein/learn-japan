@@ -27,6 +27,11 @@ const VERDICT_MARK: Record<QuestionResult["verdict"], string> = {
  */
 export function ExamReport({ lesson, result, onExit, onStartReview }: Props) {
   const missed = result.results.filter((r) => r.verdict !== "correct");
+  // `lesson` a été chargée AVANT cette copie : elle dit donc si la barrière était déjà
+  // franchie. Repasser un contrôle réussi ne peut pas le défaire — une copie ratée
+  // derrière une admission ne referme pas la leçon suivante.
+  const wasPassed = lesson.examPassed;
+  const best = Math.max(result.note, lesson.examNote ?? 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,9 +55,11 @@ export function ExamReport({ lesson, result, onExit, onStartReview }: Props) {
           {EXAM.passMark}/20.
         </p>
         <p className="m-0 text-sm text-text">
-          {result.passed
-            ? "Barrière franchie : la leçon suivante est ouverte."
-            : "La barrière reste fermée. Les éléments ratés sont revenus en révision — le rattrapage s'ouvrira une fois qu'ils seront repassés."}
+          {wasPassed
+            ? `Barrière déjà franchie : elle le reste. Meilleure note conservée — ${best}/20.`
+            : result.passed
+              ? "Barrière franchie : la leçon suivante est ouverte."
+              : "La barrière reste fermée. Les éléments ratés sont revenus en révision — le rattrapage s'ouvrira une fois qu'ils seront repassés."}
         </p>
       </Card>
 
@@ -101,7 +108,7 @@ export function ExamReport({ lesson, result, onExit, onStartReview }: Props) {
 
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="primary" onClick={onExit}>
-          {result.passed ? "Continuer" : "Retour à la leçon"}
+          {result.passed || wasPassed ? "Continuer" : "Retour à la leçon"}
         </Button>
         {!result.passed && onStartReview && missed.length > 0 && (
           <Button onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}>

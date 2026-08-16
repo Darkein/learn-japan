@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { EXAM } from "./config";
-import type { GrammarItem, VocabItem } from "./db";
+import type { ExamRecord, GrammarItem, VocabItem } from "./db";
 import {
+  buildBulletin,
   composeExam,
   gradeExam,
   mentionFor,
@@ -313,5 +314,64 @@ describe("mentionFor — l'échelle", () => {
     expect(mentionFor(EXAM.passMark)).toBe("Assez bien");
     expect(mentionFor(10)).toMatch(/rattrapage/);
     expect(mentionFor(9.5)).toBe("Ajourné");
+  });
+});
+
+describe("buildBulletin — le relevé de notes", () => {
+  function copy(lessonId: string, attempt: number, note: number, at: number): ExamRecord {
+    return {
+      id: `${lessonId}#${attempt}`,
+      lessonId,
+      attempt,
+      startedAt: at - 1000,
+      submittedAt: at,
+      obtained: note,
+      max: 20,
+      note,
+      mention: mentionFor(note),
+      passed: note >= EXAM.passMark,
+      sections: [],
+      answers: [],
+      missed: [],
+    };
+  }
+  const titles: Record<string, string> = { "n5-01": "Se présenter", "n5-02": "Compter" };
+  const titleOf = (id: string) => titles[id];
+
+  it("une ligne par leçon, avec sa MEILLEURE note", () => {
+    const b = buildBulletin(
+      [copy("n5-01", 1, 8, 1_000), copy("n5-01", 2, 15, 2_000), copy("n5-02", 1, 13, 3_000)],
+      titleOf,
+    );
+    expect(b.rows).toHaveLength(2);
+    const first = b.rows.find((r) => r.lessonId === "n5-01")!;
+    expect(first.note).toBe(15);
+    expect(first.attempts).toBe(2);
+    expect(first.title).toBe("Se présenter");
+    expect(first.passed).toBe(true);
+  });
+
+  it("repasser un contrôle ne peut pas faire BAISSER la moyenne", () => {
+    const before = buildBulletin([copy("n5-01", 1, 16, 1_000)], titleOf);
+    const after = buildBulletin([copy("n5-01", 1, 16, 1_000), copy("n5-01", 2, 4, 2_000)], titleOf);
+    expect(after.average).toBe(before.average);
+    expect(after.rows[0].passed).toBe(true);
+  });
+
+  it("moyenne générale : chaque leçon compte pour une, au demi-point", () => {
+    const b = buildBulletin([copy("n5-01", 1, 15, 1_000), copy("n5-02", 1, 12, 2_000)], titleOf);
+    expect(b.average).toBe(13.5);
+    expect(b.passedCount).toBe(2);
+  });
+
+  it("copies triées de la plus récente à la plus ancienne ; aucune copie ⇒ pas de moyenne", () => {
+    const b = buildBulletin([copy("n5-01", 1, 15, 1_000), copy("n5-02", 1, 12, 5_000)], titleOf);
+    expect(b.rows.map((r) => r.lessonId)).toEqual(["n5-02", "n5-01"]);
+    expect(buildBulletin([], titleOf).average).toBeNull();
+  });
+
+  it("leçon inconnue du curriculum : son id sert de libellé (jamais de ligne vide)", () => {
+    const b = buildBulletin([copy("n5-99", 1, 12, 1_000)], titleOf);
+    expect(b.rows[0].title).toBe("n5-99");
   });
 });
