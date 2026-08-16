@@ -11,6 +11,7 @@ import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
 import { OmikujiSheet } from "./OmikujiSheet";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { ReviewSession } from "./ReviewSession";
+import { ExamSession } from "./exam/ExamSession";
 import { StationArrival } from "./StationArrival";
 import { Markdown } from "./LessonMarkdown";
 import { Button } from "./kit/Button";
@@ -168,6 +169,9 @@ async function recapFor(
   if (activity.kind === "lesson") {
     return { kind: activity.kind, recap: "Leçon découverte — ses mots arrivent en révision." + suffix };
   }
+  if (activity.kind === "exam") {
+    return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." + suffix };
+  }
   if (activity.kind === "omikuji") {
     return { kind: activity.kind, recap: "Fortune tirée — le défi du jour est lancé." };
   }
@@ -193,6 +197,11 @@ function ActivityBlock({
   }
   if (activity.kind === "lesson") {
     return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} />;
+  }
+  if (activity.kind === "exam") {
+    // Le contrôle vit dans le flux comme les autres blocs : il porte son en-tête de copie
+    // et sa correction, et rend la main au checkpoint une fois la copie rendue.
+    return activity.refId ? <ExamSession lessonId={activity.refId} onExit={onDone} /> : null;
   }
   if (activity.kind === "omikuji") {
     return <OmikujiSheet onClose={onDone} />;

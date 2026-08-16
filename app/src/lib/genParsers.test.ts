@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseComprehensionQcm, parseMnemonicBatch, parseStoryTranslation } from "./genParsers";
+import {
+  parseComprehensionQcm,
+  parseExamText,
+  parseMnemonicBatch,
+  parseStoryTranslation,
+} from "./genParsers";
 
 // La composition des prompts (cadrage, histoire, traduction) vit désormais côté Worker
 // — voir worker/src/prompts.test.ts. Le client ne fait plus que parser la réponse.
@@ -137,5 +142,42 @@ describe("parseMnemonicBatch", () => {
       composition: "皆 tous + さん suffixe.",
     });
     expect(out[2]).toEqual({ story: "La borne disparaît.", composition: "Un fil emmêlé." });
+  });
+});
+
+describe("parseExamText (sujet de contrôle)", () => {
+  const raw = [
+    "TEXTE",
+    "猫は水を飲みます。",
+    "そして寝ます。",
+    "QUESTIONS",
+    "1. [G1] Que fait le chat d'abord ?",
+    "+ Il boit de l'eau.",
+    "- Il dort.",
+    "- Il mange.",
+    "- Il sort.",
+    "2. [G0] Et ensuite ?",
+    "+ Il dort.",
+    "- Il boit.",
+  ].join("\n");
+
+  it("sépare le texte japonais du QCM", () => {
+    const { text, questions } = parseExamText(raw, ["n5-wa-topic"]);
+    expect(text).toBe("猫は水を飲みます。\nそして寝ます。");
+    expect(questions).toHaveLength(2);
+    expect(questions[0].targetGrammarId).toBe("n5-wa-topic");
+    expect(questions[0].options[questions[0].answerIndex]).toBe("Il boit de l'eau.");
+  });
+
+  it("se rattrape si le séparateur QUESTIONS manque (coupe à la première question)", () => {
+    const { text, questions } = parseExamText(raw.replace("QUESTIONS\n", ""));
+    expect(text).toBe("猫は水を飲みます。\nそして寝ます。");
+    expect(questions).toHaveLength(2);
+  });
+
+  it("réponse inexploitable → texte ou questions vides (section retirée du contrôle)", () => {
+    expect(parseExamText("").questions).toHaveLength(0);
+    expect(parseExamText("Je ne peux pas répondre.").text).toBe("Je ne peux pas répondre.");
+    expect(parseExamText("Je ne peux pas répondre.").questions).toHaveLength(0);
   });
 });

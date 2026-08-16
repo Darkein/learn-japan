@@ -158,3 +158,29 @@ export function parseComprehensionQcm(
   }
   return out;
 }
+
+/**
+ * Sujet de compréhension d'un contrôle (kind « exam-text ») : le modèle rend le TEXTE
+ * japonais puis le QCM, séparés par une ligne « QUESTIONS ». Robuste au bruit — si le
+ * séparateur manque, on coupe à la première ligne numérotée (« 1. … »), qui ouvre
+ * forcément le QCM. Renvoie un texte vide si rien d'exploitable : l'appelant écarte alors
+ * la section (le barème du contrôle est ramené d'autant).
+ */
+export function parseExamText(
+  raw: string,
+  grammarIds: string[] = [],
+): { text: string; questions: ComprehensionQuestion[] } {
+  const lines = raw.split(/\r?\n/);
+  let cut = lines.findIndex((l) => /^\s*QUESTIONS\s*:?\s*$/i.test(l));
+  let skip = 1;
+  if (cut < 0) {
+    cut = lines.findIndex((l) => /^\s*\[?1\]?[.)、．]\s*\S/.test(l));
+    skip = 0;
+  }
+  const head = (cut < 0 ? lines : lines.slice(0, cut))
+    .filter((l) => !/^\s*TEXTE\s*:?\s*$/i.test(l))
+    .join("\n")
+    .trim();
+  const tail = cut < 0 ? "" : lines.slice(cut + skip).join("\n");
+  return { text: head, questions: parseComprehensionQcm(tail, grammarIds) };
+}

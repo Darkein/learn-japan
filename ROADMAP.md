@@ -43,6 +43,9 @@ corrects hors-ligne ; le Worker répond derrière Access.
 - **Écouter un mot** : timepoints SSML (mot en phrase) + repli Web Speech.
 - Quiz minimal (compréhension + lecture kanji) → **MAJ FSRS**.
 - Échauffement de révision (items urgents).
+- **Contrôle de fin de leçon** (SPEC §5b) : épreuve notée /20 (le 関所), corrigée seulement à
+  la remise de la copie ; l'admission débloque la leçon suivante, le rattrapage exige d'avoir
+  revu les éléments ratés.
 
 **Vérif** : session complète (échauffement → lecture → quiz) ; les bonnes/mauvaises réponses
 décalent les échéances SRS ; un débutant peut suivre le curriculum sans toucher au Mode avancé.

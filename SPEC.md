@@ -131,7 +131,7 @@ d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décr
   **Histoires**. Ce sont aussi le **porteur naturel de l'audio** (mode voiture / podcast, §11–12 :
   TTS par phrase, format Pimsleur).
 
-États d'une leçon : **prête** (leçon généré), **à générer** (objectifs seuls), **terminée** (lue).
+États d'une leçon : **prête** (leçon généré), **à générer** (objectifs seuls), **terminée** (**contrôle réussi**, §5b — c'est l'admission qui déverrouille la leçon suivante).
 
 Une histoire générée depuis une leçon **conserve son `lessonId`** (rattachement bidirectionnel
 catalogue ↔ histoire). Le mode « génération libre / texte collé » reste accessible mais relégué en
@@ -237,6 +237,60 @@ mots change (`scope: "due" | "all" | "story"`), jamais le format.
 
 L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
 le plafond de session, pas à décider de leur ordre de passage.
+
+## 5b. Contrôle de fin de leçon — le 関所 *(nouveau)*
+
+Passer à la leçon suivante se **mérite à une épreuve**, pas à l'accumulation d'intervalles
+FSRS. Le contrôle reprend la métaphore de la route : les **関所 (sekisho)**, postes de barrière
+du Tōkaidō — Hakone, Arai, Fukushima —, où l'on ne passait qu'après contrôle.
+
+**Ce n'est PAS une session de révision de plus.** Quatre différences dures avec `buildSession` :
+
+1. **Aucune correction pendant l'épreuve** — on répond à tout, puis on rend la copie.
+2. **Aucune auto-notation** — les boutons *Difficile / Bien / Facile* disparaissent : c'est
+   l'app qui note, pas l'élève.
+3. **Béquilles coupées** — la saisie remplace le QCM partout où c'est possible, pas de
+   furigana ni de gloss, pas de traduction à la demande, écoutes comptées (2 en dictée),
+   pas d'échappatoire « Afficher le texte ».
+4. **Un barème, une note /20, une mention, une copie corrigée** (ta réponse / la réponse
+   attendue / les points, exercice par exercice).
+
+**Le sujet ne sort QUE de la leçon** (son vocabulaire, ses points de grammaire) : les
+histoires n'y entrent pas — on vérifie ce qui a été *enseigné*, pas ce qui a été *lu*.
+
+| # | Exercice | Format | Barème |
+|---|---|---|---|
+| 1 | **Dictée** | phrase jouée, reconstruction par tuiles, 2 écoutes | 3 |
+| 2 | **Lecture** | graphie en kanji → lecture en kana, **en saisie** | 3 × 1 |
+| 3 | **Version** (JA → FR) | QCM de sens, distracteurs de même niveau JLPT | 3 × 1 |
+| 4 | **Thème** (FR → JA) | production en saisie, sans options | 4 × 1 |
+| 5 | **Grammaire** | phrase à composer (ou règle parmi des voisines) | 2 × 2 |
+| 6 | **Compréhension** | texte **inédit** écrit pour l'épreuve + QCM en français | 3 × 1 |
+
+Les exercices 1 à 5 sont **déterministes** (inventaire + cartes SRS) ; seul le 6 passe par
+le Worker (`kind: "exam-text"`). Une section sans matière — hors-ligne, écoute en pause,
+leçon sans grammaire — est **retirée du sujet et du barème** : la note reste ramenée sur 20,
+jamais une section comptée fausse.
+
+**Tirage déterministe** : le sujet est seedé par `(leçon, n° de tentative)` — rouvrir une
+épreuve interrompue redonne le même sujet, un rattrapage en donne un autre, les tests
+rejouent une tentative à l'identique.
+
+**Double clé du parcours** :
+- **Droit de se présenter** — `SRS.examEligibility` (60 % des éléments de la leçon assez
+  stables, même mesure que `unlockProgress`) : on ne s'évalue pas sans avoir travaillé.
+- **Déblocage** — l'**admission** (≥ `EXAM.passMark`, 12/20) ouvre la leçon suivante et
+  marque la leçon terminée. Une leçon déjà commencée (« Commencer quand même ») ne se
+  referme jamais.
+
+**Notation** : réponse juste = tous les points ; **coquille = la moitié** (cf. `lib/typo.ts`) ;
+blanc ou faux = 0. Chaque réponse est ensuite replanifiée en FSRS (`good` / `hard` / `again`) —
+une épreuve ratée n'est pas du travail perdu, c'est la révision du lendemain.
+
+**Rattrapage** : après un échec, il s'ouvre quand **les éléments ratés ont été repassés en
+révision** (pas de minuterie, pas d'acharnement sur le même sujet), avec un **nouveau tirage**.
+Chaque copie est conservée (store `exams`, synchronisée) et relisible depuis la leçon ;
+franchir la barrière fait gagner du chemin sur la route en cours.
 
 ## 6. Catalogue / révision à la demande *(nouveau)*
 Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou apprend :

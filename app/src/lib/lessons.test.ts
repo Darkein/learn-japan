@@ -1,7 +1,15 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { _resetDbForTests, putLessonProgress, getLessonProgress, putVocab, putGrammar } from "./db";
+import {
+  _resetDbForTests,
+  putExam,
+  putLessonProgress,
+  getLessonProgress,
+  putVocab,
+  putGrammar,
+} from "./db";
+import { SRS } from "./config";
 import { State } from "./srs";
 import type { Card } from "ts-fsrs";
 
@@ -133,21 +141,40 @@ describe("computeMastery", () => {
   });
 });
 
-describe("locked / prevUnlockProgress dans listLessons", () => {
+/** Copie admise à la leçon `id` — c'est ELLE qui débloque la suivante (lib/exam.ts). */
+async function seedPassedExam(id: string): Promise<void> {
+  await putExam({
+    id: `${id}#1`,
+    lessonId: id,
+    attempt: 1,
+    startedAt: Date.now() - 60_000,
+    submittedAt: Date.now(),
+    obtained: 17,
+    max: 20,
+    note: 17,
+    mention: "Très bien",
+    passed: true,
+    sections: [],
+    answers: [],
+    missed: [],
+  });
+}
+
+describe("locked / contrôle de fin de leçon dans listLessons", () => {
   it("première leçon jamais locked", async () => {
     const lessons = await listLessons();
     expect(lessons[0].locked).toBe(false);
     expect(lessons[0].prevUnlockProgress).toBeUndefined();
   });
 
-  it("leçon suivante locked si prev mastery < 0.8 et non démarrée", async () => {
+  it("leçon suivante locked tant que le contrôle de la précédente n'est pas réussi", async () => {
     const lessons = await listLessons();
     if (lessons.length < 2) return; // skip si curriculum vide
-    // mastery de la première leçon = 0 (rien en DB) → deuxième doit être locked
+    expect(lessons[0].examPassed).toBe(false);
     expect(lessons[1].locked).toBe(true);
   });
 
-  it("leçon non-locked si prev mastery >= 0.8 (simulé via startedAt bypass)", async () => {
+  it("leçon non-locked une fois commencée (« Commencer quand même » ne se referme pas)", async () => {
     const lessons = await listLessons();
     if (lessons.length < 2) return;
     // Démarrer la deuxième leçon → startedAt set → locked = false
@@ -156,7 +183,7 @@ describe("locked / prevUnlockProgress dans listLessons", () => {
     expect(lessons2[1].locked).toBe(false);
   });
 
-  it("locked=false quand prev mastery >= 0.8 (items maîtrisés en DB)", async () => {
+  it("locked=false quand le contrôle de la leçon précédente est admis", async () => {
     const curriculum = getCurriculum();
     if (curriculum.length < 2) return;
     const prev = curriculum[0];
@@ -183,15 +210,18 @@ describe("locked / prevUnlockProgress dans listLessons", () => {
         card: masteredCard(),
       });
     }
+    await seedPassedExam(prev.id);
     const lessons = await listLessons();
     if (lessons.length < 2) return;
     expect(lessons[0].mastery).toBeCloseTo(1.0);
     expect(lessons[0].unlockProgress).toBeCloseTo(1.0);
+    expect(lessons[0].examPassed).toBe(true);
+    expect(lessons[0].examNote).toBe(17);
     expect(lessons[1].prevUnlockProgress).toBeCloseTo(1.0);
     expect(lessons[1].locked).toBe(false);
   });
 
-  it("des items stables (≥ unlockIntervalDays) débloquent SANS être maîtrisés (21 j)", async () => {
+  it("des items stables OUVRENT le contrôle mais ne débloquent pas la suite à eux seuls", async () => {
     const { getCurriculum } = await import("./curriculum");
     const curriculum = getCurriculum();
     if (curriculum.length < 2) return;
@@ -212,8 +242,21 @@ describe("locked / prevUnlockProgress dans listLessons", () => {
     const lessons = await listLessons();
     if (lessons.length < 2) return;
     expect(lessons[0].mastery).toBe(0); // 5 j < 21 j : pas maîtrisé…
-    expect(lessons[0].unlockProgress).toBeCloseTo(1.0); // …mais débloquant
-    expect(lessons[1].locked).toBe(false);
+    expect(lessons[0].unlockProgress).toBeCloseTo(1.0); // …mais assez stable
+    expect(lessons[0].examEligible).toBe(true); // → le contrôle est ouvert
+    expect(lessons[0].examPassed).toBe(false); // … et pas encore passé
+    expect(lessons[1].locked).toBe(true); // → la suite reste fermée
+
+    // La copie admise, et seulement elle, ouvre la leçon suivante.
+    await seedPassedExam(lessons[0].id);
+    expect((await listLessons())[1].locked).toBe(false);
+  });
+
+  it("le contrôle ne s'ouvre pas tant que la leçon n'est pas travaillée", async () => {
+    const lessons = await listLessons();
+    expect(SRS.examEligibility).toBeGreaterThan(0);
+    expect(lessons[0].unlockProgress).toBe(0);
+    expect(lessons[0].examEligible).toBe(false);
   });
 });
 

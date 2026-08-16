@@ -37,6 +37,7 @@ export type GenKind =
   | "lesson-story"
   | "story-translation"
   | "comprehension-qcm"
+  | "exam-text"
   | "vocab-examples"
   | "mnemonic"
   | "word-mnemonic";
@@ -440,6 +441,56 @@ export function buildComprehensionQcmPrompt(r: GenerateRequest): string {
 }
 
 /**
+ * Sujet de compréhension d'un CONTRÔLE de fin de leçon (app : lib/exam.ts). Contrairement
+ * au QCM de compréhension, qui commente une histoire déjà lue, ici le texte est INÉDIT et
+ * n'est construit QUE sur les objectifs de la leçon : c'est ce qui a été enseigné qu'on
+ * vérifie, pas ce qui a été lu. Le numéro de tentative entre dans le prompt — donc dans la
+ * clé de cache — pour qu'un rattrapage tombe sur un autre texte.
+ * Sortie : le texte japonais, puis le QCM au format « N. [Gk] question » + propositions
+ * « + » / « - » (même parseur client que comprehension-qcm).
+ */
+export function buildExamTextPrompt(r: GenerateRequest): string {
+  const level = cleanLevel(r.level);
+  const title = clean(r.title, LIMITS.title);
+  const vocab = cleanVocab(r.vocab);
+  const grammar = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
+  const attempt = cleanVariant(r.variant);
+  const grammarBlock = grammar.length
+    ? grammar.map((g, i) => `G${i + 1}. ${g}`).join("\n")
+    : "(aucun point de grammaire fourni)";
+
+  return [
+    `Tu rédiges le sujet de compréhension d'un contrôle de japonais (niveau JLPT N${level}${title ? `, leçon « ${title} »` : ""}).`,
+    "",
+    "Vocabulaire de la leçon (le texte doit s'appuyer dessus) :",
+    vocab.map((v, i) => `${i + 1}. ${fmtVocab(v)}`).join("\n") || "(aucun)",
+    "",
+    "Points de grammaire de la leçon (référence pour le tag de chaque question) :",
+    grammarBlock,
+    "",
+    `Écris d'abord un TEXTE japonais INÉDIT de 3 à 5 phrases courtes (sujet n°${attempt} : ne réutilise pas la même situation d'un sujet à l'autre).`,
+    "Contraintes du texte : uniquement le vocabulaire ci-dessus, les mots grammaticaux courants et la grammaire de niveau N" +
+      `${level} ; aucune explication, aucun titre, aucun furigana, aucun romaji, aucune traduction.`,
+    "",
+    "Rédige ensuite exactement 3 questions de COMPRÉHENSION en FRANÇAIS sur le SENS du texte (qui fait quoi, où, quand, pourquoi) — jamais une traduction mot à mot, jamais une question sur la graphie.",
+    "Chaque question a 4 propositions en français, dont une seule correcte.",
+    grammar.length
+      ? "Tague chaque question avec le point de grammaire qu'elle sollicite le plus ([G1], [G2]…), ou [G0] si aucun."
+      : "Préfixe chaque question par [G0].",
+    "",
+    "Format STRICT, sans aucune autre ligne :",
+    "TEXTE",
+    "<les phrases japonaises>",
+    "QUESTIONS",
+    "1. [G1] Pourquoi le chat est-il content ?",
+    "+ Parce qu'il a mangé.",
+    "- Parce qu'il a dormi.",
+    "- Parce qu'il a plu.",
+    "- Parce qu'il est parti.",
+  ].join("\n");
+}
+
+/**
  * Phrases d'exemple pour un lot de mots de vocabulaire (corpus statique, généré au
  * build par scripts/build-examples.ts). Une phrase très courte par mot, contenant le
  * mot tel quel, en privilégiant un lexique déjà connu de l'apprenant — la conformité
@@ -652,6 +703,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildStoryTranslationPrompt(req);
     case "comprehension-qcm":
       return buildComprehensionQcmPrompt(req);
+    case "exam-text":
+      return buildExamTextPrompt(req);
     case "vocab-examples":
       return buildVocabExamplesPrompt(req);
     case "mnemonic":

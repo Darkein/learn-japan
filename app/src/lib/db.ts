@@ -140,6 +140,42 @@ export interface LessonProgressRecord {
   completedAt?: number;
   startedAt?: number;
   unlockedNotified?: boolean;
+  /** v14 — admission au contrôle de fin de leçon : c'est ELLE qui débloque la suivante. */
+  examPassedAt?: number;
+}
+
+/**
+ * Copie rendue à un contrôle de fin de leçon (v14, lib/exam.ts). Une ligne par tentative
+ * (`id` = « leçon#tentative ») : l'historique des copies se relit sans reconstruire le
+ * sujet, et les items ratés de la DERNIÈRE copie conditionnent l'ouverture du rattrapage.
+ */
+export interface ExamRecord {
+  id: string; // `${lessonId}#${attempt}`
+  lessonId: string;
+  attempt: number;
+  startedAt: number;
+  submittedAt: number;
+  /** Points obtenus / barème réel du sujet (variable : une section sans matière est retirée). */
+  obtained: number;
+  max: number;
+  /** Note ramenée sur 20, au demi-point. */
+  note: number;
+  mention: string;
+  passed: boolean;
+  sections: { id: string; title: string; obtained: number; max: number }[];
+  /** La copie corrigée, question par question. */
+  answers: {
+    key: string;
+    section: string;
+    prompt: string;
+    verdict: "correct" | "almost" | "wrong";
+    given: string;
+    expected: string;
+    points: number;
+    maxPoints: number;
+  }[];
+  /** Items ratés (ids SRS) — à repasser en révision avant le rattrapage. */
+  missed: { id: string; track: "vocab" | "grammar"; skill?: Skill }[];
 }
 
 /** Compteurs journaliers SRS (nouveaux mots + révisions) et d'activité. */
@@ -238,6 +274,8 @@ interface LearnDB extends DBSchema {
   stories: { key: string; value: StoryRecord; indexes: { createdAt: number; lessonId: string } };
   lessons: { key: string; value: GeneratedLessonRecord };
   lessonProgress: { key: string; value: LessonProgressRecord };
+  /** Copies rendues aux contrôles de fin de leçon (v14), indexées par leçon. */
+  exams: { key: string; value: ExamRecord; indexes: { lessonId: string } };
   /** Jobs de génération en cours (reprise après rechargement), clé = lessonId. */
   genJobs: { key: string; value: GenJobRecord };
   /** Packs podcast pré-générés (script), clé = lessonId (SPEC §11). */
@@ -272,7 +310,7 @@ interface LearnDB extends DBSchema {
 
 const DB_NAME = "learn-japan";
 /** Version du schéma — embarquée dans les sauvegardes cloud (refus d'importer plus récent). */
-export const DB_VERSION = 13;
+export const DB_VERSION = 14;
 
 let dbPromise: Promise<IDBPDatabase<LearnDB>> | null = null;
 
@@ -345,6 +383,10 @@ export function getDB(): Promise<IDBPDatabase<LearnDB>> {
         // v13: illustrations d'histoires (ukiyo-e), cache blob local par id d'histoire.
         if (!db.objectStoreNames.contains("storyImages")) {
           db.createObjectStore("storyImages", { keyPath: "id" });
+        }
+        // v14: copies des contrôles de fin de leçon (index par leçon pour l'historique).
+        if (!db.objectStoreNames.contains("exams")) {
+          db.createObjectStore("exams", { keyPath: "id" }).createIndex("lessonId", "lessonId");
         }
       },
     });
@@ -472,6 +514,17 @@ export async function getLessonProgress(id: string): Promise<LessonProgressRecor
 }
 export async function allLessonProgress(): Promise<LessonProgressRecord[]> {
   return (await getDB()).getAll("lessonProgress");
+}
+
+// Contrôles de fin de leçon (copies rendues) ---------------------------------
+export async function putExam(rec: ExamRecord): Promise<void> {
+  await (await getDB()).put("exams", rec);
+}
+export async function examsForLesson(lessonId: string): Promise<ExamRecord[]> {
+  return (await getDB()).getAllFromIndex("exams", "lessonId", lessonId);
+}
+export async function allExams(): Promise<ExamRecord[]> {
+  return (await getDB()).getAll("exams");
 }
 
 // Jobs de génération (reprise après rechargement) ----------------------------

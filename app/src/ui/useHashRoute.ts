@@ -12,6 +12,7 @@ export type Route =
   | { kind: "articles" }
   | { kind: "catalogue" }
   | { kind: "review"; from: string }
+  | { kind: "exam"; id: string; from: string }
   | { kind: "course"; id: string; from: string }
   | { kind: "reader"; id: string; from: string }
   | { kind: "settings"; from: string }
@@ -47,6 +48,8 @@ function parseRoute(location: string): Route {
       return { kind: "catalogue" };
     case "revision":
       return { kind: "review", from };
+    case "controle":
+      return segs[1] ? { kind: "exam", id: decodeURIComponent(segs[1]), from } : { kind: "home" };
     case "cours":
       return segs[1]
         ? { kind: "course", id: decodeURIComponent(segs[1]), from }
@@ -81,7 +84,8 @@ export function isFocusedActivityRoute(route: Route): boolean {
     route.kind === "reader" ||
     route.kind === "course" ||
     route.kind === "flow" ||
-    route.kind === "review"
+    route.kind === "review" ||
+    route.kind === "exam"
   );
 }
 

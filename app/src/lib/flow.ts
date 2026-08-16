@@ -23,6 +23,7 @@ export type FlowActivityKind =
   | "review" // cartes dues, objectif du jour pas atteint
   | "reinforce" // objectif atteint mais backlog dû
   | "read-story" // lire une histoire de la leçon en cours
+  | "exam" // contrôle de la leçon en cours (le 関所) : il ouvre la suivante
   | "lesson" // découvrir la prochaine leçon prête
   | "mirror" // relecture-miroir (une vieille histoire, pour mesurer le chemin)
   | "omikuji" // tirage du jour
@@ -50,6 +51,8 @@ export interface FlowState {
     /** Première histoire de la leçon jamais ouverte (meta storyRead absent). */
     unreadStoryId?: string;
     unreadStoryTitle?: string;
+    /** Contrôle ouvert (leçon assez travaillée) et pas encore réussi. */
+    examDue?: boolean;
   };
   nextLesson?: { id: string; title: string; ready: boolean };
   mirrorCandidate?: { storyId: string; title: string; ageDays: number };
@@ -65,6 +68,8 @@ const OMIKUJI_AFTER_MS = 5 * 60 * 1000;
  *    (alternance travail/plaisir) ;
  * ② révisions si des cartes sont dues et l'objectif du jour pas atteint ;
  * ③ omikuji si pas encore tiré et ≥ 5 min de flux (le tirage se mérite) ;
+ * ③bis contrôle de la leçon en cours dès qu'il est ouvert : c'est lui qui débloque la
+ *    suite, il passe donc AVANT la découverte d'une nouvelle leçon ;
  * ④ prochaine leçon si elle est prête et débloquée ;
  * ⑤ relecture-miroir si un candidat existe ;
  * ⑥ histoire non lue de la leçon en cours (même sans révision préalable) ;
@@ -90,6 +95,14 @@ export function pickNext(state: FlowState): FlowActivity {
       kind: "omikuji",
       title: "Omikuji du jour",
       reason: "Tire ta fortune au temple — un petit défi t'attend.",
+    };
+  }
+  if (s.currentLesson?.examDue && s.lastActivity !== "exam") {
+    return {
+      kind: "exam",
+      refId: s.currentLesson.id,
+      title: `Contrôle — ${s.currentLesson.title}`,
+      reason: "Le poste de contrôle est ouvert : franchis la barrière pour ouvrir la suite.",
     };
   }
   if (s.nextLesson?.ready && s.lastActivity !== "lesson") {
@@ -181,6 +194,7 @@ export async function gatherFlowState(
           title: current.title,
           unreadStoryId: unread?.id,
           unreadStoryTitle: unread ? (unread.titleFr ?? unread.title) : undefined,
+          examDue: current.examEligible && !current.examPassed,
         }
       : undefined,
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,

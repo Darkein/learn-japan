@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { StoryRecord } from "../lib/db";
+import { EXAM, SRS } from "../lib/config";
 import { grammarDetail } from "../lib/inventory";
 import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
 import { markLessonStarted, type Lesson } from "../lib/lessons";
@@ -24,12 +25,20 @@ interface Props {
   lesson: Lesson;
   onOpenStory: (story: StoryRecord) => void;
   onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
+  /** Ouvre le contrôle de fin de leçon (le 関所) — c'est lui qui débloque la suivante. */
+  onStartExam?: (lessonId: string) => void;
   /** Rendu en aperçu (couche voisine du carrousel) : neutralise les effets de bord au montage
    * (pas de génération auto du cours ni de `markLessonStarted`) et masque les actions d'en-tête. */
   preview?: boolean;
 }
 
-export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = false }: Props) {
+export function CourseDetail({
+  lesson,
+  onOpenStory,
+  onStartReview,
+  onStartExam,
+  preview = false,
+}: Props) {
   const stories = lesson.stories;
   const { job, busy, error, start, addStory, regenerateCourse, progress, label, retry, dismiss } =
     useLessonGen(lesson);
@@ -153,16 +162,22 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
           follow={podcast.playing && podcast.autoNavigate}
         />
 
-        {/* En fin de leçon : on vérifie ses acquis après l'avoir parcourue. Les items
-            de la leçon entrent en rotation SRS et chaque réponse est replanifiée. */}
-        {onStartReview && ready && !busy && (
-          <div className="flex justify-center py-2">
-            <Button
-              onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
-              title="Questions sur tout le vocabulaire et la grammaire de la leçon — les réponses alimentent la répétition espacée"
-            >
-              Vérifier mes acquis
-            </Button>
+        {/* Deux gestes distincts, et il ne faut pas les confondre : l'ENTRAÎNEMENT (corrigé
+            au fil de l'eau, auto-noté, à volonté) et le CONTRÔLE (une épreuve notée, qui
+            seule ouvre la leçon suivante). */}
+        {/* Le CONTRÔLE, lui, ne dépend pas du cours généré : son sujet sort de l'inventaire
+            et des cartes SRS de la leçon — il reste donc passable hors-ligne. */}
+        {!busy && (
+          <div className="flex flex-col items-center gap-3 py-2">
+            {onStartReview && ready && (
+              <Button
+                onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
+                title="Questions sur tout le vocabulaire et la grammaire de la leçon — les réponses alimentent la répétition espacée"
+              >
+                S'entraîner sur la leçon
+              </Button>
+            )}
+            {onStartExam && <ExamEntry lesson={lesson} onStartExam={onStartExam} />}
           </div>
         )}
 
@@ -270,6 +285,57 @@ export function CourseDetail({ lesson, onOpenStory, onStartReview, preview = fal
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Entrée du contrôle (le 関所). Trois états : pas encore ouvert (la leçon n'est pas assez
+ * travaillée — on affiche ce qu'il manque), ouvert (l'épreuve), déjà franchi (la note et
+ * la possibilité de repasser pour améliorer sa copie).
+ */
+function ExamEntry({
+  lesson,
+  onStartExam,
+}: {
+  lesson: Lesson;
+  onStartExam: (lessonId: string) => void;
+}) {
+  const eligible = lesson.unlockProgress >= SRS.examEligibility;
+  const pct = Math.round(lesson.unlockProgress * 100);
+  const need = Math.round(SRS.examEligibility * 100);
+
+  if (lesson.examPassed) {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <span className="text-sm text-accent-2">
+          関所 franchi — contrôle réussi{lesson.examNote != null ? ` (${lesson.examNote}/20)` : ""}
+        </span>
+        <button
+          className="cursor-pointer text-sm text-muted underline"
+          onClick={() => onStartExam(lesson.id)}
+        >
+          Repasser le contrôle →
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <Button
+        variant="primary"
+        disabled={!eligible}
+        onClick={() => onStartExam(lesson.id)}
+        title={`Épreuve notée sur 20 (admission à ${EXAM.passMark}) — c'est elle qui débloque la leçon suivante`}
+      >
+        {lesson.examAttempts > 0 ? "Passer le rattrapage" : "Passer le contrôle"}
+      </Button>
+      <span className="text-xs text-muted">
+        {eligible
+          ? `Sur 20, admission à ${EXAM.passMark} — débloque la leçon suivante.`
+          : `Le contrôle s'ouvre à ${need} % d'éléments stabilisés (${pct} % pour l'instant).`}
+      </span>
+    </div>
   );
 }
 

@@ -39,9 +39,9 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
   const summary = summarize(lesson);
-  // Leçon en cours : c'est ELLE qui porte la jauge de déblocage (sa propre progression vers
-  // le déblocage de la suivante). La leçon verrouillée juste en dessous n'a plus de barre —
-  // elle répétait la même information (la progression de la leçon précédente).
+  // Leçon en cours : c'est ELLE qui porte la jauge — la progression vers l'OUVERTURE de son
+  // contrôle (le déblocage, lui, se joue à l'épreuve). La leçon verrouillée juste en dessous
+  // n'a plus de barre : elle répétait la même information.
   const inProgress = !!lesson.startedAt && !lesson.completedAt;
 
   const [gaugeWidth, setGaugeWidth] = useState(0);
@@ -92,8 +92,8 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
 
         {lesson.locked ? (
           <p className="m-0 text-sm text-muted">
-            Consolide{lesson.prevTitle ? (
-              <> <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
+            Passe le contrôle{lesson.prevTitle ? (
+              <> de <span className="font-medium text-text">«&nbsp;{lesson.prevTitle}&nbsp;»</span></>
             ) : null}{" "}
             pour débloquer cette leçon
           </p>
@@ -107,15 +107,17 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
               />
               <div
                 className="absolute inset-y-0 w-0.5 bg-text/40"
-                style={{ left: `${Math.round(SRS.unlockMastery * 100)}%` }}
+                style={{ left: `${Math.round(SRS.examEligibility * 100)}%` }}
               />
             </div>
             <div className="flex justify-between text-xs text-muted">
               <span>{gaugeWidth} %</span>
               <span>
-                {lesson.unlockProgress >= SRS.unlockMastery
-                  ? "leçon suivante débloquée ✓"
-                  : `débloque la suite à ${Math.round(SRS.unlockMastery * 100)} %`}
+                {lesson.examPassed
+                  ? `contrôle réussi ✓${lesson.examNote != null ? ` (${lesson.examNote}/20)` : ""}`
+                  : lesson.unlockProgress >= SRS.examEligibility
+                    ? "contrôle ouvert — à passer"
+                    : `contrôle à ${Math.round(SRS.examEligibility * 100)} %`}
               </span>
             </div>
           </div>
