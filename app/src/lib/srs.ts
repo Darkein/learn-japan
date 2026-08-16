@@ -52,6 +52,39 @@ export function review(card: Card, grade: SrsGrade, now: Date = new Date()): Car
   return scheduler.next(card, now, GRADE_TO_RATING[grade]).card;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Écart minimal, en millisecondes, avant qu'une carte SŒUR (autre compétence du même mot)
+ * puisse retomber. Voir `spaceSkillCards`.
+ */
+export const SKILL_GAP_MS = SRS.skillGapDays * DAY_MS;
+
+/**
+ * Espace les compétences d'un même mot. Les trois cartes (écrit / écoute / production) sont
+ * planifiées indépendamment : trois échéances tirées séparément finissent par se suivre, et
+ * le mot semble revenir tous les jours même noté « facile » à chaque passage — c'est le cas
+ * des tout premiers mots appris (私, 今日), dont les trois cartes ont été amorcées à
+ * quelques jours d'intervalle.
+ *
+ * On repousse donc à `now + skillGapDays` les cartes du mot qui tomberaient dans la foulée
+ * de celle qu'on vient de réviser. Seule `due` bouge — stabilité, difficulté et historique
+ * FSRS restent intacts, et une révision retardée est correctement prise en compte (l'écart
+ * réel est mesuré depuis `last_review`). Jamais d'avancement : une échéance déjà lointaine
+ * n'est pas touchée.
+ */
+export function spaceSkillCards(
+  cards: Partial<Record<string, Card>>,
+  graded: string,
+  now: Date = new Date(),
+): void {
+  const floor = now.getTime() + SKILL_GAP_MS;
+  for (const [skill, card] of Object.entries(cards)) {
+    if (skill === graded || !card) continue;
+    if (card.due.getTime() < floor) card.due = new Date(floor);
+  }
+}
+
 /** La carte est-elle due à la date donnée ? */
 export function isDue(card: Card, now: Date = new Date()): boolean {
   return card.due.getTime() <= now.getTime();

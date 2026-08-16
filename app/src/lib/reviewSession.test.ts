@@ -744,14 +744,26 @@ describe("compétence production (cards.production, cloze en contexte)", () => {
   });
 
   it("amorçage : écrit stable (Review + intervalle de déblocage) avec exemple, plafonné à prodSeeds", async () => {
+    // Écoute déjà amorcée (carte non due) : l'amorçage écoute laisse donc ces mots à
+    // l'amorçage production, qui refuse de doubler une amorce du même jour.
     for (let i = 0; i < SRS.prodSeeds + 1; i++) {
-      await vocabProd(`seed${i}|seed${i}`, { written: stableCard(10) });
+      await vocabProd(`seed${i}|seed${i}`, { written: stableCard(10), oral: stableCard(10) });
     }
     const session = await buildSession(NOW, { scope: "due" });
     const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
     expect(prods.length).toBe(SRS.prodSeeds);
     const seeded = await getVocab("seed0|seed0");
     expect(seeded?.cards.production).toBeDefined();
+  });
+
+  it("un mot ne reçoit pas l'amorce écoute ET l'amorce production le même jour", async () => {
+    await vocabProd("双|そう", { written: stableCard(10) });
+    const session = await buildSession(NOW, { scope: "due" });
+    const mine = session.filter((c) => c.id === "双|そう");
+    expect(mine).toHaveLength(1);
+    expect(mine[0].skill).toBe("oral");
+    // La production reste à amorcer : une session ultérieure s'en chargera.
+    expect((await getVocab("双|そう"))?.cards.production).toBeUndefined();
   });
 
   it("pas d'amorçage sous l'intervalle de déblocage, ni sans exemple", async () => {
@@ -784,5 +796,84 @@ describe("compétence production (cards.production, cloze en contexte)", () => {
     const item = await getVocab("本|ほん");
     expect(item!.cards.production!.reps).toBe(1);
     expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
+  });
+});
+
+describe("espacement des compétences d'un même mot", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  function overdue(): Card {
+    return { ...newCard(new Date("2020-01-01")), state: State.Review, scheduled_days: 7, reps: 3 };
+  }
+
+  it("un mot dû sur plusieurs compétences ne passe qu'une fois, l'autre carte est repoussée EN BASE", async () => {
+    await putVocab({
+      id: "私|わたし",
+      surface: "私",
+      reading: "わたし",
+      meaning: "je, moi",
+      tags: [],
+      status: "review",
+      cards: { written: overdue(), oral: overdue(), production: overdue() },
+      example: { ja: "私は学生です。", fr: "Je suis étudiant." },
+    });
+
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.filter((c) => c.id === "私|わたし")).toHaveLength(1);
+
+    // Repoussées en base, pas seulement sautées : le badge de révisions lit le store.
+    const item = (await getVocab("私|わたし"))!;
+    const floor = NOW.getTime() + SRS.skillGapDays * DAY;
+    expect(item.cards.oral!.due.getTime()).toBe(floor);
+    expect(item.cards.production!.due.getTime()).toBe(floor);
+    // La compétence servie garde son échéance : c'est la note qui la replanifiera.
+    expect(item.cards.written!.due.getTime()).toBe(overdue().due.getTime());
+  });
+
+  it("noter une compétence repousse les autres cartes du mot", async () => {
+    const soon = { ...overdue(), due: new Date(NOW.getTime() + DAY) };
+    await putVocab({
+      id: "今日|きょう",
+      surface: "今日",
+      reading: "きょう",
+      meaning: "aujourd'hui",
+      tags: [],
+      status: "review",
+      cards: { written: overdue(), oral: soon, production: soon },
+      example: { ja: "今日は暑い。", fr: "Il fait chaud aujourd'hui." },
+    });
+
+    const session = await buildSession(NOW, { scope: "due" });
+    const card = session.find((c) => c.id === "今日|きょう")!;
+    await gradeCard(card, "easy", NOW);
+
+    const item = (await getVocab("今日|きょう"))!;
+    const floor = NOW.getTime() + SRS.skillGapDays * DAY;
+    for (const skill of ["written", "oral", "production"] as const) {
+      expect(item.cards[skill]!.due.getTime()).toBeGreaterThanOrEqual(floor);
+    }
+  });
+
+  it("les exercices d'une histoire passent les mots les plus urgents d'abord", async () => {
+    // Un mot planifié loin (déjà su) ne doit pas prendre la place d'un mot dû.
+    const far = { ...overdue(), due: new Date(NOW.getTime() + 90 * DAY) };
+    const ids: string[] = [];
+    for (let i = 0; i < SRS.sessionAllCap + 2; i++) {
+      const id = `mot${i}|mot${i}`;
+      ids.push(id);
+      await putVocab({
+        id,
+        surface: `mot${i}`,
+        reading: `mot${i}`,
+        meaning: `sens-${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: i < 2 ? far : overdue() },
+      });
+    }
+
+    const session = await buildSession(NOW, { scope: "story", vocabIds: ids });
+    expect(session).toHaveLength(SRS.sessionAllCap);
+    expect(session.some((c) => c.id === "mot0|mot0" || c.id === "mot1|mot1")).toBe(false);
   });
 });

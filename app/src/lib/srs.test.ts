@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isDue, isMastered, isUnlockReady, newCard, review } from "./srs";
+import { isDue, isMastered, isUnlockReady, newCard, review, spaceSkillCards } from "./srs";
+import { SRS } from "./config";
 import { State } from "ts-fsrs";
 
 describe("SRS (FSRS)", () => {
@@ -60,5 +61,35 @@ describe("isUnlockReady (seuil léger, découplé de la maîtrise)", () => {
 
   it("false sous le seuil de déblocage", () => {
     expect(isUnlockReady({ ...newCard(), state: State.Review, scheduled_days: 3 })).toBe(false);
+  });
+});
+
+describe("spaceSkillCards (espacement des compétences d'un même mot)", () => {
+  const NOW = new Date("2026-06-23T08:00:00Z");
+  const at = (days: number) => new Date(NOW.getTime() + days * 24 * 60 * 60 * 1000);
+  const cardDue = (days: number) => ({ ...newCard(NOW), due: at(days) });
+
+  it("repousse les autres compétences qui tombent dans la fenêtre", () => {
+    const cards = { written: cardDue(0), oral: cardDue(1), production: cardDue(2) };
+    spaceSkillCards(cards, "written", NOW);
+    const floor = NOW.getTime() + SRS.skillGapDays * 24 * 60 * 60 * 1000;
+    expect(cards.oral.due.getTime()).toBe(floor);
+    expect(cards.production.due.getTime()).toBe(floor);
+    // La carte notée n'est jamais touchée : FSRS vient de la planifier.
+    expect(cards.written.due.getTime()).toBe(at(0).getTime());
+  });
+
+  it("ne touche pas une échéance déjà au-delà de la fenêtre (jamais d'avancement)", () => {
+    const cards = { written: cardDue(0), oral: cardDue(30) };
+    spaceSkillCards(cards, "written", NOW);
+    expect(cards.oral.due.getTime()).toBe(at(30).getTime());
+  });
+
+  it("ne touche ni la stabilité ni l'historique FSRS", () => {
+    const oral = { ...newCard(NOW), due: at(1), stability: 12.5, reps: 4, lapses: 1 };
+    spaceSkillCards({ written: cardDue(0), oral }, "written", NOW);
+    expect(oral.stability).toBe(12.5);
+    expect(oral.reps).toBe(4);
+    expect(oral.lapses).toBe(1);
   });
 });

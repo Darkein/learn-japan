@@ -40,6 +40,16 @@ S'activent **progressivement**, dans cet ordre :
 
 L'état SRS est suivi **par compétence**.
 
+**Espacement entre compétences** (`SRS.skillGapDays`, `spaceSkillCards`) : trois cartes
+planifiées séparément finissent par tomber les unes après les autres, et un mot appris tôt
+(私, 今日) revient un jour sur deux alors qu'il est noté « facile » à chaque passage. Un mot
+ne passe donc **qu'une fois par session**, toutes compétences confondues, et réviser une
+compétence repousse les autres cartes du mot à `now + skillGapDays`. Seule l'échéance bouge :
+stabilité, difficulté et historique FSRS restent intacts (une révision retardée est
+correctement prise en compte, l'écart étant mesuré depuis `last_review`). Même règle pour les
+**amorces** d'écoute et de production, qui sont dues sur-le-champ : jamais sur un mot déjà au
+programme du jour ni révisé dans la fenêtre.
+
 ### 2.2b Le triangle de révision (reconnaissance écrite)
 Un mot porte trois **faces** : **kanji** (sa graphie), **furigana** (sa lecture en kana) et
 **traduction** (son sens FR). La révision écrite part de l'une et en demande une autre — **six
