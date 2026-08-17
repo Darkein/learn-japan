@@ -79,7 +79,7 @@ function faceDistractors(
  * courants, et tout passer en kana ferait perdre les frontières de mots (は/へ lus à la
  * lettre) sans rien garantir de plus.
  */
-function sentenceSpeechText(v: VocabItem, ja: string): string {
+export function sentenceSpeechText(v: VocabItem, ja: string): string {
   if (!hasKanji(v.surface) || !ja.includes(v.surface)) return ja;
   const spoken = wordSpeechText(v.surface, v.reading);
   return spoken === v.surface ? ja : ja.split(v.surface).join(spoken);
@@ -419,12 +419,13 @@ function shuffleWithAnswer(correct: string, distractors: string[]): { choices: s
 const RULE_NEIGHBORS = 8;
 
 /**
- * Règles d'autres points de grammaire (référentiel statique) → distracteurs sans LLM.
- * Priorité aux points introduits près du point cible dans le curriculum : des règles
- * du même thème/moment d'apprentissage sont confondables, une règle sans rapport rend
- * le QCM trivial par élimination.
+ * Règles VOISINES d'un point de grammaire (référentiel statique), dans l'ordre de
+ * proximité curriculaire — le vivier de distracteurs, sans LLM. Des règles du même
+ * thème/moment d'apprentissage sont confondables, une règle sans rapport rend le QCM
+ * trivial par élimination. Renvoyé NON mélangé : l'appelant décide de son tirage (la
+ * révision mélange librement, le contrôle mélange sous PRNG seedé — cf. lib/exam.ts).
  */
-function ruleDistractors(excludeId: string, n = 3): string[] {
+export function neighborRules(excludeId: string): string[] {
   const pool = allGrammarInv().filter((g) => g.id !== excludeId);
   const order = grammarLessonOrder();
   const target = order.get(excludeId);
@@ -438,7 +439,11 @@ function ruleDistractors(excludeId: string, n = 3): string[] {
             return da - db;
           })
           .slice(0, RULE_NEIGHBORS);
-  return shuffle(candidates.map((g) => g.ruleFr)).slice(0, n);
+  return candidates.map((g) => g.ruleFr);
+}
+
+function ruleDistractors(excludeId: string, n = 3): string[] {
+  return shuffle(neighborRules(excludeId)).slice(0, n);
 }
 
 /**

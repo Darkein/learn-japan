@@ -17,6 +17,7 @@ import type { Card } from "ts-fsrs";
 import type {
   ComprehensionItem,
   EncounterRecord,
+  ExamRecord,
   GrammarItem,
   LessonProgressRecord,
   MetaRecord,
@@ -72,6 +73,8 @@ export interface SyncSnapshot {
     comprehension: ComprehensionItem[];
     reviews: ReviewLog[];
     lessonProgress: LessonProgressRecord[];
+    /** Copies des contrôles de fin de leçon (v14) : elles portent le déblocage des leçons. */
+    exams: ExamRecord[];
     srsDaily: SrsDailyRecord[];
     encounters: EncounterRecord[];
     omikuji: OmikujiRecord[];
@@ -83,17 +86,18 @@ export interface SyncSnapshot {
 
 type SyncStoreName = keyof SyncSnapshot["stores"];
 const SYNC_STORES: SyncStoreName[] = [
-  "vocab", "grammar", "comprehension", "reviews", "lessonProgress",
+  "vocab", "grammar", "comprehension", "reviews", "lessonProgress", "exams",
   "srsDaily", "encounters", "omikuji", "meta", "stories",
 ];
 
 /** Sérialise tout le progrès local. Ne touche à aucun store de cache/blob. */
 export async function exportSnapshot(): Promise<SyncSnapshot> {
   const db = await getDB();
-  const [vocab, grammar, comprehension, reviews, lessonProgress, srsDaily, encounters, omikuji, meta, stories] =
+  const [vocab, grammar, comprehension, reviews, lessonProgress, exams, srsDaily, encounters, omikuji, meta, stories] =
     await Promise.all([
       db.getAll("vocab"), db.getAll("grammar"), db.getAll("comprehension"),
-      db.getAll("reviews"), db.getAll("lessonProgress"), db.getAll("srsDaily"),
+      db.getAll("reviews"), db.getAll("lessonProgress"), db.getAll("exams"),
+      db.getAll("srsDaily"),
       db.getAll("encounters"), db.getAll("omikuji"), db.getAll("meta"), db.getAll("stories"),
     ]);
   return {
@@ -105,7 +109,7 @@ export async function exportSnapshot(): Promise<SyncSnapshot> {
       // Journal borné : le seul store à croissance illimitée. Trier serait inutile,
       // l'autoIncrement garantit l'ordre chronologique — on garde la fin.
       reviews: reviews.slice(-REVIEWS_CAP),
-      lessonProgress, srsDaily, encounters, omikuji,
+      lessonProgress, exams, srsDaily, encounters, omikuji,
       meta: meta.filter((m) => !LOCAL_META.test(m.key)),
       stories,
     },
@@ -180,6 +184,8 @@ export async function importSnapshot(s: SyncSnapshot): Promise<void> {
   replace("comprehension", comprehension);
   replace("reviews", s.stores.reviews);
   replace("lessonProgress", s.stores.lessonProgress);
+  // Sauvegarde d'avant les contrôles (v13) : le store manque, on ne l'écrase pas.
+  if (s.stores.exams) replace("exams", s.stores.exams);
   replace("srsDaily", s.stores.srsDaily);
   replace("encounters", s.stores.encounters);
   replace("omikuji", s.stores.omikuji);

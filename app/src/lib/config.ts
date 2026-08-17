@@ -50,7 +50,6 @@ export const SRS = {
    * pendant des semaines.
    */
   unlockIntervalDays: 4,
-  unlockMastery: 0.8,
   leechLapses: 4,
   /** Exercices d'écoute max par session (cartes dues), et amorces de nouvelles cartes écoute. */
   listenMax: 5,
@@ -66,4 +65,57 @@ export const SRS = {
    * seul maître des intervalles — on ne fait que décaler l'échéance d'une carte sœur.
    */
   skillGapDays: 3,
+  /**
+   * Part des items assez stables (`unlockProgress`) à partir de laquelle le CONTRÔLE de fin
+   * de leçon s'ouvre : le droit de SE PRÉSENTER, pas le déblocage — celui-ci s'obtient à
+   * l'épreuve (lib/exam.ts). Volontairement bas : le contrôle est l'évaluation, pas une
+   * récompense pour l'avoir déjà dépassée ; mais on ne se présente pas sans avoir travaillé.
+   */
+  examEligibility: 0.6,
+} as const;
+
+/**
+ * Contrôle de fin de leçon (le 関所, lib/exam.ts). Barème pensé pour tomber sur 20 quand la
+ * leçon fournit toute la matière — la MOITIÉ des points porte sur la leçon elle-même
+ * (règle, emploi, correction, cours), l'autre sur la restitution (dictée, lecture, version,
+ * thème). Une section sans matière est retirée et le total baisse d'autant : la note reste
+ * ramenée sur 20 plutôt qu'un exercice bâclé pour tenir un total rond.
+ *
+ *   dictée 3 · lecture 3×1 · version 2×1 · thème 2×1
+ *   règle 1×2 · emploi 1×2 · correction 1×2 · cours 2×1 · compréhension 2×1  =  20
+ */
+export const EXAM = {
+  /** Note minimale d'admission (sur 20) : elle seule débloque la leçon suivante. */
+  passMark: 12,
+  /** Options d'un QCM de contrôle (bonne réponse comprise). */
+  choices: 4,
+  /**
+   * Nombre de questions visé par section. La matière commande : un mot ne passant qu'une
+   * fois dans tout le sujet, une leçon pauvre rend moins de questions (cf. allocateWords).
+   */
+  counts: {
+    lecture: 3,
+    version: 2,
+    theme: 2,
+    regle: 1,
+    usage: 1,
+    cours: 2,
+    comprehension: 2,
+  },
+  /** Points par QUESTION, section par section. */
+  points: {
+    dictee: 3,
+    lecture: 1,
+    version: 1,
+    theme: 1,
+    regle: 2,
+    usage: 2,
+    correction: 2,
+    cours: 1,
+    comprehension: 1,
+  },
+  /** Écoutes autorisées sur une question de dictée — après, on écrit ce qu'on a retenu. */
+  listens: 2,
+  /** Fraction de station gagnée sur la route en cours quand la barrière est franchie. */
+  tokaidoBonus: 0.5,
 } as const;

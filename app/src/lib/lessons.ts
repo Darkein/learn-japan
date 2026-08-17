@@ -22,6 +22,7 @@ import {
   type CurriculumEntry,
 } from "./curriculum";
 import {
+  allExams,
   allGrammar,
   allVocab,
   getGeneratedLesson,
@@ -31,6 +32,8 @@ import {
   putLessonProgress,
   putStoryImage,
   storiesForLesson,
+  examsForLesson,
+  type ExamRecord,
   type GeneratedLessonRecord,
   type GrammarItem,
   type LessonProgressRecord,
@@ -53,6 +56,8 @@ export interface Lesson extends CurriculumEntry {
   stories: StoryRecord[];
   completedAt?: number;
   startedAt?: number;
+  /** Date d'admission au contrôle (progression locale) — fait foi pour le déblocage. */
+  examPassedAt?: number;
   /** Contenu pré-généré disponible en cache R2 (cours + au moins une histoire). */
   pregenerated: boolean;
   /** Numéros de variantes disponibles en R2 mais pas encore matérialisées localement. */
@@ -61,10 +66,22 @@ export interface Lesson extends CurriculumEntry {
   mastery: number;
   /** Part des items assez stables pour le déblocage (0..1) — seuil léger, voir isUnlockReady. */
   unlockProgress: number;
-  /** La leçon est-elle verrouillée par le seuil de déblocage de la précédente ? */
+  /** La leçon est-elle verrouillée faute d'admission au contrôle de la précédente ? */
   locked: boolean;
+  /**
+   * Contrôle de fin de leçon (le 関所, lib/exam.ts) — la DOUBLE CLÉ du parcours :
+   * `examEligible` (assez d'items stabilisés) donne le droit de se présenter,
+   * `examPassed` (admission) débloque la leçon suivante.
+   */
+  examEligible: boolean;
+  examPassed: boolean;
+  /** Meilleure note obtenue (sur 20), absente tant qu'aucune copie n'a été rendue. */
+  examNote?: number;
+  examAttempts: number;
   /** Progression de déblocage de la leçon précédente (pour la jauge du verrou). */
   prevUnlockProgress?: number;
+  /** La leçon précédente a-t-elle passé son contrôle ? (message du verrou) */
+  prevExamPassed?: boolean;
   /** Titre de la leçon précédente (pour le message de débloquage). */
   prevTitle?: string;
   /** Leçon débloquée naturellement (par maîtrise, pas par "commencer quand même"). */
@@ -186,11 +203,18 @@ export function computeUnlockProgress(
   return computeProgress(entry, vocabMap, grammarMap, isUnlockReady);
 }
 
-/** Marque la leçon comme terminée dès que sa progression de déblocage atteint le seuil. */
-function maybeAutoComplete(lesson: Lesson): void {
-  if (lesson.completedAt || !lesson.startedAt || lesson.unlockProgress < SRS.unlockMastery) return;
-  lesson.completedAt = Date.now();
-  void markLessonCompleted(lesson.id);
+/**
+ * Une leçon n'est plus « terminée » par simple accumulation d'intervalles FSRS : elle l'est
+ * quand son CONTRÔLE est réussi (`submitExam` écrit `completedAt` + `examPassedAt`). Les
+ * leçons terminées avant l'arrivée des contrôles gardent leur `completedAt` — on ne
+ * redemande pas de repasser derrière soi.
+ */
+function applyExamState(lesson: Lesson, exams: ExamRecord[]): void {
+  const mine = exams.filter((e) => e.lessonId === lesson.id);
+  lesson.examAttempts = mine.length;
+  lesson.examPassed = mine.some((e) => e.passed) || !!lesson.examPassedAt;
+  if (mine.length > 0) lesson.examNote = Math.max(...mine.map((e) => e.note));
+  lesson.examEligible = lesson.unlockProgress >= SRS.examEligibility;
 }
 
 async function hydrate(
@@ -224,11 +248,15 @@ async function hydrate(
     stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,
+    examPassedAt: progress?.examPassedAt,
     pregenerated,
     remoteStoryVariants,
     mastery: 0,
     unlockProgress: 0,
     locked: false,
+    examEligible: false,
+    examPassed: false,
+    examAttempts: 0,
     notifiedUnlock: progress?.unlockedNotified ?? false,
   };
 }
@@ -248,6 +276,7 @@ async function loadSrsMaps(): Promise<{
 export async function listLessons(): Promise<Lesson[]> {
   const remoteIndex = await loadGeneratedIndex();
   const { vocabMap, grammarMap } = await loadSrsMaps();
+  const exams = await allExams();
 
   const lessons = await Promise.all(
     getCurriculum().map((e) => hydrate(e, remoteIndex)),
@@ -256,15 +285,18 @@ export async function listLessons(): Promise<Lesson[]> {
   for (let i = 0; i < lessons.length; i++) {
     lessons[i].mastery = computeMastery(lessons[i], vocabMap, grammarMap);
     lessons[i].unlockProgress = computeUnlockProgress(lessons[i], vocabMap, grammarMap);
-    maybeAutoComplete(lessons[i]);
+    applyExamState(lessons[i], exams);
     const prev = i > 0 ? lessons[i - 1] : null;
-    const prevUnlock = prev ? prev.unlockProgress : 1;
-    lessons[i].prevUnlockProgress = prev ? prevUnlock : undefined;
+    lessons[i].prevUnlockProgress = prev ? prev.unlockProgress : undefined;
     lessons[i].prevTitle = prev ? prev.title : undefined;
-    lessons[i].locked = !!prev && prevUnlock < SRS.unlockMastery && !lessons[i].startedAt;
+    lessons[i].prevExamPassed = prev ? prev.examPassed : undefined;
+    // Le verrou tombe à l'ADMISSION au contrôle de la leçon précédente — plus au simple
+    // franchissement d'un seuil de maîtrise. Une leçon déjà commencée (y compris via
+    // « Commencer quand même ») reste ouverte : on ne referme jamais une porte franchie.
+    lessons[i].locked = !!prev && !prev.examPassed && !lessons[i].startedAt;
     lessons[i].unlockedNaturally =
       !!prev &&
-      prevUnlock >= SRS.unlockMastery &&
+      prev.examPassed &&
       !lessons[i].startedAt &&
       !lessons[i].completedAt &&
       lessons[i].state === "ready" &&
@@ -312,7 +344,7 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   const lesson = await hydrate(entry, remoteIndex);
   lesson.mastery = computeMastery(lesson, vocabMap, grammarMap);
   lesson.unlockProgress = computeUnlockProgress(lesson, vocabMap, grammarMap);
-  maybeAutoComplete(lesson);
+  applyExamState(lesson, await examsForLesson(entry.id));
   // locked non calculable sans la leçon précédente
   lesson.locked = false;
   lesson.prevUnlockProgress = undefined;
@@ -347,16 +379,6 @@ export async function markLessonStarted(id: string): Promise<void> {
   const next: LessonProgressRecord = { ...prev, startedAt: prev.startedAt ?? Date.now() };
   await putLessonProgress(next);
   void enrollLesson(id);
-}
-
-async function markLessonCompleted(id: string): Promise<void> {
-  const prev = (await getLessonProgress(id)) ?? { id };
-  const next: LessonProgressRecord = {
-    ...prev,
-    startedAt: prev.startedAt ?? Date.now(),
-    completedAt: Date.now(),
-  };
-  await putLessonProgress(next);
 }
 
 // ---- Génération de contenu d'une leçon (partagée UI / podcast) --------------

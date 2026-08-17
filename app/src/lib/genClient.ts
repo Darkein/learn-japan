@@ -9,6 +9,7 @@
 import { WORKER_URL } from "./config";
 import {
   parseComprehensionQcm,
+  parseExamText,
   parseStoryTranslation,
   type ComprehensionQuestion,
   type StoryTranslation,
@@ -17,7 +18,14 @@ import {
 export type { ComprehensionQuestion, StoryTranslation };
 
 export interface GenParams {
-  kind?: "story" | "lesson" | "lesson-story" | "story-translation" | "comprehension-qcm";
+  kind?:
+    | "story"
+    | "lesson"
+    | "lesson-story"
+    | "story-translation"
+    | "comprehension-qcm"
+    | "exam-text"
+    | "exam-lesson-qcm";
   level?: number;
   // kind: "story" (génération libre du lecteur)
   theme?: string;
@@ -323,4 +331,75 @@ export async function generateComprehensionQcm(
     { timeoutMs: opts.timeoutMs ?? 120_000 },
   );
   return parseComprehensionQcm(raw, grammar.ids);
+}
+
+/**
+ * Sujet de compréhension d'un CONTRÔLE de fin de leçon : un texte japonais INÉDIT écrit à
+ * partir des seuls objectifs de la leçon (jamais une de ses histoires — on vérifie ce qui
+ * a été enseigné, pas ce qui a été lu), suivi de son QCM en français. `attempt` varie le
+ * sujet d'une tentative à l'autre (il entre dans le prompt, donc dans la clé de cache R2).
+ * Renvoie null si rien d'exploitable n'arrive : la section est alors retirée du contrôle.
+ */
+export async function generateExamText(
+  input: {
+    lessonId: string;
+    title: string;
+    level: number;
+    vocab: { ja: string; yomi?: string; fr: string }[];
+    grammar: { ids: string[]; labels: string[] };
+  },
+  attempt: number,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<{ text: string; questions: ComprehensionQuestion[] } | null> {
+  const raw = await generateText(
+    {
+      kind: "exam-text",
+      lessonId: input.lessonId,
+      title: input.title,
+      level: input.level,
+      vocab: input.vocab,
+      grammar: input.grammar.labels,
+      variant: attempt,
+    },
+    onState,
+    { timeoutMs: opts.timeoutMs ?? 120_000 },
+  );
+  const parsed = parseExamText(raw, input.grammar.ids);
+  return parsed.text && parsed.questions.length > 0 ? parsed : null;
+}
+
+/**
+ * Questions de COURS d'un contrôle : ce que la leçon enseigne (rôle d'une particule, cas
+ * d'omission, piège fréquent), en français. N'envoie que les objectifs structurés de la
+ * leçon — jamais le texte du cours : le Worker compose seul son prompt. `attempt` varie la
+ * série d'une tentative à l'autre. Tableau vide si rien d'exploitable n'arrive : la section
+ * est alors retirée du contrôle et son barème avec.
+ */
+export async function generateExamLessonQcm(
+  input: {
+    lessonId: string;
+    title: string;
+    level: number;
+    vocab: { ja: string; yomi?: string; fr: string }[];
+    grammar: { ids: string[]; labels: string[] };
+  },
+  attempt: number,
+  onState?: (s: GenState) => void,
+  opts: { timeoutMs?: number } = {},
+): Promise<ComprehensionQuestion[]> {
+  const raw = await generateText(
+    {
+      kind: "exam-lesson-qcm",
+      lessonId: input.lessonId,
+      title: input.title,
+      level: input.level,
+      vocab: input.vocab,
+      grammar: input.grammar.labels,
+      variant: attempt,
+    },
+    onState,
+    { timeoutMs: opts.timeoutMs ?? 120_000 },
+  );
+  return parseComprehensionQcm(raw, input.grammar.ids);
 }

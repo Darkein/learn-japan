@@ -38,6 +38,7 @@ import { FlowSession } from "./FlowSession";
 import { Stats } from "./Stats";
 import { Voyage } from "./Voyage";
 import { ReviewSession } from "./ReviewSession";
+import { ExamSession } from "./exam/ExamSession";
 import { SettingsProvider, useSettings } from "./useSettings";
 import { initReminders, refreshReminderState } from "../lib/reminders";
 import { stopSentence } from "../lib/tts";
@@ -262,6 +263,10 @@ function AppShell() {
     navigate(`/revision?from=${encodeURIComponent(currentLocation())}`);
   }
 
+  function startExam(lessonId: string) {
+    navigate(`/controle/${encodeURIComponent(lessonId)}?from=${encodeURIComponent(currentLocation())}`);
+  }
+
   function back() {
     const from = "from" in route ? route.from : "/";
     setRefreshKey((n) => n + 1);
@@ -319,6 +324,15 @@ function AppShell() {
       </div>
     );
   }
+  if (route.kind === "exam") {
+    return (
+      <div className={SHELL} style={subpagePadding}>
+        <ReaderPage title="Contrôle" onBack={back}>
+          <ExamSession lessonId={route.id} onExit={back} onStartReview={startReview} />
+        </ReaderPage>
+      </div>
+    );
+  }
   if (route.kind === "course" && course) {
     return (
       <div className={SHELL} style={subpagePadding}>
@@ -332,7 +346,7 @@ function AppShell() {
             nbLessons.prev
               ? () => (
                   <ReaderPage title={nbLessons.prev!.title} onBack={back}>
-                    <CourseDetail lesson={nbLessons.prev!} onOpenStory={openStory} onStartReview={startReview} preview />
+                    <CourseDetail lesson={nbLessons.prev!} onOpenStory={openStory} onStartReview={startReview} onStartExam={startExam} preview />
                   </ReaderPage>
                 )
               : undefined
@@ -341,14 +355,14 @@ function AppShell() {
             nbLessons.next
               ? () => (
                   <ReaderPage title={nbLessons.next!.title} onBack={back}>
-                    <CourseDetail lesson={nbLessons.next!} onOpenStory={openStory} onStartReview={startReview} preview />
+                    <CourseDetail lesson={nbLessons.next!} onOpenStory={openStory} onStartReview={startReview} onStartExam={startExam} preview />
                   </ReaderPage>
                 )
               : undefined
           }
           current={
             <ReaderPage title={course.title} onBack={back}>
-              <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} />
+              <CourseDetail lesson={course} onOpenStory={openStory} onStartReview={startReview} onStartExam={startExam} />
             </ReaderPage>
           }
         />

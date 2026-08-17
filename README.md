@@ -18,7 +18,13 @@ niveau, furigana et **gloss littéral déterministes** (kuromoji), révision esp
 - ✅ Quiz de lecture déterministe (lecture de kanji + particule) → pistes kanji & grammaire.
 - ✅ Histoires persistées + « pourquoi cette histoire » (onglet **Histoires**).
 - ✅ Échauffement SRS des éléments dus (onglet **Réviser**).
-- ⏳ À venir : compréhension QCM (LLM), mode voiture (TTS), catalogue/tags (Phase 2).
+- ✅ **Contrôle de fin de leçon** (le 関所) : une vraie épreuve notée /20 — dictée, lecture,
+  version, thème, puis **règle, emploi, correction et cours** (la moitié des points porte sur
+  ce que la leçon enseigne) — sans correction en cours d'épreuve ni auto-notation. Son
+  **admission** (12/20) débloque la leçon suivante ; la copie corrigée est conservée, les
+  réponses alimentent le SRS, et un **bulletin** donne la moyenne générale.
+  Voir [`SPEC.md`](SPEC.md) §5b.
+- ⏳ À venir : mode voiture (TTS), catalogue/tags (Phase 2).
 
 ## Développement
 

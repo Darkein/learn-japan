@@ -37,6 +37,8 @@ export type GenKind =
   | "lesson-story"
   | "story-translation"
   | "comprehension-qcm"
+  | "exam-text"
+  | "exam-lesson-qcm"
   | "vocab-examples"
   | "mnemonic"
   | "word-mnemonic";
@@ -440,6 +442,109 @@ export function buildComprehensionQcmPrompt(r: GenerateRequest): string {
 }
 
 /**
+ * Sujet de compréhension d'un CONTRÔLE de fin de leçon (app : lib/exam.ts). Contrairement
+ * au QCM de compréhension, qui commente une histoire déjà lue, ici le texte est INÉDIT et
+ * n'est construit QUE sur les objectifs de la leçon : c'est ce qui a été enseigné qu'on
+ * vérifie, pas ce qui a été lu. Le numéro de tentative entre dans le prompt — donc dans la
+ * clé de cache — pour qu'un rattrapage tombe sur un autre texte.
+ * Sortie : le texte japonais, puis le QCM au format « N. [Gk] question » + propositions
+ * « + » / « - » (même parseur client que comprehension-qcm).
+ */
+export function buildExamTextPrompt(r: GenerateRequest): string {
+  const level = cleanLevel(r.level);
+  const title = clean(r.title, LIMITS.title);
+  const vocab = cleanVocab(r.vocab);
+  const grammar = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
+  const attempt = cleanVariant(r.variant);
+  const grammarBlock = grammar.length
+    ? grammar.map((g, i) => `G${i + 1}. ${g}`).join("\n")
+    : "(aucun point de grammaire fourni)";
+
+  return [
+    `Tu rédiges le sujet de compréhension d'un contrôle de japonais (niveau JLPT N${level}${title ? `, leçon « ${title} »` : ""}).`,
+    "",
+    "Vocabulaire de la leçon (le texte doit s'appuyer dessus) :",
+    vocab.map((v, i) => `${i + 1}. ${fmtVocab(v)}`).join("\n") || "(aucun)",
+    "",
+    "Points de grammaire de la leçon (référence pour le tag de chaque question) :",
+    grammarBlock,
+    "",
+    `Écris d'abord un TEXTE japonais INÉDIT de 3 à 5 phrases courtes (sujet n°${attempt} : ne réutilise pas la même situation d'un sujet à l'autre).`,
+    "Contraintes du texte : uniquement le vocabulaire ci-dessus, les mots grammaticaux courants et la grammaire de niveau N" +
+      `${level} ; aucune explication, aucun titre, aucun furigana, aucun romaji, aucune traduction.`,
+    "",
+    "Rédige ensuite exactement 3 questions de COMPRÉHENSION en FRANÇAIS sur le SENS du texte (qui fait quoi, où, quand, pourquoi) — jamais une traduction mot à mot, jamais une question sur la graphie.",
+    "Chaque question a 4 propositions en français, dont une seule correcte.",
+    grammar.length
+      ? "Tague chaque question avec le point de grammaire qu'elle sollicite le plus ([G1], [G2]…), ou [G0] si aucun."
+      : "Préfixe chaque question par [G0].",
+    "",
+    "Format STRICT, sans aucune autre ligne :",
+    "TEXTE",
+    "<les phrases japonaises>",
+    "QUESTIONS",
+    "1. [G1] Pourquoi le chat est-il content ?",
+    "+ Parce qu'il a mangé.",
+    "- Parce qu'il a dormi.",
+    "- Parce qu'il a plu.",
+    "- Parce qu'il est parti.",
+  ].join("\n");
+}
+
+/**
+ * Questions de COURS d'un contrôle (app : lib/exam.ts, section « Le cours »). Là où les
+ * autres exercices vérifient la restitution (lire, traduire, écrire), celles-ci vérifient
+ * qu'on a compris ce que la leçon ENSEIGNE : ce que marque une particule, pourquoi elle
+ * tombe parfois, quel piège guette. Entrée : uniquement les objectifs structurés de la
+ * leçon (titre, vocabulaire, points de grammaire AVEC leur règle) — jamais de texte libre,
+ * la garantie « aucun prompt brut » du Worker reste intacte. Le n° de tentative varie les
+ * questions (et donc la clé de cache).
+ * Sortie : le même format QCM que comprehension-qcm (« N. [Gk] question » + « + » / « - »).
+ */
+export function buildExamLessonQcmPrompt(r: GenerateRequest): string {
+  const level = cleanLevel(r.level);
+  const title = clean(r.title, LIMITS.title);
+  const vocab = cleanVocab(r.vocab);
+  const grammar = cleanList(r.grammar, LIMITS.grammarList, LIMITS.grammarItem);
+  const attempt = cleanVariant(r.variant);
+  const grammarBlock = grammar.length
+    ? grammar.map((g, i) => `G${i + 1}. ${g}`).join("\n")
+    : "(aucun point de grammaire fourni)";
+
+  return [
+    `Tu rédiges la partie « cours » d'un contrôle de japonais pour un francophone (niveau JLPT N${level}${title ? `, leçon « ${title} »` : ""}).`,
+    "",
+    "Points de grammaire enseignés par la leçon, avec leur règle :",
+    grammarBlock,
+    "",
+    vocab.length ? `Vocabulaire de la leçon : ${vocab.map(fmtVocab).join(" ; ")}.` : "",
+    "",
+    `Rédige exactement 3 questions à choix multiple EN FRANÇAIS (série n°${attempt} : varie les angles d'une série à l'autre) qui vérifient la COMPRÉHENSION DU COURS, pas la mémoire du vocabulaire.`,
+    "Chaque question porte sur un point de grammaire ci-dessus et teste l'un de ces angles :",
+    "- ce que la forme MARQUE ou À QUOI elle sert (« que marque を ? ») ;",
+    "- quand elle est OMISE ou remplacée, et pourquoi (« pourquoi は disparaît-il parfois ? ») ;",
+    "- le PIÈGE fréquent ou la confusion avec un point voisin (は vs が, を vs に…) ;",
+    "- la conséquence d'un mauvais emploi sur le SENS de la phrase.",
+    "Interdits : questions de traduction, questions sur la graphie ou la lecture d'un mot, questions dont la réponse est juste le nom du point.",
+    "Les quatre propositions doivent être plausibles et de longueur comparable ; une seule est correcte.",
+    grammar.length
+      ? "Tague chaque question avec le point concerné ([G1], [G2]…), ou [G0] si elle porte sur la leçon en général."
+      : "Préfixe chaque question par [G0].",
+    "",
+    "Format STRICT, sans aucune autre ligne : pour chaque question, une ligne « N. [Gk] question », puis ses 4 propositions, une par ligne, préfixées par « + » (bonne réponse) ou « - ». Exemple :",
+    "1. [G1] Que marque la particule を ?",
+    "+ Le complément d'objet direct : ce sur quoi porte l'action.",
+    "- Le thème de la phrase, ce dont on parle.",
+    "- Le lieu où se déroule l'action.",
+    "- Le moyen utilisé pour agir.",
+    "",
+    "Questions ET propositions uniquement en français (les formes japonaises citées restent en japonais). Réponds uniquement avec le QCM.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
  * Phrases d'exemple pour un lot de mots de vocabulaire (corpus statique, généré au
  * build par scripts/build-examples.ts). Une phrase très courte par mot, contenant le
  * mot tel quel, en privilégiant un lexique déjà connu de l'apprenant — la conformité
@@ -652,6 +757,10 @@ export function composePrompt(req: GenerateRequest): string {
       return buildStoryTranslationPrompt(req);
     case "comprehension-qcm":
       return buildComprehensionQcmPrompt(req);
+    case "exam-text":
+      return buildExamTextPrompt(req);
+    case "exam-lesson-qcm":
+      return buildExamLessonQcmPrompt(req);
     case "vocab-examples":
       return buildVocabExamplesPrompt(req);
     case "mnemonic":
