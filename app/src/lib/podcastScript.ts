@@ -103,7 +103,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 8;
+export const PACK_VERSION = 9;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
