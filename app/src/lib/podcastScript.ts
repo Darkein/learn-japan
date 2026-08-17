@@ -40,6 +40,15 @@ export interface PodcastSegment {
   baseTokenIndex?: number;
   /** Fragments voicés (segment mixte FR/JA) : une seule synthèse multi-voix. */
   parts?: TtsPart[];
+  /**
+   * Index du bloc AFFICHÉ (lib/lessonMarkdown.parseBlocks) dont ce segment est issu —
+   * chapitre « cours » seulement. Donne à CourseDetail le bloc à surligner SANS recherche
+   * floue de texte : les amorces parlées (« Pour résumer. ») et les rangées de tableau
+   * linéarisées n'existent pas telles quelles dans le Markdown, donc `findBlockForSegment`
+   * ne saurait pas les retrouver. Toujours l'index d'un bloc de PREMIER niveau (le rendu ne
+   * surligne que ceux-là) : les segments issus d'un encadré portent l'index de l'encadré.
+   */
+  blockIndex?: number;
   /** Id de l'histoire à laquelle ce segment appartient (surlignage Reader, suivi CourseDetail). */
   storyId?: string;
 }
@@ -247,6 +256,54 @@ function isJapaneseLine(s: string): boolean {
 
 const utf8 = new TextEncoder();
 
+/** Budget réel du TEXTE d'un fragment, une fois retiré le coût de son enrobage SSML. */
+const RUN_BUDGET_BYTES = TTS_SSML_BUDGET_BYTES - TTS_SSML_PART_WRAP_BYTES;
+
+// Frontières de découpe d'un fragment trop long, de la plus naturelle à la dernière chance.
+const SENTENCE_SPLIT = /(?<=[.!?…。！？])\s*/;
+const CLAUSE_SPLIT = /(?<=[,、;:，])\s*/;
+
+/**
+ * Scinde UN fragment qui excède à lui seul le budget SSML. `splitByBudget` ne coupe qu'entre
+ * fragments : une longue ligne japonaise pure (un seul fragment) lui échappait entièrement et
+ * partait telle quelle au Worker, qui refusait le SSML — et segmentPlayer coupait alors toute
+ * la lecture après sa relance unique. On coupe d'abord aux fins de phrase, puis aux virgules,
+ * et en dernier recours au caractère : la lecture reste possible dans tous les cas.
+ */
+function splitOversizedRun(run: TtsPart): TtsPart[] {
+  if (utf8.encode(run.text).length <= RUN_BUDGET_BYTES) return [run];
+  const pack = (pieces: string[]): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    for (const piece of pieces) {
+      if (cur && utf8.encode(cur + piece).length > RUN_BUDGET_BYTES) {
+        out.push(cur);
+        cur = "";
+      }
+      cur += piece;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  const byChar = (s: string): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    for (const ch of s) {
+      if (utf8.encode(cur + ch).length > RUN_BUDGET_BYTES) {
+        out.push(cur);
+        cur = "";
+      }
+      cur += ch;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  const chunks = pack(run.text.split(SENTENCE_SPLIT))
+    .flatMap((c) => (utf8.encode(c).length > RUN_BUDGET_BYTES ? pack(c.split(CLAUSE_SPLIT)) : [c]))
+    .flatMap((c) => (utf8.encode(c).length > RUN_BUDGET_BYTES ? byChar(c) : [c]));
+  return chunks.filter((t) => t.trim()).map((text) => ({ lang: run.lang, text }));
+}
+
 /** Scinde une suite de fragments en groupes tenant chacun dans le budget SSML (config.ts). */
 function splitByBudget(runs: TtsPart[]): TtsPart[][] {
   const groups: TtsPart[][] = [];
@@ -269,13 +326,39 @@ function splitByBudget(runs: TtsPart[]): TtsPart[][] {
 // Ponctuation de fin de phrase de la prose (FR + JA) : frontière naturelle de segment.
 const PROSE_SENTENCE_END = new Set([".", "!", "?", "…", "。", "！", "？"]);
 
-/** Groupes de fragments → segments : fusionnés en `parts` si ≥ 2 fragments, simples sinon. */
-function runsToSegments(runs: TtsPart[], label: string): RawSegment[] {
-  return splitByBudget(runs).map((group) =>
-    group.length === 1
-      ? { chapter: "cours" as const, lang: group[0].lang, text: group[0].text.trim(), label }
-      : { chapter: "cours" as const, lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: group, label },
-  );
+/** Options d'émission d'un segment de cours (cf. `emit`). */
+interface EmitOpts {
+  label: string;
+  /** Index du bloc AFFICHÉ dont ce segment est issu (surlignage du cours). */
+  blockIndex?: number;
+  /** Blanc APRÈS le dernier segment émis. */
+  pauseAfterMs?: number;
+}
+
+/**
+ * Entonnoir UNIQUE de production des segments de cours : prose, phrase d'exemple, rangée de
+ * tableau, puce, amorce — tout passe par ici. C'est ce qui garantit en UN seul endroit les
+ * trois invariants du chapitre :
+ *  - le budget SSML est respecté (un énoncé trop long fait échouer la synthèse, et
+ *    segmentPlayer coupe alors TOUTE la lecture après une relance unique) ;
+ *  - aucun énoncé vide n'est émis (le Worker les rejette : même conséquence) ;
+ *  - le blanc éventuel tombe APRÈS le dernier groupe, jamais au milieu d'un énoncé scindé.
+ *
+ * Fragments fusionnés en `parts` si le groupe en compte ≥ 2, segment simple sinon.
+ */
+function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
+  const kept = runs.filter((r) => r.text.trim()).flatMap(splitOversizedRun);
+  if (!kept.length) return [];
+  const groups = splitByBudget(kept);
+  return groups.map((group, gi) => ({
+    chapter: "cours" as const,
+    ...(group.length === 1
+      ? { lang: group[0].lang, text: group[0].text.trim() }
+      : { lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: group }),
+    label: opts.label,
+    ...(opts.blockIndex != null ? { blockIndex: opts.blockIndex } : {}),
+    ...(gi === groups.length - 1 && opts.pauseAfterMs ? { pauseAfterMs: opts.pauseAfterMs } : {}),
+  }));
 }
 
 /**
@@ -301,7 +384,7 @@ function proseSegments(text: string, label = "Cours"): RawSegment[] {
   };
   const flushSentence = () => {
     flushRun();
-    if (runs.length) out.push(...runsToSegments(runs, label));
+    if (runs.length) out.push(...emit(runs, { label }));
     runs = [];
     lang = null;
   };
@@ -347,7 +430,7 @@ function coursSegments(framing: string): RawSegment[] {
     for (const line of lines) {
       if (isJapaneseLine(line)) {
         const text = stripFurigana(stripMarkdown(line));
-        if (text) out.push({ chapter: "cours", lang: "ja", text, label: currentLabel });
+        out.push(...emit([{ lang: "ja", text }], { label: currentLabel }));
       } else {
         out.push(...proseSegments(line, currentLabel));
       }

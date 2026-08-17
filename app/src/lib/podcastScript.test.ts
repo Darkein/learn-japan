@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Lesson } from "./lessons";
 import { splitJaSentences } from "./kana";
+import { TTS_SSML_BUDGET_BYTES } from "./config";
 import {
   activeTrackIndex,
   buildComprehensionAudio,
@@ -208,6 +209,28 @@ describe("buildPodcastScript", () => {
     // La concaténation des segments reconstitue tout le texte (aucune perte à la scission).
     const joined = cours.map((s) => s.text).join(" ");
     expect(joined.match(/は/g)).toHaveLength(4);
+  });
+
+  // Le chemin japonais pur n'avait AUCUN garde-fou de budget : une phrase d'exemple très
+  // longue partait telle quelle, le Worker refusait le SSML, et segmentPlayer coupait toute
+  // la lecture après sa relance unique.
+  it("scinde aussi une ligne japonaise pure trop longue (budget SSML)", () => {
+    const longJa = "これはとても長い文です。".repeat(200); // ~6 600 octets UTF-8
+    const cours = buildPodcastScript(lesson({ ...base, framing: longJa, stories: [] }), {})
+      .filter((s) => s.chapter === "cours");
+    expect(cours.length).toBeGreaterThan(1);
+    for (const seg of cours) {
+      const bytes = new TextEncoder().encode(seg.text).length;
+      expect(bytes).toBeLessThanOrEqual(TTS_SSML_BUDGET_BYTES);
+    }
+  });
+
+  it("n'émet jamais un énoncé vide (le Worker les rejette, la lecture s'arrêterait)", () => {
+    const framing = ":::info\n\n:::\n\n***\n\n| a |  |\n|---|---|\n|  |  |\n\nUn texte.";
+    const script = buildPodcastScript(lesson({ ...base, framing, stories: [] }), {});
+    for (const seg of script) {
+      expect(segmentParts(seg).some((p) => p.text.trim() !== "")).toBe(true);
+    }
   });
 
   it("retire le furigana entre parenthèses des exemples japonais", () => {
