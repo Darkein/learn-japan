@@ -2,7 +2,7 @@
 // tableaux, exemples `:::example` (paires JP / traduction), encadrés `:::info|warning|…`.
 // Aucun React ici : le rendu vit dans ui/LessonMarkdown.tsx.
 
-import { stripFurigana } from "./podcastScript";
+import { stripFurigana } from "./kana";
 
 export type Block =
   | { kind: "heading"; level: number; text: string }

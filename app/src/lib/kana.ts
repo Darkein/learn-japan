@@ -108,6 +108,18 @@ export function answerVariants(...entries: string[]): string[] {
   return [...out];
 }
 
+// Parenthèse ne contenant QUE du kana (+ ー・ et espaces) = furigana ajouté au mot japonais.
+const FURIGANA_PARENS = /[（(][\s぀-ヿｦ-ﾟ]+[)）]/g;
+
+/**
+ * Retire le furigana entre parenthèses d'un texte japonais (« 私（わたし） » → « 私 »). Sans
+ * cela, la voix japonaise prononcerait DEUX fois le mot (le kanji puis sa lecture kana). On
+ * ne touche pas aux parenthèses contenant des kanji ou du latin : ce n'est pas du furigana.
+ */
+export function stripFurigana(s: string): string {
+  return s.replace(FURIGANA_PARENS, "").replace(/\s{2,}/g, " ").trim();
+}
+
 const JA_SENTENCE_END = /[。！？．!?]/;
 
 /** Vrai si le caractère est une ponctuation finale de phrase japonaise. */

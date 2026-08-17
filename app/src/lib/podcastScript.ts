@@ -11,11 +11,16 @@
 
 import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES } from "./config";
 import type { ComprehensionQuestion } from "./genClient";
-import { isKana, isKanji, splitJaSentences } from "./kana";
+import { isKana, isKanji, splitJaSentences, stripFurigana } from "./kana";
 import type { PlayerSentence } from "./tts";
 import type { TtsPart } from "./ttsClient";
 import type { VocabEntry } from "./curriculum";
 import type { Lesson } from "./lessons";
+
+// Ré-export : `stripFurigana` vit désormais dans kana.ts (lib/lessonMarkdown.ts l'importe, et
+// ce module importe parseBlocks — le passer par kana.ts casse le cycle). Les appelants
+// historiques continuent de le trouver ici.
+export { stripFurigana };
 
 export type PodcastChapter = "cours" | "quiz" | "histoire" | "comprehension";
 
@@ -223,18 +228,6 @@ function stripMarkdown(s: string): string {
     .replace(/[*_`>#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-// Parenthèse ne contenant QUE du kana (+ ー・ et espaces) = furigana ajouté au mot japonais.
-const FURIGANA_PARENS = /[（(][\s぀-ヿｦ-ﾟ]+[)）]/g;
-
-/**
- * Retire le furigana entre parenthèses d'un texte japonais (« 私（わたし） » → « 私 »). Sans
- * cela, la voix japonaise prononcerait DEUX fois le mot (le kanji puis sa lecture kana). On
- * ne touche pas aux parenthèses contenant des kanji ou du latin : ce n'est pas du furigana.
- */
-export function stripFurigana(s: string): string {
-  return s.replace(FURIGANA_PARENS, "").replace(/\s{2,}/g, " ").trim();
 }
 
 /**
