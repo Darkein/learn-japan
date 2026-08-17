@@ -422,6 +422,34 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     ]);
   });
 
+  // Un titre était émis en UN fragment français, japonais compris : la voix française
+  // écorchait les particules citées (は y sortait « ka »), sans espace ni prononciation juste.
+  it("découpe aussi un TITRE par langue", () => {
+    const segs = cours("# La première phrase : は et を");
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "La première phrase : " },
+      { lang: "ja", text: "わ" },
+      { lang: "fr", text: " et " },
+      { lang: "ja", text: "お" },
+    ]);
+  });
+
+  // Les guillemets ne s'entendent pas, mais ils privaient le point final de tout mot où
+  // s'accrocher : la synthèse le verbalisait (« … quant à… point »).
+  it("retire les guillemets du texte parlé et recolle la ponctuation orpheline", () => {
+    const segs = cours("Il signifie « en ce qui concerne… », « quant à… ».");
+    expect(segs[0].text).toBe("Il signifie « en ce qui concerne… », « quant à… »."); // affichage intact
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "Il signifie en ce qui concerne…, quant à…" },
+    ]);
+  });
+
+  it("préserve l'espace typographique française devant les deux-points", () => {
+    expect(segmentParts(cours("La règle : elle est simple.")[0])).toEqual([
+      { lang: "fr", text: "La règle : elle est simple." },
+    ]);
+  });
+
   it("garde la ponctuation japonaise du côté japonais", () => {
     const segs = cours(":::example\n猫がいる。\n> Il y a un chat.\n:::");
     expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "猫がいる。" }]);

@@ -382,6 +382,24 @@ function speakCitedParticle(run: TtsPart): TtsPart {
   return reading ? { ...run, text: run.text.replace(run.text.trim(), reading) } : run;
 }
 
+/**
+ * Texte à PRONONCER d'un fragment. Les guillemets français ne s'entendent pas — mais ils
+ * cassent la ponctuation qui les suit : dans « quant à… ». , la synthèse ne sait à quel mot
+ * rattacher le point final et le VERBALISE (« point »). On les retire donc du texte parlé, en
+ * recollant la ponctuation restée orpheline. Le `text` du segment, lui, garde la typographie
+ * de la leçon : c'est lui qui s'affiche et qui sert au suivi de lecture.
+ */
+function speechText(s: string): string {
+  return s
+    // Guillemet fermant : il emporte l'espace qui le précède, et recolle au mot la
+    // ponctuation qui le suit — sans quoi ce point n'a plus rien où s'accrocher.
+    .replace(/\s*[»”](?=\s*[,.;:!?…])/g, "")
+    .replace(/\s*[»”]/g, "")
+    .replace(/[«“„‟]\s*/g, "")
+    .replace(/…\s*\./g, "…") // « … ». → un seul terminateur
+    .replace(/\s{2,}/g, " ");
+}
+
 /** Options d'émission d'un segment de cours (cf. `emit`). */
 interface EmitOpts {
   label: string;
@@ -418,7 +436,7 @@ function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
   return groups.map((group) => {
     // Ce qui est PRONONCÉ peut différer de ce qui est ÉCRIT (particule citée) : `text` reste
     // le texte de la leçon, `parts` porte la version parlée.
-    const spoken = group.map(speakCitedParticle);
+    const spoken = group.map(speakCitedParticle).map((r) => ({ ...r, text: speechText(r.text) }));
     const rewritten = spoken.some((r, i) => r.text !== group[i].text);
     return {
       chapter: "cours" as const,
@@ -617,7 +635,10 @@ function blockSegments(b: Block, opts: EmitOpts): RawSegment[] {
     case "hr":
       return []; // rien à dire : le blanc du bloc précédent marque déjà la coupure
     case "heading":
-      return withTrailingPause(emit([{ lang: "fr", text: stripMarkdown(b.text) }], opts), SECTION_PAUSE_MS);
+      // Par lineSegments, et non en un fragment français d'un bloc : un titre cite très
+      // souvent du japonais (« La première phrase : は et を »), que la voix française
+      // écorche — は y sort « ka ».
+      return withTrailingPause(lineSegments(b.text, opts), SECTION_PAUSE_MS);
     case "para":
     case "quote":
       return withTrailingPause(proseLines(b.lines, opts), BLOCK_PAUSE_MS);
