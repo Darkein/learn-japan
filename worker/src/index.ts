@@ -449,13 +449,25 @@ function resolvePart(env: Env, p: TtsPart): { text: string; voice: string; langu
 }
 
 /**
- * SSML multi-voix : concaténation brute des fragments (ils portent leur espacement),
- * chaque fragment dont la voix diffère de la voix requête étant enveloppé dans
- * <voice name="…"> — une seule synthèse, prosodie continue entre les langues.
+ * Respiration insérée à chaque BASCULE DE VOIX. Sans elle, un mot japonais cité au milieu
+ * d'une phrase française est collé à ses voisins : « thème は et を » sortait d'un seul tenant,
+ * le mot cité indistinguable du reste. L'espacement du texte ne suffit pas — la synthèse
+ * l'absorbe de part et d'autre d'une balise <voice>.
+ */
+const VOICE_SWITCH_BREAK_MS = 150;
+
+/**
+ * SSML multi-voix : concaténation des fragments (ils portent leur espacement), chaque fragment
+ * dont la voix diffère de la voix requête étant enveloppé dans <voice name="…"> — une seule
+ * synthèse, prosodie continue entre les langues — et un <break> à chaque changement de voix.
  */
 function buildPartsSsml(parts: { text: string; voice: string }[], requestVoice: string): string {
   const body = parts
-    .map((p) => (p.voice === requestVoice ? escapeXml(p.text) : `<voice name="${p.voice}">${escapeXml(p.text)}</voice>`))
+    .map((p, i) => {
+      const pause = i > 0 && parts[i - 1].voice !== p.voice ? `<break time="${VOICE_SWITCH_BREAK_MS}ms"/>` : "";
+      const said = p.voice === requestVoice ? escapeXml(p.text) : `<voice name="${p.voice}">${escapeXml(p.text)}</voice>`;
+      return pause + said;
+    })
     .join("");
   return `<speak>${body}</speak>`;
 }

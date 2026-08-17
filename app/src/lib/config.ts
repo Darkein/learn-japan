@@ -25,6 +25,16 @@ export const TTS_VOICES = {
 
 export type TtsLang = keyof typeof TTS_VOICES;
 
+/**
+ * Débit de SYNTHÈSE (Cloud TTS `speakingRate`), légèrement sous la normale : un cours lu à
+ * vitesse d'annonce est fatigant, et un natif à vitesse normale reste illisible pour un
+ * débutant. À ne pas confondre avec la vitesse de LECTURE réglable par l'utilisateur
+ * (`playbackRate`, lib/segmentPlayer.ts), qui s'applique par-dessus.
+ *
+ * Il entre dans la clé de cache TTS (lib/ttsClient.ts) : le modifier re-synthétise tout.
+ */
+export const TTS_RATE = 0.95;
+
 // Budget d'un énoncé multi-voix (contrainte du backend TTS : Google limite une requête à
 // 5 000 octets de SSML). L'assembleur de script (podcastScript.ts) scinde aux frontières
 // de fragments au-delà de ce budget ; la marge couvre l'enrobage <speak>/<voice>.

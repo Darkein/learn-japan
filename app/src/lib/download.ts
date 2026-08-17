@@ -62,8 +62,13 @@ type OnProgress = (p: Progress) => void;
 
 // ---- Flags « téléchargé » (store meta) ---------------------------------------
 
-/** À incrémenter si le CONTENU d'un téléchargement change (nouvel asset requis). */
-export const DOWNLOAD_VERSION = 2;
+/**
+ * À incrémenter si le CONTENU d'un téléchargement change (nouvel asset requis) — y compris
+ * quand ce sont les CLÉS de cache audio qui changent (voix ou débit, cf. TTS_RATE) : l'audio
+ * matérialisé devient alors inadressable, et sans ce bump la leçon resterait affichée
+ * « téléchargée » avec un cache qui ne répond plus.
+ */
+export const DOWNLOAD_VERSION = 3;
 
 interface StoryDlMeta {
   at: number;
