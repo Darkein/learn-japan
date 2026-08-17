@@ -167,8 +167,10 @@ describe("buildPodcastScript", () => {
           { lang: "fr", text: "La particule " },
           // Citée seule, は se PRONONCE « wa » : `parts` porte le kana qui sonne juste,
           // `text` garde la graphie de la leçon (c'est lui qui sert au suivi de lecture).
-          { lang: "ja", text: "わ " },
-          { lang: "fr", text: "marque le thème." },
+          // Les espaces encadrantes appartiennent au français : le fragment japonais est
+          // réduit au strict japonais.
+          { lang: "ja", text: "わ" },
+          { lang: "fr", text: " marque le thème." },
         ],
         label: "Cours",
         blockIndex: 0,
@@ -320,6 +322,15 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     expect(texts).toEqual(["Neutre, Affirmatif : する, Négatif : しない"]);
   });
 
+  // L'amorce n'existe que pour protéger le cas où la phrase fautive tombe sans prévenir.
+  // Quand la leçon ouvre le piège par son explication française — le cas courant — elle
+  // ferait doublon : « On entend souvent, à tort : Erreur fréquente : … ».
+  it("n'annonce PAS un piège que la leçon explique déjà en français", () => {
+    const texts = cours(":::pitfall\nErreur fréquente : on ne dit pas 私は日本語をできます。\n:::").map((s) => s.text);
+    expect(texts.some((t) => t.startsWith("On entend souvent"))).toBe(false);
+    expect(texts[0]).toContain("Erreur fréquente");
+  });
+
   it("annonce le contre-exemple d'un :::pitfall AVANT de le prononcer", () => {
     const segs = cours(FRAMING);
     const lead = segs.findIndex((s) => s.text.startsWith("On entend souvent"));
@@ -392,8 +403,37 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     expect(segs[0].text).toBe("La particule は marque le thème."); // graphie de la leçon, intacte
     expect(segs[0].parts).toEqual([
       { lang: "fr", text: "La particule " },
-      { lang: "ja", text: "わ " },
-      { lang: "fr", text: "marque le thème." },
+      { lang: "ja", text: "わ" },
+      { lang: "fr", text: " marque le thème." },
+    ]);
+  });
+
+  // Un caractère neutre héritait de la langue en cours : dans « thème は + objet », le « + »
+  // atterrissait donc dans le fragment japonais, que la voix lisait « プラス ». Et comme は
+  // n'était plus seul dans son fragment, il échappait aussi à la correction de prononciation.
+  it("laisse les symboles neutres à la voix française, entre deux mots japonais", () => {
+    const segs = cours("L'ordre est rigide : thème は + objet を + verbe");
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "L'ordre est rigide : thème " },
+      { lang: "ja", text: "わ" },
+      { lang: "fr", text: " + objet " },
+      { lang: "ja", text: "お" },
+      { lang: "fr", text: " + verbe" },
+    ]);
+  });
+
+  it("garde la ponctuation japonaise du côté japonais", () => {
+    const segs = cours(":::example\n猫がいる。\n> Il y a un chat.\n:::");
+    expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "猫がいる。" }]);
+  });
+
+  // « On dit 日本語ができます。 » compte plus de caractères japonais que latins : la ligne
+  // partait ENTIÈRE en voix japonaise, qui écorchait « On dit ».
+  it("ne confie pas une ligne mixte entière à la voix japonaise", () => {
+    const segs = cours("On dit 日本語ができます。");
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "On dit " },
+      { lang: "ja", text: "日本語ができます。" },
     ]);
   });
 

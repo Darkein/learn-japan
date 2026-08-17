@@ -320,6 +320,17 @@ const CLOSING_DELIMS = new Set(["»", "”", "\"", ")", "]", "}", "、", "，", 
 /** Au moins une lettre ou un chiffre : sans ça, il n'y a rien à PRONONCER. */
 const SPEAKABLE = /[\p{L}\p{N}]/u;
 
+// Ponctuation japonaise : elle appartient à la voix japonaise. Laissée au français, un 。
+// final se détacherait de la phrase qu'il termine.
+// `…` en est volontairement absent : il sert autant au français (« en ce qui concerne… »).
+const JA_PUNCT = new Set(["。", "、", "！", "？", "「", "」", "『", "』", "・", "〜", "（", "）"]);
+
+/** Langue d'un caractère, ou `null` s'il est NEUTRE (espace, ponctuation latine, symbole). */
+function charLang(ch: string): "ja" | "fr" | null {
+  if (isKana(ch) || isKanji(ch) || JA_PUNCT.has(ch)) return "ja";
+  return /[A-Za-zÀ-ÿ0-9]/.test(ch) ? "fr" : null;
+}
+
 /** Vrai si le caractère peut OUVRIR une phrase (majuscule, chiffre, ouvrant, japonais). */
 function startsSentence(ch: string): boolean {
   return /[A-ZÀ-ÖØ-Þ0-9«“"([]/.test(ch) || isKana(ch) || isKanji(ch);
@@ -429,6 +440,12 @@ function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
  * coupure au milieu d'une phrase. Le furigana entre parenthèses est d'abord retiré ;
  * l'espacement reste collé au fragment en cours, donc le SSML reconstitue le texte à
  * l'identique.
+ *
+ * Les caractères NEUTRES (espaces, « + », parenthèses…) ne sont pas rattachés à la langue en
+ * cours : ils reviennent au français, sauf lorsqu'ils sont encadrés de japonais des DEUX
+ * côtés. Sans cette règle, « thème は + objet » plaçait « + » dans le fragment japonais, que
+ * la voix lisait « プラス » — et « は », n'étant plus seul dans son fragment, échappait à la
+ * correction de prononciation.
  */
 function proseSegments(text: string, opts: EmitOpts): RawSegment[] {
   const clean = stripFurigana(stripMarkdown(text));
@@ -436,12 +453,15 @@ function proseSegments(text: string, opts: EmitOpts): RawSegment[] {
   const out: RawSegment[] = [];
   let runs: TtsPart[] = [];
   let buf = "";
-  let lang: "fr" | "ja" | null = null; // langue du fragment en cours (ponctuation = neutre)
+  let pending = ""; // neutres en attente : leur langue dépend de ce qui SUIT
+  let lang: "fr" | "ja" | null = null;
   const flushRun = () => {
     if (buf.trim()) runs.push({ lang: lang === "ja" ? "ja" : "fr", text: buf });
     buf = "";
   };
   const flushSentence = () => {
+    buf += pending; // les neutres de fin closent la phrase avec la voix en cours
+    pending = "";
     flushRun();
     if (runs.length) out.push(...emit(runs, opts));
     runs = [];
@@ -450,11 +470,25 @@ function proseSegments(text: string, opts: EmitOpts): RawSegment[] {
   const chars = [...clean];
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i];
-    const cls = isKana(ch) || isKanji(ch) ? "ja" : /[A-Za-zÀ-ÿ0-9]/.test(ch) ? "fr" : null;
-    if (cls && lang && cls !== lang) flushRun(); // bascule de langue → nouveau fragment
-    if (cls) lang = cls;
-    buf += ch;
-    if (endsSentence(buf, chars, i)) flushSentence();
+    const cls = charLang(ch);
+    if (!cls) {
+      pending += ch;
+    } else if (cls === lang) {
+      buf += pending + ch; // neutres entourés de la MÊME langue : ils lui appartiennent
+      pending = "";
+    } else if (cls === "fr") {
+      flushRun(); // bascule JA → FR : les neutres partent avec le français
+      lang = "fr";
+      buf = pending + ch;
+      pending = "";
+    } else {
+      buf += pending; // bascule FR → JA (ou début de texte) : les neutres restent français
+      pending = "";
+      flushRun();
+      lang = "ja";
+      buf = ch;
+    }
+    if (endsSentence(buf + pending, chars, i)) flushSentence();
   }
   flushSentence();
   return out;
@@ -494,10 +528,16 @@ const CALLOUT_LEAD_IN: Record<Extract<Block, { kind: "callout" }>["ctype"], stri
   warning: "",
 };
 
-/** Une ligne : voix japonaise si elle est à dominante JP, prose mixte sinon. */
+/**
+ * Une ligne. La voix japonaise ne prend la ligne ENTIÈRE que si elle ne contient aucun mot
+ * latin : « On dit 日本語ができます。 » compte plus de caractères japonais que latins, mais
+ * confier le tout à la voix japonaise lui fait écorcher « On dit ». Dès qu'il y a du
+ * français, on repasse par le découpage en fragments voicés.
+ */
 function lineSegments(line: string, opts: EmitOpts): RawSegment[] {
   const clean = stripFurigana(stripMarkdown(line));
-  return isJapaneseLine(clean) ? emit([{ lang: "ja", text: clean }], opts) : proseSegments(clean, opts);
+  const pureJa = /[぀-ヿ㐀-鿿ｦ-ﾟ]/.test(clean) && !/[A-Za-zÀ-ÿ]/.test(clean);
+  return pureJa ? emit([{ lang: "ja", text: clean }], opts) : proseSegments(clean, opts);
 }
 
 /**
@@ -555,9 +595,20 @@ function exampleSegments(pairs: { jp: string; fr?: string }[], opts: EmitOpts): 
 function calloutSegments(b: Extract<Block, { kind: "callout" }>, opts: EmitOpts): RawSegment[] {
   const body = parseBlocks(b.body).flatMap((inner) => blockSegments(inner, opts));
   if (!body.length) return [];
-  const lead = CALLOUT_LEAD_IN[b.ctype];
+  const lead = needsLeadIn(b.ctype, body) ? CALLOUT_LEAD_IN[b.ctype] : "";
   const head = lead ? emit([{ lang: "fr", text: lead }], opts) : [];
   return withTrailingPause([...head, ...body], BLOCK_PAUSE_MS);
+}
+
+/**
+ * Un piège n'a besoin d'être annoncé que s'il OUVRE sur du japonais : la phrase fautive
+ * tomberait alors sans prévenir. Quand la leçon commence par expliquer l'erreur en français
+ * — le cas le plus courant — l'amorce ferait doublon (« On entend souvent, à tort : Erreur
+ * fréquente : … »). Les autres encadrés gardent leur règle : seul le résumé s'annonce.
+ */
+function needsLeadIn(ctype: Extract<Block, { kind: "callout" }>["ctype"], body: RawSegment[]): boolean {
+  if (!CALLOUT_LEAD_IN[ctype]) return false;
+  return ctype === "pitfall" ? body[0].lang === "ja" : true;
 }
 
 /** Un bloc affiché → les segments qui le PARLENT. */
