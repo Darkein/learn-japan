@@ -160,8 +160,10 @@ function eventNotification(ev: ReminderEvent, streak?: number): ReminderNotifica
 }
 
 /**
- * L'accroche par le contenu : on nomme l'élément et on demande s'il est encore là. Vrai par
- * construction — le peloton ne contient que des cartes déjà révisées et dues.
+ * L'accroche par le contenu : on nomme l'élément et on demande s'il est encore là — et on
+ * promet de le retrouver dans les révisions du jour. Les deux doivent être vrais : le
+ * peloton ne contient que des cartes déjà révisées, dues, et que la session servira
+ * effectivement (`isTrainableVocab` — voir refreshReminderState, lib/reminders.ts).
  */
 function itemNotification(item: ReminderItem, due: number, streak?: number): ReminderNotification {
   const title =

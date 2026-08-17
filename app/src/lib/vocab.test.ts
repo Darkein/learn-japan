@@ -6,12 +6,22 @@ import {
   applyStatus,
   effectiveExample,
   isContent,
+  isProperNoun,
+  isTrackedWord,
   itemIdFor,
   meaningFor,
+  purgeNameVocab,
   refreshStoredMeanings,
   repairConjugatedVocab,
 } from "./vocab";
 import type { KuromojiToken } from "./tokenizer";
+
+// JMdict-FR de test : minuscule, mais CHARGÉ — `isTrackedWord` ne conclut rien d'un sens
+// absent tant que le dictionnaire ne l'est pas (cf. hasContentDict).
+vi.mock("./data", () => ({
+  contentDictSnapshot: () => ({ 猫: "chat", 犬: "chien", 水: "eau" }),
+  hasContentDict: () => true,
+}));
 
 vi.mock("./inventory", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./inventory")>()),
@@ -20,9 +30,23 @@ vi.mock("./inventory", async (importOriginal) => ({
 }));
 
 // Lectures de formes de base connues du mock ; toute autre forme simule un dico kuromoji
-// indisponible (échec de retokenisation).
+// indisponible (échec de retokenisation). Les graphies de `PROPER` rendent l'analyse
+// complète dont a besoin la purge des noms propres (nature grammaticale + lecture).
 vi.mock("./tokenizer", () => ({
   tokenize: async (text: string) => {
+    const PROPER: Record<string, string> = { 田中: "タナカ", 日本橋: "ニホンバシ", 日本: "ニッポン" };
+    if (PROPER[text]) {
+      return [{
+        surface_form: text, pos: "名詞", pos_detail_1: "固有名詞", pos_detail_2: "人名",
+        basic_form: text, reading: PROPER[text],
+      }];
+    }
+    if (text === "架空語") {
+      return [{
+        surface_form: text, pos: "名詞", pos_detail_1: "一般", pos_detail_2: "*",
+        basic_form: text, reading: "カクウゴ",
+      }];
+    }
     const READINGS: Record<string, string> = { する: "スル", いる: "イル", 食べる: "タベル" };
     if (!READINGS[text]) throw new Error("dico indisponible (test)");
     return [{ surface_form: text, reading: READINGS[text] }];
@@ -56,6 +80,96 @@ describe("isContent", () => {
   it("écarte un nombre en chiffres arabes (名詞 数)", () => {
     const num = tok({ surface_form: "123", pos: "名詞", pos_detail_1: "数", basic_form: "*" });
     expect(isContent(num)).toBe(false);
+  });
+
+  it("écarte un nom propre japonais (le JMdict n'a aucun sens à en donner)", () => {
+    const tanaka = tok({
+      surface_form: "田中", pos: "名詞", pos_detail_1: "固有名詞", pos_detail_2: "人名",
+      basic_form: "田中", reading: "タナカ",
+    });
+    expect(isProperNoun(tanaka)).toBe(true);
+    expect(isContent(tanaka)).toBe(false);
+  });
+
+  it("garde un 固有名詞 du référentiel JLPT (日本, アメリカ)", () => {
+    // Hors contexte, IPADIC étiquette 固有名詞 quantité de mots courants : l'inventaire curé
+    // doit l'emporter, sinon le vocabulaire du curriculum disparaîtrait du suivi.
+    const nihon = tok({
+      surface_form: "日本", pos: "名詞", pos_detail_1: "固有名詞", pos_detail_2: "地域",
+      basic_form: "日本", reading: "ニッポン",
+    });
+    const amerika = tok({
+      surface_form: "アメリカ", pos: "名詞", pos_detail_1: "固有名詞", pos_detail_2: "地域",
+      basic_form: "アメリカ", reading: "アメリカ",
+    });
+    expect(isProperNoun(nihon)).toBe(false);
+    expect(isContent(nihon)).toBe(true);
+    expect(isContent(amerika)).toBe(true);
+  });
+});
+
+describe("isTrackedWord", () => {
+  it("écarte le nom d'un personnage inventé (クロ le chat, タロウ le voisin)", () => {
+    // IPADIC ne les étiquette PAS 固有名詞 : クロ passe en 名詞/一般 et タロウ sort même sans
+    // lecture ni forme de base. Ce qui les trahit, c'est qu'ils ne portent rien à réviser.
+    const kuro = tok({
+      surface_form: "クロ", pos: "名詞", pos_detail_1: "一般", basic_form: "クロ", reading: "クロ",
+    });
+    const tarou = tok({ surface_form: "タロウ", pos: "名詞", pos_detail_1: "一般", basic_form: "*" });
+    expect(isContent(kuro)).toBe(true); // mot de contenu : lisible, glosable, souligné…
+    expect(isTrackedWord(kuro)).toBe(false); // … mais rien à mettre sur une carte.
+    expect(isTrackedWord(tarou)).toBe(false);
+  });
+
+  it("garde un mot qui porte un sens, ou des kanji à lire", () => {
+    const neko = tok({ surface_form: "猫", pos: "名詞", pos_detail_1: "一般", basic_form: "猫", reading: "ネコ" });
+    // Hors dico : la graphie reste à apprendre (kanji ≠ lecture), la carte a une question.
+    const kakuugo = tok({
+      surface_form: "架空語", pos: "名詞", pos_detail_1: "一般", basic_form: "架空語", reading: "カクウゴ",
+    });
+    expect(isTrackedWord(neko)).toBe(true);
+    expect(isTrackedWord(kakuugo)).toBe(true);
+  });
+});
+
+describe("purgeNameVocab", () => {
+  it("supprime les noms déjà en base (propres et fantômes) et épargne le reste", async () => {
+    await putVocab({
+      id: "田中|たなか", surface: "田中", reading: "たなか", meaning: "—",
+      tags: [], status: "review", cards: {},
+    });
+    await putVocab({
+      id: "日本橋|にほんばし", surface: "日本橋", reading: "にほんばし", meaning: "—",
+      tags: [], status: "unknown", cards: {},
+    });
+    // Mot du référentiel : jamais retokenisé, donc jamais purgé même étiqueté 固有名詞.
+    await putVocab({
+      id: "日本|にっぽん", surface: "日本", reading: "にっぽん", meaning: "Japon",
+      tags: [], status: "review", cards: {},
+    });
+    // Nom de personnage : ni sens ni graphie à lire — aucune révision ne le servira jamais.
+    await putVocab({
+      id: "クロ|くろ", surface: "クロ", reading: "くろ", meaning: "—",
+      tags: [], status: "review", cards: {},
+    });
+    // Fantôme marqué « connu » par l'utilisateur : respecté (il ne sert qu'au lecteur).
+    await putVocab({
+      id: "シロ|しろ", surface: "シロ", reading: "しろ", meaning: "—",
+      tags: [], status: "known", cards: {},
+    });
+    // Mot ordinaire hors référentiel : analysé, gardé.
+    await putVocab({
+      id: "架空語|かくうご", surface: "架空語", reading: "かくうご", meaning: "mot fictif",
+      tags: [], status: "review", cards: {},
+    });
+
+    expect(await purgeNameVocab()).toBe(3);
+    expect(await getVocab("田中|たなか")).toBeUndefined();
+    expect(await getVocab("日本橋|にほんばし")).toBeUndefined();
+    expect(await getVocab("クロ|くろ")).toBeUndefined();
+    expect(await getVocab("シロ|しろ")).toBeDefined();
+    expect(await getVocab("日本|にっぽん")).toBeDefined();
+    expect(await getVocab("架空語|かくうご")).toBeDefined();
   });
 });
 

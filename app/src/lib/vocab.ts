@@ -1,35 +1,83 @@
 // Lien Lecteur ↔ SRS : crée/maj un item de vocabulaire à partir d'un token et applique
 // un changement de statut (connu / à revoir / oublié) en planifiant via FSRS.
 
-import { contentDictSnapshot } from "./data";
+import { contentDictSnapshot, hasContentDict } from "./data";
 import type { ContentDict } from "./gloss";
 import { hasJapanese, kataToHira, normalizeReading } from "./kana";
 import {
   allVocab,
+  deleteVocab,
+  getMeta,
   getVocab,
   logReview,
+  putMeta,
   putVocab,
   type ItemStatus,
   type VocabItem,
 } from "./db";
-import { resolveVocab, staticExample, type InvVocab } from "./inventory";
+import { resolveVocab, staticExample, vocabLevel, type InvVocab } from "./inventory";
+import { isTrainableVocab } from "./vocabFaces";
 import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞", "連体詞"]);
 
 /**
+ * Nom propre (personne, lieu, organisation) à NE PAS suivre en vocabulaire. Apprendre
+ * « 田中 » ou « 朝日新聞 » n'apporte rien — et le JMdict n'indexant pas les noms propres,
+ * ces items arrivaient en révision avec un sens « — », question sans réponse possible.
+ *
+ * L'inventaire curé l'emporte toujours sur l'étiquette du tokenizer : hors contexte,
+ * IPADIC classe 固有名詞 quantité de mots courants (池, 森, 毎日, 日本…), et c'est justement
+ * la graphie stockée qu'on retokenise à la purge. Un mot du référentiel JLPT reste donc
+ * suivi (日本, アメリカ, ヨーロッパ…), quelle que soit l'étiquette rendue.
+ */
+export function isProperNoun(token: KuromojiToken): boolean {
+  return token.pos_detail_1 === "固有名詞" && vocabLevel(itemIdFor(token)) == null;
+}
+
+/**
  * Un token porte-t-il du sens lexical (candidat au SRS vocabulaire) ? On exige au moins un
  * caractère japonais : les mots latins et les nombres, étiquetés 名詞/固有名詞 par kuromoji
  * faute d'entrée dans IPADIC, n'ont ni lecture ni forme de base — les suivre revenait à
- * souligner et gloser du texte anglais, tous fondus sur le même id « *| ».
+ * souligner et gloser du texte anglais, tous fondus sur le même id « *| ». Les noms propres
+ * hors référentiel sont exclus au même titre (voir isProperNoun) : c'est LE filtre commun
+ * au SRS, au soulignement du lecteur et aux mesures de couverture.
  */
 export function isContent(token: KuromojiToken): boolean {
   return (
     CONTENT_POS.has(token.pos) &&
     token.pos_detail_1 !== "非自立" &&
-    hasJapanese(token.surface_form)
+    hasJapanese(token.surface_form) &&
+    !isProperNoun(token)
   );
+}
+
+/**
+ * Faut-il SUIVRE ce mot, c'est-à-dire lui créer un item de vocabulaire ? Être un mot de
+ * contenu ne suffit pas : encore faut-il qu'il porte quelque chose à réviser.
+ *
+ * Le nom qu'un LLM invente pour un personnage — クロ le chat, タロウ le voisin — n'est PAS
+ * étiqueté 固有名詞 par IPADIC (クロ passe en 名詞/一般, タロウ sort même sans lecture) :
+ * l'étiquette ne peut donc pas le trahir. Ce qui le trahit, c'est qu'il ne porte rien —
+ * aucun sens au JMdict ni au référentiel, et une graphie identique à sa lecture. Une carte
+ * pour un tel mot n'aurait ni question ni réponse.
+ *
+ * Même critère que `isTrainableVocab` (lib/vocabFaces.ts), appliqué au token AVANT création
+ * plutôt qu'à l'item avant révision : ces mots fantômes n'entrent plus en base du tout, où
+ * ils traînaient dans les distracteurs de QCM et le rappel du soir. Tant que le
+ * dictionnaire n'est pas chargé, on ne conclut rien (tout est suivi).
+ */
+export function isTrackedWord(token: KuromojiToken): boolean {
+  if (!isContent(token)) return false;
+  if (!hasContentDict()) return true;
+  const meaning = meaningFor(token);
+  if (meaning && meaning !== "—") return true;
+  // Sans sens, reste la graphie — à condition qu'elle diffère de sa lecture (des kanji à
+  // lire). Même repli que `newVocabItemFromToken` quand kuromoji ne donne pas de lecture.
+  const base = baseForm(token);
+  const reading = token.reading ? kataToHira(token.reading) : base;
+  return normalizeReading(base) !== normalizeReading(reading);
 }
 
 /**
@@ -116,6 +164,56 @@ export async function repairConjugatedVocab(): Promise<number> {
   return updated;
 }
 
+/** Drapeau `meta` de la purge des noms : une seule passe complète suffit. */
+const NAME_PURGE_KEY = "purge.names";
+
+/**
+ * Supprime les items de vocabulaire qui n'auraient jamais dû être créés — les noms, sous
+ * leurs deux formes :
+ *  - **nom propre** (田中, 日本橋, 朝日新聞) : la nature grammaticale n'étant pas stockée, on
+ *    retokenise la graphie ; est purgé le mot dont la graphie SEULE s'analyse en 固有名詞 et
+ *    qui n'est pas au référentiel JLPT ;
+ *  - **mot fantôme** (クロ, タロウ) : le nom d'un personnage inventé par le LLM ne porte ni
+ *    sens ni graphie à lire (`isTrainableVocab`). Aucune révision ne le sert, mais il
+ *    traînait dans les distracteurs de QCM, le rappel du soir et les compteurs.
+ *
+ * Passe unique (drapeau `meta`), appelée au montage d'une session : plus aucun des deux ne
+ * peut entrer ensuite (`isContent`, `isTrackedWord`). Le drapeau n'est posé que si TOUS les
+ * items ont pu être analysés — dictionnaire kuromoji indisponible ⇒ on réessaiera à la
+ * session suivante. Renvoie le nombre d'items supprimés.
+ */
+export async function purgeNameVocab(): Promise<number> {
+  if (await getMeta<boolean>(NAME_PURGE_KEY)) return 0;
+  const items = await allVocab();
+  let removed = 0;
+  let complete = true;
+  for (const item of items) {
+    // Mot du référentiel : ni nom propre ni fantôme, inutile de le retokeniser.
+    if (vocabLevel(item.id) != null) continue;
+    // Mot fantôme. Exception : celui que l'utilisateur a lui-même marqué « connu » — le
+    // marquage ne sert qu'à ne plus le souligner dans le lecteur, autant le respecter.
+    if (!isTrainableVocab(item)) {
+      if (item.status === "known") continue;
+      await deleteVocab(item.id);
+      removed++;
+      continue;
+    }
+    let tokens: KuromojiToken[];
+    try {
+      tokens = await tokenize(item.surface);
+    } catch {
+      complete = false;
+      continue;
+    }
+    // Graphie qui se découpe en plusieurs mots : ce n'est pas un nom propre isolé.
+    if (tokens.length !== 1 || !isProperNoun(tokens[0])) continue;
+    await deleteVocab(item.id);
+    removed++;
+  }
+  if (complete) await putMeta(NAME_PURGE_KEY, true);
+  return removed;
+}
+
 /**
  * Sens français d'un token. L'inventaire curé passe EN PREMIER : il est indexé par
  * graphie + LECTURE (`本|ほん`), donc il désambiguïse les homographes que le JMdict, indexé
@@ -197,7 +295,7 @@ export async function ensureVocabItems(tokens: KuromojiToken[]): Promise<string[
   const ids: string[] = [];
   const seen = new Set<string>();
   for (const t of tokens) {
-    if (!isContent(t)) continue;
+    if (!isTrackedWord(t)) continue;
     const id = itemIdFor(t);
     if (seen.has(id)) continue;
     seen.add(id);

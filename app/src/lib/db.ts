@@ -406,6 +406,10 @@ export async function allVocab(): Promise<VocabItem[]> {
   return (await getDB()).getAll("vocab");
 }
 
+export async function deleteVocab(id: string): Promise<void> {
+  await (await getDB()).delete("vocab", id);
+}
+
 export async function logReview(entry: ReviewLog): Promise<void> {
   await (await getDB()).add("reviews", entry);
 }

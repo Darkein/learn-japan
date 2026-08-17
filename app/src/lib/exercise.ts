@@ -6,7 +6,7 @@ import { getGrammar, getVocab, logReview, putGrammar, putVocab, type Skill } fro
 import { generateStoryTranslation } from "./genClient";
 import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
-import { applyStatus, isContent } from "./vocab";
+import { applyStatus, isTrackedWord } from "./vocab";
 
 export type ExerciseTrack = "vocab" | "grammar";
 
@@ -113,10 +113,11 @@ export async function gradeExercise(
 ): Promise<void> {
   // Reconstruction issue du Lecteur (sans compétence ciblée) : note les MOTS de la
   // phrase individuellement. Une dictée (skill "oral") passe par la voie normale et
-  // replanifie la carte de sa compétence.
+  // replanifie la carte de sa compétence. Seuls les mots SUIVIS sont notés : la phrase
+  // reconstruite contient aussi le nom du personnage, qui n'a rien à faire en base.
   if (ex.mode === "build" && ex.track === "vocab" && !ex.skill) {
     await Promise.all(
-      ex.tokens.filter(isContent).map((t) => applyStatus(t, grade === "again" ? "forgot" : "review", now)),
+      ex.tokens.filter(isTrackedWord).map((t) => applyStatus(t, grade === "again" ? "forgot" : "review", now)),
     );
     return;
   }

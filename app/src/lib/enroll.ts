@@ -8,7 +8,7 @@ import {
   type VocabItem, type GrammarItem,
 } from "./db";
 import { getCurriculumEntry } from "./curriculum";
-import { isContent, itemIdFor, newVocabItemFromToken } from "./vocab";
+import { isTrackedWord, itemIdFor, newVocabItemFromToken } from "./vocab";
 import { tokenize } from "./tokenizer";
 import { splitJaSentences } from "./kana";
 import { allVocab } from "./db";
@@ -62,7 +62,7 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
 
   await Promise.all(
     tokens
-      .filter(isContent)
+      .filter(isTrackedWord)
       .map(async (token) => {
         const id = itemIdFor(token);
         const existing = await getVocab(id);

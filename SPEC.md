@@ -32,6 +32,25 @@ Justification : apprendre les mots expose naturellement leurs kanji en contexte.
 une logique différente. Les kanji restent visibles dans le **Catalogue** en référence (sens, lectures,
 niveau JLPT) mais ne sont pas une cible SRS à part entière.
 
+**Noms exclus du vocabulaire** : un nom de personne, de lieu ou d'organisation n'est pas une cible
+d'apprentissage — le JMdict ne les indexe pas, une carte « 田中 → ? » est donc une question sans
+réponse. Ils restent lus, prononcés et découpés en kanji dans le lecteur, simplement jamais suivis.
+Deux filtres, parce qu'un nom se présente de deux façons :
+
+1. **Étiqueté** `固有名詞` par le tokenizer (田中, 日本橋, 朝日新聞) → écarté d'office.
+   **Exception** : les entrées du référentiel JLPT (日本, アメリカ, ヨーロッパ…), que le tokenizer
+   étiquette pareil mais qui sont du vocabulaire à part entière ; hors contexte il étiquette
+   d'ailleurs ainsi quantité de mots courants (池, 森, 毎日…), et l'inventaire curé tranche toujours.
+2. **Rien à réviser** — le cas des noms que le LLM invente pour ses personnages (クロ le chat, タロウ
+   le voisin) : IPADIC les classe en `名詞/一般`, l'étiquette ne les trahit pas. Ce qui les trahit,
+   c'est qu'ils n'ont ni sens (JMdict et référentiel muets) ni graphie distincte de leur lecture :
+   une carte n'aurait ni question ni réponse. Même critère que la testabilité d'un item, appliqué
+   **avant** création plutôt qu'avant révision — sinon ces mots fantômes s'invitent dans les
+   distracteurs de QCM, le rappel du soir et les compteurs.
+
+Un mot peut donc être **lisible et glosé sans être suivi** : le lecteur et le SRS ne cherchent pas
+la même chose.
+
 ### 2.2 Trois compétences par élément (vocabulaire)
 S'activent **progressivement**, dans cet ordre :
 1. **Reconnaissance écrite** (voir 猫 → comprendre « chat »)

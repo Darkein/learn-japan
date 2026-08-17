@@ -37,6 +37,11 @@ export const POOL_SIZE = 12;
 /**
  * Les éléments dus à mettre en avant, les plus en retard d'abord (ce sont eux qui risquent
  * l'oubli). Vide si rien de révisé n'est dû.
+ *
+ * `vocab` doit arriver FILTRÉ des mots qu'aucune session ne sert (cf. isTrainableVocab) :
+ * ce module ne voit ni le sens ni la lecture, il ne peut pas le vérifier lui-même — et une
+ * notification « tu te souviens de 「クロ」 ? » sur le nom d'un chat, mot qui ne reviendra
+ * jamais en révision, promettait un rendez-vous qui n'existait pas.
  */
 export function reminderItemPool(
   vocab: PickVocabLike[],

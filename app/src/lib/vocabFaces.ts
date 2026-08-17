@@ -44,6 +44,16 @@ export function availableFaces(v: VocabItem): Face[] {
   return ALL_FACES.filter((f) => faceText(v, f) !== null);
 }
 
+/**
+ * Item testable : un sens FR exploitable, ou une graphie ≠ lecture. Sinon (mot kana sans
+ * sens — nom d'un personnage inventé, onomatopée hors dico) le front de l'exercice EST la
+ * réponse : recopie sans intérêt. Un tel mot ne doit apparaître nulle part en révision,
+ * pas même comme DISTRACTEUR (cf. faceDistractors) ni dans le rappel du soir.
+ */
+export function isTrainableVocab(v: VocabItem): boolean {
+  return (!!v.meaning && v.meaning !== "—") || normalizeReading(v.surface) !== normalizeReading(v.reading);
+}
+
 /** Toutes les paires ordonnées de faces distinctes : 6 pour un mot complet, 2 sinon. */
 export function directionsFor(v: VocabItem): Direction[] {
   const faces = availableFaces(v);
