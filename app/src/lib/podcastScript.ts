@@ -103,7 +103,7 @@ export const COMP_PAUSE_MS = 8000;
  * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
  * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
  */
-export const PACK_VERSION = 9;
+export const PACK_VERSION = 10;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -312,6 +312,46 @@ function splitByBudget(runs: TtsPart[]): TtsPart[][] {
 // Ponctuation de fin de phrase de la prose (FR + JA) : frontière naturelle de segment.
 const PROSE_SENTENCE_END = new Set([".", "!", "?", "…", "。", "！", "？"]);
 
+// Délimiteurs qui appartiennent ENCORE à la phrase qui s'achève : couper avant eux laisse un
+// guillemet fermant orphelin en tête du segment suivant. Les apostrophes en sont exclues —
+// en français elles vivent au milieu des mots (« l'eau »).
+const CLOSING_DELIMS = new Set(["»", "”", "\"", ")", "]", "}", "、", "，", "。"]);
+
+/** Au moins une lettre ou un chiffre : sans ça, il n'y a rien à PRONONCER. */
+const SPEAKABLE = /[\p{L}\p{N}]/u;
+
+/** Vrai si le caractère peut OUVRIR une phrase (majuscule, chiffre, ouvrant, japonais). */
+function startsSentence(ch: string): boolean {
+  return /[A-ZÀ-ÖØ-Þ0-9«“"([]/.test(ch) || isKana(ch) || isKanji(ch);
+}
+
+/**
+ * Vrai si la phrase en cours (`buf`) s'achève VRAIMENT en `i`. Le test naïf « ponctuation
+ * finale suivie d'un blanc » se trompe deux fois sur une citation :
+ *
+ *   signifie « en ce qui concerne… », « quant à… ».
+ *
+ * il coupait sur le premier « … » (suivi d'une espace, puis du guillemet fermant), donnant à
+ * la voix une intonation de fin en plein milieu, puis un segment de PURE ponctuation — « ». »
+ * — que la synthèse prononce « point », faute de mot où l'accrocher.
+ *
+ * Deux garde-fous : la grappe de ponctuation doit être terminée (on ne coupe pas avant le
+ * guillemet fermant ni avant le point final), et ce qui suit doit ressembler à un vrai début
+ * de phrase. Une ponctuation finale suivie d'une virgule ne ferme donc plus rien.
+ */
+function endsSentence(buf: string, chars: string[], i: number): boolean {
+  const next = chars[i + 1];
+  // Grappe non terminée : la ponctuation continue au caractère suivant.
+  if (next !== undefined && (PROSE_SENTENCE_END.has(next) || CLOSING_DELIMS.has(next))) return false;
+  // La phrase doit s'achever sur une ponctuation finale, ses fermants éventuels compris.
+  if (!/[.!?…。！？][»”")\]\s]*$/.test(buf)) return false;
+  if (next === undefined) return true; // fin du texte
+  let j = i + 1;
+  while (j < chars.length && /\s/.test(chars[j])) j++;
+  // Un blanc au moins (sinon « fin.Suite » n'est pas une frontière), et un vrai début derrière.
+  return j > i + 1 && j < chars.length && startsSentence(chars[j]);
+}
+
 /**
  * Particules dont la GRAPHIE et la PRONONCIATION diffèrent. Citée seule (« la particule は »),
  * une particule n'a pas de contexte : la voix japonaise lit alors le kana tel qu'il s'écrit et
@@ -354,7 +394,8 @@ function withTrailingPause(segs: RawSegment[], pauseAfterMs: number): RawSegment
  * trois invariants du chapitre :
  *  - le budget SSML est respecté (un énoncé trop long fait échouer la synthèse, et
  *    segmentPlayer coupe alors TOUTE la lecture après une relance unique) ;
- *  - aucun énoncé vide n'est émis (le Worker les rejette : même conséquence) ;
+ *  - aucun énoncé vide, ni réduit à de la PONCTUATION (le Worker rejette le premier ; la
+ *    synthèse verbalise le second — un « ». » esseulé se prononce « point ») ;
  *  - le blanc éventuel tombe APRÈS le dernier groupe, jamais au milieu d'un énoncé scindé.
  *
  * Fragments fusionnés en `parts` si le groupe en compte ≥ 2, segment simple sinon.
@@ -362,7 +403,7 @@ function withTrailingPause(segs: RawSegment[], pauseAfterMs: number): RawSegment
 function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
   const kept = runs.filter((r) => r.text.trim()).flatMap(splitOversizedRun);
   if (!kept.length) return [];
-  const groups = splitByBudget(kept);
+  const groups = splitByBudget(kept).filter((g) => g.some((r) => SPEAKABLE.test(r.text)));
   return groups.map((group) => {
     // Ce qui est PRONONCÉ peut différer de ce qui est ÉCRIT (particule citée) : `text` reste
     // le texte de la leçon, `parts` porte la version parlée.
@@ -413,8 +454,7 @@ function proseSegments(text: string, opts: EmitOpts): RawSegment[] {
     if (cls && lang && cls !== lang) flushRun(); // bascule de langue → nouveau fragment
     if (cls) lang = cls;
     buf += ch;
-    // Fin de phrase (ponctuation finale suivie d'un blanc ou de la fin de ligne).
-    if (PROSE_SENTENCE_END.has(ch) && (i === chars.length - 1 || /\s/.test(chars[i + 1]))) flushSentence();
+    if (endsSentence(buf, chars, i)) flushSentence();
   }
   flushSentence();
   return out;

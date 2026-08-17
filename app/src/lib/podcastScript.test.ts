@@ -402,6 +402,35 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "私は学生です。" }]);
   });
 
+  // Une ponctuation finale suivie d'une espace puis d'un guillemet fermant ne termine RIEN.
+  // Le test naïf coupait au premier « … », donnant à la voix une intonation de fin en plein
+  // milieu de la phrase, puis un segment de pure ponctuation — « ». » — que la synthèse
+  // prononce « point », faute de mot où l'accrocher.
+  it("ne coupe pas une citation sur ses points de suspension", () => {
+    const texts = cours("は signifie « en ce qui concerne… », « quant à… ».").map((s) => s.text);
+    expect(texts).toEqual(["は signifie « en ce qui concerne… », « quant à… »."]);
+  });
+
+  it("coupe toujours entre deux vraies phrases, guillemets fermants compris", () => {
+    expect(cours("Il hésita… Puis il partit.").map((s) => s.text)).toEqual(["Il hésita…", "Puis il partit."]);
+    expect(cours("On dit « bonjour ». Puis on entre.").map((s) => s.text)).toEqual([
+      "On dit « bonjour ».",
+      "Puis on entre.",
+    ]);
+  });
+
+  it("ne coupe pas quand la suite n'ouvre pas une phrase (virgule, minuscule)", () => {
+    expect(cours("Il dit « oui… », puis se tut.").map((s) => s.text)).toEqual(["Il dit « oui… », puis se tut."]);
+  });
+
+  it("n'émet jamais un énoncé fait de pure ponctuation (il se prononcerait « point »)", () => {
+    for (const framing of ["Un texte. ». », «", "« ».", "Fin… ».", "- ».\n- Vrai point"]) {
+      for (const seg of cours(framing)) {
+        expect(/[\p{L}\p{N}]/u.test(seg.text)).toBe(true);
+      }
+    }
+  });
+
   it("ne prononce pas une règle horizontale", () => {
     expect(cours("Avant.\n\n---\n\nAprès.").map((s) => s.text)).toEqual(["Avant.", "Après."]);
   });
