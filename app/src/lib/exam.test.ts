@@ -48,9 +48,9 @@ function word(surface: string, reading: string, meaning: string, over: Partial<V
 
 const LESSON_WORDS = [
   word("本", "ほん", "livre", { example: { ja: "今日は本を読む。", fr: "Aujourd'hui, je lis un livre." } }),
-  word("猫", "ねこ", "chat"),
+  word("猫", "ねこ", "chat", { example: { ja: "猫は水を飲む。", fr: "Le chat boit de l'eau." } }),
   word("水", "みず", "eau"),
-  word("犬", "いぬ", "chien"),
+  word("犬", "いぬ", "chien", { example: { ja: "犬は山を見る。", fr: "Le chien regarde la montagne." } }),
   word("山", "やま", "montagne"),
   word("川", "かわ", "rivière"),
 ];
@@ -81,12 +81,35 @@ function material(over: Partial<ExamMaterial> = {}): ExamMaterial {
         mkToken("。", "記号"),
       ],
     ],
+    [
+      "猫は水を飲む。",
+      [
+        mkToken("猫"),
+        mkToken("は", "助詞"),
+        mkToken("水"),
+        mkToken("を", "助詞"),
+        mkToken("飲む", "動詞"),
+        mkToken("。", "記号"),
+      ],
+    ],
+    [
+      "犬は山を見る。",
+      [
+        mkToken("犬"),
+        mkToken("は", "助詞"),
+        mkToken("山"),
+        mkToken("を", "助詞"),
+        mkToken("見る", "動詞"),
+        mkToken("。", "記号"),
+      ],
+    ],
   ]);
   return {
     lessonId: "n5-01",
     level: 5,
     vocab: LESSON_WORDS,
     grammar: GRAMMAR,
+    reviewVocab: [],
     pool: [...LESSON_WORDS, ...OTHER_WORDS],
     tokenized,
     silent: false,
@@ -125,8 +148,7 @@ describe("composeExam — le sujet", () => {
     for (const q of vocabQuestions) expect(lessonIds).toContain(q.exercise.id);
   });
 
-  it("évite de reposer le même mot d'un exercice à l'autre tant qu'il reste de la matière", () => {
-    // 12 mots pour 11 questions de vocabulaire : chaque mot ne doit passer qu'une fois.
+  it("un MOT ne passe qu'une fois dans tout le sujet", () => {
     const large = [
       ...LESSON_WORDS,
       word("空", "そら", "ciel"),
@@ -141,6 +163,90 @@ describe("composeExam — le sujet", () => {
       .filter((q) => q.exercise.track === "vocab")
       .map((q) => q.exercise.id);
     expect(new Set(asked).size).toBe(asked.length);
+  });
+
+  it("interroge la LEÇON, pas seulement la restitution : règle, emploi et correction", () => {
+    const exam = composeExam(material(), 1);
+    const ids = exam.sections.map((s) => s.id);
+    expect(ids).toContain("regle"); // « quel est le rôle de は ? »
+    expect(ids).toContain("usage"); // « 本＿読む » : la particule à sa place
+    expect(ids).toContain("correction"); // « une seule de ces phrases est correcte »
+  });
+
+  it("deux points de grammaire : la règle et l'emploi n'interrogent pas le même", () => {
+    const two: GrammarItem[] = [
+      ...GRAMMAR,
+      { id: "n5-wo-object", name: "を (objet)", rule: "", examples: [], tags: [], status: "review" },
+    ];
+    const exam = composeExam(material({ grammar: two }), 1);
+    const regle = exam.sections.find((s) => s.id === "regle")!.questions[0].exercise.id;
+    const usage = exam.sections.find((s) => s.id === "usage")!.questions[0].exercise.id;
+    expect(usage).not.toBe(regle);
+  });
+
+  it("emploi : la particule enseignée est masquée, la question a UNE seule réponse", () => {
+    const exam = composeExam(material(), 1);
+    const q = exam.sections.find((s) => s.id === "usage")!.questions[0];
+    const ex = q.exercise;
+    if (ex.mode !== "choice") throw new Error("fixture");
+    expect(ex.front).toContain("＿");
+    expect(ex.front).not.toContain("は");
+    expect(ex.choices[ex.answerIndex]).toBe("は");
+    // La traduction est donnée : sans elle, plusieurs particules répondraient.
+    expect(ex.prompt).toMatch(/Complète : «/);
+    // Et aucun leurre ne COMMUTE avec la réponse : は accepte が, も et を dans la même
+    // phrase — les proposer, c'est poser une question à plusieurs bonnes réponses.
+    for (const c of ex.choices.filter((_, i) => i !== ex.answerIndex)) {
+      expect(["が", "も", "を"]).not.toContain(c);
+      expect(c).not.toMatch(/です|ます|だ/);
+    }
+  });
+
+  it("correction : une seule phrase juste, et les fautes sont INDISCUTABLES", () => {
+    const exam = composeExam(material(), 1);
+    const q = exam.sections.find((s) => s.id === "correction")!.questions[0];
+    const ex = q.exercise;
+    if (ex.mode !== "choice") throw new Error("fixture");
+    expect(ex.choices).toHaveLength(EXAM.choices);
+    const correct = ex.choices[ex.answerIndex];
+    const wrong = ex.choices.filter((_, i) => i !== ex.answerIndex);
+    expect(new Set(ex.choices).size).toBe(EXAM.choices);
+    // Aucune faute ne se réduit à une particule SUPPRIMÉE : l'ellipse existe en japonais,
+    // la compter fausse enseignerait une contre-vérité.
+    for (const w of wrong) {
+      expect(w).not.toBe(correct);
+      expect(w.length).toBeGreaterThanOrEqual(correct.length);
+    }
+    // Les trois fautes ne sortent pas du même moule (sinon elles se repèrent au motif) :
+    // une particule échangée, le verbe déplacé, une particule doublée.
+    const doubled = wrong.filter((w) => /(.)\1/.test(w));
+    expect(doubled.length).toBeLessThan(wrong.length);
+  });
+
+  it("les questions de cours (Worker) portent la section « Le cours »", () => {
+    const exam = composeExam(
+      material({
+        lessonQcm: [
+          {
+            question: "Que marque la particule を ?",
+            options: ["L'objet direct", "Le thème", "Le lieu", "Le moyen"],
+            answerIndex: 0,
+            targetGrammarId: "n5-wa-topic",
+          },
+          {
+            question: "Pourquoi は disparaît-il parfois ?",
+            options: ["Le thème est évident", "Il est interdit", "Il devient を", "Jamais"],
+            answerIndex: 0,
+          },
+        ],
+      }),
+      1,
+    );
+    const cours = exam.sections.find((s) => s.id === "cours")!;
+    expect(cours.questions).toHaveLength(2);
+    expect(cours.questions[0].exercise.prompt).toContain("を");
+    // Sans point de grammaire visé, la question ne replanifie aucun item SRS.
+    expect(cours.questions[1].exercise.id).toBe("");
   });
 
   it("coupe les béquilles : la lecture se tape, elle ne se choisit pas", () => {
@@ -159,17 +265,25 @@ describe("composeExam — le sujet", () => {
     expect(ex.front).toBe("");
   });
 
+  /** QCM du Worker : deux questions, comme le barème le prévoit. */
+  const LLM_QCM = [
+    { question: "Q1 ?", options: ["a", "b", "c", "d"], answerIndex: 0 },
+    { question: "Q2 ?", options: ["a", "b", "c", "d"], answerIndex: 1 },
+  ];
+
   it("tombe sur 20 quand la leçon fournit toute la matière", () => {
+    const rich = [
+      ...LESSON_WORDS,
+      word("空", "そら", "ciel"),
+      word("海", "うみ", "mer"),
+      word("駅", "えき", "gare"),
+    ];
     const exam = composeExam(
       material({
-        comprehension: {
-          text: "猫は水を飲む。",
-          questions: [
-            { question: "Que boit le chat ?", options: ["De l'eau", "Du lait"], answerIndex: 0 },
-            { question: "Qui boit ?", options: ["Le chat", "Le chien"], answerIndex: 0 },
-            { question: "Où ?", options: ["Ici", "Là"], answerIndex: 0 },
-          ],
-        },
+        vocab: rich,
+        pool: [...rich, ...OTHER_WORDS],
+        comprehension: { text: "猫は水を飲む。", questions: LLM_QCM },
+        lessonQcm: LLM_QCM,
       }),
       1,
     );
@@ -177,23 +291,72 @@ describe("composeExam — le sujet", () => {
     expect(exam.maxPoints).toBe(20);
   });
 
-  it("sans réseau : la compréhension saute et le barème est ramené d'autant", () => {
+  it("sans réseau : cours et compréhension sautent, le barème est ramené d'autant", () => {
     const exam = composeExam(material(), 1);
-    expect(exam.skipped.map((s) => s.id)).toContain("comprehension");
-    expect(exam.maxPoints).toBe(20 - EXAM.points.comprehension * EXAM.comprehensionMax);
+    const ids = exam.skipped.map((s) => s.id);
+    expect(ids).toContain("comprehension");
+    expect(ids).toContain("cours");
+    const llmPoints =
+      EXAM.points.comprehension * EXAM.counts.comprehension + EXAM.points.cours * EXAM.counts.cours;
+    expect(exam.maxPoints).toBeLessThanOrEqual(20 - llmPoints);
   });
 
   it("sans le son : pas de dictée, et le barème ne punit pas l'élève", () => {
-    const exam = composeExam(material({ silent: true }), 1);
-    expect(exam.sections.some((s) => s.id === "dictee")).toBe(false);
-    expect(exam.skipped.find((s) => s.id === "dictee")?.reason).toMatch(/sans le son/);
-    expect(exam.maxPoints).toBe(20 - EXAM.points.comprehension * EXAM.comprehensionMax - EXAM.points.dictee);
+    const withSound = composeExam(material(), 1);
+    const silent = composeExam(material({ silent: true }), 1);
+    expect(silent.sections.some((s) => s.id === "dictee")).toBe(false);
+    expect(silent.skipped.find((s) => s.id === "dictee")?.reason).toMatch(/sans le son/);
+    // Les points de la dictée ne sont pas comptés (le mot qu'elle aurait pris retourne aux
+    // exercices écrits, d'où un total non strictement égal à l'écart des 3 points).
+    expect(silent.maxPoints).toBeLessThan(withSound.maxPoints);
+    for (const s of silent.sections) expect(s.id).not.toBe("dictee");
   });
 
-  it("leçon sans grammaire : la section saute au lieu de poser une question creuse", () => {
+  it("leçon sans grammaire : règle, emploi et correction sautent sans question creuse", () => {
     const exam = composeExam(material({ grammar: [] }), 1);
-    expect(exam.sections.some((s) => s.id === "grammaire")).toBe(false);
-    expect(exam.skipped.map((s) => s.id)).toContain("grammaire");
+    const ids = exam.sections.map((s) => s.id);
+    expect(ids).not.toContain("regle");
+    expect(ids).not.toContain("usage");
+    expect(exam.skipped.map((s) => s.id)).toContain("regle");
+  });
+
+  it("une PHRASE ne sert qu'à un seul exercice du sujet", () => {
+    const exam = composeExam(material(), 1);
+    const sentences = exam.sections
+      .flatMap((s) => s.questions)
+      .map((q) => q.exercise.context)
+      .filter((c): c is string => !!c);
+    expect(new Set(sentences).size).toBe(sentences.length);
+  });
+
+  it("leçon pauvre : les exercices se partagent les mots au lieu de les ressasser", () => {
+    // Quatre mots comme la première leçon du curriculum : chacun ne doit passer qu'une fois,
+    // et les trois exercices de vocabulaire doivent tous recevoir de la matière.
+    const four = LESSON_WORDS.slice(0, 4);
+    const exam = composeExam(material({ vocab: four, reviewVocab: [] }), 1);
+    const vocabQuestions = exam.sections
+      .flatMap((s) => s.questions)
+      .filter((q) => q.exercise.track === "vocab");
+    const ids = vocabQuestions.map((q) => q.exercise.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.length).toBeLessThanOrEqual(four.length);
+  });
+
+  it("leçon pauvre : les mots déjà vus complètent le sujet plutôt que de le répéter", () => {
+    const four = LESSON_WORDS.slice(0, 4);
+    const withReview = composeExam(
+      material({ vocab: four, reviewVocab: OTHER_WORDS, pool: [...four, ...OTHER_WORDS] }),
+      1,
+    );
+    const withoutReview = composeExam(material({ vocab: four, reviewVocab: [] }), 1);
+    const count = (e: typeof withReview) =>
+      e.sections.flatMap((s) => s.questions).filter((q) => q.exercise.track === "vocab").length;
+    expect(count(withReview)).toBeGreaterThan(count(withoutReview));
+    // Et la leçon reste prioritaire : ses quatre mots passent tous.
+    const asked = new Set(
+      withReview.sections.flatMap((s) => s.questions).map((q) => q.exercise.id),
+    );
+    for (const v of four) expect(asked).toContain(v.id);
   });
 
   it("les QCM offrent quatre options, distracteurs pris hors de la leçon compris", () => {

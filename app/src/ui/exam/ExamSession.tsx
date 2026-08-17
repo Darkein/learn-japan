@@ -9,7 +9,7 @@ import {
   type ExamResult,
   type ExamStatus,
 } from "../../lib/exam";
-import { generateExamText } from "../../lib/genClient";
+import { generateExamLessonQcm, generateExamText } from "../../lib/genClient";
 import { getLesson, type Lesson } from "../../lib/lessons";
 import { isSilentMode, loadSettings } from "../../lib/settings";
 import { tokenize } from "../../lib/tokenizer";
@@ -97,6 +97,21 @@ export function ExamSession({ lessonId, onExit, onStartReview }: Props) {
               },
               attempt,
             )) ?? undefined,
+          // Questions sur le cours (rôle d'une particule, cas d'omission, piège) : c'est
+          // la partie « as-tu compris la leçon ? » du contrôle. Même repli que ci-dessus.
+          lessonQcm: async () => {
+            const qs = await generateExamLessonQcm(
+              {
+                lessonId: lesson.id,
+                title: lesson.title,
+                level: lesson.level,
+                vocab: lesson.objectives.vocab,
+                grammar: { ids: lesson.introduces.grammar, labels: lesson.objectives.grammar },
+              },
+              attempt,
+            );
+            return qs.length > 0 ? qs : undefined;
+          },
           silent: isSilentMode(loadSettings()),
         },
       );

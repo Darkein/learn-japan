@@ -76,21 +76,44 @@ export const SRS = {
 
 /**
  * Contrôle de fin de leçon (le 関所, lib/exam.ts). Barème pensé pour tomber sur 20 quand la
- * leçon fournit toute la matière : dictée 3 + lecture 3 + version 3 + thème 4 + grammaire 4
- * + compréhension 3. Une section sans matière est retirée et le total baisse d'autant — la
- * note reste ramenée sur 20.
+ * leçon fournit toute la matière — la MOITIÉ des points porte sur la leçon elle-même
+ * (règle, emploi, correction, cours), l'autre sur la restitution (dictée, lecture, version,
+ * thème). Une section sans matière est retirée et le total baisse d'autant : la note reste
+ * ramenée sur 20 plutôt qu'un exercice bâclé pour tenir un total rond.
+ *
+ *   dictée 3 · lecture 3×1 · version 2×1 · thème 2×1
+ *   règle 1×2 · emploi 1×2 · correction 1×2 · cours 2×1 · compréhension 2×1  =  20
  */
 export const EXAM = {
   /** Note minimale d'admission (sur 20) : elle seule débloque la leçon suivante. */
   passMark: 12,
   /** Options d'un QCM de contrôle (bonne réponse comprise). */
   choices: 4,
-  /** Nombre de questions par section (les sections courtes s'adaptent à la leçon). */
-  counts: { lecture: 3, version: 3, theme: 4 },
+  /**
+   * Nombre de questions visé par section. La matière commande : un mot ne passant qu'une
+   * fois dans tout le sujet, une leçon pauvre rend moins de questions (cf. allocateWords).
+   */
+  counts: {
+    lecture: 3,
+    version: 2,
+    theme: 2,
+    regle: 1,
+    usage: 1,
+    cours: 2,
+    comprehension: 2,
+  },
   /** Points par QUESTION, section par section. */
-  points: { dictee: 3, lecture: 1, version: 1, theme: 1, grammaire: 2, comprehension: 1 },
-  /** Questions de compréhension retenues au maximum (le générateur peut en rendre plus). */
-  comprehensionMax: 3,
+  points: {
+    dictee: 3,
+    lecture: 1,
+    version: 1,
+    theme: 1,
+    regle: 2,
+    usage: 2,
+    correction: 2,
+    cours: 1,
+    comprehension: 1,
+  },
   /** Écoutes autorisées sur une question de dictée — après, on écrit ce qu'on a retenu. */
   listens: 2,
   /** Fraction de station gagnée sur la route en cours quand la barrière est franchie. */

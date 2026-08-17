@@ -34,6 +34,7 @@ import {
   type Skill,
   type VocabItem,
 } from "./db";
+import { getCurriculum } from "./curriculum";
 import { gradeExercise, type Exercise, type ExerciseTrack } from "./exercise";
 import { neighborRules, sentenceSpeechText } from "./exerciseBuild";
 import type { ComprehensionQuestion } from "./genClient";
@@ -53,7 +54,14 @@ export type ExamSectionId =
   | "lecture"
   | "version"
   | "theme"
-  | "grammaire"
+  /** « Quel est le rôle de を ? » — la règle enseignée, parmi des règles voisines. */
+  | "regle"
+  /** « 本＿読みます » — la particule à sa place : la règle EN USAGE. */
+  | "usage"
+  /** « Une seule de ces phrases est correcte » — la faute à repérer. */
+  | "correction"
+  /** QCM sur le COURS de la leçon (rôle, ellipse, pièges) — produit par le Worker. */
+  | "cours"
   | "comprehension";
 
 export interface ExamQuestion {
@@ -166,22 +174,6 @@ function seededShuffle<T>(arr: readonly T[], rng: () => number): T[] {
   return a;
 }
 
-/**
- * Tirage sans remise à l'échelle du SUJET : un mot déjà interrogé dans un exercice
- * précédent ne repasse dans un autre que si la leçon n'a pas assez de matière — un
- * contrôle qui pose quatre fois le même mot n'apprend rien sur le reste de la leçon.
- */
-function makePicker(rng: () => number) {
-  const used = new Set<string>();
-  return function pick<T extends { id: string }>(pool: readonly T[], n: number): T[] {
-    const fresh = seededShuffle(pool.filter((p) => !used.has(p.id)), rng);
-    const reused = seededShuffle(pool.filter((p) => used.has(p.id)), rng);
-    const chosen = [...fresh, ...reused].slice(0, n);
-    for (const c of chosen) used.add(c.id);
-    return chosen;
-  };
-}
-
 /** Options mélangées avec l'index de la bonne réponse, sous PRNG seedé. */
 function seededChoices(
   correct: string,
@@ -201,6 +193,12 @@ export interface ExamMaterial {
   vocab: VocabItem[];
   /** Items SRS des points de grammaire de la leçon. */
   grammar: GrammarItem[];
+  /**
+   * Mots des leçons DÉJÀ vues (hors leçon courante) : ils complètent le sujet quand la
+   * leçon n'a pas assez de matière pour remplir ses exercices — un contrôle scolaire
+   * interroge aussi l'acquis. Jamais avant d'avoir épuisé les mots de la leçon.
+   */
+  reviewVocab: VocabItem[];
   /** Tout le vocabulaire connu — distracteurs des QCM (un QCM tiré dans les seuls mots
    *  de la leçon se devine par élimination). */
   pool: VocabItem[];
@@ -210,6 +208,8 @@ export interface ExamMaterial {
   /** Texte inédit + questions, produits pour CE contrôle à partir des seuls objectifs de
    *  la leçon. Absent = section compréhension retirée (hors-ligne, Worker muet). */
   comprehension?: { text: string; questions: ComprehensionQuestion[] };
+  /** QCM sur le cours de la leçon (règles, ellipses, pièges) — même repli hors-ligne. */
+  lessonQcm?: ComprehensionQuestion[];
   /** Écoute impossible (réglage « sans le son » ou pause en cours) : pas de dictée. */
   silent: boolean;
 }
@@ -233,9 +233,21 @@ const SECTION_META: Record<ExamSectionId, { title: string; instruction: string }
     title: "Thème",
     instruction: "Écris chaque mot en japonais.",
   },
-  grammaire: {
-    title: "Grammaire",
-    instruction: "Réponds sur les points de grammaire de la leçon.",
+  regle: {
+    title: "Règle",
+    instruction: "Le rôle des points de grammaire de la leçon.",
+  },
+  usage: {
+    title: "Emploi",
+    instruction: "Complète chaque phrase par la particule ou l'auxiliaire qui convient.",
+  },
+  correction: {
+    title: "Correction",
+    instruction: "Une seule phrase est correcte : repère la faute dans les autres.",
+  },
+  cours: {
+    title: "Le cours",
+    instruction: "Questions sur ce que la leçon enseigne.",
   },
   comprehension: {
     title: "Compréhension",
@@ -247,6 +259,27 @@ const SECTION_META: Record<ExamSectionId, { title: string; instruction: string }
  *  à retenir d'oreille (mêmes bornes que la dictée de révision). */
 const DICTATION_MIN_TILES = 2;
 const DICTATION_MAX_TILES = 8;
+
+/** Particules candidates d'un exercice d'emploi (cloze) — distracteurs de même famille. */
+const PARTICLES = ["は", "を", "が", "に", "で", "も", "と", "へ", "から", "の", "や"];
+/** Auxiliaires et copules — l'autre famille : on ne mélange pas les registres dans un QCM. */
+const AUXILIARIES = ["です", "だ", "ます", "ました", "ません", "でした"];
+
+/**
+ * Particules qui COMMUTENT avec une autre sans rendre la phrase fausse — elles ne peuvent
+ * donc jamais être distracteurs l'une de l'autre : « 猫＿水を飲む » accepte は, が ET も, et
+ * « 本＿読む » accepte を comme は (topicalisation). Un QCM à deux bonnes réponses n'est pas
+ * un exercice, c'est un piège : on tire alors les leurres parmi les particules obliques
+ * (に, で, と…), qui changent franchement le sens.
+ */
+const INTERCHANGEABLE: Record<string, string[]> = {
+  は: ["が", "も", "を"],
+  が: ["は", "も", "を"],
+  も: ["は", "が", "を"],
+  を: ["は", "も", "が"],
+  に: ["へ"],
+  へ: ["に"],
+};
 
 /** Un mot n'est interrogeable en lecture que s'il porte une graphie ≠ sa lecture. */
 function hasKanjiFace(v: VocabItem): boolean {
@@ -290,45 +323,127 @@ function frTwins(pool: readonly VocabItem[], v: VocabItem): VocabItem[] {
   return pool.filter((p) => p.id !== v.id && faceText(p, "fr") === fr);
 }
 
-/** Exercice 1 — dictée : la phrase est jouée, l'élève la reconstruit par tuiles. */
-function dicteeQuestion(
+// ---- Répartition de la matière --------------------------------------------------
+
+/**
+ * Une phrase exploitable du sujet : le texte, sa tokenisation, sa traduction si connue, et
+ * sa provenance (le mot ou le point de grammaire qui la porte). Le corpus est petit — un
+ * exemple par mot, un par point de grammaire — d'où la règle : **une phrase ne sert qu'à
+ * UN exercice** (dictée, emploi, correction), sinon le contrôle ressasse la même.
+ */
+interface ExamSentence {
+  ja: string;
+  fr?: string;
+  tokens: KuromojiToken[];
+  /** Mot dont c'est la phrase d'exemple (dictée : c'est lui qui porte la note SRS). */
+  word?: VocabItem;
+  /** Point de grammaire dont c'est l'exemple du référentiel. */
+  grammarId?: string;
+}
+
+/** Corpus de phrases du sujet : exemples des mots de la leçon, des points de grammaire,
+ *  puis des mots déjà vus — dans cet ordre de préférence. */
+function sentencePool(m: ExamMaterial): ExamSentence[] {
+  const out: ExamSentence[] = [];
+  const seen = new Set<string>();
+  const push = (ja: string | undefined, extra: Partial<ExamSentence>, fr?: string) => {
+    if (!ja || seen.has(ja)) return;
+    const tokens = m.tokenized.get(ja);
+    if (!tokens || toTiles(tokens).length < 2) return;
+    seen.add(ja);
+    out.push({ ja, tokens, ...(fr ? { fr } : {}), ...extra });
+  };
+  for (const v of m.vocab) {
+    const ex = effectiveExample(v);
+    push(ex?.ja, { word: v }, ex?.fr);
+  }
+  for (const g of m.grammar) {
+    const d = grammarDetail(g.id);
+    push(d?.exampleJa, { grammarId: g.id }, d?.exampleFr);
+  }
+  for (const v of m.reviewVocab) {
+    const ex = effectiveExample(v);
+    push(ex?.ja, { word: v }, ex?.fr);
+  }
+  return out;
+}
+
+/**
+ * Répartition des MOTS entre les exercices, en tourniquet (round-robin). Un mot ne passe
+ * qu'UNE fois dans tout le sujet : quand la leçon est pauvre (la première n'a que quatre
+ * mots), chaque exercice en reçoit un plutôt qu'un seul exercice les prenant tous et les
+ * suivants ressassant les mêmes. Les mots de la leçon passent d'abord ; ceux des leçons
+ * précédentes ne complètent que si la leçon est épuisée — un contrôle interroge d'abord
+ * ce qu'il vient d'enseigner.
+ */
+function allocateWords(
+  demands: { id: ExamSectionId; want: number; eligible: (v: VocabItem) => boolean }[],
   m: ExamMaterial,
-  pick: <T extends { id: string }>(pool: readonly T[], n: number) => T[],
-): ExamQuestion | null {
-  const candidates = m.vocab
-    .map((v) => ({ v, ja: effectiveExample(v)?.ja }))
-    .filter((c): c is { v: VocabItem; ja: string } => !!c.ja)
-    .map(({ v, ja }) => ({ v, ja, tokens: m.tokenized.get(ja) }))
-    .filter((c) => {
-      if (!c.tokens) return false;
-      const tiles = toTiles(c.tokens);
-      return tiles.length >= DICTATION_MIN_TILES && tiles.length <= DICTATION_MAX_TILES;
-    });
-  // Le tirage passe par le picker commun : le mot dicté est « consommé » et ne sera pas
-  // redemandé en lecture ou en thème deux exercices plus loin.
-  const chosenWord = pick(candidates.map((c) => c.v), 1)[0];
-  const chosen = candidates.find((c) => c.v.id === chosenWord?.id);
-  if (!chosen) return null;
-  const { v, ja, tokens } = chosen;
-  const target = toTiles(tokens!);
+  rng: () => number,
+  /** Mots déjà consommés par un exercice de phrase (le mot dicté, par exemple). */
+  reserved: Set<string> = new Set(),
+): Map<ExamSectionId, VocabItem[]> {
+  const out = new Map<ExamSectionId, VocabItem[]>(demands.map((d) => [d.id, []]));
+  const used = new Set<string>(reserved);
+  const queues = [seededShuffle(m.vocab, rng), seededShuffle(m.reviewVocab, rng)];
+  for (const queue of queues) {
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const d of demands) {
+        const got = out.get(d.id)!;
+        if (got.length >= d.want) continue;
+        const v = queue.find((w) => !used.has(w.id) && d.eligible(w));
+        if (!v) continue;
+        used.add(v.id);
+        got.push(v);
+        progressed = true;
+      }
+    }
+  }
+  return out;
+}
+
+/** Tirage de phrases sans remise : une phrase ne sert qu'à un exercice du sujet. */
+function makeSentencePicker(pool: ExamSentence[], rng: () => number) {
+  const remaining = seededShuffle(pool, rng);
+  return function take(pred: (s: ExamSentence) => boolean = () => true): ExamSentence | null {
+    const i = remaining.findIndex(pred);
+    if (i < 0) return null;
+    return remaining.splice(i, 1)[0];
+  };
+}
+
+// ---- Exercices ------------------------------------------------------------------
+
+/** Exercice 1 — dictée : la phrase est jouée, l'élève la reconstruit par tuiles. */
+function dicteeQuestion(s: ExamSentence): ExamQuestion | null {
+  const target = toTiles(s.tokens);
+  if (target.length < DICTATION_MIN_TILES || target.length > DICTATION_MAX_TILES) return null;
+  // La note va au mot dont c'est l'exemple ; à défaut (phrase du référentiel de grammaire),
+  // au point de grammaire.
+  const id = s.word?.id ?? s.grammarId;
+  if (!id) return null;
+  const track = s.word ? "vocab" : "grammar";
   return {
-    key: `exam-dictee:${v.id}`,
+    key: `exam-dictee:${id}`,
     section: "dictee",
     points: EXAM.points.dictee,
     exercise: {
       mode: "build",
-      key: `exam-dictee:${v.id}`,
-      track: "vocab",
-      skill: "oral",
-      id: v.id,
+      key: `exam-dictee:${id}`,
+      track,
+      ...(s.word ? { skill: "oral" as const } : {}),
+      id,
       front: "",
       prompt: "Écris la phrase entendue",
       back: target.join(" "),
       audioOnly: true,
-      audio: { sentence: sentenceSpeechText(v, ja) },
-      context: ja,
+      audio: { sentence: s.word ? sentenceSpeechText(s.word, s.ja) : s.ja },
+      context: s.ja,
+      ...(s.fr ? { contextFr: s.fr } : {}),
       target,
-      tokens: tokens!,
+      tokens: s.tokens,
     },
   };
 }
@@ -421,42 +536,12 @@ function themeQuestion(v: VocabItem, pool: readonly VocabItem[]): ExamQuestion |
   };
 }
 
-/** Exercice 5a — thème guidé : la phrase d'exemple du point de grammaire, à remettre en ordre. */
-function grammarBuildQuestion(
-  g: GrammarItem,
-  tokenized: Map<string, KuromojiToken[]>,
-  points: number,
-): ExamQuestion | null {
-  const detail = grammarDetail(g.id);
-  const ja = detail?.exampleJa;
-  if (!ja) return null;
-  const tokens = tokenized.get(ja);
-  if (!tokens) return null;
-  const target = toTiles(tokens);
-  if (target.length < 2) return null;
-  return {
-    key: `exam-grammaire-build:${g.id}`,
-    section: "grammaire",
-    points,
-    exercise: {
-      mode: "build",
-      key: `exam-grammaire-build:${g.id}`,
-      track: "grammar",
-      id: g.id,
-      // La consigne est la traduction : on demande de PRODUIRE la phrase japonaise.
-      front: detail?.exampleFr ?? g.name,
-      prompt: `Compose la phrase en japonais (${g.name})`,
-      back: target.join(" "),
-      context: ja,
-      ...(detail?.exampleFr ? { contextFr: detail.exampleFr } : {}),
-      target,
-      tokens,
-    },
-  };
-}
-
-/** Exercice 5b — la règle du point, parmi des règles voisines du curriculum. */
-function grammarRuleQuestion(g: GrammarItem, rng: () => number, points: number): ExamQuestion | null {
+/**
+ * Exercice 5 — la RÈGLE : « quel est le rôle de を ? », parmi des règles voisines du
+ * curriculum. C'est la question de cours que le contrôle doit poser en premier — elle est
+ * garantie dès que la leçon enseigne un point de grammaire.
+ */
+function regleQuestion(g: GrammarItem, rng: () => number): ExamQuestion | null {
   const detail = grammarDetail(g.id);
   const rule = g.rule || detail?.ruleFr || "";
   if (!rule) return null;
@@ -464,16 +549,16 @@ function grammarRuleQuestion(g: GrammarItem, rng: () => number, points: number):
   if (distractors.length < EXAM.choices - 1) return null;
   const { choices, answerIndex } = seededChoices(rule, distractors, rng);
   return {
-    key: `exam-grammaire-regle:${g.id}`,
-    section: "grammaire",
-    points,
+    key: `exam-regle:${g.id}`,
+    section: "regle",
+    points: EXAM.points.regle,
     exercise: {
       mode: "choice",
-      key: `exam-grammaire-regle:${g.id}`,
+      key: `exam-regle:${g.id}`,
       track: "grammar",
       id: g.id,
-      front: g.name,
-      prompt: "Que signifie ce point de grammaire ?",
+      front: detail?.name ?? g.name,
+      prompt: "Quel est le rôle de ce point de grammaire ?",
       back: rule,
       choices,
       answerIndex,
@@ -481,48 +566,177 @@ function grammarRuleQuestion(g: GrammarItem, rng: () => number, points: number):
   };
 }
 
-/**
- * Exercice 5 — grammaire, DEUX questions à 2 points (le barème de la section vaut 4, quel
- * que soit le nombre de points enseignés) : chaque point de la leçon est interrogé une fois
- * — production de la phrase si le référentiel en porte une, sinon reconnaissance de la
- * règle. Une leçon à point unique reçoit la question complémentaire (la règle) plutôt
- * qu'une section à une seule question ; une leçon à trois points ou plus en échantillonne
- * deux, comme une copie qui ne peut pas tout demander.
- */
-const GRAMMAR_QUESTIONS = 2;
+/** Particule (ou auxiliaire) enseignée par un point : le kana en tête de son nom
+ *  (« を (objet) » → « を », « です (copule polie) » → « です »). */
+function taughtParticle(g: GrammarItem): string | null {
+  const name = grammarDetail(g.id)?.name ?? g.name;
+  const m = name.match(/^([ぁ-ゖ]{1,3})(?:\s|\(|（|$)/);
+  const p = m?.[1];
+  if (!p) return null;
+  return PARTICLES.includes(p) || AUXILIARIES.includes(p) ? p : null;
+}
 
-function grammarQuestions(m: ExamMaterial, rng: () => number): ExamQuestion[] {
-  const points = EXAM.points.grammaire;
-  const out: ExamQuestion[] = [];
-  for (const g of seededShuffle(m.grammar, rng)) {
-    if (out.length >= GRAMMAR_QUESTIONS) break;
-    const build = grammarBuildQuestion(g, m.tokenized, points);
-    const rule = grammarRuleQuestion(g, rng, points);
-    if (build) out.push(build);
-    else if (rule) out.push(rule);
+/**
+ * Exercice 6 — l'EMPLOI : la règle en situation. La particule enseignée est retirée d'une
+ * phrase (« 本＿読む ») et il faut la remettre, parmi des particules de la même famille —
+ * on ne mélange pas particules et copules, ce serait un QCM devinable au registre.
+ * C'est la question qui vérifie qu'on a compris ce que を MARQUE, pas seulement ce qu'on
+ * peut en réciter.
+ */
+function usageQuestion(
+  g: GrammarItem,
+  take: (pred?: (s: ExamSentence) => boolean) => ExamSentence | null,
+  rng: () => number,
+): ExamQuestion | null {
+  const particle = taughtParticle(g);
+  if (!particle) return null;
+  // La traduction est OBLIGATOIRE : sans elle, « 猫＿水を飲む » ne dit pas si l'on veut « le
+  // chat boit » ou « le chat AUSSI boit », et deux options répondraient à la question.
+  const s = take((c) => !!c.fr && c.tokens.some((t) => t.surface_form === particle));
+  if (!s) return null;
+  const family = PARTICLES.includes(particle) ? PARTICLES : AUXILIARIES;
+  const banned = new Set([particle, ...(INTERCHANGEABLE[particle] ?? [])]);
+  const distractors = seededShuffle(
+    family.filter((p) => !banned.has(p)),
+    rng,
+  ).slice(0, EXAM.choices - 1);
+  if (distractors.length < EXAM.choices - 1) return null;
+  const { choices, answerIndex } = seededChoices(particle, distractors, rng);
+  // Une seule occurrence est masquée : masquer toutes les は d'une phrase en poserait
+  // deux questions en une.
+  const front = s.ja.replace(particle, "＿");
+  return {
+    key: `exam-usage:${g.id}`,
+    section: "usage",
+    points: EXAM.points.usage,
+    exercise: {
+      mode: "choice",
+      key: `exam-usage:${g.id}`,
+      track: "grammar",
+      id: g.id,
+      front,
+      prompt: s.fr ? `Complète : « ${s.fr} »` : "Complète la phrase",
+      back: s.ja,
+      context: s.ja,
+      ...(s.fr ? { contextFr: s.fr } : {}),
+      choices,
+      answerIndex,
+    },
+  };
+}
+
+/**
+ * Fautes fabriquées à partir d'une phrase correcte. Seules des fautes INDISCUTABLES sont
+ * produites — deux particules échangées, une particule doublée, le verbe passé en tête :
+ * on n'écrit jamais un « faux » que le japonais réel tolère. En particulier, la
+ * SUPPRESSION d'une particule est volontairement exclue : l'ellipse de は ou を est
+ * courante à l'oral, la compter fausse enseignerait une contre-vérité (c'est justement une
+ * nuance que la section « Le cours » explique).
+ */
+function wrongVariants(tokens: KuromojiToken[], rng: () => number): string[] {
+  const surfaces = tokens.map((t) => t.surface_form);
+  const partIdx = tokens.map((t, i) => (t.pos === "助詞" ? i : -1)).filter((i) => i >= 0);
+  const original = surfaces.join("");
+
+  /** Trois familles de fautes, chacune produisant ses variantes possibles. */
+  const families: string[][] = [[], [], []];
+  const push = (family: number, parts: string[]) => {
+    const text = parts.join("");
+    if (text !== original && !families[family].includes(text)) families[family].push(text);
+  };
+
+  // ① Deux particules DIFFÉRENTES échangées : 今日を本は読む。
+  for (const i of partIdx) {
+    for (const j of partIdx) {
+      if (i >= j || surfaces[i] === surfaces[j]) continue;
+      const swapped = [...surfaces];
+      [swapped[i], swapped[j]] = [swapped[j], swapped[i]];
+      push(0, swapped);
+    }
   }
-  // Point unique : on complète par la règle pour que la section pèse son barème.
-  if (out.length === 1 && m.grammar.length === 1) {
-    const rule = grammarRuleQuestion(m.grammar[0], rng, points);
-    if (rule && !out.some((q) => q.key === rule.key)) out.push(rule);
+  // ② Le GROUPE verbal final passé en tête : 読みます今日は本を。 Le groupe entier (verbe +
+  // auxiliaires : 飲み + ます), sinon on déplace « ます » seul et la faute devient illisible.
+  const verbStart = tokens.findIndex((t) => t.pos === "動詞" || t.pos === "形容詞");
+  const tailStart = [...tokens].reverse().findIndex((t) => t.pos !== "記号");
+  if (verbStart >= 0 && tailStart >= 0) {
+    const end = tokens.length - tailStart; // exclusif : la ponctuation reste en place
+    const moved = [...surfaces];
+    const group = moved.splice(verbStart, end - verbStart);
+    moved.unshift(...group);
+    push(1, moved);
+  }
+  // ③ Une particule doublée : 本をを読む。
+  for (const i of seededShuffle(partIdx, rng)) {
+    const doubled = [...surfaces];
+    doubled.splice(i, 0, surfaces[i]);
+    push(2, doubled);
+  }
+
+  // Une faute de CHAQUE famille d'abord (tourniquet) : trois particules doublées dans les
+  // mêmes options se repèrent au motif, pas à la grammaire.
+  const out: string[] = [];
+  for (let round = 0; out.length < 3 && round < 4; round++) {
+    for (const family of families) {
+      const text = family[round];
+      if (text && !out.includes(text)) out.push(text);
+    }
   }
   return out;
 }
 
-/** Exercice 6 — compréhension d'un texte inédit écrit à partir des seuls objectifs de la leçon. */
-function comprehensionQuestions(m: ExamMaterial): ExamQuestion[] {
-  if (!m.comprehension) return [];
-  return m.comprehension.questions.slice(0, EXAM.comprehensionMax).map((q, i) => ({
-    key: `exam-comprehension:${i}`,
-    section: "comprehension" as const,
-    points: EXAM.points.comprehension,
+/**
+ * Exercice 7 — la CORRECTION : quatre phrases, une seule correcte. La compétence testée
+ * est celle qu'un contrôle scolaire vise avec « quelle phrase est incorrecte ? », mais
+ * posée dans le sens sûr : les trois fautes sont fabriquées (voir `wrongVariants`), donc
+ * connues comme fausses, là où fabriquer trois phrases justes exigerait un modèle.
+ */
+function correctionQuestion(
+  s: ExamSentence,
+  grammarId: string | undefined,
+  rng: () => number,
+): ExamQuestion | null {
+  const id = grammarId ?? s.grammarId ?? s.word?.id;
+  if (!id) return null;
+  const wrong = wrongVariants(s.tokens, rng).slice(0, EXAM.choices - 1);
+  if (wrong.length < EXAM.choices - 1) return null;
+  const correct = s.tokens.map((t) => t.surface_form).join("");
+  const { choices, answerIndex } = seededChoices(correct, wrong, rng);
+  return {
+    key: `exam-correction:${id}`,
+    section: "correction",
+    points: EXAM.points.correction,
     exercise: {
       mode: "choice",
-      key: `exam-comprehension:${i}`,
+      key: `exam-correction:${id}`,
+      track: grammarId || s.grammarId ? "grammar" : "vocab",
+      id,
+      front: "",
+      prompt: "Une seule de ces phrases est correcte. Laquelle ?",
+      back: correct,
+      ...(s.fr ? { contextFr: s.fr } : {}),
+      choices,
+      answerIndex,
+    },
+  };
+}
+
+/** QCM produit par le Worker (cours ou compréhension) → questions du sujet. */
+function llmQuestions(
+  questions: ComprehensionQuestion[],
+  section: ExamSectionId,
+  points: number,
+  max: number,
+): ExamQuestion[] {
+  return questions.slice(0, max).map((q, i) => ({
+    key: `exam-${section}:${i}`,
+    section,
+    points,
+    exercise: {
+      mode: "choice",
+      key: `exam-${section}:${i}`,
       track: "grammar",
       // Le point de grammaire visé porte la note quand le générateur l'a indiqué ; sinon
-      // la question ne replanifie rien (`id` vide → `gradeExercise` créerait un item
-      // fantôme, on filtre à la notation).
+      // la question ne replanifie rien (id vide → écarté à la notation).
       id: q.targetGrammarId ?? "",
       front: "",
       prompt: q.question,
@@ -546,51 +760,117 @@ function section(id: ExamSectionId, questions: ExamQuestion[], preamble?: string
 
 /**
  * Compose le sujet — fonction PURE : même matière + même tentative ⇒ même sujet.
- * Une section sans matière suffisante est retirée et son barème n'est pas compté : mieux
- * vaut un contrôle sur 17 qu'une question bâclée pour tenir un total rond.
+ *
+ * Deux règles gouvernent la VARIÉTÉ, parce que la matière d'une leçon est mince (la
+ * première n'a que quatre mots et deux phrases d'exemple) :
+ *   - un MOT ne passe qu'une fois dans tout le sujet, les exercices se les répartissant en
+ *     tourniquet (`allocateWords`) ;
+ *   - une PHRASE ne sert qu'à un exercice (`makeSentencePicker`).
+ * Une section qui manque de matière rend moins de questions, ou disparaît — et son barème
+ * n'est pas compté : mieux vaut un contrôle sur 15 que quatre fois le même mot.
  */
 export function composeExam(m: ExamMaterial, attempt: number): Exam {
   const rng = mulberry32(hashString(`${m.lessonId}#${attempt}`));
-  const pick = makePicker(rng);
   const sections: ExamSection[] = [];
   const skipped: SkippedSection[] = [];
+  const take = makeSentencePicker(sentencePool(m), rng);
+
+  // Les phrases d'abord : dictée, emploi et correction se partagent un corpus de deux ou
+  // trois phrases, il ne faut pas que la dictée prenne celle dont l'emploi a besoin.
+  // Les points de grammaire aussi tournent : quand la leçon en enseigne deux, la règle
+  // interroge l'un et l'emploi l'autre — pas deux fois la même particule.
+  const grammar = seededShuffle(m.grammar, rng);
+  const regleSource = grammar;
+  const usageSource = grammar.length > 1 ? [...grammar.slice(1), grammar[0]] : grammar;
+  const usage = usageSource
+    .map((g) => usageQuestion(g, take, rng))
+    .filter((q): q is ExamQuestion => q !== null)
+    .slice(0, EXAM.counts.usage);
+  const correctionSentence = take((s) => wrongVariants(s.tokens, rng).length >= EXAM.choices - 1);
+  // La correction porte sur le PREMIER point (celui de la règle) : avec deux points pour
+  // trois exercices de grammaire, autant que les deux exercices sur phrase (emploi et
+  // correction) tombent sur des points différents.
+  const correction = correctionSentence
+    ? correctionQuestion(correctionSentence, grammar[0]?.id, rng)
+    : null;
+  const dicteeSentence = m.silent
+    ? null
+    : take((s) => {
+        const n = toTiles(s.tokens).length;
+        return n >= DICTATION_MIN_TILES && n <= DICTATION_MAX_TILES;
+      });
+  const dictee = dicteeSentence ? dicteeQuestion(dicteeSentence) : null;
+
+  // Puis les mots, répartis en tourniquet entre les trois exercices de vocabulaire — le
+  // mot que la dictée vient de consommer n'y repasse pas.
+  const words = allocateWords(
+    [
+      { id: "lecture", want: EXAM.counts.lecture, eligible: hasKanjiFace },
+      { id: "version", want: EXAM.counts.version, eligible: hasMeaning },
+      { id: "theme", want: EXAM.counts.theme, eligible: hasMeaning },
+    ],
+    m,
+    rng,
+    new Set([dicteeSentence?.word?.id].filter((id): id is string => !!id)),
+  );
 
   // 1. Dictée — écartée si l'élève ne peut pas écouter (le contrôle ne punit pas un
   // casque oublié : le barème est ramené, pas la note).
-  if (m.silent) {
-    skipped.push({ id: "dictee", reason: "écoute en pause (mode sans le son)" });
-  } else {
-    const q = dicteeQuestion(m, pick);
-    if (q) sections.push(section("dictee", [q]));
-    else skipped.push({ id: "dictee", reason: "aucune phrase d'exemple exploitable" });
-  }
+  if (m.silent) skipped.push({ id: "dictee", reason: "écoute en pause (mode sans le son)" });
+  else if (dictee) sections.push(section("dictee", [dictee]));
+  else skipped.push({ id: "dictee", reason: "aucune phrase d'exemple exploitable" });
 
   // 2. Lecture — mots dont la graphie diffère de la lecture.
-  const lecture = pick(m.vocab.filter(hasKanjiFace), EXAM.counts.lecture).map(lectureQuestion);
+  const lecture = (words.get("lecture") ?? []).map(lectureQuestion);
   if (lecture.length > 0) sections.push(section("lecture", lecture));
-  else skipped.push({ id: "lecture", reason: "aucun mot en kanji dans la leçon" });
+  else skipped.push({ id: "lecture", reason: "aucun mot en kanji disponible" });
 
   // 3. Version (JA → FR).
-  const version = pick(m.vocab.filter(hasMeaning), EXAM.counts.version)
+  const version = (words.get("version") ?? [])
     .map((v) => versionQuestion(v, m.pool, rng))
     .filter((q): q is ExamQuestion => q !== null);
   if (version.length > 0) sections.push(section("version", version));
-  else skipped.push({ id: "version", reason: "pas assez de distracteurs plausibles" });
+  else skipped.push({ id: "version", reason: "pas assez de mots ou de distracteurs" });
 
   // 4. Thème (FR → JA).
-  const theme = pick(m.vocab.filter(hasMeaning), EXAM.counts.theme)
+  const theme = (words.get("theme") ?? [])
     .map((v) => themeQuestion(v, m.pool))
     .filter((q): q is ExamQuestion => q !== null);
   if (theme.length > 0) sections.push(section("theme", theme));
-  else skipped.push({ id: "theme", reason: "aucun mot au sens exploitable" });
+  else skipped.push({ id: "theme", reason: "aucun mot au sens exploitable disponible" });
 
-  // 5. Grammaire.
-  const grammaire = grammarQuestions(m, rng);
-  if (grammaire.length > 0) sections.push(section("grammaire", grammaire));
-  else skipped.push({ id: "grammaire", reason: "la leçon n'introduit aucun point de grammaire" });
+  // 5. Règle — garantie dès qu'un point de grammaire est enseigné.
+  const regle = regleSource
+    .map((g) => regleQuestion(g, rng))
+    .filter((q): q is ExamQuestion => q !== null)
+    .slice(0, EXAM.counts.regle);
+  if (regle.length > 0) sections.push(section("regle", regle));
+  else skipped.push({ id: "regle", reason: "la leçon n'introduit aucun point de grammaire" });
 
-  // 6. Compréhension — la seule section qui dépend du Worker.
-  const comprehension = comprehensionQuestions(m);
+  // 6. Emploi — la règle en situation (cloze de particule).
+  if (usage.length > 0) sections.push(section("usage", usage));
+  else skipped.push({ id: "usage", reason: "aucune phrase ne porte la particule enseignée" });
+
+  // 7. Correction — la faute à repérer.
+  if (correction) sections.push(section("correction", [correction]));
+  else skipped.push({ id: "correction", reason: "aucune phrase ne permet de fabriquer des fautes sûres" });
+
+  // 8. Le cours — QCM du Worker sur ce que la leçon enseigne (rôle, ellipse, pièges).
+  const cours = m.lessonQcm
+    ? llmQuestions(m.lessonQcm, "cours", EXAM.points.cours, EXAM.counts.cours)
+    : [];
+  if (cours.length > 0) sections.push(section("cours", cours));
+  else skipped.push({ id: "cours", reason: "questions de cours indisponibles (hors-ligne ?)" });
+
+  // 9. Compréhension d'un texte inédit — l'autre section qui dépend du Worker.
+  const comprehension = m.comprehension
+    ? llmQuestions(
+        m.comprehension.questions,
+        "comprehension",
+        EXAM.points.comprehension,
+        EXAM.counts.comprehension,
+      )
+    : [];
   if (comprehension.length > 0) {
     sections.push(section("comprehension", comprehension, m.comprehension!.text));
   } else {
@@ -725,10 +1005,14 @@ export function gradeExam(exam: Exam, answers: ExamAnswers): ExamResult {
 
 // ---- Collecte de la matière (IO) -----------------------------------------------
 
-/** Phrases à tokeniser pour ce sujet : exemples des mots (dictée) et des points (grammaire). */
-function sentencesToTokenize(vocab: VocabItem[], grammar: GrammarItem[]): string[] {
+/** Phrases à tokeniser pour ce sujet : exemples des mots (leçon puis révision) et des points. */
+function sentencesToTokenize(
+  vocab: VocabItem[],
+  grammar: GrammarItem[],
+  reviewVocab: VocabItem[],
+): string[] {
   const out = new Set<string>();
-  for (const v of vocab) {
+  for (const v of [...vocab, ...reviewVocab]) {
     const ja = effectiveExample(v)?.ja;
     if (ja) out.add(ja);
   }
@@ -739,17 +1023,35 @@ function sentencesToTokenize(vocab: VocabItem[], grammar: GrammarItem[]): string
   return [...out];
 }
 
+/**
+ * Mots des leçons qui PRÉCÈDENT celle-ci dans le curriculum : la réserve dans laquelle le
+ * sujet puise quand la leçon courante ne suffit pas à remplir ses exercices sans reposer
+ * deux fois le même mot. Plafonnée : au-delà, on tokenise des phrases pour rien.
+ */
+const REVIEW_POOL_MAX = 24;
+
+function previousVocabIds(lessonId: string): string[] {
+  const curriculum = getCurriculum();
+  const i = curriculum.findIndex((e) => e.id === lessonId);
+  if (i <= 0) return [];
+  const ids = [...new Set(curriculum.slice(0, i).flatMap((e) => e.introduces.vocab))];
+  // Les plus récentes d'abord : ce qu'on a vu la semaine dernière est plus légitime dans un
+  // contrôle que la toute première leçon.
+  return ids.reverse().slice(0, REVIEW_POOL_MAX);
+}
+
 export interface PrepareExamInput {
   lessonId: string;
   level: number;
-  /** Ids `introduces` de la leçon — le sujet ne sort QUE de là. */
+  /** Ids `introduces` de la leçon — le cœur du sujet. */
   vocabIds: string[];
   grammarIds: string[];
 }
 
 /**
- * Rassemble la matière puis compose le sujet. `tokenize` et `comprehension` sont injectés
- * pour garder la fonction testable sans kuromoji ni réseau ; les défauts sont les vrais.
+ * Rassemble la matière puis compose le sujet. `tokenize` et les générateurs LLM sont
+ * injectés pour garder la fonction testable sans kuromoji ni réseau ; les défauts sont les
+ * vrais. Un générateur muet (hors-ligne) retire simplement sa section du sujet.
  */
 export async function prepareExam(
   input: PrepareExamInput,
@@ -757,6 +1059,7 @@ export async function prepareExam(
   deps: {
     tokenize: (text: string) => Promise<KuromojiToken[]>;
     comprehension?: () => Promise<ExamMaterial["comprehension"]>;
+    lessonQcm?: () => Promise<ExamMaterial["lessonQcm"]>;
     silent?: boolean;
   },
 ): Promise<Exam> {
@@ -765,14 +1068,16 @@ export async function prepareExam(
     Promise.all(input.grammarIds.map((id) => getGrammar(id))),
   ]);
   const byId = new Map(pool.map((v) => [v.id, v]));
-  const vocab = input.vocabIds
-    .map((id) => byId.get(id))
-    .filter((v): v is VocabItem => !!v);
+  const resolve = (ids: string[]) =>
+    ids.map((id) => byId.get(id)).filter((v): v is VocabItem => !!v);
+  const vocab = resolve(input.vocabIds);
+  const lessonIds = new Set(input.vocabIds);
+  const reviewVocab = resolve(previousVocabIds(input.lessonId)).filter((v) => !lessonIds.has(v.id));
   const grammar = grammarItems.filter((g): g is GrammarItem => !!g);
 
   const tokenized = new Map<string, KuromojiToken[]>();
   await Promise.all(
-    sentencesToTokenize(vocab, grammar).map(async (ja) => {
+    sentencesToTokenize(vocab, grammar, reviewVocab).map(async (ja) => {
       // Tokenisation ratée (dico kuromoji absent) : la phrase est simplement écartée du
       // sujet — un contrôle sans dictée reste un contrôle.
       const tokens = await deps.tokenize(ja).catch(() => null);
@@ -780,9 +1085,11 @@ export async function prepareExam(
     }),
   );
 
-  const comprehension = deps.comprehension
-    ? await deps.comprehension().catch(() => undefined)
-    : undefined;
+  // Les deux appels LLM partent ENSEMBLE : ils sont indépendants, et l'élève attend.
+  const [comprehension, lessonQcm] = await Promise.all([
+    deps.comprehension ? deps.comprehension().catch(() => undefined) : undefined,
+    deps.lessonQcm ? deps.lessonQcm().catch(() => undefined) : undefined,
+  ]);
 
   return composeExam(
     {
@@ -790,9 +1097,11 @@ export async function prepareExam(
       level: input.level,
       vocab,
       grammar,
+      reviewVocab,
       pool,
       tokenized,
       comprehension,
+      lessonQcm,
       silent: deps.silent ?? false,
     },
     attempt,

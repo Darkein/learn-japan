@@ -258,19 +258,41 @@ du Tōkaidō — Hakone, Arai, Fukushima —, où l'on ne passait qu'après cont
 **Le sujet ne sort QUE de la leçon** (son vocabulaire, ses points de grammaire) : les
 histoires n'y entrent pas — on vérifie ce qui a été *enseigné*, pas ce qui a été *lu*.
 
-| # | Exercice | Format | Barème |
+La copie tient sur 20 points, et **la moitié porte sur la leçon elle-même** (règle, emploi,
+correction, cours) — l'autre sur la restitution :
+
+| # | Exercice | Ce qu'il vérifie | Barème |
 |---|---|---|---|
 | 1 | **Dictée** | phrase jouée, reconstruction par tuiles, 2 écoutes | 3 |
 | 2 | **Lecture** | graphie en kanji → lecture en kana, **en saisie** | 3 × 1 |
-| 3 | **Version** (JA → FR) | QCM de sens, distracteurs de même niveau JLPT | 3 × 1 |
-| 4 | **Thème** (FR → JA) | production en saisie, sans options | 4 × 1 |
-| 5 | **Grammaire** | phrase à composer (ou règle parmi des voisines) | 2 × 2 |
-| 6 | **Compréhension** | texte **inédit** écrit pour l'épreuve + QCM en français | 3 × 1 |
+| 3 | **Version** (JA → FR) | QCM de sens, distracteurs de même niveau JLPT | 2 × 1 |
+| 4 | **Thème** (FR → JA) | production en saisie, sans options | 2 × 1 |
+| 5 | **Règle** | « quel est le rôle de を ? », parmi des règles voisines | 1 × 2 |
+| 6 | **Emploi** | la particule enseignée retirée d'une phrase (« 本＿読む ») | 1 × 2 |
+| 7 | **Correction** | quatre phrases, **une seule correcte** — la faute à voir | 1 × 2 |
+| 8 | **Le cours** | QCM FR : ce que la forme marque, quand elle tombe, le piège | 2 × 1 |
+| 9 | **Compréhension** | texte **inédit** écrit pour l'épreuve + QCM en français | 2 × 1 |
 
-Les exercices 1 à 5 sont **déterministes** (inventaire + cartes SRS) ; seul le 6 passe par
-le Worker (`kind: "exam-text"`). Une section sans matière — hors-ligne, écoute en pause,
-leçon sans grammaire — est **retirée du sujet et du barème** : la note reste ramenée sur 20,
-jamais une section comptée fausse.
+Les exercices 1 à 7 sont **déterministes** (inventaire + cartes SRS) ; seuls les deux
+derniers passent par le Worker (`kind: "exam-lesson-qcm"` et `"exam-text"`). Une section sans
+matière — hors-ligne, écoute en pause, leçon sans grammaire — est **retirée du sujet et du
+barème** : la note reste ramenée sur 20, jamais une section comptée fausse.
+
+**Deux garde-fous pédagogiques**, parce qu'un contrôle ne doit jamais enseigner un faux :
+- les fautes de l'exercice 7 sont **fabriquées et indiscutables** (deux particules échangées,
+  une particule doublée, le groupe verbal déplacé). La *suppression* d'une particule est
+  volontairement exclue : l'ellipse de は ou を est courante en japonais réel ;
+- l'exercice 6 donne toujours la **traduction française** et exclut des leurres toute
+  particule qui **commute** avec la réponse (は accepte が, も, を dans la même phrase) —
+  sans quoi la question aurait deux bonnes réponses.
+
+**Variété.** La matière d'une leçon est mince (la première n'a que quatre mots et deux
+phrases d'exemple), d'où deux règles dures : **un mot ne passe qu'une fois** dans tout le
+sujet — les exercices se les répartissent en tourniquet plutôt qu'un seul les prenant tous —
+et **une phrase ne sert qu'à un exercice** (dictée, emploi, correction). Quand la leçon est
+épuisée, le sujet complète avec les mots des **leçons précédentes** (un contrôle interroge
+aussi l'acquis) ; s'il n'y en a pas, il rend moins de questions plutôt que les mêmes deux
+fois.
 
 **Tirage déterministe** : le sujet est seedé par `(leçon, n° de tentative)` — rouvrir une
 épreuve interrompue redonne le même sujet, un rattrapage en donne un autre, les tests
