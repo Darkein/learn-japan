@@ -111,6 +111,13 @@ export interface PodcastRecord {
   createdAt: number;
   /** Version du format de pack (régénération si obsolète). */
   version?: number;
+  /**
+   * Empreinte de la MATIÈRE dont le pack a été assemblé (cadrage + histoires, cf.
+   * lib/podcast.packFingerprint). Sans elle, régénérer le cours d'une leçon ne régénérait pas
+   * son audio : le pack restait valide tant que `version` correspondait, et le podcast lisait
+   * l'ANCIEN cours — en surlignant, qui plus est, des blocs qui ne correspondaient plus.
+   */
+  fingerprint?: string;
 }
 
 /**

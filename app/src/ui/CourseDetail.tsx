@@ -362,6 +362,15 @@ function Cours({
   const lastMatchRef = useRef(0);
   const activeBlock = useMemo(() => {
     if (!activeSegment) return -1;
+    // Le segment porte l'index de son bloc quand il vient d'un pack récent : c'est exact, et
+    // c'est le seul moyen de situer une amorce parlée (« Pour résumer. ») ou une rangée de
+    // tableau linéarisée, dont le texte n'existe pas tel quel dans le Markdown. Recherche
+    // floue en repli, pour les packs assemblés avant que l'index n'existe.
+    const exact = activeSegment.blockIndex;
+    if (exact != null && exact >= 0 && exact < blocks.length) {
+      lastMatchRef.current = exact;
+      return exact;
+    }
     const i = findBlockForSegment(blocks, activeSegment.text, activeSegment.label, lastMatchRef.current);
     if (i >= 0) lastMatchRef.current = i;
     return i;

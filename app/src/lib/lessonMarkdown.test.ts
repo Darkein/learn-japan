@@ -217,6 +217,18 @@ describe("findBlockForSegment", () => {
     expect(findBlockForSegment(blocks, "私は学生です。", undefined)).toBe(2);
   });
 
+  // Raison d'être du `blockIndex` porté par les segments (lib/podcastScript) : la recherche
+  // par texte ne PEUT PAS situer un énoncé qui n'existe nulle part dans le Markdown — une
+  // amorce parlée, ou une rangée de tableau linéarisée dont l'ordre des mots diffère de
+  // blockText. Elle reste le repli des packs assemblés avant l'index.
+  it("un énoncé absent du Markdown ne peut pas être situé : c'est pourquoi les segments portent leur index", () => {
+    // Sans label, rien à quoi se raccrocher.
+    expect(findBlockForSegment(blocks, "On entend souvent, à tort :", undefined)).toBe(-1);
+    // Avec un label, le repli désigne le TITRE de la section — donc le surlignage saute au
+    // titre à chaque amorce au lieu de rester sur le bloc réellement lu.
+    expect(findBlockForSegment(blocks, "Pour résumer.", "La particule は")).toBe(0);
+  });
+
   it("biais fromIndex : une phrase présente deux fois matche à partir du dernier bloc trouvé", () => {
     expect(findBlockForSegment(blocks, "Elle suit le nom.", undefined, 0)).toBe(1);
     expect(findBlockForSegment(blocks, "Elle suit le nom.", undefined, 3)).toBe(4);

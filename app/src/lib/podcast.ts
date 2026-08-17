@@ -18,7 +18,9 @@ import { splitJaSentences } from "./kana";
 import {
   addLessonStory,
   ensureLessonFraming,
+  fnv1a,
   getLesson,
+  type Lesson,
 } from "./lessons";
 import {
   buildPodcastScript,
@@ -29,6 +31,28 @@ import {
 } from "./podcastScript";
 import { ensureComprehensionQuiz } from "./stories";
 import { splitSentences, type PlayerSentence } from "./tts";
+
+// ---------- Fraîcheur du pack ------------------------------------------------
+
+/**
+ * Empreinte de la MATIÈRE dont le pack est assemblé : le cadrage (dont dérivent le texte parlé
+ * ET le `blockIndex` de surlignage), les histoires présentes et leur traduction, et le titre
+ * annoncé en fin de piste.
+ *
+ * `PACK_VERSION` ne dit que « le FORMAT a changé » ; il ne voit pas une leçon dont le contenu
+ * a été régénéré sous la même révision (bouton « Régénérer le cours »). Sans cette empreinte,
+ * le lecteur rejouait indéfiniment l'ancien cours — et depuis que les segments portent un
+ * index de bloc, il surlignerait en plus le mauvais paragraphe avec aplomb.
+ */
+export function packFingerprint(lesson: Lesson, nav: ScriptNav = {}): string {
+  return fnv1a(
+    JSON.stringify({
+      framing: lesson.framing ?? "",
+      next: nav.nextLessonTitle ?? "",
+      stories: lesson.stories.map((s) => [s.id, s.title, s.translation?.length ?? 0, s.comprehension?.length ?? 0]),
+    }),
+  );
+}
 
 // ---------- Traduction d'histoire (préalable à l'assemblage) -----------------
 
@@ -145,7 +169,13 @@ export async function generatePodcastPack(
   }
 
   const segments = buildPodcastScript(lesson, nav, storyTokens);
-  const rec: PodcastRecord = { id: lessonId, segments, createdAt: Date.now(), version: PACK_VERSION };
+  const rec: PodcastRecord = {
+    id: lessonId,
+    segments,
+    createdAt: Date.now(),
+    version: PACK_VERSION,
+    fingerprint: packFingerprint(lesson, nav),
+  };
   await putPodcast(rec);
   return rec;
 }
