@@ -9,7 +9,10 @@ import {
   buildVocabQuizzes,
   cleanFrench,
   COMP_PAUSE_MS,
+  BLOCK_PAUSE_MS,
   containsJa,
+  EXAMPLE_JA_PAUSE_MS,
+  EXAMPLE_PAIR_PAUSE_MS,
   QUIZ_PAUSE_MS,
   segmentParts,
   stripFurigana,
@@ -166,6 +169,8 @@ describe("buildPodcastScript", () => {
           { lang: "fr", text: "marque le thème." },
         ],
         label: "Cours",
+        blockIndex: 0,
+        pauseAfterMs: BLOCK_PAUSE_MS, // respiration de fin de paragraphe
       },
     ]);
   });
@@ -257,6 +262,128 @@ describe("buildPodcastScript", () => {
   it("attribue des ids uniques", () => {
     const script = buildPodcastScript(base, { nextLessonTitle: "x" });
     expect(new Set(script.map((s) => s.id)).size).toBe(script.length);
+  });
+});
+
+// Le chapitre « cours » lit une leçon Markdown à voix haute. Tant qu'il se contentait d'EFFACER
+// les marqueurs de structure, un tableau de conjugaison sortait en « Forme Exemple Neutre する
+// Poli します », les paires d'exemples s'enchaînaient sans le moindre blanc, le résumé fusionnait
+// en une phrase-fleuve, et la phrase FAUSSE d'un :::pitfall s'entendait exactement comme un bon
+// exemple. Ces tests verrouillent l'interprétation de chaque bloc.
+describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée", () => {
+  // Markdown conforme au contrat de génération (worker/src/prompts.ts) : titre, tableau de
+  // conjugaison, exemples, piège, résumé à puces.
+  const FRAMING = [
+    "La particule は marque le thème.",
+    "",
+    "# Les formes de base",
+    "",
+    "| Forme | Exemple |",
+    "|---|---|",
+    "| Neutre | する |",
+    "| Poli | します |",
+    "",
+    ":::example",
+    "私は学生です。",
+    "> Je suis étudiant.",
+    "本を読みます。",
+    "> Je lis un livre.",
+    ":::",
+    "",
+    ":::pitfall",
+    "私は日本語をできます。",
+    "> On dit 日本語ができます。",
+    ":::",
+    "",
+    ":::summary",
+    "- Premier point",
+    "- Second point",
+    ":::",
+  ].join("\n");
+
+  const cours = (framing: string) =>
+    buildPodcastScript(lesson({ framing, stories: [] }), {}).filter((s) => s.chapter === "cours");
+
+  it("linéarise un tableau : une rangée = une phrase parlée, jamais un magma de cellules", () => {
+    const texts = cours(FRAMING).map((s) => s.text);
+    expect(texts).toContain("Neutre : する");
+    expect(texts).toContain("Poli : します");
+    // La ligne d'en-tête est de la mise en page : elle ne se prononce pas.
+    expect(texts.some((t) => t.includes("Forme Exemple"))).toBe(false);
+  });
+
+  it("rappelle l'en-tête à partir de 3 colonnes (sinon on ne sait plus de quoi on parle)", () => {
+    const texts = cours("| Forme | Affirmatif | Négatif |\n|---|---|---|\n| Neutre | する | しない |").map((s) => s.text);
+    expect(texts).toEqual(["Neutre, Affirmatif : する, Négatif : しない"]);
+  });
+
+  it("annonce le contre-exemple d'un :::pitfall AVANT de le prononcer", () => {
+    const segs = cours(FRAMING);
+    const lead = segs.findIndex((s) => s.text.startsWith("On entend souvent"));
+    const wrong = segs.findIndex((s) => s.text === "私は日本語をできます。");
+    expect(lead).toBeGreaterThanOrEqual(0);
+    expect(lead).toBe(wrong - 1);
+    // L'amorce enchaîne sur la phrase fautive : aucun blanc ne les sépare.
+    expect(segs[lead].pauseAfterMs).toBeUndefined();
+  });
+
+  it("annonce le résumé et détache chaque puce (elles fusionnaient en une phrase-fleuve)", () => {
+    const texts = cours(FRAMING).map((s) => s.text);
+    expect(texts).toContain("Pour résumer.");
+    expect(texts).toContain("Premier point");
+    expect(texts).toContain("Second point");
+    expect(texts.some((t) => t.includes("Premier point") && t.includes("Second point"))).toBe(false);
+  });
+
+  it("n'annonce ni :::info ni :::warning — leur contenu est vrai, la pause suffit", () => {
+    const texts = cours(":::info\nUne note.\n:::").map((s) => s.text);
+    expect(texts).toEqual(["Une note."]);
+  });
+
+  it("laisse respirer entre une phrase japonaise et sa traduction, puis avant l'exemple suivant", () => {
+    const segs = cours(FRAMING);
+    const ja = segs.find((s) => s.text === "私は学生です。")!;
+    const fr = segs.find((s) => s.text === "Je suis étudiant.")!;
+    expect(ja.pauseAfterMs).toBe(EXAMPLE_JA_PAUSE_MS);
+    expect(fr.pauseAfterMs).toBe(EXAMPLE_PAIR_PAUSE_MS);
+  });
+
+  it("aucune frontière du cours ne reste collée : tout bloc se termine par un blanc", () => {
+    const segs = cours(FRAMING);
+    // Le dernier segment de chaque bloc porte une pause (les segments internes s'enchaînent).
+    const lastOfBlock = segs.filter((s, i) => segs[i + 1] === undefined || segs[i + 1].blockIndex !== s.blockIndex);
+    expect(lastOfBlock.length).toBeGreaterThan(1);
+    expect(lastOfBlock.every((s) => (s.pauseAfterMs ?? 0) > 0)).toBe(true);
+  });
+
+  it("le titre de section devient le libellé de tracklist (le cours était un bloc monolithique)", () => {
+    const segs = cours(FRAMING);
+    expect(segs[0].label).toBe("Cours");
+    expect(segs.some((s) => s.label === "Les formes de base")).toBe(true);
+    // Une entrée de tracklist par section : la navigation suivant/précédent redevient utile.
+    expect(trackEntries(segs.map((s, i) => ({ ...s, id: `x${i}` }))).length).toBeGreaterThan(1);
+  });
+
+  it("porte l'index du bloc AFFICHÉ, encadrés compris (surlignage sans recherche floue)", () => {
+    const segs = cours(FRAMING);
+    expect(segs.every((s) => s.blockIndex != null)).toBe(true);
+    // Tous les segments d'un encadré partagent l'index de l'encadré (bloc de premier niveau).
+    const summary = segs.filter((s) => s.text === "Pour résumer." || s.text === "Premier point");
+    expect(new Set(summary.map((s) => s.blockIndex)).size).toBe(1);
+  });
+
+  it("recolle un paragraphe français coupé par un retour à la ligne mou", () => {
+    expect(cours("Une phrase coupée\nen deux lignes.").map((s) => s.text)).toEqual(["Une phrase coupée en deux lignes."]);
+  });
+
+  it("route la voix sur le CONTENU d'une paire, pas sur le nom du champ", () => {
+    // parseBlocks range en `jp` toute ligne non préfixée « > », y compris du français.
+    const segs = cours(":::example\nUne ligne française.\n> Sa glose.\n:::");
+    expect(segs[0].lang).toBe("fr");
+  });
+
+  it("ne prononce pas une règle horizontale", () => {
+    expect(cours("Avant.\n\n---\n\nAprès.").map((s) => s.text)).toEqual(["Avant.", "Après."]);
   });
 });
 

@@ -12,6 +12,7 @@
 import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES } from "./config";
 import type { ComprehensionQuestion } from "./genClient";
 import { isKana, isKanji, splitJaSentences, stripFurigana } from "./kana";
+import { parseBlocks, type Block } from "./lessonMarkdown";
 import type { PlayerSentence } from "./tts";
 import type { TtsPart } from "./ttsClient";
 import type { VocabEntry } from "./curriculum";
@@ -215,21 +216,6 @@ export function buildComprehensionAudio(questions: ComprehensionQuestion[]): Raw
 
 // ---------- Assemblage du script --------------------------------------------
 
-/**
- * Retire les marqueurs STRUCTURELS d'une ligne Markdown qui ne doivent jamais être lus à
- * voix haute : fences de conteneur (`:::example`, `:::summary`, `:::`…), règles horizontales
- * et lignes de séparation de tableau (`---`, `***`, `|---|:--:|`), citation de tête (`> `) et
- * barres verticales des tableaux. Renvoie "" si la ligne n'était QUE de la structure.
- */
-function stripBlockMarkers(line: string): string {
-  let s = line.trim();
-  if (/^:::/.test(s)) return ""; // fence de conteneur (ouvrante ou fermante)
-  if (/^[|\s]*[-*_:]{3,}[-*_:|\s]*$/.test(s)) return ""; // règle horizontale / séparateur de tableau
-  s = s.replace(/^>+\s?/, ""); // citation Markdown (préfixe des traductions d'exemple)
-  if (s.includes("|")) s = s.replace(/\|/g, " "); // cellules de tableau
-  return s.trim();
-}
-
 /** Allège un paragraphe Markdown pour la lecture vocale (retire **gras**, #, etc.). */
 function stripMarkdown(s: string): string {
   return s
@@ -331,8 +317,16 @@ interface EmitOpts {
   label: string;
   /** Index du bloc AFFICHÉ dont ce segment est issu (surlignage du cours). */
   blockIndex?: number;
-  /** Blanc APRÈS le dernier segment émis. */
-  pauseAfterMs?: number;
+}
+
+/**
+ * Pose le blanc de fin sur le DERNIER segment d'une suite — les autres s'enchaînent sans
+ * blanc. Seul mécanisme de pause du chapitre : un blanc ne tombe donc jamais au milieu d'un
+ * énoncé scindé par le budget SSML, ni entre deux morceaux d'une même unité parlée.
+ */
+function withTrailingPause(segs: RawSegment[], pauseAfterMs: number): RawSegment[] {
+  if (!segs.length) return segs;
+  return [...segs.slice(0, -1), { ...segs[segs.length - 1], pauseAfterMs }];
 }
 
 /**
@@ -350,14 +344,13 @@ function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
   const kept = runs.filter((r) => r.text.trim()).flatMap(splitOversizedRun);
   if (!kept.length) return [];
   const groups = splitByBudget(kept);
-  return groups.map((group, gi) => ({
+  return groups.map((group) => ({
     chapter: "cours" as const,
     ...(group.length === 1
       ? { lang: group[0].lang, text: group[0].text.trim() }
       : { lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: group }),
     label: opts.label,
     ...(opts.blockIndex != null ? { blockIndex: opts.blockIndex } : {}),
-    ...(gi === groups.length - 1 && opts.pauseAfterMs ? { pauseAfterMs: opts.pauseAfterMs } : {}),
   }));
 }
 
@@ -371,7 +364,7 @@ function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
  * l'espacement reste collé au fragment en cours, donc le SSML reconstitue le texte à
  * l'identique.
  */
-function proseSegments(text: string, label = "Cours"): RawSegment[] {
+function proseSegments(text: string, opts: EmitOpts): RawSegment[] {
   const clean = stripFurigana(stripMarkdown(text));
   if (!clean) return [];
   const out: RawSegment[] = [];
@@ -384,7 +377,7 @@ function proseSegments(text: string, label = "Cours"): RawSegment[] {
   };
   const flushSentence = () => {
     flushRun();
-    if (runs.length) out.push(...emit(runs, { label }));
+    if (runs.length) out.push(...emit(runs, opts));
     runs = [];
     lang = null;
   };
@@ -402,40 +395,151 @@ function proseSegments(text: string, label = "Cours"): RawSegment[] {
   return out;
 }
 
+// ---------- Rythme parlé du cours -------------------------------------------
+//
+// Le lecteur appond tout dans un flux continu : deux segments consécutifs s'enchaînent SANS
+// blanc (cf. lib/segmentPlayer.ts). Les respirations du cours sont donc entièrement décrites
+// ici. Volontairement courtes : chaque blanc est une région où la barre de progression se
+// fige, et une leçon en compte beaucoup.
+
+/** Après une phrase japonaise d'exemple, avant sa traduction : le temps de la saisir. */
+export const EXAMPLE_JA_PAUSE_MS = 450;
+/** Après la traduction : la frontière entre deux exemples. */
+export const EXAMPLE_PAIR_PAUSE_MS = 750;
+/** Entre deux éléments d'une même énumération (puce, rangée de tableau). */
+export const ITEM_PAUSE_MS = 400;
+/** Après un titre de section : on change de sujet. */
+export const SECTION_PAUSE_MS = 800;
+/** Après un bloc structuré (encadré, exemple, tableau, liste) : on referme la parenthèse. */
+export const BLOCK_PAUSE_MS = 700;
+
 /**
- * Transforme la leçon FR (Markdown, avec exemples japonais) en segments parlés :
- *  - structure (fences `:::…`, règles `---`, pipes de tableau) → retirée, jamais lue ;
- *  - prose française → segments FR, les mots JP inline étant routés en voix japonaise ;
- *  - exemple `:::example` (phrase JP puis sa traduction FR préfixée par « > ») → la phrase JP
- *    en voix japonaise (furigana retiré) puis sa traduction FR en voix française.
+ * Amorces parlées des encadrés. Volontairement réduites au strict nécessaire : à l'écran un
+ * `:::pitfall` a un cadre rouge, à l'oreille il n'a RIEN — sa phrase japonaise fautive
+ * s'entend exactement comme un bon exemple, et s'apprend comme tel. `info` et `warning`
+ * n'en reçoivent pas : leur contenu est vrai, la pause suffit à les détacher.
+ *
+ * L'amorce du piège ne porte pas de blanc : elle enchaîne sur la phrase fautive, comme une
+ * seule phrase — ce que le flux continu permet sans avoir à fusionner les deux énoncés.
+ */
+const CALLOUT_LEAD_IN: Record<Extract<Block, { kind: "callout" }>["ctype"], string> = {
+  pitfall: "On entend souvent, à tort :",
+  summary: "Pour résumer.",
+  info: "",
+  warning: "",
+};
+
+/** Une ligne : voix japonaise si elle est à dominante JP, prose mixte sinon. */
+function lineSegments(line: string, opts: EmitOpts): RawSegment[] {
+  const clean = stripFurigana(stripMarkdown(line));
+  return isJapaneseLine(clean) ? emit([{ lang: "ja", text: clean }], opts) : proseSegments(clean, opts);
+}
+
+/**
+ * Lignes d'un paragraphe. Bi-branche héritée de l'ancien assembleur, et toujours nécessaire :
+ * un paragraphe purement français est recollé en un seul texte (une phrase coupée par un
+ * retour à la ligne mou reste une phrase), tandis qu'un bloc contenant du japonais est traité
+ * ligne à ligne (exemple japonais écrit hors `:::example`).
+ */
+function proseLines(lines: string[], opts: EmitOpts): RawSegment[] {
+  const clean = lines.map((l) => stripFurigana(stripMarkdown(l))).filter(Boolean);
+  if (!clean.length) return [];
+  if (!clean.some(isJapaneseLine)) return proseSegments(clean.join(" "), opts);
+  return clean.flatMap((line) => lineSegments(line, opts));
+}
+
+/**
+ * Tableau linéarisé : une rangée = une phrase parlée. Lu tel quel (« Forme Exemple Neutre する
+ * Poli します »), un tableau de conjugaison est une bouillie — c'est le pire cas du chapitre.
+ * La 1re cellule sert d'étiquette de rangée ; à partir de 3 colonnes, l'en-tête est rappelé
+ * devant chaque valeur, sans quoi on ne sait plus de quelle colonne on parle. La ligne
+ * d'en-tête elle-même n'est pas prononcée : c'est de la mise en page.
+ */
+function tableSegments(head: string[], rows: string[][], opts: EmitOpts): RawSegment[] {
+  const titles = head.map((h) => stripMarkdown(h));
+  const spoken = rows.map((row) => {
+    const cells = row.map((c) => stripMarkdown(c)).filter((c) => c);
+    if (!cells.length) return "";
+    const [first, ...rest] = cells;
+    if (!rest.length) return first;
+    // Séparateurs sans ponctuation FINALE : la rangée reste UN énoncé (un point la scinderait
+    // en plusieurs synthèses, cf. proseSegments) et s'entend comme une seule phrase.
+    if (cells.length === 2) return `${first} : ${rest[0]}`;
+    return [first, ...rest.map((c, k) => (titles[k + 1] ? `${titles[k + 1]} : ${c}` : c))].join(", ");
+  });
+  return spoken.flatMap((text, i) =>
+    withTrailingPause(proseSegments(text, opts), i === spoken.length - 1 ? BLOCK_PAUSE_MS : ITEM_PAUSE_MS),
+  );
+}
+
+/** Paires d'un `:::example` : phrase japonaise, blanc, traduction, blanc plus long. */
+function exampleSegments(pairs: { jp: string; fr?: string }[], opts: EmitOpts): RawSegment[] {
+  return pairs.flatMap((pair, i) => {
+    const last = i === pairs.length - 1;
+    const after = last ? BLOCK_PAUSE_MS : EXAMPLE_PAIR_PAUSE_MS;
+    // `jp` n'est pas garanti japonais : parseBlocks y range toute ligne non préfixée « > »,
+    // y compris une ligne française égarée. La voix se décide sur le contenu, pas sur le champ.
+    const jp = pair.jp ? lineSegments(pair.jp, opts) : [];
+    const fr = pair.fr ? proseSegments(pair.fr, opts) : [];
+    if (!fr.length) return withTrailingPause(jp, after);
+    return [...withTrailingPause(jp, EXAMPLE_JA_PAUSE_MS), ...withTrailingPause(fr, after)];
+  });
+}
+
+/** Encadré : amorce éventuelle, puis son corps re-parsé (il n'est qu'une chaîne brute). */
+function calloutSegments(b: Extract<Block, { kind: "callout" }>, opts: EmitOpts): RawSegment[] {
+  const body = parseBlocks(b.body).flatMap((inner) => blockSegments(inner, opts));
+  if (!body.length) return [];
+  const lead = CALLOUT_LEAD_IN[b.ctype];
+  const head = lead ? emit([{ lang: "fr", text: lead }], opts) : [];
+  return withTrailingPause([...head, ...body], BLOCK_PAUSE_MS);
+}
+
+/** Un bloc affiché → les segments qui le PARLENT. */
+function blockSegments(b: Block, opts: EmitOpts): RawSegment[] {
+  switch (b.kind) {
+    case "hr":
+      return []; // rien à dire : le blanc du bloc précédent marque déjà la coupure
+    case "heading":
+      return withTrailingPause(emit([{ lang: "fr", text: stripMarkdown(b.text) }], opts), SECTION_PAUSE_MS);
+    case "para":
+    case "quote":
+      return withTrailingPause(proseLines(b.lines, opts), BLOCK_PAUSE_MS);
+    case "ul":
+    case "ol":
+      return b.items.flatMap((item, i) =>
+        withTrailingPause(lineSegments(item, opts), i === b.items.length - 1 ? BLOCK_PAUSE_MS : ITEM_PAUSE_MS),
+      );
+    case "table":
+      return tableSegments(b.head, b.rows, opts);
+    case "example":
+      return exampleSegments(b.pairs, opts);
+    case "callout":
+      return calloutSegments(b, opts);
+    default: {
+      // Exhaustivité : un nouveau type de bloc DOIT choisir comment il se parle, sinon il
+      // disparaîtrait de l'audio sans que rien ne le signale.
+      const exhaustive: never = b;
+      return exhaustive;
+    }
+  }
+}
+
+/**
+ * Transforme la leçon FR (Markdown) en segments parlés, en INTERPRÉTANT sa structure au lieu
+ * de l'effacer : chaque bloc de `parseBlocks` (le parseur qui sert aussi à l'affichage) choisit
+ * comment il se prononce et quel blanc le suit. « Ce qui est lu » et « ce qui est affiché »
+ * dérivent ainsi de la même analyse — d'où le `blockIndex` porté par chaque segment.
  */
 function coursSegments(framing: string): RawSegment[] {
   const out: RawSegment[] = [];
-  let currentLabel = "Cours";
-  for (const block of framing.split(/\n{2,}/)) {
-    const rawFirstLine = block.split("\n")[0].trim();
-    if (/^##\s/.test(rawFirstLine)) {
-      currentLabel = stripMarkdown(rawFirstLine).trim() || "Cours";
-    }
-    const lines = block
-      .split("\n")
-      .filter((raw) => !/^#{3,}\s/.test(raw.trim()))
-      .map(stripBlockMarkers)
-      .filter(Boolean);
-    if (!lines.length) continue;
-    if (!lines.some(isJapaneseLine)) {
-      out.push(...proseSegments(lines.join(" "), currentLabel));
-      continue;
-    }
-    for (const line of lines) {
-      if (isJapaneseLine(line)) {
-        const text = stripFurigana(stripMarkdown(line));
-        out.push(...emit([{ lang: "ja", text }], { label: currentLabel }));
-      } else {
-        out.push(...proseSegments(line, currentLabel));
-      }
-    }
-  }
+  let label = "Cours";
+  parseBlocks(framing).forEach((b, blockIndex) => {
+    // Seuls les titres de section (niveau ≤ 2) découpent la tracklist ; un titre plus profond
+    // est prononcé comme les autres mais ne redécoupe pas la navigation.
+    if (b.kind === "heading" && b.level <= 2) label = stripMarkdown(b.text).trim() || label;
+    out.push(...blockSegments(b, { label, blockIndex }));
+  });
   return out;
 }
 
