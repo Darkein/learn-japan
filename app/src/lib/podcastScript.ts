@@ -312,6 +312,25 @@ function splitByBudget(runs: TtsPart[]): TtsPart[][] {
 // Ponctuation de fin de phrase de la prose (FR + JA) : frontière naturelle de segment.
 const PROSE_SENTENCE_END = new Set([".", "!", "?", "…", "。", "！", "？"]);
 
+/**
+ * Particules dont la GRAPHIE et la PRONONCIATION diffèrent. Citée seule (« la particule は »),
+ * une particule n'a pas de contexte : la voix japonaise lit alors le kana tel qu'il s'écrit et
+ * dit « ha » — au moment précis où la leçon enseigne qu'il se prononce « wa ». On lui envoie
+ * donc le kana qui SONNE juste. En phrase, は est déjà correctement lu : rien à corriger.
+ */
+const CITED_PARTICLE_READING: Record<string, string> = { は: "わ", へ: "え", を: "お" };
+
+/**
+ * Réécrit un fragment réduit à une particule citée. Appliqué au seul `parts[].text` — jamais
+ * au `text` du segment, qui doit rester le texte de la LEÇON : c'est lui que le suivi de
+ * lecture compare au Markdown affiché, et lui qu'affiche la carte « en cours de lecture ».
+ */
+function speakCitedParticle(run: TtsPart): TtsPart {
+  if (run.lang !== "ja") return run;
+  const reading = CITED_PARTICLE_READING[run.text.trim()];
+  return reading ? { ...run, text: run.text.replace(run.text.trim(), reading) } : run;
+}
+
 /** Options d'émission d'un segment de cours (cf. `emit`). */
 interface EmitOpts {
   label: string;
@@ -344,14 +363,20 @@ function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
   const kept = runs.filter((r) => r.text.trim()).flatMap(splitOversizedRun);
   if (!kept.length) return [];
   const groups = splitByBudget(kept);
-  return groups.map((group) => ({
-    chapter: "cours" as const,
-    ...(group.length === 1
-      ? { lang: group[0].lang, text: group[0].text.trim() }
-      : { lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: group }),
-    label: opts.label,
-    ...(opts.blockIndex != null ? { blockIndex: opts.blockIndex } : {}),
-  }));
+  return groups.map((group) => {
+    // Ce qui est PRONONCÉ peut différer de ce qui est ÉCRIT (particule citée) : `text` reste
+    // le texte de la leçon, `parts` porte la version parlée.
+    const spoken = group.map(speakCitedParticle);
+    const rewritten = spoken.some((r, i) => r.text !== group[i].text);
+    return {
+      chapter: "cours" as const,
+      ...(group.length === 1
+        ? { lang: group[0].lang, text: group[0].text.trim(), ...(rewritten ? { parts: spoken } : {}) }
+        : { lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: spoken }),
+      label: opts.label,
+      ...(opts.blockIndex != null ? { blockIndex: opts.blockIndex } : {}),
+    };
+  });
 }
 
 /**

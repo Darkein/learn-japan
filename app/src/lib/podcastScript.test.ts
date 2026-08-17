@@ -165,7 +165,9 @@ describe("buildPodcastScript", () => {
         text: "La particule は marque le thème.",
         parts: [
           { lang: "fr", text: "La particule " },
-          { lang: "ja", text: "は " },
+          // Citée seule, は se PRONONCE « wa » : `parts` porte le kana qui sonne juste,
+          // `text` garde la graphie de la leçon (c'est lui qui sert au suivi de lecture).
+          { lang: "ja", text: "わ " },
           { lang: "fr", text: "marque le thème." },
         ],
         label: "Cours",
@@ -208,7 +210,8 @@ describe("buildPodcastScript", () => {
     // Chaque fragment JA reste entier dans son segment.
     for (const seg of cours) {
       for (const part of segmentParts(seg)) {
-        expect(part.text.trim() === "" || part.text.includes("mot") || part.text.trim() === "は" || part.text.trim() === "fin.").toBe(true);
+        // は citée seule est prononcée « わ » (cf. speakCitedParticle).
+        expect(part.text.trim() === "" || part.text.includes("mot") || part.text.trim() === "わ" || part.text.trim() === "fin.").toBe(true);
       }
     }
     // La concaténation des segments reconstitue tout le texte (aucune perte à la scission).
@@ -380,6 +383,23 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     // parseBlocks range en `jp` toute ligne non préfixée « > », y compris du français.
     const segs = cours(":::example\nUne ligne française.\n> Sa glose.\n:::");
     expect(segs[0].lang).toBe("fr");
+  });
+
+  // La leçon enseigne que は se prononce « wa » ; la voix japonaise, à qui on envoyait le
+  // kana nu et sans contexte, disait « ha » — contredisant la phrase suivante.
+  it("prononce une particule citée seule (は → wa) sans altérer le texte de la leçon", () => {
+    const segs = cours("La particule は marque le thème.");
+    expect(segs[0].text).toBe("La particule は marque le thème."); // graphie de la leçon, intacte
+    expect(segs[0].parts).toEqual([
+      { lang: "fr", text: "La particule " },
+      { lang: "ja", text: "わ " },
+      { lang: "fr", text: "marque le thème." },
+    ]);
+  });
+
+  it("ne touche PAS à une particule en contexte (elle y est déjà bien lue)", () => {
+    const segs = cours(":::example\n私は学生です。\n> Je suis étudiant.\n:::");
+    expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "私は学生です。" }]);
   });
 
   it("ne prononce pas une règle horizontale", () => {
