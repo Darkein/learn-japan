@@ -110,6 +110,18 @@ describe("parseBlocks — encadrés :::", () => {
     expect(para && "lines" in para && para.lines).toEqual(["Texte après."]);
   });
 
+  // Le prompt impose 5 types de conteneur, mais le modèle dérive. Jeter le corps d'un type
+  // inconnu faisait disparaître le contenu de la leçon — à l'écran comme à l'oreille.
+  it("fence de type inconnu → encadré neutre, contenu conservé", () => {
+    const blocks = parseBlocks([":::tip", "Un conseil utile.", ":::"].join("\n"));
+    expect(kinds(blocks)).toEqual(["callout"]);
+    expect(callout(blocks, "info")?.body).toContain("Un conseil utile.");
+  });
+
+  it("fence vide → aucun bloc (pas d'encadré fantôme, pas d'énoncé vide à synthétiser)", () => {
+    expect(parseBlocks([":::info", "", ":::"].join("\n"))).toEqual([]);
+  });
+
   it("un :::example non refermé en fin de texte reste borné à son contenu", () => {
     const md = [
       "Texte d'intro.",
@@ -124,6 +136,36 @@ describe("parseBlocks — encadrés :::", () => {
     expect(kinds(blocks)).toEqual(["para", "example", "heading", "para"]);
     const ex = blocks.find((b) => b.kind === "example");
     expect(ex && "pairs" in ex && ex.pairs).toEqual([{ jp: "猫がいます。", fr: "Il y a un chat." }]);
+  });
+});
+
+describe("parseBlocks — règles horizontales et tableaux", () => {
+  it("reconnaît les règles horizontales quelle que soit leur graphie", () => {
+    for (const rule of ["---", "----", "***", "___"]) {
+      expect(kinds(parseBlocks(`Avant.\n\n${rule}\n\nAprès.`))).toEqual(["para", "hr", "para"]);
+    }
+  });
+
+  it("ne prend pas une puce pour une règle horizontale", () => {
+    expect(kinds(parseBlocks("- Un point\n- Un autre"))).toEqual(["ul"]);
+  });
+
+  // Le pipe fermant est optionnel en Markdown et le modèle l'omet : sans ce correctif la
+  // ligne de séparation devenait une rangée de données (« --- : --- », lue à voix haute)
+  // et chaque rangée perdait sa dernière cellule.
+  it("tableau sans pipe fermant : sépare correctement et garde la dernière colonne", () => {
+    const blocks = parseBlocks("| Forme | Exemple\n|---|---\n| Neutre | する\n| Poli | します");
+    expect(kinds(blocks)).toEqual(["table"]);
+    const t = blocks[0];
+    expect(t.kind === "table" && t.head).toEqual(["Forme", "Exemple"]);
+    expect(t.kind === "table" && t.rows).toEqual([["Neutre", "する"], ["Poli", "します"]]);
+  });
+
+  it("tableau pipe-fermé : comportement inchangé", () => {
+    const blocks = parseBlocks("| Forme | Exemple |\n|---|---|\n| Neutre | する |");
+    const t = blocks[0];
+    expect(t.kind === "table" && t.head).toEqual(["Forme", "Exemple"]);
+    expect(t.kind === "table" && t.rows).toEqual([["Neutre", "する"]]);
   });
 });
 

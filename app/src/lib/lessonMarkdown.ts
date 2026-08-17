@@ -26,7 +26,10 @@ export function parseBlocks(text: string): Block[] {
     if (line.trim() === "") { i++; continue; }
     // Fermeture orpheline — tolère les variantes mal comptées du modèle (`::`, `::::`).
     if (/^:{2,}$/.test(line.trim())) { i++; continue; }
-    if (line.trim() === "---") { blocks.push({ kind: "hr" }); i++; continue; }
+    // Règle horizontale, toutes graphies Markdown (`---`, `***`, `___`, et leurs variantes
+    // plus longues). N'en reconnaître qu'une laissait les autres tomber en paragraphe : à
+    // l'écran une ligne de tirets, et à l'oreille des tirets prononcés.
+    if (/^([-*_])\1{2,}$/.test(line.trim())) { blocks.push({ kind: "hr" }); i++; continue; }
 
     const fenceMatch = line.match(/^\s*:::(\w+)/);
     if (fenceMatch) {
@@ -70,8 +73,13 @@ export function parseBlocks(text: string): Block[] {
         if (pendingJp !== null) pairs.push({ jp: pendingJp });
         const valid = pairs.filter((p) => p.jp !== "" || p.fr);
         if (valid.length > 0) blocks.push({ kind: "example", pairs: valid });
-      } else if (ftype === "info" || ftype === "warning" || ftype === "pitfall" || ftype === "summary") {
-        blocks.push({ kind: "callout", ctype: ftype, body: body.join("\n") });
+      } else if (body.some((bl) => bl.trim())) {
+        // Le prompt impose 5 types de conteneur (worker/src/prompts.ts), mais le modèle
+        // dérive (`:::tip`, `:::exemple`, une majuscule…). Jeter le corps d'un type inconnu
+        // faisait DISPARAÎTRE le contenu, à l'écran comme à l'oreille : on le rend en
+        // encadré neutre plutôt que de le perdre.
+        const known = ftype === "info" || ftype === "warning" || ftype === "pitfall" || ftype === "summary";
+        blocks.push({ kind: "callout", ctype: known ? ftype : "info", body: body.join("\n") });
       }
       continue;
     }
@@ -87,8 +95,18 @@ export function parseBlocks(text: string): Block[] {
     if (line.trim().startsWith("|")) {
       const tlines: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith("|")) { tlines.push(lines[i]); i++; }
-      const parseRow = (l: string) => l.split("|").slice(1, -1).map((c) => c.trim());
-      const isSep = (l: string) => /^\|[\s\-:|]+\|$/.test(l.trim());
+      // Le pipe FERMANT est optionnel (« | a | b » est du Markdown valide, et le modèle
+      // l'écrit) : ne retirer la dernière cellule que si la ligne se termine bien par `|`,
+      // sinon on perdait la colonne de droite — silencieusement à l'écran, et lue de
+      // travers une fois le tableau linéarisé à voix haute.
+      const parseRow = (l: string) => {
+        const t = l.trim();
+        const cells = t.split("|");
+        cells.shift(); // pipe ouvrant (garanti : la ligne commence par `|`)
+        if (t.endsWith("|")) cells.pop();
+        return cells.map((c) => c.trim());
+      };
+      const isSep = (l: string) => /^\|[\s\-:|]+$/.test(l.trim());
       const nonSep = tlines.filter((l) => !isSep(l));
       const [headLine, ...rowLines] = nonSep;
       if (headLine) blocks.push({ kind: "table", head: parseRow(headLine), rows: rowLines.map(parseRow) });
