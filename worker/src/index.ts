@@ -449,32 +449,18 @@ function resolvePart(env: Env, p: TtsPart): { text: string; voice: string; langu
 }
 
 /**
- * Respiration insérée à chaque BASCULE DE VOIX. Sans elle, un mot japonais cité au milieu
- * d'une phrase française est collé à ses voisins : « thème は et を » sortait d'un seul tenant,
- * le mot cité indistinguable du reste. L'espacement du texte ne suffit pas — la synthèse
- * l'absorbe de part et d'autre d'une balise <voice>.
- */
-const VOICE_SWITCH_BREAK_MS = 250;
-
-/**
- * SSML multi-voix : concaténation des fragments (ils portent leur espacement), chaque fragment
- * dont la voix diffère de la voix requête étant enveloppé dans <voice name="…"> — une seule
- * synthèse, prosodie continue entre les langues.
+ * SSML multi-voix : concaténation brute des fragments (ils portent leur espacement), chaque
+ * fragment dont la voix diffère de la voix requête étant enveloppé dans <voice name="…"> —
+ * une seule synthèse, prosodie continue entre les langues.
  *
- * Le silence encadrant un fragment d'une AUTRE voix est placé DANS son <voice>, pas entre deux
- * blocs. Posé à l'extérieur, il était inaudible : chaque bloc <voice> est rendu par son propre
- * moteur puis concaténé, et un <break> resté sur la couture disparaît. À l'intérieur, c'est le
- * moteur qui parle le fragment qui produit aussi son silence — « は et を » cesse enfin de
- * sortir d'un seul tenant.
+ * Volontairement SANS <break> : la respiration aux frontières de langue est portée par la
+ * PONCTUATION du texte (lib/podcastScript.spaceOutLanguages). Un <break> posé ici se perdait
+ * sur la couture entre deux blocs <voice>, et surtout il n'aurait atteint personne sans un
+ * déploiement du Worker — que la CI ne fait que depuis `main`.
  */
 function buildPartsSsml(parts: { text: string; voice: string }[], requestVoice: string): string {
-  const pause = `<break time="${VOICE_SWITCH_BREAK_MS}ms"/>`;
   const body = parts
-    .map((p) =>
-      p.voice === requestVoice
-        ? escapeXml(p.text)
-        : `<voice name="${p.voice}">${pause}${escapeXml(p.text)}${pause}</voice>`,
-    )
+    .map((p) => (p.voice === requestVoice ? escapeXml(p.text) : `<voice name="${p.voice}">${escapeXml(p.text)}</voice>`))
     .join("");
   return `<speak>${body}</speak>`;
 }

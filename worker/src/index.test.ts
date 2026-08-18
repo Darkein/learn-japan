@@ -143,32 +143,16 @@ describe("/tts en mode parts (SSML multi-voix)", () => {
     expect(body.marks).toEqual([]);
 
     const payload = googlePayload(fetchMock);
-    // Le silence encadrant le fragment japonais est DANS son <voice>, pas entre deux blocs :
-    // posé sur la couture, il disparaissait au moment où les blocs sont concaténés, et « は et
-    // を » sortait d'un seul tenant.
+    // Aucun <break> ici : la respiration aux frontières de langue est portée par la
+    // PONCTUATION du texte (lib/podcastScript.spaceOutLanguages), donc côté client — un
+    // <break> se perdait sur la couture entre blocs <voice>, et n'aurait atteint personne
+    // sans déploiement du Worker.
     expect((payload.input as { ssml: string }).ssml).toBe(
-      '<speak>La particule <voice name="ja-JP-Neural2-B">' +
-        '<break time="250ms"/>は<break time="250ms"/></voice> marque le thème.</speak>',
+      '<speak>La particule <voice name="ja-JP-Neural2-B">は</voice> marque le thème.</speak>',
     );
     // Voix requête = celle du PREMIER fragment ; pas de timepoints en mode parts.
     expect(payload.voice).toEqual({ languageCode: "fr-FR", name: "fr-FR-Neural2-A" });
     expect(payload.enableTimePointing).toBeUndefined();
-  });
-
-  it("ne pose aucun <break> entre fragments d'une MÊME voix", async () => {
-    const fetchMock = vi.fn(async () => googleOk());
-    vi.stubGlobal("fetch", fetchMock);
-
-    await worker.fetch(
-      ttsReq({
-        parts: [
-          { text: "Un début ", voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
-          { text: "et une suite.", voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
-        ],
-      }),
-      ttsEnv,
-    );
-    expect((googlePayload(fetchMock).input as { ssml: string }).ssml).toBe("<speak>Un début et une suite.</speak>");
   });
 
   it("échappe le XML des fragments", async () => {

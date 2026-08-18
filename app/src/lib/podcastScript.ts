@@ -105,6 +105,39 @@ function normalizeSpoken(seg: RawSegment): RawSegment {
   return parts.some((p, i) => p.text !== before[i].text) ? { ...seg, parts } : seg;
 }
 
+/** Écriture d'un fragment : c'est le changement d'ÉCRITURE qui doit respirer, pas de voix. */
+function script(lang: TtsLang): "ja" | "fr" {
+  return lang === "ja" ? "ja" : "fr";
+}
+
+/** Ponctuation de pause propre à chaque écriture. */
+const PAUSE_MARK = { ja: "、", fr: "," } as const;
+
+/**
+ * Insère une respiration à CHAQUE frontière d'écriture d'un énoncé, sous forme de ponctuation
+ * dans le texte parlé : « La particule, わ、 marque le thème. »
+ *
+ * Une virgule ne se prononce pas et impose une pause dans n'importe quel moteur — là où un
+ * <break> SSML dépend du Worker (donc d'un déploiement séparé) et se perd sur la couture entre
+ * deux blocs <voice>. Sans elle, « は et を » sortait « waeo » d'un seul tenant.
+ *
+ * Appliqué APRÈS `normalizeSpoken` : `speechText` supprime les virgules finales, il effacerait
+ * celles-ci. Un fragment déjà ponctué n'est pas touché, et l'espacement est préservé pour que
+ * le SSML reconstitue le texte à l'identique.
+ */
+function spaceOutLanguages(seg: RawSegment): RawSegment {
+  const parts = segmentParts(seg);
+  if (parts.length < 2) return seg;
+  const spaced = parts.map((p, i) => {
+    const next = parts[i + 1];
+    if (!next || script(p.lang) === script(next.lang)) return p;
+    const trimmed = p.text.trimEnd();
+    if (!trimmed || /[.!?…。！？:;,、]$/.test(trimmed)) return p;
+    return { ...p, text: `${trimmed}${PAUSE_MARK[script(p.lang)]}${p.text.slice(trimmed.length)}` };
+  });
+  return spaced.some((p, i) => p.text !== parts[i].text) ? { ...seg, parts: spaced } : seg;
+}
+
 /** Durée du blanc de réponse d'un quiz (« comment dit-on chat ? » → 5 s → « neko »). */
 export const QUIZ_PAUSE_MS = 5000;
 
@@ -122,7 +155,7 @@ export const COMP_PAUSE_MS = 8000;
  * correction livrée sans bump n'atteint donc PAS les leçons déjà écoutées : elles rejouent
  * l'ancien texte indéfiniment. C'est arrivé pour le retrait des guillemets (v10).
  */
-export const PACK_VERSION = 13;
+export const PACK_VERSION = 14;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -710,7 +743,7 @@ function blockSegments(b: Block, opts: EmitOpts): RawSegment[] {
       return withTrailingPause(closeUtterance(lineSegments(b.text, opts)), SECTION_PAUSE_MS);
     case "para":
     case "quote":
-      return withTrailingPause(proseLines(b.lines, opts), BLOCK_PAUSE_MS);
+      return withTrailingPause(closeUtterance(proseLines(b.lines, opts)), BLOCK_PAUSE_MS);
     case "ul":
     case "ol":
       return b.items.flatMap((item, i) =>
@@ -857,5 +890,5 @@ export function buildPodcastScript(
     raw.push({ chapter: "histoire", lang: "fr", text: "Recommençons depuis le début.", label: "Fin" });
   }
 
-  return raw.map((s, i) => ({ id: `${s.chapter}-${i}`, ...normalizeSpoken(s) }));
+  return raw.map((s, i) => ({ id: `${s.chapter}-${i}`, ...spaceOutLanguages(normalizeSpoken(s)) }));
 }

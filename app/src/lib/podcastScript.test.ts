@@ -164,12 +164,12 @@ describe("buildPodcastScript", () => {
         lang: "fr",
         text: "La particule は marque le thème.",
         parts: [
-          { lang: "fr", text: "La particule " },
+          // Une virgule à CHAQUE frontière d'écriture : c'est elle qui fait respirer, et elle
+          // fonctionne dans n'importe quel moteur (cf. spaceOutLanguages).
+          { lang: "fr", text: "La particule, " },
           // Citée seule, は se PRONONCE « wa » : `parts` porte le kana qui sonne juste,
           // `text` garde la graphie de la leçon (c'est lui qui sert au suivi de lecture).
-          // Les espaces encadrantes appartiennent au français : le fragment japonais est
-          // réduit au strict japonais.
-          { lang: "ja", text: "わ" },
+          { lang: "ja", text: "わ、" },
           { lang: "fr", text: " marque le thème." },
         ],
         label: "Cours",
@@ -213,7 +213,8 @@ describe("buildPodcastScript", () => {
     for (const seg of cours) {
       for (const part of segmentParts(seg)) {
         // は citée seule est prononcée « わ » (cf. speakCitedParticle).
-        expect(part.text.trim() === "" || part.text.includes("mot") || part.text.trim() === "わ" || part.text.trim() === "fin.").toBe(true);
+        const t = part.text.trim();
+        expect(t === "" || t.includes("mot") || t === "わ、" || t === "わ" || t === "fin.").toBe(true);
       }
     }
     // La concaténation des segments reconstitue tout le texte (aucune perte à la scission).
@@ -402,8 +403,8 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     const segs = cours("La particule は marque le thème.");
     expect(segs[0].text).toBe("La particule は marque le thème."); // graphie de la leçon, intacte
     expect(segs[0].parts).toEqual([
-      { lang: "fr", text: "La particule " },
-      { lang: "ja", text: "わ" },
+      { lang: "fr", text: "La particule, " },
+      { lang: "ja", text: "わ、" },
       { lang: "fr", text: " marque le thème." },
     ]);
   });
@@ -414,11 +415,11 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
   it("laisse les symboles neutres à la voix française, entre deux mots japonais", () => {
     const segs = cours("L'ordre est rigide : thème は + objet を + verbe");
     expect(segmentParts(segs[0])).toEqual([
-      { lang: "fr", text: "L'ordre est rigide : thème " },
-      { lang: "ja", text: "わ" },
-      { lang: "fr", text: " + objet " },
-      { lang: "ja", text: "お" },
-      { lang: "fr", text: " + verbe" },
+      { lang: "fr", text: "L'ordre est rigide : thème, " },
+      { lang: "ja", text: "わ、" },
+      { lang: "fr", text: " + objet, " },
+      { lang: "ja", text: "お、" },
+      { lang: "fr", text: " + verbe." },
     ]);
   });
 
@@ -427,9 +428,9 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
   it("découpe aussi un TITRE par langue", () => {
     const segs = cours("# La première phrase : は et を");
     expect(segmentParts(segs[0])).toEqual([
-      { lang: "fr", text: "La première phrase : " },
-      { lang: "ja", text: "わ" },
-      { lang: "fr", text: " et " },
+      { lang: "fr", text: "La première phrase : " }, // « : » ponctue déjà : rien à ajouter
+      { lang: "ja", text: "わ、" },
+      { lang: "fr", text: " et, " },
       // Le titre est CLOS par une ponctuation finale — japonaise ici, puisque c'est un
       // fragment japonais qui le termine. Sans elle, la voix laisse la phrase en suspens.
       { lang: "ja", text: "お。" },
@@ -482,7 +483,7 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
   it("ne laisse pas de virgule contre une ponctuation plus forte", () => {
     expect(segmentParts(cours("Attention : « です » suit un nom.")[0]).map((p) => p.text)).toEqual([
       "Attention : ",
-      "です",
+      "です、",
       "suit un nom.",
     ]);
   });
@@ -503,7 +504,7 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
   it("ne confie pas une ligne mixte entière à la voix japonaise", () => {
     const segs = cours("On dit 日本語ができます。");
     expect(segmentParts(segs[0])).toEqual([
-      { lang: "fr", text: "On dit " },
+      { lang: "fr", text: "On dit, " },
       { lang: "ja", text: "日本語ができます。" },
     ]);
   });
