@@ -430,8 +430,35 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
       { lang: "fr", text: "La première phrase : " },
       { lang: "ja", text: "わ" },
       { lang: "fr", text: " et " },
-      { lang: "ja", text: "お" },
+      // Le titre est CLOS par une ponctuation finale — japonaise ici, puisque c'est un
+      // fragment japonais qui le termine. Sans elle, la voix laisse la phrase en suspens.
+      { lang: "ja", text: "お。" },
     ]);
+  });
+
+  // Un titre, une puce, une rangée de tableau n'ont pas de ponctuation finale dans le
+  // Markdown : la synthèse les lisait donc « comme s'il manquait le point à la fin ».
+  it("clôt les énoncés autonomes dépourvus de ponctuation finale", () => {
+    expect(segmentParts(cours("# Les formes de base")[0])).toEqual([
+      { lang: "fr", text: "Les formes de base." },
+    ]);
+    expect(cours("- Premier point\n- Second point").map((s) => segmentParts(s)[0].text)).toEqual([
+      "Premier point.",
+      "Second point.",
+    ]);
+    expect(segmentParts(cours("| Forme | Exemple |\n|---|---|\n| Neutre | する |")[0])).toEqual([
+      { lang: "fr", text: "Neutre : " },
+      { lang: "ja", text: "する。" },
+    ]);
+  });
+
+  it("n'ajoute rien à un énoncé déjà ponctué, ni à un titre en attente de suite", () => {
+    expect(segmentParts(cours("# Un titre déjà ponctué.")[0])[0].text).toBe("Un titre déjà ponctué.");
+    expect(segmentParts(cours("# Un titre avec deux-points :")[0])[0].text).toBe("Un titre avec deux-points :");
+  });
+
+  it("laisse le TEXTE du titre intact — c'est lui qui s'affiche", () => {
+    expect(cours("# Les formes de base")[0].text).toBe("Les formes de base");
   });
 
   // Les guillemets ne s'entendent pas, mais ils privaient le point final de tout mot où

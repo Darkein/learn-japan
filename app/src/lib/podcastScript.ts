@@ -122,7 +122,7 @@ export const COMP_PAUSE_MS = 8000;
  * correction livrée sans bump n'atteint donc PAS les leçons déjà écoutées : elles rejouent
  * l'ancien texte indéfiniment. C'est arrivé pour le retrait des guillemets (v10).
  */
-export const PACK_VERSION = 12;
+export const PACK_VERSION = 13;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -436,6 +436,24 @@ interface EmitOpts {
 }
 
 /**
+ * Ferme un énoncé AUTONOME dépourvu de ponctuation finale — titre, puce, rangée de tableau.
+ * Sans point, la synthèse laisse la phrase en suspens : le titre s'entend comme s'il manquait
+ * quelque chose derrière, et le blanc qui suit ne referme rien. La ponctuation est ajoutée au
+ * seul texte PARLÉ (`parts`) : `text` reste le titre de la leçon, qui s'affiche tel quel.
+ */
+function closeUtterance(segs: RawSegment[]): RawSegment[] {
+  if (!segs.length) return segs;
+  const last = segs[segs.length - 1];
+  const parts = segmentParts(last);
+  const tail = parts[parts.length - 1];
+  const trimmed = tail?.text.trimEnd() ?? "";
+  // Déjà ponctué, ou en attente d'une suite (« : », « , ») : on ne touche à rien.
+  if (!trimmed || /[.!?…。！？:;,、]$/.test(trimmed)) return segs;
+  const closed = { ...tail, text: `${trimmed}${tail.lang === "ja" ? "。" : "."}` };
+  return [...segs.slice(0, -1), { ...last, parts: [...parts.slice(0, -1), closed] }];
+}
+
+/**
  * Pose le blanc de fin sur le DERNIER segment d'une suite — les autres s'enchaînent sans
  * blanc. Seul mécanisme de pause du chapitre : un blanc ne tombe donc jamais au milieu d'un
  * énoncé scindé par le budget SSML, ni entre deux morceaux d'une même unité parlée.
@@ -627,7 +645,10 @@ function tableSegments(head: string[], rows: string[][], opts: EmitOpts): RawSeg
     return [first, ...rest.map((c, k) => (titles[k + 1] ? `${titles[k + 1]} : ${c}` : c))].join(", ");
   });
   return spoken.flatMap((text, i) =>
-    withTrailingPause(proseSegments(text, opts), i === spoken.length - 1 ? BLOCK_PAUSE_MS : ITEM_PAUSE_MS),
+    withTrailingPause(
+      closeUtterance(proseSegments(text, opts)),
+      i === spoken.length - 1 ? BLOCK_PAUSE_MS : ITEM_PAUSE_MS,
+    ),
   );
 }
 
@@ -686,14 +707,17 @@ function blockSegments(b: Block, opts: EmitOpts): RawSegment[] {
       // Par lineSegments, et non en un fragment français d'un bloc : un titre cite très
       // souvent du japonais (« La première phrase : は et を »), que la voix française
       // écorche — は y sort « ka ».
-      return withTrailingPause(lineSegments(b.text, opts), SECTION_PAUSE_MS);
+      return withTrailingPause(closeUtterance(lineSegments(b.text, opts)), SECTION_PAUSE_MS);
     case "para":
     case "quote":
       return withTrailingPause(proseLines(b.lines, opts), BLOCK_PAUSE_MS);
     case "ul":
     case "ol":
       return b.items.flatMap((item, i) =>
-        withTrailingPause(lineSegments(item, opts), i === b.items.length - 1 ? BLOCK_PAUSE_MS : ITEM_PAUSE_MS),
+        withTrailingPause(
+          closeUtterance(lineSegments(item, opts)),
+          i === b.items.length - 1 ? BLOCK_PAUSE_MS : ITEM_PAUSE_MS,
+        ),
       );
     case "table":
       return tableSegments(b.head, b.rows, opts);
