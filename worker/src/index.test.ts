@@ -143,11 +143,12 @@ describe("/tts en mode parts (SSML multi-voix)", () => {
     expect(body.marks).toEqual([]);
 
     const payload = googlePayload(fetchMock);
-    // Un <break> à chaque bascule de voix : sans lui, le mot japonais cité est collé à ses
-    // voisins français (l'espacement du texte est absorbé de part et d'autre de la balise).
+    // Le silence encadrant le fragment japonais est DANS son <voice>, pas entre deux blocs :
+    // posé sur la couture, il disparaissait au moment où les blocs sont concaténés, et « は et
+    // を » sortait d'un seul tenant.
     expect((payload.input as { ssml: string }).ssml).toBe(
-      '<speak>La particule <break time="150ms"/><voice name="ja-JP-Neural2-B">は</voice>' +
-        '<break time="150ms"/> marque le thème.</speak>',
+      '<speak>La particule <voice name="ja-JP-Neural2-B">' +
+        '<break time="250ms"/>は<break time="250ms"/></voice> marque le thème.</speak>',
     );
     // Voix requête = celle du PREMIER fragment ; pas de timepoints en mode parts.
     expect(payload.voice).toEqual({ languageCode: "fr-FR", name: "fr-FR-Neural2-A" });

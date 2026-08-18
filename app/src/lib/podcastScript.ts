@@ -9,7 +9,7 @@
 // Déterministe, zéro effet (pas de LLM, pas d'IndexedDB) → testable en Node. La partie
 // « effets » (traduction LLM) vit dans lib/podcast.ts.
 
-import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES } from "./config";
+import { TTS_SSML_BUDGET_BYTES, TTS_SSML_PART_WRAP_BYTES, type TtsLang } from "./config";
 import type { ComprehensionQuestion } from "./genClient";
 import { isKana, isKanji, splitJaSentences, stripFurigana } from "./kana";
 import { parseBlocks, type Block } from "./lessonMarkdown";
@@ -122,7 +122,7 @@ export const COMP_PAUSE_MS = 8000;
  * correction livrée sans bump n'atteint donc PAS les leçons déjà écoutées : elles rejouent
  * l'ancien texte indéfiniment. C'est arrivé pour le retrait des guillemets (v10).
  */
-export const PACK_VERSION = 11;
+export const PACK_VERSION = 12;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -410,12 +410,21 @@ function speakCitedParticle(run: TtsPart): TtsPart {
  */
 function speechText(s: string): string {
   return s
-    // Guillemet fermant : il emporte l'espace qui le précède, et recolle au mot la
-    // ponctuation qui le suit — sans quoi ce point n'a plus rien où s'accrocher.
-    .replace(/\s*[»”](?=\s*[,.;:!?…])/g, "")
-    .replace(/\s*[»”]/g, "")
-    .replace(/[«“„‟]\s*/g, "")
+    // Chaque guillemet devient une VIRGULE : elle ne se prononce pas mais impose une
+    // respiration, là où le simple retrait collait la citation au reste de la phrase. Sur une
+    // apposition (« le mot, chat, se dit neko ») c'est d'ailleurs la ponctuation correcte.
+    // Les espaces adjacentes sont absorbées : aucune « , » n'apparaît précédée d'un blanc.
+    .replace(/\s*[«»“”„‟]\s*/g, ", ")
+    // Virgules devenues surnuméraires (« … », « … » en donnait trois de suite).
+    .replace(/(?:,\s*){2,}/g, ", ")
+    // Une virgule n'a rien à faire devant une ponctuation plus forte, ni juste après elle.
+    // « … » en est exclu des deux côtés : après des points de suspension, la virgule est
+    // légitime (« en ce qui concerne…, quant à… ») et c'est elle qui porte la respiration.
+    .replace(/,\s*(?=[.;:!?])/g, "")
+    .replace(/([.;:!?])\s*,\s*/g, "$1 ")
     .replace(/…\s*\./g, "…") // « … ». → un seul terminateur
+    .replace(/^\s*,\s*/, "")
+    .replace(/\s*,\s*$/, "")
     .replace(/\s{2,}/g, " ");
 }
 
@@ -448,6 +457,14 @@ function withTrailingPause(segs: RawSegment[], pauseAfterMs: number): RawSegment
  *
  * Fragments fusionnés en `parts` si le groupe en compte ≥ 2, segment simple sinon.
  */
+/**
+ * Langue AFFICHÉE d'un segment. Le choix de la voix est plus fin que celui de la langue
+ * (`frExample` reste du français) : l'UI et le routage de la prose n'ont pas à le savoir.
+ */
+function displayLang(lang: TtsLang): "fr" | "ja" {
+  return lang === "ja" ? "ja" : "fr";
+}
+
 function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
   const kept = runs.filter((r) => r.text.trim()).flatMap(splitOversizedRun);
   if (!kept.length) return [];
@@ -460,7 +477,7 @@ function emit(runs: TtsPart[], opts: EmitOpts): RawSegment[] {
     return {
       chapter: "cours" as const,
       ...(group.length === 1
-        ? { lang: group[0].lang, text: group[0].text.trim(), ...(rewritten ? { parts: spoken } : {}) }
+        ? { lang: displayLang(group[0].lang), text: group[0].text.trim(), ...(rewritten ? { parts: spoken } : {}) }
         : { lang: "fr" as const, text: group.map((r) => r.text).join("").trim(), parts: spoken }),
       label: opts.label,
       ...(opts.blockIndex != null ? { blockIndex: opts.blockIndex } : {}),
@@ -614,6 +631,18 @@ function tableSegments(head: string[], rows: string[][], opts: EmitOpts): RawSeg
   );
 }
 
+/**
+ * Bascule les fragments FRANÇAIS de ces segments sur la seconde voix française. Réservé aux
+ * traductions d'exemples : entendre l'explication et la traduction dans la même voix les rend
+ * interchangeables à l'oreille. Les fragments japonais ne bougent pas.
+ */
+function withExampleVoice(segs: RawSegment[]): RawSegment[] {
+  return segs.map((seg) => ({
+    ...seg,
+    parts: segmentParts(seg).map((p) => (p.lang === "fr" ? { ...p, lang: "frExample" as const } : p)),
+  }));
+}
+
 /** Paires d'un `:::example` : phrase japonaise, blanc, traduction, blanc plus long. */
 function exampleSegments(pairs: { jp: string; fr?: string }[], opts: EmitOpts): RawSegment[] {
   return pairs.flatMap((pair, i) => {
@@ -622,7 +651,7 @@ function exampleSegments(pairs: { jp: string; fr?: string }[], opts: EmitOpts): 
     // `jp` n'est pas garanti japonais : parseBlocks y range toute ligne non préfixée « > »,
     // y compris une ligne française égarée. La voix se décide sur le contenu, pas sur le champ.
     const jp = pair.jp ? lineSegments(pair.jp, opts) : [];
-    const fr = pair.fr ? proseSegments(pair.fr, opts) : [];
+    const fr = pair.fr ? withExampleVoice(proseSegments(pair.fr, opts)) : [];
     if (!fr.length) return withTrailingPause(jp, after);
     return [...withTrailingPause(jp, EXAMPLE_JA_PAUSE_MS), ...withTrailingPause(fr, after)];
   });

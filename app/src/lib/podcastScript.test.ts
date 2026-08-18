@@ -435,12 +435,28 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
   });
 
   // Les guillemets ne s'entendent pas, mais ils privaient le point final de tout mot où
-  // s'accrocher : la synthèse le verbalisait (« … quant à… point »).
-  it("retire les guillemets du texte parlé et recolle la ponctuation orpheline", () => {
+  // s'accrocher : la synthèse le verbalisait (« … quant à… point »). Les supprimer collait en
+  // revanche la citation au reste de la phrase : ils deviennent donc une VIRGULE, qui porte la
+  // respiration sans être prononcée.
+  it("remplace les guillemets par une respiration et supprime la ponctuation orpheline", () => {
     const segs = cours("Il signifie « en ce qui concerne… », « quant à… ».");
     expect(segs[0].text).toBe("Il signifie « en ce qui concerne… », « quant à… »."); // affichage intact
     expect(segmentParts(segs[0])).toEqual([
-      { lang: "fr", text: "Il signifie en ce qui concerne…, quant à…" },
+      { lang: "fr", text: "Il signifie, en ce qui concerne…, quant à…" },
+    ]);
+  });
+
+  it("cite une apposition entre virgules — la ponctuation correcte en français", () => {
+    expect(segmentParts(cours("Le mot « chat » se dit neko.")[0])).toEqual([
+      { lang: "fr", text: "Le mot, chat, se dit neko." },
+    ]);
+  });
+
+  it("ne laisse pas de virgule contre une ponctuation plus forte", () => {
+    expect(segmentParts(cours("Attention : « です » suit un nom.")[0]).map((p) => p.text)).toEqual([
+      "Attention : ",
+      "です",
+      "suit un nom.",
     ]);
   });
 
@@ -499,6 +515,21 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
     }
   });
 
+  // Entendre l'explication du professeur et la traduction d'un exemple dans la MÊME voix les
+  // rend interchangeables à l'oreille.
+  it("lit la traduction d'un exemple avec la seconde voix française", () => {
+    const segs = cours(":::example\n私は学生です。\n> Je suis étudiant.\n:::");
+    expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "私は学生です。" }]);
+    expect(segmentParts(segs[1])).toEqual([{ lang: "frExample", text: "Je suis étudiant." }]);
+    // La langue AFFICHÉE reste « fr » : le choix de la voix est plus fin que celui de la langue.
+    expect(segs[1].lang).toBe("fr");
+  });
+
+  it("garde la voix principale pour la prose du cours et les amorces", () => {
+    const segs = cours("Un paragraphe.\n\n:::summary\n- Un point\n:::");
+    expect(segs.flatMap((s) => segmentParts(s)).every((p) => p.lang !== "frExample")).toBe(true);
+  });
+
   it("ne prononce pas une règle horizontale", () => {
     expect(cours("Avant.\n\n---\n\nAprès.").map((s) => s.text)).toEqual(["Avant.", "Après."]);
   });
@@ -516,9 +547,9 @@ describe("texte parlé — normalisation hors chapitre « cours »", () => {
   };
 
   it("retire les guillemets des réponses de quiz (elles finissent par « ». »)", () => {
-    expect(quiz("eau", 1)).toContain("Cela signifie eau.");
+    expect(quiz("eau", 1)).toContain("Cela signifie, eau.");
     expect(quiz("livre", 2)).toContain("Traduisez en japonais : livre.");
-    expect(quiz("chat", 0)).toContain("Comment dit-on chat en japonais ?");
+    expect(quiz("chat", 0)).toContain("Comment dit-on, chat, en japonais ?");
   });
 
   it("ne pose des parts que si le texte parlé diffère vraiment de l'écrit", () => {

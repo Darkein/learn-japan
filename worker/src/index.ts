@@ -454,20 +454,27 @@ function resolvePart(env: Env, p: TtsPart): { text: string; voice: string; langu
  * le mot cité indistinguable du reste. L'espacement du texte ne suffit pas — la synthèse
  * l'absorbe de part et d'autre d'une balise <voice>.
  */
-const VOICE_SWITCH_BREAK_MS = 150;
+const VOICE_SWITCH_BREAK_MS = 250;
 
 /**
  * SSML multi-voix : concaténation des fragments (ils portent leur espacement), chaque fragment
  * dont la voix diffère de la voix requête étant enveloppé dans <voice name="…"> — une seule
- * synthèse, prosodie continue entre les langues — et un <break> à chaque changement de voix.
+ * synthèse, prosodie continue entre les langues.
+ *
+ * Le silence encadrant un fragment d'une AUTRE voix est placé DANS son <voice>, pas entre deux
+ * blocs. Posé à l'extérieur, il était inaudible : chaque bloc <voice> est rendu par son propre
+ * moteur puis concaténé, et un <break> resté sur la couture disparaît. À l'intérieur, c'est le
+ * moteur qui parle le fragment qui produit aussi son silence — « は et を » cesse enfin de
+ * sortir d'un seul tenant.
  */
 function buildPartsSsml(parts: { text: string; voice: string }[], requestVoice: string): string {
+  const pause = `<break time="${VOICE_SWITCH_BREAK_MS}ms"/>`;
   const body = parts
-    .map((p, i) => {
-      const pause = i > 0 && parts[i - 1].voice !== p.voice ? `<break time="${VOICE_SWITCH_BREAK_MS}ms"/>` : "";
-      const said = p.voice === requestVoice ? escapeXml(p.text) : `<voice name="${p.voice}">${escapeXml(p.text)}</voice>`;
-      return pause + said;
-    })
+    .map((p) =>
+      p.voice === requestVoice
+        ? escapeXml(p.text)
+        : `<voice name="${p.voice}">${pause}${escapeXml(p.text)}${pause}</voice>`,
+    )
     .join("");
   return `<speak>${body}</speak>`;
 }

@@ -21,6 +21,13 @@ export const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "").tr
 export const TTS_VOICES = {
   ja: { voice: "ja-JP-Neural2-B", languageCode: "ja-JP" },
   fr: { voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
+  /**
+   * SECONDE voix française, réservée aux traductions d'exemples (`:::example`) : l'oreille
+   * distingue alors immédiatement l'explication du professeur de la traduction d'une phrase.
+   * Famille Standard, compatible avec Neural2 dans un même énoncé multi-voix d'après la
+   * matrice de compatibilité <voice> de Google — contrairement à Chirp 3: HD.
+   */
+  frExample: { voice: "fr-FR-Standard-G", languageCode: "fr-FR" },
 } as const;
 
 export type TtsLang = keyof typeof TTS_VOICES;
