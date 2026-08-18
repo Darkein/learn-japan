@@ -504,6 +504,29 @@ describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée"
   });
 });
 
+// Les guillemets ne se prononcent pas, mais ils privent le point qui les suit de tout mot où
+// s'accrocher, et la synthèse le verbalise. Deux modèles de quiz sur trois finissent par « ». » :
+// ils ne passent pas par `emit`, d'où la normalisation appliquée à l'assemblage final.
+describe("texte parlé — normalisation hors chapitre « cours »", () => {
+  const quiz = (fr: string, idx: number) => {
+    const vocab = Array.from({ length: idx + 1 }, (_, i) => ({ ja: "猫", yomi: "ねこ", fr: i === idx ? fr : `mot${i}` }));
+    return buildPodcastScript(lesson({ objectives: { vocab, grammar: [] }, stories: [] }), {})
+      .filter((s) => s.chapter === "quiz")
+      .flatMap((s) => segmentParts(s).map((p) => p.text));
+  };
+
+  it("retire les guillemets des réponses de quiz (elles finissent par « ». »)", () => {
+    expect(quiz("eau", 1)).toContain("Cela signifie eau.");
+    expect(quiz("livre", 2)).toContain("Traduisez en japonais : livre.");
+    expect(quiz("chat", 0)).toContain("Comment dit-on chat en japonais ?");
+  });
+
+  it("ne pose des parts que si le texte parlé diffère vraiment de l'écrit", () => {
+    const segs = buildPodcastScript(lesson({ framing: "Une phrase sans guillemets.", stories: [] }), {});
+    expect(segs.find((s) => s.text === "Une phrase sans guillemets.")!.parts).toBeUndefined();
+  });
+});
+
 describe("buildComprehensionAudio", () => {
   const questions = [
     { question: "Que fait le chat ?", options: ["Il dort.", "Il boit.", "Il mange.", "Il part."], answerIndex: 1 },

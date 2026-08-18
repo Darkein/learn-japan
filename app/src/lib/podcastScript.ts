@@ -93,6 +93,18 @@ export function activeTrackIndex(tracks: TrackEntry[], segIndex: number): number
 /** Segment avant attribution de l'id global (assigné en fin d'assemblage). */
 type RawSegment = Omit<PodcastSegment, "id">;
 
+/**
+ * Applique `speechText` au texte PARLÉ d'un segment, quel que soit son chapitre. Le chapitre
+ * « cours » y passe déjà via `emit`, mais pas les quiz, dont deux modèles sur trois finissent
+ * par « ». » — le point y restait orphelin et la synthèse le VERBALISAIT, comme dans le cours.
+ * `speechText` est idempotent : repasser sur des `parts` déjà normalisées ne change rien.
+ */
+function normalizeSpoken(seg: RawSegment): RawSegment {
+  const before = segmentParts(seg);
+  const parts = before.map((p) => ({ ...p, text: speechText(p.text) }));
+  return parts.some((p, i) => p.text !== before[i].text) ? { ...seg, parts } : seg;
+}
+
 /** Durée du blanc de réponse d'un quiz (« comment dit-on chat ? » → 5 s → « neko »). */
 export const QUIZ_PAUSE_MS = 5000;
 
@@ -100,10 +112,17 @@ export const QUIZ_PAUSE_MS = 5000;
 export const COMP_PAUSE_MS = 8000;
 
 /**
- * Version du format de pack. À incrémenter quand l'assemblage du script change (modèles
- * de quiz, transitions…) : un pack en cache d'une version antérieure est régénéré.
+ * Version du format de pack. À incrémenter dès que la SORTIE de `buildPodcastScript` change,
+ * de quelque façon que ce soit : découpage des segments, amorces, pauses, routage des voix,
+ * ou simple normalisation du texte parlé (`speechText`, `speakCitedParticle`).
+ *
+ * Le piège : le pack persiste les `parts` de chaque segment, donc le texte DÉJÀ normalisé pour
+ * la synthèse. Un pack en cache n'est réassemblé que si cette version change ou si la matière
+ * de la leçon bouge (`packFingerprint`) — jamais parce que le code d'assemblage a changé. Une
+ * correction livrée sans bump n'atteint donc PAS les leçons déjà écoutées : elles rejouent
+ * l'ancien texte indéfiniment. C'est arrivé pour le retrait des guillemets (v10).
  */
-export const PACK_VERSION = 10;
+export const PACK_VERSION = 11;
 
 // ---------- Français pur (anti double-lecture) ------------------------------
 
@@ -785,5 +804,5 @@ export function buildPodcastScript(
     raw.push({ chapter: "histoire", lang: "fr", text: "Recommençons depuis le début.", label: "Fin" });
   }
 
-  return raw.map((s, i) => ({ id: `${s.chapter}-${i}`, ...s }));
+  return raw.map((s, i) => ({ id: `${s.chapter}-${i}`, ...normalizeSpoken(s) }));
 }
