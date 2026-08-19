@@ -42,7 +42,7 @@ vi.mock("./ttsClient", async (orig) => {
   };
 });
 
-import { generatePodcastPack } from "./podcast";
+import { generatePodcastPack, packFingerprint } from "./podcast";
 import * as analyzeMod from "./analyze";
 import * as lessonsMod from "./lessons";
 import * as ttsMod from "./ttsClient";
@@ -126,6 +126,23 @@ describe("generatePodcastPack", () => {
     expect(analyze).toHaveBeenCalledWith("猫。");
     const map = buildPodcastScript.mock.calls[0][2] as Map<string, unknown>;
     expect(map.get("st1")).toEqual([{ segments: ["猫", "。"], baseIndex: 0, text: "猫。" }]);
+  });
+
+  // PACK_VERSION ne dit que « le format a changé ». Sans empreinte de la matière, régénérer
+  // le cours d'une leçon (même révision, nouveau texte) laissait le lecteur rejouer l'ancien
+  // pack — et depuis que les segments portent un index de bloc, surligner le mauvais bloc.
+  it("enregistre une empreinte de la matière, qui suit le cadrage", async () => {
+    const rec = await generatePodcastPack("l1");
+    expect(rec.fingerprint).toBe(packFingerprint(fakeLesson()));
+
+    const regenerated = { ...fakeLesson(), framing: "un cours régénéré" } as Lesson;
+    expect(packFingerprint(regenerated)).not.toBe(rec.fingerprint);
+  });
+
+  it("l'empreinte suit aussi les histoires et le titre annoncé en fin de piste", async () => {
+    const base = fakeLesson();
+    expect(packFingerprint({ ...base, stories: [] } as unknown as Lesson)).not.toBe(packFingerprint(base));
+    expect(packFingerprint(base, { nextLessonTitle: "Suivante" })).not.toBe(packFingerprint(base));
   });
 
   it("tokenizer indisponible → pack quand même, sans phrases tokenisées", async () => {

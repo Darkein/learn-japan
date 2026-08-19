@@ -12,7 +12,7 @@
 // téléchargement hors-ligne (lib/download.ts) les relit pour GARANTIR que tout
 // l'audio d'un élément « téléchargé » est bien présent en cache.
 
-import { TTS_VOICES, WORKER_URL, type TtsLang } from "./config";
+import { TTS_RATE, TTS_VOICES, WORKER_URL, type TtsLang } from "./config";
 import { getTtsCache, putTtsCache } from "./db";
 
 /** Fragment voicé d'un énoncé multi-voix (prose FR avec japonais inline, paire JA+FR). */
@@ -28,7 +28,7 @@ export interface SentenceAudio {
 }
 
 const VOICE = TTS_VOICES.ja.voice;
-const RATE = 1.0;
+const RATE = TTS_RATE;
 
 /** Worker sans clé TTS (503) : lecture audio et téléchargement hors-ligne impossibles. */
 const TTS_UNCONFIGURED_MESSAGE = "Synthèse vocale non configurée côté serveur.";

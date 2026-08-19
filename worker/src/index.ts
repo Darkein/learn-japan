@@ -449,9 +449,14 @@ function resolvePart(env: Env, p: TtsPart): { text: string; voice: string; langu
 }
 
 /**
- * SSML multi-voix : concaténation brute des fragments (ils portent leur espacement),
- * chaque fragment dont la voix diffère de la voix requête étant enveloppé dans
- * <voice name="…"> — une seule synthèse, prosodie continue entre les langues.
+ * SSML multi-voix : concaténation brute des fragments (ils portent leur espacement), chaque
+ * fragment dont la voix diffère de la voix requête étant enveloppé dans <voice name="…"> —
+ * une seule synthèse, prosodie continue entre les langues.
+ *
+ * Volontairement SANS <break> : la respiration aux frontières de langue est portée par la
+ * PONCTUATION du texte (lib/podcastScript.spaceOutLanguages). Un <break> posé ici se perdait
+ * sur la couture entre deux blocs <voice>, et surtout il n'aurait atteint personne sans un
+ * déploiement du Worker — que la CI ne fait que depuis `main`.
  */
 function buildPartsSsml(parts: { text: string; voice: string }[], requestVoice: string): string {
   const body = parts

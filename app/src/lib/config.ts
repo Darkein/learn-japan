@@ -21,9 +21,26 @@ export const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "").tr
 export const TTS_VOICES = {
   ja: { voice: "ja-JP-Neural2-B", languageCode: "ja-JP" },
   fr: { voice: "fr-FR-Neural2-A", languageCode: "fr-FR" },
+  /**
+   * SECONDE voix française, réservée aux traductions d'exemples (`:::example`) : l'oreille
+   * distingue alors immédiatement l'explication du professeur de la traduction d'une phrase.
+   * Famille Standard, compatible avec Neural2 dans un même énoncé multi-voix d'après la
+   * matrice de compatibilité <voice> de Google — contrairement à Chirp 3: HD.
+   */
+  frExample: { voice: "fr-FR-Standard-G", languageCode: "fr-FR" },
 } as const;
 
 export type TtsLang = keyof typeof TTS_VOICES;
+
+/**
+ * Débit de SYNTHÈSE (Cloud TTS `speakingRate`), légèrement sous la normale : un cours lu à
+ * vitesse d'annonce est fatigant, et un natif à vitesse normale reste illisible pour un
+ * débutant. À ne pas confondre avec la vitesse de LECTURE réglable par l'utilisateur
+ * (`playbackRate`, lib/segmentPlayer.ts), qui s'applique par-dessus.
+ *
+ * Il entre dans la clé de cache TTS (lib/ttsClient.ts) : le modifier re-synthétise tout.
+ */
+export const TTS_RATE = 0.95;
 
 // Budget d'un énoncé multi-voix (contrainte du backend TTS : Google limite une requête à
 // 5 000 octets de SSML). L'assembleur de script (podcastScript.ts) scinde aux frontières

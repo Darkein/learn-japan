@@ -105,12 +105,18 @@ export interface Lesson extends CurriculumEntry {
 export function objectivesHash(
   entry: Pick<CurriculumEntry, "title" | "level" | "introduces">,
 ): string {
-  const material = JSON.stringify({
-    title: entry.title,
-    level: entry.level,
-    vocab: entry.introduces.vocab,
-    grammar: entry.introduces.grammar,
-  });
+  return fnv1a(
+    JSON.stringify({
+      title: entry.title,
+      level: entry.level,
+      vocab: entry.introduces.vocab,
+      grammar: entry.introduces.grammar,
+    }),
+  );
+}
+
+/** Empreinte courte et stable d'une chaîne (FNV-1a 32 bits) : détection de changement. */
+export function fnv1a(material: string): string {
   let h = 2166136261;
   for (let i = 0; i < material.length; i++) {
     h ^= material.charCodeAt(i);

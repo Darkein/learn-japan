@@ -21,7 +21,7 @@ import { getCurriculum } from "../lib/curriculum";
 import { allStories, getPodcast, getStory } from "../lib/db";
 import { getLesson, markLessonStarted } from "../lib/lessons";
 import { endAction, nextMode, reorder, type PlayMode, type QueueItem } from "../lib/playQueue";
-import { generatePodcastPack } from "../lib/podcast";
+import { generatePodcastPack, packFingerprint } from "../lib/podcast";
 import { activeTrackIndex, PACK_VERSION, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { createSegmentPlayer, type SegmentPlayer } from "../lib/segmentPlayer";
 import { buildStorySegments } from "../lib/storyPodcast";
@@ -220,8 +220,10 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
           // Le lecteur démarre dès que le script est prêt ; le moteur synthétise chaque
           // segment à la demande (et précharge le suivant). La matérialisation complète de
           // l'audio reste l'affaire du téléchargement hors-ligne (download.ts).
+          // Un pack n'est réutilisable que si son FORMAT et sa MATIÈRE sont à jour : sans
+          // l'empreinte, régénérer le cours d'une leçon laissait le podcast lire l'ancien.
           const pack =
-            existing && existing.version === PACK_VERSION
+            existing && existing.version === PACK_VERSION && existing.fingerprint === packFingerprint(lesson, { nextLessonTitle: nextEntry?.title })
               ? existing
               : await generatePodcastPack(item.lessonId, { nextLessonTitle: nextEntry?.title }, (msg) => {
                   if (token === loadTokenRef.current) patch({ preparing: msg });

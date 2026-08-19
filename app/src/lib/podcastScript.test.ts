@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Lesson } from "./lessons";
 import { splitJaSentences } from "./kana";
+import { TTS_SSML_BUDGET_BYTES } from "./config";
 import {
   activeTrackIndex,
   buildComprehensionAudio,
@@ -8,7 +9,10 @@ import {
   buildVocabQuizzes,
   cleanFrench,
   COMP_PAUSE_MS,
+  BLOCK_PAUSE_MS,
   containsJa,
+  EXAMPLE_JA_PAUSE_MS,
+  EXAMPLE_PAIR_PAUSE_MS,
   QUIZ_PAUSE_MS,
   segmentParts,
   stripFurigana,
@@ -160,11 +164,17 @@ describe("buildPodcastScript", () => {
         lang: "fr",
         text: "La particule は marque le thème.",
         parts: [
-          { lang: "fr", text: "La particule " },
-          { lang: "ja", text: "は " },
-          { lang: "fr", text: "marque le thème." },
+          // Une virgule à CHAQUE frontière d'écriture : c'est elle qui fait respirer, et elle
+          // fonctionne dans n'importe quel moteur (cf. spaceOutLanguages).
+          { lang: "fr", text: "La particule, " },
+          // Citée seule, は se PRONONCE « wa » : `parts` porte le kana qui sonne juste,
+          // `text` garde la graphie de la leçon (c'est lui qui sert au suivi de lecture).
+          { lang: "ja", text: "わ、" },
+          { lang: "fr", text: " marque le thème." },
         ],
         label: "Cours",
+        blockIndex: 0,
+        pauseAfterMs: BLOCK_PAUSE_MS, // respiration de fin de paragraphe
       },
     ]);
   });
@@ -202,12 +212,36 @@ describe("buildPodcastScript", () => {
     // Chaque fragment JA reste entier dans son segment.
     for (const seg of cours) {
       for (const part of segmentParts(seg)) {
-        expect(part.text.trim() === "" || part.text.includes("mot") || part.text.trim() === "は" || part.text.trim() === "fin.").toBe(true);
+        // は citée seule est prononcée « わ » (cf. speakCitedParticle).
+        const t = part.text.trim();
+        expect(t === "" || t.includes("mot") || t === "わ、" || t === "わ" || t === "fin.").toBe(true);
       }
     }
     // La concaténation des segments reconstitue tout le texte (aucune perte à la scission).
     const joined = cours.map((s) => s.text).join(" ");
     expect(joined.match(/は/g)).toHaveLength(4);
+  });
+
+  // Le chemin japonais pur n'avait AUCUN garde-fou de budget : une phrase d'exemple très
+  // longue partait telle quelle, le Worker refusait le SSML, et segmentPlayer coupait toute
+  // la lecture après sa relance unique.
+  it("scinde aussi une ligne japonaise pure trop longue (budget SSML)", () => {
+    const longJa = "これはとても長い文です。".repeat(200); // ~6 600 octets UTF-8
+    const cours = buildPodcastScript(lesson({ ...base, framing: longJa, stories: [] }), {})
+      .filter((s) => s.chapter === "cours");
+    expect(cours.length).toBeGreaterThan(1);
+    for (const seg of cours) {
+      const bytes = new TextEncoder().encode(seg.text).length;
+      expect(bytes).toBeLessThanOrEqual(TTS_SSML_BUDGET_BYTES);
+    }
+  });
+
+  it("n'émet jamais un énoncé vide (le Worker les rejette, la lecture s'arrêterait)", () => {
+    const framing = ":::info\n\n:::\n\n***\n\n| a |  |\n|---|---|\n|  |  |\n\nUn texte.";
+    const script = buildPodcastScript(lesson({ ...base, framing, stories: [] }), {});
+    for (const seg of script) {
+      expect(segmentParts(seg).some((p) => p.text.trim() !== "")).toBe(true);
+    }
   });
 
   it("retire le furigana entre parenthèses des exemples japonais", () => {
@@ -234,6 +268,321 @@ describe("buildPodcastScript", () => {
   it("attribue des ids uniques", () => {
     const script = buildPodcastScript(base, { nextLessonTitle: "x" });
     expect(new Set(script.map((s) => s.id)).size).toBe(script.length);
+  });
+});
+
+// Le chapitre « cours » lit une leçon Markdown à voix haute. Tant qu'il se contentait d'EFFACER
+// les marqueurs de structure, un tableau de conjugaison sortait en « Forme Exemple Neutre する
+// Poli します », les paires d'exemples s'enchaînaient sans le moindre blanc, le résumé fusionnait
+// en une phrase-fleuve, et la phrase FAUSSE d'un :::pitfall s'entendait exactement comme un bon
+// exemple. Ces tests verrouillent l'interprétation de chaque bloc.
+describe("coursSegments — la structure de la leçon est PARLÉE, pas effacée", () => {
+  // Markdown conforme au contrat de génération (worker/src/prompts.ts) : titre, tableau de
+  // conjugaison, exemples, piège, résumé à puces.
+  const FRAMING = [
+    "La particule は marque le thème.",
+    "",
+    "# Les formes de base",
+    "",
+    "| Forme | Exemple |",
+    "|---|---|",
+    "| Neutre | する |",
+    "| Poli | します |",
+    "",
+    ":::example",
+    "私は学生です。",
+    "> Je suis étudiant.",
+    "本を読みます。",
+    "> Je lis un livre.",
+    ":::",
+    "",
+    ":::pitfall",
+    "私は日本語をできます。",
+    "> On dit 日本語ができます。",
+    ":::",
+    "",
+    ":::summary",
+    "- Premier point",
+    "- Second point",
+    ":::",
+  ].join("\n");
+
+  const cours = (framing: string) =>
+    buildPodcastScript(lesson({ framing, stories: [] }), {}).filter((s) => s.chapter === "cours");
+
+  it("linéarise un tableau : une rangée = une phrase parlée, jamais un magma de cellules", () => {
+    const texts = cours(FRAMING).map((s) => s.text);
+    expect(texts).toContain("Neutre : する");
+    expect(texts).toContain("Poli : します");
+    // La ligne d'en-tête est de la mise en page : elle ne se prononce pas.
+    expect(texts.some((t) => t.includes("Forme Exemple"))).toBe(false);
+  });
+
+  it("rappelle l'en-tête à partir de 3 colonnes (sinon on ne sait plus de quoi on parle)", () => {
+    const texts = cours("| Forme | Affirmatif | Négatif |\n|---|---|---|\n| Neutre | する | しない |").map((s) => s.text);
+    expect(texts).toEqual(["Neutre, Affirmatif : する, Négatif : しない"]);
+  });
+
+  // L'amorce n'existe que pour protéger le cas où la phrase fautive tombe sans prévenir.
+  // Quand la leçon ouvre le piège par son explication française — le cas courant — elle
+  // ferait doublon : « On entend souvent, à tort : Erreur fréquente : … ».
+  it("n'annonce PAS un piège que la leçon explique déjà en français", () => {
+    const texts = cours(":::pitfall\nErreur fréquente : on ne dit pas 私は日本語をできます。\n:::").map((s) => s.text);
+    expect(texts.some((t) => t.startsWith("On entend souvent"))).toBe(false);
+    expect(texts[0]).toContain("Erreur fréquente");
+  });
+
+  it("annonce le contre-exemple d'un :::pitfall AVANT de le prononcer", () => {
+    const segs = cours(FRAMING);
+    const lead = segs.findIndex((s) => s.text.startsWith("On entend souvent"));
+    const wrong = segs.findIndex((s) => s.text === "私は日本語をできます。");
+    expect(lead).toBeGreaterThanOrEqual(0);
+    expect(lead).toBe(wrong - 1);
+    // L'amorce enchaîne sur la phrase fautive : aucun blanc ne les sépare.
+    expect(segs[lead].pauseAfterMs).toBeUndefined();
+  });
+
+  it("annonce le résumé et détache chaque puce (elles fusionnaient en une phrase-fleuve)", () => {
+    const texts = cours(FRAMING).map((s) => s.text);
+    expect(texts).toContain("Pour résumer.");
+    expect(texts).toContain("Premier point");
+    expect(texts).toContain("Second point");
+    expect(texts.some((t) => t.includes("Premier point") && t.includes("Second point"))).toBe(false);
+  });
+
+  it("n'annonce ni :::info ni :::warning — leur contenu est vrai, la pause suffit", () => {
+    const texts = cours(":::info\nUne note.\n:::").map((s) => s.text);
+    expect(texts).toEqual(["Une note."]);
+  });
+
+  it("laisse respirer entre une phrase japonaise et sa traduction, puis avant l'exemple suivant", () => {
+    const segs = cours(FRAMING);
+    const ja = segs.find((s) => s.text === "私は学生です。")!;
+    const fr = segs.find((s) => s.text === "Je suis étudiant.")!;
+    expect(ja.pauseAfterMs).toBe(EXAMPLE_JA_PAUSE_MS);
+    expect(fr.pauseAfterMs).toBe(EXAMPLE_PAIR_PAUSE_MS);
+  });
+
+  it("aucune frontière du cours ne reste collée : tout bloc se termine par un blanc", () => {
+    const segs = cours(FRAMING);
+    // Le dernier segment de chaque bloc porte une pause (les segments internes s'enchaînent).
+    const lastOfBlock = segs.filter((s, i) => segs[i + 1] === undefined || segs[i + 1].blockIndex !== s.blockIndex);
+    expect(lastOfBlock.length).toBeGreaterThan(1);
+    expect(lastOfBlock.every((s) => (s.pauseAfterMs ?? 0) > 0)).toBe(true);
+  });
+
+  it("le titre de section devient le libellé de tracklist (le cours était un bloc monolithique)", () => {
+    const segs = cours(FRAMING);
+    expect(segs[0].label).toBe("Cours");
+    expect(segs.some((s) => s.label === "Les formes de base")).toBe(true);
+    // Une entrée de tracklist par section : la navigation suivant/précédent redevient utile.
+    expect(trackEntries(segs.map((s, i) => ({ ...s, id: `x${i}` }))).length).toBeGreaterThan(1);
+  });
+
+  it("porte l'index du bloc AFFICHÉ, encadrés compris (surlignage sans recherche floue)", () => {
+    const segs = cours(FRAMING);
+    expect(segs.every((s) => s.blockIndex != null)).toBe(true);
+    // Tous les segments d'un encadré partagent l'index de l'encadré (bloc de premier niveau).
+    const summary = segs.filter((s) => s.text === "Pour résumer." || s.text === "Premier point");
+    expect(new Set(summary.map((s) => s.blockIndex)).size).toBe(1);
+  });
+
+  it("recolle un paragraphe français coupé par un retour à la ligne mou", () => {
+    expect(cours("Une phrase coupée\nen deux lignes.").map((s) => s.text)).toEqual(["Une phrase coupée en deux lignes."]);
+  });
+
+  it("route la voix sur le CONTENU d'une paire, pas sur le nom du champ", () => {
+    // parseBlocks range en `jp` toute ligne non préfixée « > », y compris du français.
+    const segs = cours(":::example\nUne ligne française.\n> Sa glose.\n:::");
+    expect(segs[0].lang).toBe("fr");
+  });
+
+  // La leçon enseigne que は se prononce « wa » ; la voix japonaise, à qui on envoyait le
+  // kana nu et sans contexte, disait « ha » — contredisant la phrase suivante.
+  it("prononce une particule citée seule (は → wa) sans altérer le texte de la leçon", () => {
+    const segs = cours("La particule は marque le thème.");
+    expect(segs[0].text).toBe("La particule は marque le thème."); // graphie de la leçon, intacte
+    expect(segs[0].parts).toEqual([
+      { lang: "fr", text: "La particule, " },
+      { lang: "ja", text: "わ、" },
+      { lang: "fr", text: " marque le thème." },
+    ]);
+  });
+
+  // Un caractère neutre héritait de la langue en cours : dans « thème は + objet », le « + »
+  // atterrissait donc dans le fragment japonais, que la voix lisait « プラス ». Et comme は
+  // n'était plus seul dans son fragment, il échappait aussi à la correction de prononciation.
+  it("laisse les symboles neutres à la voix française, entre deux mots japonais", () => {
+    const segs = cours("L'ordre est rigide : thème は + objet を + verbe");
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "L'ordre est rigide : thème, " },
+      { lang: "ja", text: "わ、" },
+      { lang: "fr", text: " + objet, " },
+      { lang: "ja", text: "お、" },
+      { lang: "fr", text: " + verbe." },
+    ]);
+  });
+
+  // Un titre était émis en UN fragment français, japonais compris : la voix française
+  // écorchait les particules citées (は y sortait « ka »), sans espace ni prononciation juste.
+  it("découpe aussi un TITRE par langue", () => {
+    const segs = cours("# La première phrase : は et を");
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "La première phrase : " }, // « : » ponctue déjà : rien à ajouter
+      { lang: "ja", text: "わ、" },
+      { lang: "fr", text: " et, " },
+      // Le titre est CLOS par une ponctuation finale — japonaise ici, puisque c'est un
+      // fragment japonais qui le termine. Sans elle, la voix laisse la phrase en suspens.
+      { lang: "ja", text: "お。" },
+    ]);
+  });
+
+  // Un titre, une puce, une rangée de tableau n'ont pas de ponctuation finale dans le
+  // Markdown : la synthèse les lisait donc « comme s'il manquait le point à la fin ».
+  it("clôt les énoncés autonomes dépourvus de ponctuation finale", () => {
+    expect(segmentParts(cours("# Les formes de base")[0])).toEqual([
+      { lang: "fr", text: "Les formes de base." },
+    ]);
+    expect(cours("- Premier point\n- Second point").map((s) => segmentParts(s)[0].text)).toEqual([
+      "Premier point.",
+      "Second point.",
+    ]);
+    expect(segmentParts(cours("| Forme | Exemple |\n|---|---|\n| Neutre | する |")[0])).toEqual([
+      { lang: "fr", text: "Neutre : " },
+      { lang: "ja", text: "する。" },
+    ]);
+  });
+
+  it("n'ajoute rien à un énoncé déjà ponctué, ni à un titre en attente de suite", () => {
+    expect(segmentParts(cours("# Un titre déjà ponctué.")[0])[0].text).toBe("Un titre déjà ponctué.");
+    expect(segmentParts(cours("# Un titre avec deux-points :")[0])[0].text).toBe("Un titre avec deux-points :");
+  });
+
+  it("laisse le TEXTE du titre intact — c'est lui qui s'affiche", () => {
+    expect(cours("# Les formes de base")[0].text).toBe("Les formes de base");
+  });
+
+  // Les guillemets ne s'entendent pas, mais ils privaient le point final de tout mot où
+  // s'accrocher : la synthèse le verbalisait (« … quant à… point »). Les supprimer collait en
+  // revanche la citation au reste de la phrase : ils deviennent donc une VIRGULE, qui porte la
+  // respiration sans être prononcée.
+  it("remplace les guillemets par une respiration et supprime la ponctuation orpheline", () => {
+    const segs = cours("Il signifie « en ce qui concerne… », « quant à… ».");
+    expect(segs[0].text).toBe("Il signifie « en ce qui concerne… », « quant à… »."); // affichage intact
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "Il signifie, en ce qui concerne…, quant à…" },
+    ]);
+  });
+
+  it("cite une apposition entre virgules — la ponctuation correcte en français", () => {
+    expect(segmentParts(cours("Le mot « chat » se dit neko.")[0])).toEqual([
+      { lang: "fr", text: "Le mot, chat, se dit neko." },
+    ]);
+  });
+
+  it("ne laisse pas de virgule contre une ponctuation plus forte", () => {
+    expect(segmentParts(cours("Attention : « です » suit un nom.")[0]).map((p) => p.text)).toEqual([
+      "Attention : ",
+      "です、",
+      "suit un nom.",
+    ]);
+  });
+
+  it("préserve l'espace typographique française devant les deux-points", () => {
+    expect(segmentParts(cours("La règle : elle est simple.")[0])).toEqual([
+      { lang: "fr", text: "La règle : elle est simple." },
+    ]);
+  });
+
+  it("garde la ponctuation japonaise du côté japonais", () => {
+    const segs = cours(":::example\n猫がいる。\n> Il y a un chat.\n:::");
+    expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "猫がいる。" }]);
+  });
+
+  // « On dit 日本語ができます。 » compte plus de caractères japonais que latins : la ligne
+  // partait ENTIÈRE en voix japonaise, qui écorchait « On dit ».
+  it("ne confie pas une ligne mixte entière à la voix japonaise", () => {
+    const segs = cours("On dit 日本語ができます。");
+    expect(segmentParts(segs[0])).toEqual([
+      { lang: "fr", text: "On dit, " },
+      { lang: "ja", text: "日本語ができます。" },
+    ]);
+  });
+
+  it("ne touche PAS à une particule en contexte (elle y est déjà bien lue)", () => {
+    const segs = cours(":::example\n私は学生です。\n> Je suis étudiant.\n:::");
+    expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "私は学生です。" }]);
+  });
+
+  // Une ponctuation finale suivie d'une espace puis d'un guillemet fermant ne termine RIEN.
+  // Le test naïf coupait au premier « … », donnant à la voix une intonation de fin en plein
+  // milieu de la phrase, puis un segment de pure ponctuation — « ». » — que la synthèse
+  // prononce « point », faute de mot où l'accrocher.
+  it("ne coupe pas une citation sur ses points de suspension", () => {
+    const texts = cours("は signifie « en ce qui concerne… », « quant à… ».").map((s) => s.text);
+    expect(texts).toEqual(["は signifie « en ce qui concerne… », « quant à… »."]);
+  });
+
+  it("coupe toujours entre deux vraies phrases, guillemets fermants compris", () => {
+    expect(cours("Il hésita… Puis il partit.").map((s) => s.text)).toEqual(["Il hésita…", "Puis il partit."]);
+    expect(cours("On dit « bonjour ». Puis on entre.").map((s) => s.text)).toEqual([
+      "On dit « bonjour ».",
+      "Puis on entre.",
+    ]);
+  });
+
+  it("ne coupe pas quand la suite n'ouvre pas une phrase (virgule, minuscule)", () => {
+    expect(cours("Il dit « oui… », puis se tut.").map((s) => s.text)).toEqual(["Il dit « oui… », puis se tut."]);
+  });
+
+  it("n'émet jamais un énoncé fait de pure ponctuation (il se prononcerait « point »)", () => {
+    for (const framing of ["Un texte. ». », «", "« ».", "Fin… ».", "- ».\n- Vrai point"]) {
+      for (const seg of cours(framing)) {
+        expect(/[\p{L}\p{N}]/u.test(seg.text)).toBe(true);
+      }
+    }
+  });
+
+  // Entendre l'explication du professeur et la traduction d'un exemple dans la MÊME voix les
+  // rend interchangeables à l'oreille.
+  it("lit la traduction d'un exemple avec la seconde voix française", () => {
+    const segs = cours(":::example\n私は学生です。\n> Je suis étudiant.\n:::");
+    expect(segmentParts(segs[0])).toEqual([{ lang: "ja", text: "私は学生です。" }]);
+    expect(segmentParts(segs[1])).toEqual([{ lang: "frExample", text: "Je suis étudiant." }]);
+    // La langue AFFICHÉE reste « fr » : le choix de la voix est plus fin que celui de la langue.
+    expect(segs[1].lang).toBe("fr");
+  });
+
+  it("garde la voix principale pour la prose du cours et les amorces", () => {
+    const segs = cours("Un paragraphe.\n\n:::summary\n- Un point\n:::");
+    expect(segs.flatMap((s) => segmentParts(s)).every((p) => p.lang !== "frExample")).toBe(true);
+  });
+
+  it("ne prononce pas une règle horizontale", () => {
+    expect(cours("Avant.\n\n---\n\nAprès.").map((s) => s.text)).toEqual(["Avant.", "Après."]);
+  });
+});
+
+// Les guillemets ne se prononcent pas, mais ils privent le point qui les suit de tout mot où
+// s'accrocher, et la synthèse le verbalise. Deux modèles de quiz sur trois finissent par « ». » :
+// ils ne passent pas par `emit`, d'où la normalisation appliquée à l'assemblage final.
+describe("texte parlé — normalisation hors chapitre « cours »", () => {
+  const quiz = (fr: string, idx: number) => {
+    const vocab = Array.from({ length: idx + 1 }, (_, i) => ({ ja: "猫", yomi: "ねこ", fr: i === idx ? fr : `mot${i}` }));
+    return buildPodcastScript(lesson({ objectives: { vocab, grammar: [] }, stories: [] }), {})
+      .filter((s) => s.chapter === "quiz")
+      .flatMap((s) => segmentParts(s).map((p) => p.text));
+  };
+
+  it("retire les guillemets des réponses de quiz (elles finissent par « ». »)", () => {
+    expect(quiz("eau", 1)).toContain("Cela signifie, eau.");
+    expect(quiz("livre", 2)).toContain("Traduisez en japonais : livre.");
+    expect(quiz("chat", 0)).toContain("Comment dit-on, chat, en japonais ?");
+  });
+
+  it("ne pose des parts que si le texte parlé diffère vraiment de l'écrit", () => {
+    const segs = buildPodcastScript(lesson({ framing: "Une phrase sans guillemets.", stories: [] }), {});
+    expect(segs.find((s) => s.text === "Une phrase sans guillemets.")!.parts).toBeUndefined();
   });
 });
 

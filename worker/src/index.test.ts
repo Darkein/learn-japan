@@ -143,6 +143,10 @@ describe("/tts en mode parts (SSML multi-voix)", () => {
     expect(body.marks).toEqual([]);
 
     const payload = googlePayload(fetchMock);
+    // Aucun <break> ici : la respiration aux frontières de langue est portée par la
+    // PONCTUATION du texte (lib/podcastScript.spaceOutLanguages), donc côté client — un
+    // <break> se perdait sur la couture entre blocs <voice>, et n'aurait atteint personne
+    // sans déploiement du Worker.
     expect((payload.input as { ssml: string }).ssml).toBe(
       '<speak>La particule <voice name="ja-JP-Neural2-B">は</voice> marque le thème.</speak>',
     );
