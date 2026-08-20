@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ItemStatus } from "./db";
-import { kanjiBreakdown, kanjiIn, relatedWords, vocabWithKanji } from "./kanjiInfo";
+import {
+  kanjiBreakdown,
+  kanjiIn,
+  relatedWords,
+  vocabWithKanji,
+  wordKanjiReadings,
+} from "./kanjiInfo";
+import { kanjiDetail } from "./inventory";
 
 describe("kanjiIn", () => {
   it("extrait les kanji dans l'ordre d'apparition", () => {
@@ -34,6 +41,51 @@ describe("kanjiBreakdown", () => {
 
   it("vide pour un mot sans kanji", () => {
     expect(kanjiBreakdown("これ")).toEqual([]);
+  });
+});
+
+/**
+ * La rangée « Kanji du mot » ne montre que quelques lectures : elles doivent être celles du
+ * mot ouvert, pas les premières du référentiel. C'est ce tri qui empêche la fiche de ぬるい
+ * de n'afficher que les lectures de あたたかい — les deux mots partageant 温.
+ */
+describe("wordKanjiReadings", () => {
+  const on = kanjiDetail("温")!;
+
+  it("place en tête la lecture à l'œuvre dans le mot", () => {
+    expect(wordKanjiReadings(on, "温かい", "あたたかい")[0]).toBe("あたた.かい");
+  });
+
+  it("remonte la lecture on d'un composé, que la troncature coupait", () => {
+    const sei = kanjiDetail("生")!;
+    expect(wordKanjiReadings(sei, "学生", "がくせい")[0]).toBe("せい");
+    // Ce que montrait l'ancien affichage (4 premières du référentiel) : aucune lecture du mot.
+    expect([...sei.kun, ...sei.on].slice(0, 4)).not.toContain("せい");
+  });
+
+  it("tolère le rendaku et la gémination d'un composé", () => {
+    expect(wordKanjiReadings(kanjiDetail("社")!, "神社", "じんじゃ")[0]).toBe("しゃ");
+    expect(wordKanjiReadings(kanjiDetail("回")!, "一回", "いっかい")[0]).toBe("かい");
+  });
+
+  it("récupère par l'okurigana une lecture absente du dataset (温い → ぬる)", () => {
+    const readings = wordKanjiReadings(on, "温い", "ぬるい");
+    expect(readings[0]).toBe("ぬる");
+    expect(on.kun).not.toContain("ぬる");
+    // Les lectures du dictionnaire suivent, aucune n'est perdue.
+    expect(readings.slice(1)).toEqual([...on.kun, ...on.on]);
+  });
+
+  it("laisse l'ordre du référentiel sans lecture, ou si rien ne s'aligne", () => {
+    const all = [...on.kun, ...on.on];
+    expect(wordKanjiReadings(on, "温い")).toEqual(all);
+    // 大人 (おとな) : lecture du MOT, non répartissable sur ses kanji.
+    const dai = kanjiDetail("大")!;
+    expect(wordKanjiReadings(dai, "大人", "おとな")).toEqual([...dai.kun, ...dai.on]);
+  });
+
+  it("accepte une lecture en katakana", () => {
+    expect(wordKanjiReadings(on, "温かい", "アタタカイ")[0]).toBe("あたた.かい");
   });
 });
 

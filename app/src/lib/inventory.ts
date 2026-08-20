@@ -5,6 +5,7 @@
 import kanjiInv from "../data/inventory/kanji.json";
 import vocabInv from "../data/inventory/vocab.json";
 import grammarInv from "../data/inventory/grammar.json";
+import kanjiFrOverlay from "../data/inventory/kanji-fr.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import examplesInv from "../data/inventory/examples.json";
 import { kataToHira, splitEntryForms } from "./kana";
@@ -43,8 +44,32 @@ const vocabById = new Map((vocabInv as VocabInvEntry[]).map((v) => [v.id, v]));
 const grammarById = new Map(
   (grammarInv as { items: GrammarInvEntry[] }).items.map((g) => [g.id, g]),
 );
+const kanjiFr = kanjiFrOverlay as Record<string, string>;
 const vocabFr = vocabFrOverlay as Record<string, string>;
 const examplesById = examplesInv as Record<string, { ja: string; fr?: string }>;
+
+/**
+ * Sens FR d'un mot de l'inventaire : l'OVERLAY CURÉ (`vocab-fr.json`) d'abord, le champ
+ * `fr` de `vocab.json` ensuite, l'anglais du dataset en dernier repli.
+ * L'ordre compte : `build-inventory` recopie l'overlay dans `vocab.json`, si bien que les
+ * deux disent la même chose au moment du build — mais une curation faite APRÈS le dernier
+ * build ne vit que dans l'overlay. Lire `vocab.json` d'abord, c'est servir la vieille
+ * valeur et rendre la curation invisible (les sept adjectifs de température désambiguïsés
+ * en #100 sont restés lettre morte : « tiède » au lieu de « tiède (pas assez chaud) »).
+ * L'overlay est la source de vérité ; `vocab.json` n'en est qu'une copie datée.
+ */
+function vocabGloss(v: VocabInvEntry, id: string = v.id): string | undefined {
+  return vocabFr[id] ?? v.fr;
+}
+
+/**
+ * Sens FR d'un kanji — même ordre, mêmes raisons que `vocabGloss` : l'overlay curé
+ * (`kanji-fr.json`) d'abord, puis `kanji.json`, puis l'anglais du dataset. Seuls 88 des
+ * 2211 kanji sont curés à ce jour : le repli anglais reste la règle, pas l'exception.
+ */
+function kanjiGloss(k: KanjiInvEntry): string {
+  return kanjiFr[k.id] ?? k.fr ?? k.meanings[0] ?? k.id;
+}
 
 /**
  * Index secondaire : id « propre » d'un token (`basic_form|lecture`, une seule forme)
@@ -96,7 +121,7 @@ export function kanaGlossOverlay(): Record<string, string> {
   const out: Record<string, string> = {};
   const byLevel = [...(vocabInv as VocabInvEntry[])].sort((a, b) => b.level - a.level);
   for (const v of byLevel) {
-    const fr = v.fr ?? vocabFr[v.id];
+    const fr = vocabGloss(v);
     if (!fr) continue;
     for (const r of splitEntryForms(v.id.split("|")[1] ?? "").map(kataToHira)) {
       if (KANA_ONLY.test(r) && !(r in out)) out[r] = fr;
@@ -157,7 +182,7 @@ export function resolveVocab(id: string): VocabEntry {
     return {
       ja: v.surface,
       yomi: v.reading && v.reading !== v.surface ? v.reading : undefined,
-      fr: v.fr ?? vocabFr[cid] ?? v.meanings[0] ?? "",
+      fr: vocabGloss(v, cid) ?? v.meanings[0] ?? "",
     };
   }
   // Mot non présent dans le pool N5 (ex. composé non listé) : on dérive de l'id.
@@ -190,7 +215,7 @@ export function kanjiDetail(ch: string): KanjiDetail | null {
   return {
     id: k.id,
     ja: k.id,
-    fr: k.fr ?? k.meanings[0] ?? k.id,
+    fr: kanjiGloss(k),
     meanings: k.meanings,
     on: k.on ?? [],
     kun: k.kun ?? [],
@@ -260,7 +285,7 @@ export function allKanjiInv(): InvKanji[] {
     .map((k) => ({
       id: k.id,
       ja: k.id,
-      fr: k.fr ?? k.meanings[0] ?? k.id,
+      fr: kanjiGloss(k),
       on: k.on ?? [],
       kun: k.kun ?? [],
       level: k.level,
@@ -274,7 +299,7 @@ export function allVocabInv(): InvVocab[] {
       id: v.id,
       ja: v.surface,
       yomi: v.reading && v.reading !== v.surface ? v.reading : undefined,
-      fr: v.fr ?? vocabFr[v.id] ?? v.meanings[0] ?? "",
+      fr: vocabGloss(v) ?? v.meanings[0] ?? "",
       level: v.level,
     }))
     .sort(byLevelThen((x) => x.ja));
