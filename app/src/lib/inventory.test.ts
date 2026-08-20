@@ -56,6 +56,30 @@ describe("resolveVocab — résolution via alias composé", () => {
 });
 
 /**
+ * `build-inventory` recopie l'overlay curé dans `vocab.json` : les deux disent la même chose
+ * au sortir du build, mais une curation faite APRÈS ne vit que dans l'overlay. C'est
+ * l'overlay qui doit gagner — sinon la curation reste invisible dans l'app, ce qui est
+ * arrivé aux sept adjectifs de température désambiguïsés en #100 (« tiède » servi à la place
+ * de « tiède (pas assez chaud) », et ainsi de suite pour 暖/暑/熱/寒/涼/冷).
+ */
+describe("sens FR — l'overlay curé prime sur le champ bâti", () => {
+  it("sert le gloss de l'overlay partout où il en existe un", () => {
+    const overlay = vocabFrOverlay as Record<string, string>;
+    const ignored = vocabInv
+      .filter((v) => overlay[v.id] !== undefined && resolveVocab(v.id).fr !== overlay[v.id])
+      .map((v) => `${v.id} : servi « ${resolveVocab(v.id).fr} » au lieu de « ${overlay[v.id]} »`);
+    expect(ignored).toEqual([]);
+  });
+
+  it("désambiguïse la famille des températures jusqu'à l'app", () => {
+    expect(resolveVocab("温い|ぬるい").fr).toBe("tiède (pas assez chaud)");
+    expect(resolveVocab("温かい|あたたかい").fr).toBe(
+      "chaud, tiède (une boisson, un plat, un accueil)",
+    );
+  });
+});
+
+/**
  * Un exercice peut partir du sens FR et demander le mot (« Tape le mot en japonais »,
  * QCM depuis la face française). La question n'a de réponse que si le gloss désigne UN
  * mot : « oui » qui vaut はい ET ええ est insoluble sans contexte — or la carte n'en donne
@@ -80,7 +104,7 @@ describe("glosses FR du référentiel — un sens, un mot", () => {
     const byGloss = new Map<string, string[]>();
     const overlay = kanjiFrOverlay as Record<string, string | undefined>;
     for (const k of kanjiInv) {
-      const fr = k.fr ?? overlay[k.id];
+      const fr = overlay[k.id] ?? k.fr;
       if (!fr) continue;
       byGloss.set(fr, [...(byGloss.get(fr) ?? []), k.id]);
     }

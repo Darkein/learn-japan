@@ -58,7 +58,7 @@ export function WordFeedback({ word }: { word: { id: string; surface: string; re
       )}
       {hasKanji(word.surface) && (
         <div className="w-full text-left">
-          <KanjiBreakdown surface={word.surface} />
+          <KanjiBreakdown surface={word.surface} reading={word.reading} />
         </div>
       )}
     </div>

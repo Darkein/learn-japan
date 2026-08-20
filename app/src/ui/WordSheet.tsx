@@ -177,6 +177,7 @@ export function WordSheet({
 
       <KanjiBreakdown
         surface={token.basic_form || token.surface_form}
+        reading={reading}
         onOpenKanji={setKanjiOpen}
       />
 

@@ -69,7 +69,7 @@ export function VocabPeekSheet({
           <div className="text-lg">{v.fr}</div>
           <div className="text-sm text-muted">Statut : {STATUS_FR[status]}</div>
 
-          <KanjiBreakdown surface={v.ja} onOpenKanji={setKanjiOpen} />
+          <KanjiBreakdown surface={v.ja} reading={v.yomi} onOpenKanji={setKanjiOpen} />
         </>
       )}
     </BottomSheet>
