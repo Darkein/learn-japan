@@ -45,6 +45,19 @@ vi.mock("./tokenizer", () => ({
     // Retokenisation d'une forme de base (kanjiReadingExercises) → sa lecture.
     if (text === "飲む") return [mk("飲む", "動詞", "ノム")];
     if (text === "読む") return [mk("読む", "動詞", "ヨム")];
+    // Phrases d'exemple des cartes de production/écoute : le trou se pose sur une
+    // frontière de MOT, il faut donc que le tokenizer connaisse ces phrases.
+    if (text === "猫が走る。") return [mk("猫"), mk("が", "助詞"), mk("走る", "動詞"), mk("。", "記号")];
+    if (text === "動物が走る。") return [mk("動物"), mk("が", "助詞"), mk("走る", "動詞"), mk("。", "記号")];
+    if (text === "宿題をします。") {
+      return [mk("宿題"), mk("を", "助詞"), mk("し", "動詞"), mk("ます", "助動詞"), mk("。", "記号")];
+    }
+    if (text === "今日、私は日本語を勉強します。") {
+      return [
+        mk("今日"), mk("、", "記号"), mk("私"), mk("は", "助詞"), mk("日本語"), mk("を", "助詞"),
+        mk("勉強"), mk("し", "動詞"), mk("ます", "助動詞"), mk("。", "記号"),
+      ];
+    }
     return [];
   }),
 }));
@@ -375,28 +388,78 @@ describe("vocabTypeExercise — production en contexte (produce)", () => {
     };
   }
 
-  it("cloze ◯◯ sur la phrase d'exemple, indice FR, notée sur la compétence production", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
+  it("cloze ◯◯ sur la phrase d'exemple, indice FR, notée sur la compétence production", async () => {
+    const ex = await vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
     expect(ex.skill).toBe("production");
     expect(ex.front).toBe("◯◯が走る。");
     expect(ex.prompt).toContain("Le chat court.");
     expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 
-  it("sans exemple exploitable : rappel isolé FR → mot, toujours en production", () => {
-    const ex = vocabTypeExercise(vocab(), 0, { produce: true });
+  it("sans exemple exploitable : rappel isolé FR → mot, toujours en production", async () => {
+    const ex = await vocabTypeExercise(vocab(), 0, { produce: true });
     expect(ex.skill).toBe("production");
     expect(ex.front).toBe("chat");
     expect(ex.key).toBe("vocab-produce:猫|ねこ");
   });
 
-  it("rappel isolé : un mot de même sens dans le pool est accepté lui aussi", () => {
+  it("rappel isolé : un mot de même sens dans le pool est accepté lui aussi", async () => {
     // « oui » ne désigne pas はい plutôt que ええ : les deux répondent à la question posée.
     const hai = vocabItem({ id: "はい|はい", meaning: "oui" });
     const ee = vocabItem({ id: "ええ|ええ", meaning: "oui" });
-    const ex = vocabTypeExercise(hai, 0, { produce: true, pool: [...POOL, ee] });
+    const ex = await vocabTypeExercise(hai, 0, { produce: true, pool: [...POOL, ee] });
     expect(ex.front).toBe("oui");
     expect(ex.answers).toEqual(expect.arrayContaining(["はい", "ええ"]));
+  });
+});
+
+describe("vocabTypeExercise — le trou tombe sur un MOT ENTIER", () => {
+  // Le bug rapporté : la carte 日本（にっぽん）, dont la phrase d'exemple parle de la
+  // LANGUE (日本語, にほんご). Masquer les deux premiers caractères posait
+  // 「今日、私は◯◯語を勉強します。」 en attendant にっぽん — question fausse deux fois
+  // (le mot de la phrase est 日本語, et sa lecture est にほん).
+  const nippon = {
+    id: "日本|にっぽん",
+    surface: "日本",
+    reading: "にっぽん",
+    meaning: "Japon (lecture officielle, emphatique)",
+    tags: [],
+    status: "review" as const,
+    cards: {},
+    example: { ja: "今日、私は日本語を勉強します。", fr: "Aujourd'hui, j'étudie le japonais." },
+  };
+
+  it("produce : pas de cloze au milieu d'un mot plus long → rappel isolé FR → mot", async () => {
+    const ex = await vocabTypeExercise(nippon, 0, { produce: true });
+    expect(ex.front).not.toContain("◯◯");
+    expect(ex.front).toBe("Japon (lecture officielle, emphatique)");
+    expect(ex.prompt).toBe("Tape le mot en japonais");
+    // La phrase ne servant plus d'énoncé, elle n'est pas non plus servie en contexte.
+    expect(ex.context).toBeUndefined();
+  });
+
+  it("listen : le mot n'étant pas dit, c'est le MOT SEUL qui est joué", async () => {
+    const ex = await vocabTypeExercise(nippon, 0, { listen: true });
+    expect(ex.front).toBe("日本");
+    expect(ex.audio).toEqual({ word: "にっぽん" });
+    expect(ex.prompt).toBe("Écoute et tape le mot entendu");
+    expect(ex.context).toBeUndefined();
+  });
+
+  it("le mot du composé, lui, garde son cloze", async () => {
+    const nihongo = { ...nippon, id: "日本語|にほんご", surface: "日本語", reading: "にほんご", meaning: "japonais (langue)" };
+    const ex = await vocabTypeExercise(nihongo, 0, { produce: true });
+    expect(ex.front).toBe("今日、私は◯◯を勉強します。");
+    expect(ex.answers).toEqual(expect.arrayContaining(["日本語", "にほんご"]));
+  });
+
+  it("la synthèse ne force pas la lecture de la carte dans le composé", async () => {
+    // にっぽん imposé dans 日本語 faisait dire « にっぽんご » : on laisse les kanji, le
+    // moteur lit にほんご tout seul.
+    const ex = await vocabTypeExercise({ ...nippon, example: { ja: "今日、私は日本語を勉強します。" } }, 0, {
+      listen: true,
+    });
+    expect(ex.audio).toEqual({ word: "にっぽん" });
   });
 });
 
@@ -414,26 +477,26 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
     example: { ja: "宿題をします。", fr: "Je fais mes devoirs." },
   };
 
-  it("produce : masque la forme rencontrée et l'accepte en réponse (avec la forme de base)", () => {
-    const ex = vocabTypeExercise(suru, 0, { produce: true });
+  it("produce : masque la forme rencontrée et l'accepte en réponse (avec la forme de base)", async () => {
+    const ex = await vocabTypeExercise(suru, 0, { produce: true });
     expect(ex.front).toBe("宿題を◯◯ます。");
     expect(ex.answers).toEqual(expect.arrayContaining(["し", "する"]));
   });
 
-  it("listen : masque la forme rencontrée et l'accepte en réponse", () => {
-    const ex = vocabTypeExercise(suru, 0, { listen: true });
+  it("listen : masque la forme rencontrée et l'accepte en réponse", async () => {
+    const ex = await vocabTypeExercise(suru, 0, { listen: true });
     expect(ex.front).toBe("宿題を◯◯ます。");
     expect(ex.prompt).toBe("Écoute et tape le mot manquant");
     expect(ex.answers).toEqual(expect.arrayContaining(["し", "する"]));
   });
 
-  it("item curé (lecture = partie lecture de l'id) : comportement inchangé", () => {
+  it("item curé (lecture = partie lecture de l'id) : comportement inchangé", async () => {
     const neko = {
       id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat",
       tags: [], status: "review" as const, cards: {},
       example: { ja: "猫が走る。" },
     };
-    const ex = vocabTypeExercise(neko, 0, { produce: true });
+    const ex = await vocabTypeExercise(neko, 0, { produce: true });
     expect(ex.front).toBe("◯◯が走る。");
     expect(ex.answers).toEqual(["猫", "ねこ"]);
   });
@@ -453,28 +516,28 @@ describe("vocabTypeExercise — contextFr", () => {
     };
   }
 
-  it("transmet la traduction FR de la phrase d'exemple", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
+  it("transmet la traduction FR de la phrase d'exemple", async () => {
+    const ex = await vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, { produce: true });
     expect(ex.context).toBe("猫が走る。");
     expect(ex.contextFr).toBe("Le chat court.");
   });
 
-  it("porte le sens FR du mot (affiché dans la correction d'un échec)", () => {
+  it("porte le sens FR du mot (affiché dans la correction d'un échec)", async () => {
     // Face avant japonaise (écoute) comme cloze de production : le sens est nécessaire
     // dans la correction, la face avant ne le montre pas.
-    expect(vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { listen: true }).meaning).toBe("chat");
-    expect(vocabTypeExercise(vocab(), 0, { produce: true }).meaning).toBe("chat");
+    expect((await vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { listen: true })).meaning).toBe("chat");
+    expect((await vocabTypeExercise(vocab(), 0, { produce: true })).meaning).toBe("chat");
   });
 
-  it("variante écoute : transmet aussi contextFr", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+  it("variante écoute : transmet aussi contextFr", async () => {
+    const ex = await vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
       listen: true,
     });
     expect(ex.contextFr).toBe("Le chat court.");
   });
 
-  it("variante écoute : masque le mot cible présent dans la phrase et joue la phrase", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+  it("variante écoute : masque le mot cible présent dans la phrase et joue la phrase", async () => {
+    const ex = await vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
       listen: true,
     });
     expect(ex.front).toBe("◯◯が走る。");
@@ -484,22 +547,26 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.prompt).toBe("Écoute et tape le mot manquant");
   });
 
-  it("variante écoute : mot absent de la phrase → phrase entière, consigne adaptée", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "動物が走る。" }), 0, { listen: true });
-    expect(ex.front).toBe("動物が走る。");
+  it("variante écoute : mot absent de la phrase → mot joué seul, phrase écartée", async () => {
+    // La phrase ne DIT pas le mot demandé : la jouer posait une question sans réponse
+    // audible. Elle n'est plus servie du tout, ni en énoncé ni en contexte.
+    const ex = await vocabTypeExercise(vocab({ ja: "動物が走る。" }), 0, { listen: true });
+    expect(ex.front).toBe("猫");
+    expect(ex.audio).toEqual({ word: "ねこ" });
+    expect(ex.context).toBeUndefined();
     expect(ex.prompt).toBe("Écoute et tape le mot entendu");
   });
 
-  it("variante écoute sans exemple : joue le mot seul, par sa LECTURE", () => {
-    const ex = vocabTypeExercise(vocab(), 0, { listen: true });
+  it("variante écoute sans exemple : joue le mot seul, par sa LECTURE", async () => {
+    const ex = await vocabTypeExercise(vocab(), 0, { listen: true });
     expect(ex.front).toBe("猫");
     // Hors phrase, la graphie ferait deviner la synthèse (cf. lib/speech.ts).
     expect(ex.audio).toEqual({ word: "ねこ" });
     expect(ex.audioBack).toEqual({ word: "ねこ" });
   });
 
-  it("variante écoute sans le son : cloze écrit noté sur la carte orale, sans audio", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
+  it("variante écoute sans le son : cloze écrit noté sur la carte orale, sans audio", async () => {
+    const ex = await vocabTypeExercise(vocab({ ja: "猫が走る。", fr: "Le chat court." }), 0, {
       listen: true,
       silent: true,
     });
@@ -510,8 +577,8 @@ describe("vocabTypeExercise — contextFr", () => {
     expect(ex.answers).toEqual(expect.arrayContaining(["猫", "ねこ"]));
   });
 
-  it("absent quand l'exemple n'a pas de traduction", () => {
-    const ex = vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { produce: true });
+  it("absent quand l'exemple n'a pas de traduction", async () => {
+    const ex = await vocabTypeExercise(vocab({ ja: "猫が走る。" }), 0, { produce: true });
     expect(ex.contextFr).toBeUndefined();
   });
 });

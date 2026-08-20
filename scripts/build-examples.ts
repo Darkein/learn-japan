@@ -1,7 +1,9 @@
 // Corpus statique de phrases d'exemple — une phrase JA + traduction FR par mot de
 // l'inventaire d'un niveau JLPT. Généré via le Worker (kind "vocab-examples", cache R2 →
 // relances gratuites), puis VALIDÉ localement avec kuromoji : le mot cible doit apparaître
-// dans la phrase et chaque token de contenu doit appartenir au lexique autorisé (mots des
+// dans la phrase COMME MOT ENTIER (pas au milieu d'un mot plus long : 日本 dans 日本語 ne
+// compte pas, le cloze de révision poserait alors une question fausse — cf. saysWord) et
+// chaque token de contenu doit appartenir au lexique autorisé (mots des
 // leçons précédentes pour un mot du curriculum, sinon inventaire cumulé des niveaux déjà
 // enseignés — N5..niveau cible). Les phrases non conformes sont re-demandées une fois,
 // puis laissées en trou plutôt que d'embarquer une donnée douteuse. Écrit
@@ -184,12 +186,41 @@ const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞"]);
 /** Sous-catégories tolérées hors lexique : nombres, suffixes/compteurs, non-autonomes. */
 const TOLERATED_DETAIL = new Set(["数", "接尾", "非自立", "代名詞"]);
 
+/**
+ * Le mot cible apparaît-il comme MOT ENTIER (frontières de tokens) ? Une simple
+ * sous-chaîne ne suffit pas : 日本 « se lit » dans 日本語, mais la phrase parle de la
+ * LANGUE — le cloze de révision demanderait alors 「◯◯語」 avec 日本（にっぽん）pour
+ * réponse attendue. Même piège avec 女 dans 彼女, 八 dans 八つ, 青 dans 青い.
+ * Miroir de `wholeWordIndexes` (app/src/lib/wordSpan.ts) côté génération.
+ */
+function saysWord(tokens: Token[], forms: string[]): boolean {
+  const ja = tokens.map((t) => t.surface_form).join("");
+  const starts = new Set<number>();
+  const ends = new Set<number>();
+  let at = 0;
+  for (const t of tokens) {
+    starts.add(at);
+    at += t.surface_form.length;
+    ends.add(at);
+  }
+  return forms.some((f) => {
+    for (let i = ja.indexOf(f); i >= 0; i = ja.indexOf(f, i + 1)) {
+      if (starts.has(i) && ends.has(i + f.length)) return true;
+    }
+    return false;
+  });
+}
+
 /** null si conforme, sinon la raison du rejet. */
 function validate(tk: Tokenizer, word: VocabInv, allowed: Set<string>, ja: string): string | null {
   const forms = formsOf(word);
+  const tokens = tk.tokenize(ja);
   if (!forms.some((f) => ja.includes(f))) return `mot cible « ${word.surface} » absent`;
+  if (!saysWord(tokens, forms)) {
+    return `mot cible « ${word.surface} » seulement à l'intérieur d'un mot plus long`;
+  }
   const offenders: string[] = [];
-  for (const t of tk.tokenize(ja)) {
+  for (const t of tokens) {
     if (!CONTENT_POS.has(t.pos) || TOLERATED_DETAIL.has(t.pos_detail_1)) continue;
     const candidates = [t.surface_form, t.basic_form].filter((s) => s && s !== "*");
     const known =
