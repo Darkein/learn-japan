@@ -131,7 +131,12 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
   - *Face avant* (`JpFront`) : elle porte sa propre typographie, les appelants ne décident rien.
     Un **mot japonais isolé** (≤ 6 caractères) passe en `text-6xl`/`text-7xl` — la reconnaissance
     d'un kanji tient à ses traits, que du texte de corps écrase. Une phrase reste en `text-2xl`,
-    une face française prend la **sérif latine** (`font-serif`), pas la Noto Serif JP.
+    une face française prend la **sérif latine** (`font-serif`), pas la Noto Serif JP. Un
+    texte **à trou** est une phrase par nature : jamais de format « mot », même court.
+  - *Trou* (`ClozeText`) : **un** filet de 2px `--accent` posé sur la ligne de base, à la place
+    du mot (≈2,2em) ou de la particule (≈1,1em) manquants. Les sentinelles des données (`◯◯`,
+    `＿`) ne sont **jamais** affichées telles quelles — comme les icônes, un glyphe unicode y
+    rend mal, et le double rond se lisait comme *deux* mots à trouver. Une largeur = un slot.
   - *Consigne* : sous la face avant, en `text-sm text-muted`. La face avant montre le contenu,
     jamais la question.
   - *Options de QCM* : **grille 2×2 de grandes tuiles** (`min-h-24`, `text-3xl`) quand toutes les
