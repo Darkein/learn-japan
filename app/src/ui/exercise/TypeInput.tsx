@@ -98,6 +98,16 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
           )}
           {ex.word ? (
             <WordFeedback word={ex.word} />
+          ) : ex.blankForm ? (
+            // Cloze dont le trou attend une forme conjuguée : c'est ELLE la réponse, en
+            // grand, la forme de dictionnaire n'étant qu'un rappel du mot travaillé.
+            // L'inverse (する（する）seul après un し validé) se lisait comme un désaccord.
+            <div className="flex flex-col items-center gap-1">
+              <div className="font-jp text-4xl text-text">{ex.blankForm}</div>
+              <div className="text-sm text-muted">
+                forme de <span className="font-jp text-text">{ex.back}</span>
+              </div>
+            </div>
           ) : (
             <div className="font-jp text-xl text-muted">{ex.back}</div>
           )}

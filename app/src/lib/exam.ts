@@ -36,7 +36,7 @@ import {
 } from "./db";
 import { getCurriculum } from "./curriculum";
 import { gradeExercise, type Exercise, type ExerciseTrack } from "./exercise";
-import { neighborRules, sentenceSpeechText } from "./exerciseBuild";
+import { neighborRules, sentenceSpeechText, wordBackText } from "./exerciseBuild";
 import type { ComprehensionQuestion } from "./genClient";
 import { grammarDetail } from "./inventory";
 import { answerVariants, normalizeReading } from "./kana";
@@ -463,7 +463,7 @@ function lectureQuestion(v: VocabItem): ExamQuestion {
       id: v.id,
       front: v.surface,
       prompt: "Écris la lecture en kana",
-      back: `${v.surface}（${v.reading}）`,
+      back: wordBackText(v.surface, v.reading),
       ...(hasMeaning(v) ? { meaning: v.meaning } : {}),
       word: { id: v.id, surface: v.surface, reading: v.reading },
       audioBack: { word: wordSpeechText(v.surface, v.reading) },
@@ -495,7 +495,7 @@ function versionQuestion(
       id: v.id,
       front: faceText(v, "kanji") ?? v.reading,
       prompt: "Que signifie ce mot ?",
-      back: `${v.surface}（${v.reading}）`,
+      back: wordBackText(v.surface, v.reading),
       meaning: v.meaning,
       word: { id: v.id, surface: v.surface, reading: v.reading },
       choices,
@@ -523,7 +523,7 @@ function themeQuestion(v: VocabItem, pool: readonly VocabItem[]): ExamQuestion |
       id: v.id,
       front: fr,
       prompt: "Écris ce mot en japonais",
-      back: `${v.surface}（${v.reading}）`,
+      back: wordBackText(v.surface, v.reading),
       meaning: v.meaning,
       word: { id: v.id, surface: v.surface, reading: v.reading },
       audioBack: { word: wordSpeechText(v.surface, v.reading) },
