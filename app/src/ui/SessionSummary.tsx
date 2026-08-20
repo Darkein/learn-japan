@@ -3,6 +3,7 @@ import { getGrammar, getVocab } from "../lib/db";
 import type { Exercise } from "../lib/exercise";
 import { isMastered, isUnlockReady, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
+import { ClozeText } from "./exercise/ClozeText";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
@@ -82,7 +83,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
           <div className="flex flex-wrap gap-2">
             {leeches.map((r) => (
               <Badge key={r.card.key} className="font-jp">
-                {r.card.front}
+                <ClozeText text={r.card.front} />
               </Badge>
             ))}
           </div>
@@ -107,7 +108,9 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
               return (
                 <li key={entry.card.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-jp text-sm text-text">{entry.card.front}</span>
+                    <span className="font-jp text-sm text-text">
+                      <ClozeText text={entry.card.front} />
+                    </span>
                     <div className="flex items-center gap-1.5">
                       {entry.card.isLeech && <Badge>difficile</Badge>}
                       {entry.mastered ? (
