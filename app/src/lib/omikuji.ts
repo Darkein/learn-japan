@@ -99,14 +99,14 @@ export const CHALLENGES: OmikujiChallenge[] = [
   },
   {
     id: "prod-5",
-    label: () => "Réussis 5 mots en production",
+    label: () => "Retrouve 5 mots en japonais à partir du français",
     metric: "prodOk",
     target: () => 5,
     available: (env) => env.hasProductionCards,
   },
   {
     id: "prod-10",
-    label: () => "Réussis 10 mots en production",
+    label: () => "Retrouve 10 mots en japonais à partir du français",
     metric: "prodOk",
     target: () => 10,
     available: (env) => env.hasProductionCards,
