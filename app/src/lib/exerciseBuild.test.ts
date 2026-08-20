@@ -488,6 +488,8 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
     const ex = await vocabTypeExercise(suru, 0, { produce: true });
     expect(ex.blankForm).toBe("し");
     expect(ex.back).toBe("する");
+    // …et la règle qui commande ce radical (「宿題をします。」 → ます), cf. lib/blankRule.ts.
+    expect(ex.blankRule?.name).toBe("ます (poli)");
   });
 
   it("listen : masque la forme rencontrée et l'accepte en réponse", async () => {
@@ -514,8 +516,9 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
     const ex = await vocabTypeExercise(neko, 0, { produce: true });
     expect(ex.front).toBe("◯◯が走る。");
     expect(ex.answers).toEqual(["猫", "ねこ"]);
-    // Le trou attend la carte elle-même : la correction n'a pas de forme à distinguer.
+    // Le trou attend la carte elle-même : ni forme à distinguer, ni règle à justifier.
     expect(ex.blankForm).toBeUndefined();
+    expect(ex.blankRule).toBeUndefined();
     expect(ex.back).toBe("猫（ねこ）");
   });
 });

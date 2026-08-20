@@ -148,6 +148,12 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
     décidait du gagnant et la bonne réponse restait grise.
   - *Correction* (`WordFeedback`) : le mot en **ruby** (`text-4xl`, furigana révélés), puis le
     **mnémo** et la **décomposition en kanji**. C'est le moment d'étude de la carte.
+  - *Correction d'un trou* : la réponse annoncée est **la forme du trou** (`text-4xl`), pas la
+    forme de dictionnaire de la carte — « し » répond à 「勉強◯◯ます」, et afficher する à la
+    place se lit comme un désaccord avec le ✓ qu'on vient d'obtenir. Dessous, deux lignes en
+    `text-sm text-muted` : d'où sort la forme (« forme de する ») puis **la règle qui la
+    commande** (« ます (poli) — … », référentiel, cf. `lib/blankRule.ts`). Une ligne, pas un
+    cours : le cours est au Catalogue.
 
 ## 7. Accessibilité
 

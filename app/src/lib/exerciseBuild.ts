@@ -4,6 +4,7 @@
 // production, la carte de grammaire et la reconstruction de phrase.
 // Pas de logique de notation ici (voir gradeExercise).
 
+import { blankRuleFor, type BlankRule } from "./blankRule";
 import { toTiles, shuffleTiles } from "./builder";
 import type { GrammarItem, VocabItem } from "./db";
 import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
@@ -281,11 +282,18 @@ function blankAt(hit: ExampleHit): string {
  * Ce que la correction doit annoncer comme réponse du trou, quand ce n'est PAS la carte
  * elle-même : le radical conjugué porté par l'id (« し » pour する, cf. exampleHit). Dans
  * 「宿題を◯◯ます。」 la réponse attendue est し — n'annoncer que する（する）après un し
- * validé se lit comme un désaccord. Champ absent quand le trou attend bien la graphie ou
- * la lecture de la carte : `back` dit alors déjà la réponse.
+ * validé se lit comme un désaccord. La règle qui commande ce radical l'accompagne quand le
+ * référentiel la connaît (ici ます (poli)) : elle répond au « pourquoi » de la forme.
+ * Champs absents quand le trou attend bien la graphie ou la lecture de la carte : `back`
+ * dit alors déjà la réponse, et il n'y a aucune conjugaison à justifier.
  */
-function blankFormFields(v: VocabItem, hit: ExampleHit): { blankForm?: string } {
-  return hit.form !== v.surface && hit.form !== v.reading ? { blankForm: hit.form } : {};
+function blankFormFields(
+  v: VocabItem,
+  hit: ExampleHit,
+): { blankForm?: string; blankRule?: BlankRule } {
+  if (hit.form === v.surface || hit.form === v.reading) return {};
+  const rule = blankRuleFor(hit.form, hit.sentence.slice(hit.index + hit.form.length));
+  return { blankForm: hit.form, ...(rule ? { blankRule: rule } : {}) };
 }
 
 /**
