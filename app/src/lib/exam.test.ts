@@ -202,6 +202,32 @@ describe("composeExam — le sujet", () => {
     }
   });
 
+  it("emploi : c'est l'occurrence PARTICULE qui est masquée, pas la première sous-chaîne", () => {
+    // と apparaît dans ときどき avant le と de « 友達と » : masquer la première sous-chaîne
+    // donnait « ◯きどき友達と話す », qui ne demande plus rien (cf. lib/wordSpan.ts).
+    const ja = "ときどき友達と話す。";
+    const tokens = [
+      mkToken("ときどき", "副詞"),
+      mkToken("友達"),
+      mkToken("と", "助詞"),
+      mkToken("話す", "動詞"),
+      mkToken("。", "記号"),
+    ];
+    const to = word("友達", "ともだち", "ami", { example: { ja, fr: "Je parle parfois avec un ami." } });
+    const exam = composeExam(
+      material({
+        grammar: [{ id: "n5-to-and", name: "と (et/avec)", rule: "", examples: [], tags: [], status: "review" }],
+        vocab: [to, ...LESSON_WORDS],
+        tokenized: new Map([...material().tokenized, [ja, tokens]]),
+      }),
+      1,
+    );
+    const q = exam.sections.find((s) => s.id === "usage")!.questions[0];
+    const ex = q.exercise;
+    if (ex.mode !== "choice") throw new Error("fixture");
+    expect(ex.front).toBe("ときどき友達＿話す。");
+  });
+
   it("correction : une seule phrase juste, et les fautes sont INDISCUTABLES", () => {
     const exam = composeExam(material(), 1);
     const q = exam.sections.find((s) => s.id === "correction")!.questions[0];

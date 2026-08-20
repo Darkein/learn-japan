@@ -46,6 +46,7 @@ import type { KuromojiToken } from "./tokenizer";
 import { isNearMiss } from "./typo";
 import { effectiveExample } from "./vocab";
 import { faceText } from "./vocabFaces";
+import { spliceAt, wholeWordIndex } from "./wordSpan";
 
 // ---- Modèle -------------------------------------------------------------------
 
@@ -439,7 +440,7 @@ function dicteeQuestion(s: ExamSentence): ExamQuestion | null {
       prompt: "Écris la phrase entendue",
       back: target.join(" "),
       audioOnly: true,
-      audio: { sentence: s.word ? sentenceSpeechText(s.word, s.ja) : s.ja },
+      audio: { sentence: s.word ? sentenceSpeechText(s.word, s.ja, s.tokens) : s.ja },
       context: s.ja,
       ...(s.fr ? { contextFr: s.fr } : {}),
       target,
@@ -603,8 +604,12 @@ function usageQuestion(
   if (distractors.length < EXAM.choices - 1) return null;
   const { choices, answerIndex } = seededChoices(particle, distractors, rng);
   // Une seule occurrence est masquée : masquer toutes les は d'une phrase en poserait
-  // deux questions en une.
-  const front = s.ja.replace(particle, "＿");
+  // deux questions en une. Et c'est l'occurrence PARTICULE qu'on masque, pas la première
+  // sous-chaîne venue : と apparaît dans ときどき avant le と de 「友達と」, et
+  // 「＿きどき友達と話す」 ne demandait plus rien (cf. lib/wordSpan.ts).
+  const at = wholeWordIndex(s.ja, s.tokens, particle);
+  if (at < 0) return null;
+  const front = spliceAt(s.ja, at, particle.length, "＿");
   return {
     key: `exam-usage:${g.id}`,
     section: "usage",

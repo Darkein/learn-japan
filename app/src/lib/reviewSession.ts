@@ -148,7 +148,7 @@ export async function silenceDeck(cards: Exercise[]): Promise<Exercise[]> {
     }
     const v = ex.track === "vocab" ? await getVocab(ex.id) : undefined;
     if (!v) continue;
-    const written = vocabTypeExercise(v, ex.due ?? 0, { listen: true, silent: true, pool });
+    const written = await vocabTypeExercise(v, ex.due ?? 0, { listen: true, silent: true, pool });
     out.push(ex.isLeech ? { ...written, isLeech: true } : written);
   }
   return out;
@@ -338,7 +338,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
       // Mode sans le son : remplacement écrit, toujours noté sur la carte orale.
       due.push(
         silent
-          ? vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true, silent: true, pool: vocabAll })
+          ? await vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true, silent: true, pool: vocabAll })
           : await oralExercise(v, v.cards.oral, vocabAll),
       );
       listenCount++;
@@ -357,7 +357,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
       await deferSkill(v, "production", now);
       continue;
     }
-    due.push(vocabTypeExercise(v, c.due.getTime(), { produce: true, pool: vocabAll }));
+    due.push(await vocabTypeExercise(v, c.due.getTime(), { produce: true, pool: vocabAll }));
     prodCount++;
     served.add(v.id);
   }
@@ -387,7 +387,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
       const card = newCard(now);
       v.cards.oral = card;
       await putVocab(v);
-      out.push(vocabTypeExercise(v, card.due.getTime(), { listen: true }));
+      out.push(await vocabTypeExercise(v, card.due.getTime(), { listen: true }));
       listenCount++;
       listenSeeds++;
       room--;
@@ -411,7 +411,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
       const card = newCard(now);
       v.cards.production = card;
       await putVocab(v);
-      out.push(vocabTypeExercise(v, card.due.getTime(), { produce: true, pool: vocabAll }));
+      out.push(await vocabTypeExercise(v, card.due.getTime(), { produce: true, pool: vocabAll }));
       prodCount++;
       prodSeeds++;
       room--;

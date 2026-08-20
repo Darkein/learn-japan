@@ -25,6 +25,7 @@ import {
   type Direction,
   type Face,
 } from "./vocabFaces";
+import { spliceAll, spliceAt, unfusedIndexes, wholeWordIndexes } from "./wordSpan";
 
 /** Nombre de distracteurs d'un QCM (soit 4 options en tout). */
 const CHOICES = 3;
@@ -82,19 +83,30 @@ function faceDistractors(
  * Le reste de la phrase est laissé tel quel : le contexte suffit au moteur pour les mots
  * courants, et tout passer en kana ferait perdre les frontières de mots (は/へ lus à la
  * lettre) sans rien garantir de plus.
+ *
+ * La substitution ne vise que les occurrences où le mot est un MOT — sinon la « correction »
+ * casse la lecture du composé qui l'englobe : 日本（にっぽん）imposé dans 日本語 fait dire
+ * « にっぽんご » là où le moteur lisait にほんご tout seul (cf. lib/wordSpan.ts). `tokens`
+ * donne la frontière exacte ; sans eux on se contente d'épargner les composés de kanji.
  */
-export function sentenceSpeechText(v: VocabItem, ja: string): string {
-  if (!hasKanji(v.surface) || !ja.includes(v.surface)) return ja;
+export function sentenceSpeechText(v: VocabItem, ja: string, tokens?: KuromojiToken[]): string {
+  if (!hasKanji(v.surface)) return ja;
   const spoken = wordSpeechText(v.surface, v.reading);
-  return spoken === v.surface ? ja : ja.split(v.surface).join(spoken);
+  if (spoken === v.surface) return ja;
+  const at = tokens ? wholeWordIndexes(ja, tokens, v.surface) : unfusedIndexes(ja, v.surface);
+  return at.length ? spliceAll(ja, at, v.surface.length, spoken) : ja;
 }
 
 /** Contexte d'une carte : la phrase affichée + la phrase à prononcer (lecture substituée). */
-function contextFields(v: VocabItem, example: { ja?: string; fr?: string } | null) {
+function contextFields(
+  v: VocabItem,
+  example: { ja?: string; fr?: string } | null,
+  tokens?: KuromojiToken[],
+) {
   if (!example?.ja) return {};
   return {
     context: example.ja,
-    contextSpeech: sentenceSpeechText(v, example.ja),
+    contextSpeech: sentenceSpeechText(v, example.ja, tokens),
     ...(example.fr ? { contextFr: example.fr } : {}),
   };
 }
@@ -200,28 +212,60 @@ export function vocabTriangleExercise(
   return readingTypeExercise(v, fallback, due);
 }
 
+/** Sentinelle de trou pour un mot masqué — rendue en filet par ui/exercise/ClozeText.tsx. */
+const WORD_BLANK = "◯◯";
+
+/** Une occurrence masquable du mot cible : la phrase, la forme trouvée et sa position. */
+interface ExampleHit {
+  sentence: string;
+  form: string;
+  index: number;
+}
+
 /**
  * Occurrence du mot dans sa phrase d'exemple : graphie, lecture, ou FORME RENCONTRÉE
  * (radical conjugué porté par l'id, ex. « し » pour する|し) — la phrase d'une histoire
  * contient la forme conjuguée, pas la forme de dictionnaire stockée depuis
- * newVocabItemFromToken. Null si le mot n'apparaît sous aucune forme.
+ * newVocabItemFromToken.
+ *
+ * L'occurrence doit être un MOT ENTIER de la phrase (frontières du tokenizer, cf.
+ * lib/wordSpan.ts) : une graphie prise au milieu d'un mot plus long ne répond pas à la
+ * question posée. 日本（にっぽん）se lit dans 日本語, mais masquer ces deux caractères
+ * demande 「◯◯語」 — dont la réponse est 日本語（にほんご）, pas la carte. Null dans ce
+ * cas : l'appelant retombe alors sur une question honnête (rappel isolé, mot joué seul).
  */
-function exampleHit(v: VocabItem, ja?: string): string | null {
-  if (!ja) return null;
-  if (ja.includes(v.surface)) return v.surface;
-  if (ja.includes(v.reading)) return v.reading;
+function exampleHit(v: VocabItem, ja: string, tokens: KuromojiToken[]): ExampleHit | null {
   const stem = v.id.split("|")[1];
-  if (stem && stem !== v.reading && ja.includes(stem)) return stem;
+  const forms = [v.surface, v.reading, ...(stem && stem !== v.reading ? [stem] : [])];
+  for (const form of forms) {
+    const index = wholeWordIndexes(ja, tokens, form)[0];
+    if (index !== undefined) return { sentence: ja, form, index };
+  }
   return null;
+}
+
+/**
+ * Tokens de la phrase d'exemple, ou null si elle n'existe pas / si le dictionnaire
+ * kuromoji est indisponible. Sans tokens, aucun trou n'est posé (pas de frontière de mot
+ * sûre) : la carte se replie sur sa variante sans phrase plutôt que d'inventer un masque.
+ */
+async function exampleTokens(ja?: string): Promise<KuromojiToken[] | undefined> {
+  if (!ja) return undefined;
+  return tokenize(ja).catch(() => undefined);
 }
 
 /** Réponses acceptées quand la phrase masque `hit` : la forme masquée doit toujours
     être acceptée telle quelle (taper « し » dans 宿題を◯◯ます。 est LA bonne réponse,
     même si la carte porte する). */
-function answersWithHit(answers: string[], hit: string | null): string[] {
+function answersWithHit(answers: string[], hit: ExampleHit | null): string[] {
   if (!hit) return answers;
-  const norm = normalizeReading(hit);
+  const norm = normalizeReading(hit.form);
   return answers.includes(norm) ? answers : [...answers, norm];
+}
+
+/** La phrase de l'occurrence, son mot cible remplacé par le filet. */
+function blankAt(hit: ExampleHit): string {
+  return spliceAt(hit.sentence, hit.index, hit.form.length, WORD_BLANK);
 }
 
 /**
@@ -230,23 +274,29 @@ function answersWithHit(answers: string[], hit: string | null): string[] {
  * `produce` : production en contexte (carte `production`) — cloze ◯◯ sur la phrase
  * d'exemple avec la traduction FR en indice ; sans exemple exploitable, retombe sur le
  * rappel isolé FR → mot, toujours noté sur la compétence production.
- * `listen` : écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot entendu. Le
- * mot cible est masqué (◯◯) dans la phrase affichée quand il s'y trouve tel quel.
+ * `listen` : écoute — la phrase d'exemple est jouée, l'utilisateur tape le mot manquant,
+ * masqué (◯◯) dans la phrase affichée. Sans occurrence masquable, c'est le MOT SEUL qui
+ * est joué : demander un mot que la phrase jouée ne dit pas est une question sans réponse.
  * `listen` + `silent` : remplacement écrit de l'écoute (réglage « sans le son ») — cloze
  * de production sur la phrase d'exemple, mais noté sur la carte ORALE pour que sa
  * planification continue d'avancer.
  * `pool` (facultatif) sert au seul rappel isolé FR → mot : la face avant y est le sens
  * français, donc un jumeau de sens du pool est une réponse tout aussi juste (cf. frTwins).
+ *
+ * ASYNCHRONE : le trou se pose sur une frontière de MOT, donnée par le tokenizer (cf.
+ * exampleHit). Dictionnaire indisponible ⇒ pas de trou, jamais de masque approximatif.
  */
-export function vocabTypeExercise(
+export async function vocabTypeExercise(
   v: VocabItem,
   due: number,
   opts:
     | { listen: true; produce?: false; silent?: boolean; pool?: VocabItem[] }
     | { produce: true; listen?: false; silent?: never; pool?: VocabItem[] },
-): TypeExercise {
+): Promise<TypeExercise> {
   const hasMeaning = !!v.meaning && v.meaning !== "—";
   const example = effectiveExample(v);
+  const tokens = await exampleTokens(example?.ja);
+  const hit = example?.ja && tokens ? exampleHit(v, example.ja, tokens) : null;
   // La surface/lecture du dico peut porter des conventions d'affichage (parenthèses
   // optionnelles, alternatives « a; b », marqueur ～) qu'on ne peut pas taper telles
   // quelles : on accepte toutes leurs variantes développées (voir answerVariants).
@@ -254,7 +304,6 @@ export function vocabTypeExercise(
     ? answerVariants(v.surface, v.reading)
     : answerVariants(v.reading);
   if (opts.produce) {
-    const hit = exampleHit(v, example?.ja);
     const base = {
       mode: "type" as const,
       key: `vocab-produce:${v.id}`,
@@ -266,12 +315,12 @@ export function vocabTypeExercise(
       due,
       answers,
     };
-    if (example?.ja && hit) {
+    if (example && hit) {
       return {
         ...base,
-        front: example.ja.replace(hit, "◯◯"),
+        front: blankAt(hit),
         prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
-        ...contextFields(v, example),
+        ...contextFields(v, example, tokens),
         answers: answersWithHit(answers, hit),
         audioBack: { word: wordSpeechText(v.surface, v.reading) },
       };
@@ -290,10 +339,13 @@ export function vocabTypeExercise(
     };
   }
   if (opts.silent) {
-    const ex = vocabTypeExercise(v, due, { produce: true, pool: opts.pool });
+    const ex = await vocabTypeExercise(v, due, { produce: true, pool: opts.pool });
     return { ...ex, key: `vocab-listen-silent:${v.id}`, skill: "oral" };
   }
-  const hit = exampleHit(v, example?.ja);
+  // La phrase ne sert d'énoncé que si elle DIT le mot demandé (occurrence masquable) ;
+  // sinon on joue le mot seul. Jouer 「日本語を勉強します」 en attendant 日本（にっぽん）—
+  // ou une phrase où le mot n'est pas du tout — posait une question sans réponse audible.
+  const sentence = hit?.sentence;
   return {
     mode: "type",
     key: `vocab-listen:${v.id}`,
@@ -302,15 +354,17 @@ export function vocabTypeExercise(
     id: v.id,
     // Le mot cible est masqué dans la phrase affichée : c'est la réponse — le laisser
     // visible transformait l'exercice en recopie.
-    front: example?.ja && hit ? example.ja.replace(hit, "◯◯") : (example?.ja ?? v.surface),
+    front: hit ? blankAt(hit) : v.surface,
     back: `${v.surface}（${v.reading}）`,
     meaning: hasMeaning ? v.meaning : undefined,
     due,
-    audio: example?.ja
-      ? { sentence: sentenceSpeechText(v, example.ja) }
+    audio: sentence
+      ? { sentence: sentenceSpeechText(v, sentence, tokens) }
       : { word: wordSpeechText(v.surface, v.reading) },
-    ...contextFields(v, example),
-    prompt: example?.ja && hit ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
+    // Contexte seulement quand la phrase est l'énoncé : sinon on révélerait une phrase
+    // qui ne dit pas le mot demandé (cf. le repli ci-dessus).
+    ...contextFields(v, sentence ? example : null, tokens),
+    prompt: sentence ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
     answers: answersWithHit(answers, hit),
     audioBack: { word: wordSpeechText(v.surface, v.reading) },
   };
@@ -385,8 +439,8 @@ export async function vocabDictationExercise(v: VocabItem, due: number): Promise
     back: target.join(" "),
     due,
     audioOnly: true,
-    audio: { sentence: sentenceSpeechText(v, example.ja) },
-    ...contextFields(v, example),
+    audio: { sentence: sentenceSpeechText(v, example.ja, tokens) },
+    ...contextFields(v, example, tokens),
     target,
     tokens,
   };
