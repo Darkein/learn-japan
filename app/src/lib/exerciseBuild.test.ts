@@ -483,11 +483,28 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
     expect(ex.answers).toEqual(expect.arrayContaining(["し", "する"]));
   });
 
+  it("produce : la correction annonce la forme du TROU, pas la forme de dictionnaire", async () => {
+    // Le trou attend し ; annoncer する（する）après un し validé se lit comme un désaccord.
+    const ex = await vocabTypeExercise(suru, 0, { produce: true });
+    expect(ex.blankForm).toBe("し");
+    expect(ex.back).toBe("する");
+    // …et la règle qui commande ce radical (「宿題をします。」 → ます), cf. lib/blankRule.ts.
+    expect(ex.blankRule?.name).toBe("ます (poli)");
+  });
+
   it("listen : masque la forme rencontrée et l'accepte en réponse", async () => {
     const ex = await vocabTypeExercise(suru, 0, { listen: true });
     expect(ex.front).toBe("宿題を◯◯ます。");
     expect(ex.prompt).toBe("Écoute et tape le mot manquant");
     expect(ex.answers).toEqual(expect.arrayContaining(["し", "する"]));
+    expect(ex.blankForm).toBe("し");
+  });
+
+  it("sans occurrence masquable, pas de forme de trou à annoncer", async () => {
+    // Repli « mot seul » (la phrase ne dit pas le mot demandé) : la réponse EST la carte.
+    const ex = await vocabTypeExercise({ ...suru, example: { ja: "猫が走る。" } }, 0, { listen: true });
+    expect(ex.front).toBe("する");
+    expect(ex.blankForm).toBeUndefined();
   });
 
   it("item curé (lecture = partie lecture de l'id) : comportement inchangé", async () => {
@@ -499,6 +516,10 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
     const ex = await vocabTypeExercise(neko, 0, { produce: true });
     expect(ex.front).toBe("◯◯が走る。");
     expect(ex.answers).toEqual(["猫", "ねこ"]);
+    // Le trou attend la carte elle-même : ni forme à distinguer, ni règle à justifier.
+    expect(ex.blankForm).toBeUndefined();
+    expect(ex.blankRule).toBeUndefined();
+    expect(ex.back).toBe("猫（ねこ）");
   });
 });
 

@@ -52,6 +52,16 @@ interface ExerciseBase {
   audioOnly?: boolean;
   /** Consigne courte affichée au-dessus de la face avant. */
   prompt?: string;
+  /** Forme attendue DANS LE TROU quand elle diffère de la forme de dictionnaire de la
+   *  carte : « し » dans 「宿題を◯◯ます。」 pour la carte する (radical conjugué porté par
+   *  l'id, cf. exerciseBuild.exampleHit). C'est ELLE que la correction annonce comme
+   *  réponse — afficher する（する）juste après avoir validé し laisse croire à une autre
+   *  attente. `back` reste montré, en rappel du mot d'où sort la forme. */
+  blankForm?: string;
+  /** Règle de grammaire qui COMMANDE cette forme (référentiel, cf. lib/blankRule.ts) :
+   *  「ます (poli)」 explique pourquoi le trou de 「勉強◯◯ます。」 attend し et non する.
+   *  Une ligne sous la réponse, jamais un cours — celui-ci est au Catalogue. */
+  blankRule?: { name: string; rule: string };
   /** Mot source d'un exercice du triangle (lib/vocabFaces.ts) : la correction en tire les
    *  furigana en ruby, la décomposition en kanji et le moyen mnémotechnique. */
   word?: { id: string; surface: string; reading: string };

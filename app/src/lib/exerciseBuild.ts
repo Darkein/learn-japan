@@ -4,6 +4,7 @@
 // production, la carte de grammaire et la reconstruction de phrase.
 // Pas de logique de notation ici (voir gradeExercise).
 
+import { blankRuleFor, type BlankRule } from "./blankRule";
 import { toTiles, shuffleTiles } from "./builder";
 import type { GrammarItem, VocabItem } from "./db";
 import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
@@ -97,6 +98,15 @@ export function sentenceSpeechText(v: VocabItem, ja: string, tokens?: KuromojiTo
   return at.length ? spliceAll(ja, at, v.surface.length, spoken) : ja;
 }
 
+/**
+ * Forme de dictionnaire d'un mot, telle qu'elle s'affiche en correction : « 猫（ねこ） »,
+ * mais « する » tout court quand la lecture EST la graphie — « する（する） » se lit comme
+ * deux choses distinctes là où il n'y en a qu'une.
+ */
+export function wordBackText(surface: string, reading: string): string {
+  return reading && reading !== surface ? `${surface}（${reading}）` : surface;
+}
+
 /** Contexte d'une carte : la phrase affichée + la phrase à prononcer (lecture substituée). */
 function contextFields(
   v: VocabItem,
@@ -121,7 +131,7 @@ function triangleBase(v: VocabItem, dir: Direction, due: number, mode: "choice" 
     skill: "written" as const,
     id: v.id,
     front: faceText(v, dir.from)!,
-    back: `${v.surface}（${v.reading}）`,
+    back: wordBackText(v.surface, v.reading),
     ...(hasMeaning ? { meaning: v.meaning } : {}),
     word: { id: v.id, surface: v.surface, reading: v.reading },
     prompt: promptFor(dir.to, mode),
@@ -269,6 +279,24 @@ function blankAt(hit: ExampleHit): string {
 }
 
 /**
+ * Ce que la correction doit annoncer comme réponse du trou, quand ce n'est PAS la carte
+ * elle-même : le radical conjugué porté par l'id (« し » pour する, cf. exampleHit). Dans
+ * 「宿題を◯◯ます。」 la réponse attendue est し — n'annoncer que する（する）après un し
+ * validé se lit comme un désaccord. La règle qui commande ce radical l'accompagne quand le
+ * référentiel la connaît (ici ます (poli)) : elle répond au « pourquoi » de la forme.
+ * Champs absents quand le trou attend bien la graphie ou la lecture de la carte : `back`
+ * dit alors déjà la réponse, et il n'y a aucune conjugaison à justifier.
+ */
+function blankFormFields(
+  v: VocabItem,
+  hit: ExampleHit,
+): { blankForm?: string; blankRule?: BlankRule } {
+  if (hit.form === v.surface || hit.form === v.reading) return {};
+  const rule = blankRuleFor(hit.form, hit.sentence.slice(hit.index + hit.form.length));
+  return { blankForm: hit.form, ...(rule ? { blankRule: rule } : {}) };
+}
+
+/**
  * Carte vocabulaire en saisie active sur une compétence AUTRE que l'écrit — l'écrit passe
  * par `vocabTriangleExercise`. La variante est obligatoire :
  * `produce` : production en contexte (carte `production`) — cloze ◯◯ sur la phrase
@@ -310,7 +338,7 @@ export async function vocabTypeExercise(
       track: "vocab" as const,
       skill: "production" as const,
       id: v.id,
-      back: `${v.surface}（${v.reading}）`,
+      back: wordBackText(v.surface, v.reading),
       meaning: hasMeaning ? v.meaning : undefined,
       due,
       answers,
@@ -321,6 +349,7 @@ export async function vocabTypeExercise(
         front: blankAt(hit),
         prompt: example.fr ? `Complète : « ${example.fr} »` : `Complète la phrase (${v.meaning})`,
         ...contextFields(v, example, tokens),
+        ...blankFormFields(v, hit),
         answers: answersWithHit(answers, hit),
         audioBack: { word: wordSpeechText(v.surface, v.reading) },
       };
@@ -355,7 +384,7 @@ export async function vocabTypeExercise(
     // Le mot cible est masqué dans la phrase affichée : c'est la réponse — le laisser
     // visible transformait l'exercice en recopie.
     front: hit ? blankAt(hit) : v.surface,
-    back: `${v.surface}（${v.reading}）`,
+    back: wordBackText(v.surface, v.reading),
     meaning: hasMeaning ? v.meaning : undefined,
     due,
     audio: sentence
@@ -364,6 +393,7 @@ export async function vocabTypeExercise(
     // Contexte seulement quand la phrase est l'énoncé : sinon on révélerait une phrase
     // qui ne dit pas le mot demandé (cf. le repli ci-dessus).
     ...contextFields(v, sentence ? example : null, tokens),
+    ...(hit ? blankFormFields(v, hit) : {}),
     prompt: sentence ? "Écoute et tape le mot manquant" : "Écoute et tape le mot entendu",
     answers: answersWithHit(answers, hit),
     audioBack: { word: wordSpeechText(v.surface, v.reading) },
@@ -405,7 +435,7 @@ export function vocabListenMeaningExercise(
     // Exercice à l'aveugle : rien à afficher en face avant, la question est la consigne.
     front: "",
     prompt: "Quel mot as-tu entendu ?",
-    back: `${v.surface}（${v.reading}）`,
+    back: wordBackText(v.surface, v.reading),
     meaning: v.meaning,
     due,
     audioOnly: true,
