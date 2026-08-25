@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickNext, type FlowState } from "./flow";
+import { pickNext, previewFlow, type FlowState } from "./flow";
 
 /** État de base : rien à faire nulle part. */
 function state(over: Partial<FlowState> = {}): FlowState {
@@ -41,13 +41,27 @@ describe("pickNext — barème", () => {
     expect(a.kind).toBe("review");
   });
 
-  it("omikuji : jamais en tout premier (< 5 min de flux), proposé ensuite", () => {
-    const notYet = pickNext(state({ omikuji: { drawnToday: false, completedToday: false } }));
-    expect(notYet.kind).not.toBe("omikuji");
-    const after = pickNext(
-      state({ omikuji: { drawnToday: false, completedToday: false }, flowMsToday: 6 * 60_000 }),
+  it("omikuji : en tout premier si pas encore tirée, même avec du dû", () => {
+    const a = pickNext(state({ omikuji: { drawnToday: false, completedToday: false }, dueCount: 12 }));
+    expect(a.kind).toBe("omikuji");
+  });
+
+  it("omikuji : pas re-proposée dans la session si refermée sans tirer", () => {
+    const a = pickNext(
+      state({
+        omikuji: { drawnToday: false, completedToday: false },
+        omikujiOfferedThisFlow: true,
+        dueCount: 12,
+      }),
     );
-    expect(after.kind).toBe("omikuji");
+    expect(a.kind).toBe("review");
+  });
+
+  it("après le bloc omikuji, on passe aux révisions", () => {
+    const a = pickNext(
+      state({ omikuji: { drawnToday: false, completedToday: false }, lastActivity: "omikuji", dueCount: 12 }),
+    );
+    expect(a.kind).toBe("review");
   });
 
   it("omikuji : plus jamais proposé une fois tiré", () => {
@@ -88,6 +102,19 @@ describe("pickNext — barème", () => {
     expect(a.kind).toBe("reinforce");
   });
 
+  it("alternance : lecture aussi après un bloc de renforcement", () => {
+    const a = pickNext(
+      state({ dueCount: 8, reviewedToday: 25, lastActivity: "reinforce", currentLesson: lessonInProgress }),
+    );
+    expect(a.kind).toBe("read-story");
+  });
+
+  it("renforcement plafonné : encore un bloc à 1, done à 2 même avec du dû", () => {
+    const base = { dueCount: 8, reviewedToday: 25 };
+    expect(pickNext(state({ ...base, reinforceCountThisFlow: 1 })).kind).toBe("reinforce");
+    expect(pickNext(state({ ...base, reinforceCountThisFlow: 2 })).kind).toBe("done");
+  });
+
   it("done — sortie élégante quand tout est épuisé", () => {
     const a = pickNext(state({ reviewedToday: 25, lastActivity: "review" }));
     expect(a.kind).toBe("done");
@@ -98,5 +125,38 @@ describe("pickNext — barème", () => {
     const s = state({ dueCount: 3, currentLesson: lessonInProgress, lastActivity: "review" });
     const runs = Array.from({ length: 20 }, () => pickNext({ ...s }));
     expect(new Set(runs.map((a) => `${a.kind}:${a.refId}`)).size).toBe(1);
+  });
+});
+
+describe("previewFlow — prévisualisation de la carte d'accueil", () => {
+  it("annonce omikuji, puis les révisions, puis une lecture", () => {
+    const steps = previewFlow(
+      state({
+        dueCount: 34,
+        omikuji: { drawnToday: false, completedToday: false },
+        currentLesson: lessonInProgress,
+      }),
+    );
+    expect(steps.map((s) => s.label)).toEqual(["l'omikuji du jour", "34 révisions", "une lecture"]);
+  });
+
+  it("objectif atteint : au plus 2 blocs de renforcement puis fin", () => {
+    const steps = previewFlow(state({ dueCount: 90, reviewedToday: 25 }), 5);
+    expect(steps.map((s) => s.kind)).toEqual(["reinforce", "reinforce"]);
+  });
+
+  it("rien à faire → aucune étape", () => {
+    expect(previewFlow(state({ reviewedToday: 25 }))).toEqual([]);
+  });
+
+  it("pureté : l'état passé n'est pas muté", () => {
+    const s = state({
+      dueCount: 34,
+      omikuji: { drawnToday: false, completedToday: false },
+      currentLesson: { ...lessonInProgress },
+    });
+    const snapshot = structuredClone(s);
+    previewFlow(s);
+    expect(s).toEqual(snapshot);
   });
 });
