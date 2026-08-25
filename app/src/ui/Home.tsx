@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { gatherFlowState, previewFlow, type FlowPreviewStep } from "../lib/flow";
 import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
@@ -31,6 +32,19 @@ interface Props {
   onGoVoyage: () => void;
 }
 
+/** « Au programme : … » — deux renforcements d'affilée se lisent mieux fusionnés. */
+function flowPhrase(steps: FlowPreviewStep[]): string {
+  const labels: string[] = [];
+  for (const s of steps) {
+    if (s.kind === "reinforce" && labels[labels.length - 1] === "un bloc de renforcement") {
+      labels[labels.length - 1] = "deux blocs de renforcement";
+      continue;
+    }
+    labels.push(s.label);
+  }
+  return `Au programme : ${labels.join(", puis ")}.`;
+}
+
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
   const todayStr = localDateString();
   const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
@@ -51,6 +65,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const [tokaido, setTokaido] = useState<TokaidoStatus | null>(null);
   const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
   const [reco, setReco] = useState<Recommendation | null>(null);
+  const [flowSteps, setFlowSteps] = useState<FlowPreviewStep[] | null>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
@@ -70,6 +85,8 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
     // Reco de lecture : calcul potentiellement coûteux (tokenisation au 1er passage, puis
     // cache) — hors du chemin de rendu, la carte apparaît quand elle est prête.
     void recommendStories(new Date(), stories).then((r) => setReco(r[0] ?? null));
+    // Prévisualisation du flux : hors chemin critique, la phrase se précise quand prête.
+    void gatherFlowState().then(({ state }) => setFlowSteps(previewFlow(state, 3)));
   }
 
   useEffect(() => {
@@ -137,7 +154,9 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
                     {goalMet ? "à consolider" : "à réviser"}
                   </span>
                   <span className="text-sm text-muted">
-                    Le flux enchaîne tes révisions, puis une lecture ou une leçon adaptée.
+                    {flowSteps?.length
+                      ? flowPhrase(flowSteps)
+                      : "Le flux enchaîne tes révisions, puis une lecture ou une leçon adaptée."}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-3">
