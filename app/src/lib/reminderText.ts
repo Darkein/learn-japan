@@ -80,6 +80,8 @@ export interface ReminderHint {
   items?: ReminderItem[];
   /** Le rendez-vous du moment, s'il y en a un — indépendant du dû. */
   event?: ReminderEvent;
+  /** L'omikuji du jour n'a pas encore été vue (hors du flux : voir `shouldOpenOmikuji`). */
+  omikujiPending?: boolean;
   /** Jours consécutifs à objectif atteint. Absent, 0 ou 1 = pas de série à évoquer. */
   streak?: number;
 }
@@ -220,7 +222,7 @@ export function reminderNotification(
     const item = pickFromPool(items, today);
     return item ? itemNotification(item, due, streak) : countNotification(due, streak);
   }
-  if (fresh?.kind === "omikuji") {
+  if (fresh?.omikujiPending) {
     return {
       title: "Ton omikuji du jour t'attend.",
       body: body(streak, "Tire ta fortune au temple, et le défi qui va avec."),

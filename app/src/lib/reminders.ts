@@ -12,6 +12,7 @@
 
 import { allGrammar, allVocab, getMeta, localDateString, putMeta, recentSrsDaily } from "./db";
 import { gatherFlowState, pickNext, type FlowActivityKind, type FlowState } from "./flow";
+import { shouldOpenOmikuji } from "./omikuji";
 import { syncPushSubscription } from "./push";
 import { reminderItemPool } from "./reminderItem";
 import {
@@ -138,7 +139,14 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
     const next = pickNext(state);
     // Le peloton d'éléments et la série : le SW ne sait pas les calculer (ts-fsrs, log de
     // révisions), et ils restent dans le store `meta` local — rien ne part au push.
-    const [vocab, grammar, daily] = await Promise.all([allVocab(), allGrammar(), recentSrsDaily(60)]);
+    const [vocab, grammar, daily, omikujiPending] = await Promise.all([
+      allVocab(),
+      allGrammar(),
+      recentSrsDaily(60),
+      // L'omikuji vit hors du flux (ouverture au lancement) : `pickNext` ne la voit plus,
+      // le rappel la lit donc directement.
+      shouldOpenOmikuji(),
+    ]);
     const hint: ReminderHint = {
       date: today,
       kind: next.kind,
@@ -146,6 +154,7 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
       // révision ne servira jamais (cf. isTrainableVocab) serait une fausse promesse.
       items: reminderItemPool(vocab.filter(isTrainableVocab), grammar, new Date()),
       event: pickEvent(state),
+      omikujiPending,
       streak: reviewStreak(daily, state.dailyGoal, today),
     };
     await putMeta(HINT_KEY, hint);

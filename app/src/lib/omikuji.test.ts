@@ -18,6 +18,8 @@ import {
   drawOmikuji,
   FORTUNES,
   fortuneById,
+  markOmikujiSeen,
+  shouldOpenOmikuji,
   type OmikujiEnv,
 } from "./omikuji";
 import { newCard } from "./srs";
@@ -88,6 +90,29 @@ describe("drawOmikuji (IO)", () => {
     const second = await drawOmikuji(new Date(NOW.getTime() + 3600e3));
     expect(second.drawnAt).toBe(first.drawnAt);
     expect(second.baseline.reviewed).toBe(3);
+  });
+});
+
+describe("shouldOpenOmikuji (ouverture au lancement)", () => {
+  it("s'ouvre tant que la bandelette n'a pas été vue aujourd'hui", async () => {
+    expect(await shouldOpenOmikuji(NOW)).toBe(true);
+  });
+
+  it("ne se rouvre plus une fois présentée, même sans tirage", async () => {
+    await markOmikujiSeen(NOW);
+    expect(await shouldOpenOmikuji(NOW)).toBe(false);
+  });
+
+  it("un tirage déjà en base vaut « vue » (jours d'avant le drapeau, autre appareil)", async () => {
+    await drawOmikuji(NOW);
+    expect(await shouldOpenOmikuji(NOW)).toBe(false);
+  });
+
+  it("se rouvre le lendemain", async () => {
+    await markOmikujiSeen(NOW);
+    await drawOmikuji(NOW);
+    const tomorrow = new Date(NOW.getTime() + 24 * 3600e3);
+    expect(await shouldOpenOmikuji(tomorrow)).toBe(true);
   });
 });
 

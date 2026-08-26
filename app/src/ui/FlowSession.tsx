@@ -8,7 +8,6 @@ import { markStationCelebrated, tokaidoStatus, type RouteArrival } from "../lib/
 import { MirrorDeltaView } from "./MirrorDelta";
 import { formatMinutes } from "../lib/time";
 import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
-import { OmikujiSheet } from "./OmikujiSheet";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { ReviewSession } from "./ReviewSession";
 import { ExamSession } from "./exam/ExamSession";
@@ -44,9 +43,8 @@ export function FlowSession({ onExit, forced }: Props) {
   const [arrival, setArrival] = useState<RouteArrival | null>(null);
   // Révisions du jour au début du bloc courant → « 12 révisions faites » au checkpoint.
   const reviewedAtBlockStart = useRef(0);
-  // Contexte de la session de flux : borne le renforcement et évite de re-proposer
-  // l'omikuji refermée sans tirage. État de session UI, jamais persisté.
-  const flowCtx = useRef({ reinforceCountThisFlow: 0, omikujiOfferedThisFlow: false });
+  // Contexte de la session de flux : borne le renforcement. État de session UI, jamais persisté.
+  const flowCtx = useRef({ reinforceCountThisFlow: 0 });
 
   useEffect(() => {
     void (async () => {
@@ -84,11 +82,11 @@ export function FlowSession({ onExit, forced }: Props) {
       }
       await markMirrorDone();
     }
-    // Le défi omikuji peut venir d'être accompli par ce bloc : on l'évalue AVANT le
-    // Tōkaidō pour que le bonus éventuel soit crédité dans la position lue juste après.
+    // Le défi omikuji (tiré au lancement de l'app, hors du flux) peut venir d'être accompli
+    // par ce bloc : on l'évalue AVANT le Tōkaidō pour que le bonus éventuel soit crédité
+    // dans la position lue juste après.
     const omikuji = await checkOmikuji();
     if (finished.kind === "reinforce") flowCtx.current.reinforceCountThisFlow++;
-    if (finished.kind === "omikuji") flowCtx.current.omikujiOfferedThisFlow = true;
     const { state, lessons } = await gatherFlowState({
       lastActivity: finished.kind,
       ...flowCtx.current,
@@ -97,7 +95,6 @@ export function FlowSession({ onExit, forced }: Props) {
       finished,
       reviewedAtBlockStart.current,
       omikuji?.completedNow ?? false,
-      omikuji != null,
     );
     if (mirrorExtra) recap.extra = mirrorExtra;
     // Une arrivée de station se fête au checkpoint (la progression vient d'être créditée).
@@ -163,7 +160,6 @@ async function recapFor(
   activity: FlowActivity,
   reviewedBefore: number,
   omikujiDone: boolean,
-  omikujiDrawn: boolean,
 ): Promise<FlowBlockResult> {
   const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur la route." : "";
   if (activity.kind === "review" || activity.kind === "reinforce") {
@@ -185,15 +181,6 @@ async function recapFor(
   }
   if (activity.kind === "exam") {
     return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." + suffix };
-  }
-  if (activity.kind === "omikuji") {
-    // La feuille peut avoir été refermée sans tirage : ne pas annoncer une fortune fantôme.
-    return {
-      kind: activity.kind,
-      recap: omikujiDrawn
-        ? "Fortune tirée — le défi du jour est lancé."
-        : "Bandelette laissée au temple — elle t'attendra.",
-    };
   }
   return { kind: activity.kind };
 }
@@ -222,9 +209,6 @@ function ActivityBlock({
     // Le contrôle vit dans le flux comme les autres blocs : il porte son en-tête de copie
     // et sa correction, et rend la main au checkpoint une fois la copie rendue.
     return activity.refId ? <ExamSession lessonId={activity.refId} onExit={onDone} /> : null;
-  }
-  if (activity.kind === "omikuji") {
-    return <OmikujiSheet onClose={onDone} />;
   }
   return null;
 }

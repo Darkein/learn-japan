@@ -107,20 +107,20 @@ describe("reminderNotification", () => {
       TODAY,
     );
     expect(story.title).toBe("Et si tu lisais « Le chat de Kamakura » ?");
-    expect(reminderNotification(0, hint({ kind: "omikuji", items: [] }), TODAY).title).toBe(
+    expect(reminderNotification(0, hint({ omikujiPending: true, items: [] }), TODAY).title).toBe(
       "Ton omikuji du jour t'attend.",
     );
   });
 
   it("ignore le peloton quand plus rien n'est dû (les éléments ne le sont plus non plus)", () => {
-    const n = reminderNotification(0, hint({ kind: "omikuji" }), TODAY);
+    const n = reminderNotification(0, hint({ omikujiPending: true }), TODAY);
     expect(n.title).toBe("Ton omikuji du jour t'attend.");
   });
 
   it("se rabat sur le générique sans mentir", () => {
     const generic = { title: "Cinq minutes de japonais ?", body: "Ton programme du jour t'attend." };
     expect(reminderNotification(0, undefined, TODAY)).toEqual(generic);
-    expect(reminderNotification(0, hint({ date: "2026-08-09", kind: "omikuji" }), TODAY)).toEqual(generic);
+    expect(reminderNotification(0, hint({ date: "2026-08-09", omikujiPending: true }), TODAY)).toEqual(generic);
     expect(reminderNotification(0, hint({ kind: "done", items: [] }), TODAY)).toEqual(generic);
     // `review`/`reinforce` sans dû : l'indice a vieilli en cours de journée.
     expect(reminderNotification(0, hint({ items: [] }), TODAY)).toEqual(generic);

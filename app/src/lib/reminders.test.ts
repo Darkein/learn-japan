@@ -12,7 +12,6 @@ const state = (over: Partial<FlowState> = {}): FlowState => ({
   reviewedToday: 0,
   dailyGoal: 20,
   flowMsToday: 0,
-  omikuji: { drawnToday: false, completedToday: false },
   ...over,
 });
 
