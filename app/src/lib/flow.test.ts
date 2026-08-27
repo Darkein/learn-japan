@@ -9,7 +9,6 @@ function state(over: Partial<FlowState> = {}): FlowState {
     reviewedToday: 0,
     dailyGoal: 20,
     flowMsToday: 0,
-    omikuji: { drawnToday: true, completedToday: false },
     ...over,
   };
 }
@@ -39,34 +38,6 @@ describe("pickNext — barème", () => {
   it("enchaîne les blocs de révision s'il n'y a rien à alterner", () => {
     const a = pickNext(state({ dueCount: 40, reviewedToday: 10, dailyGoal: 50, lastActivity: "review" }));
     expect(a.kind).toBe("review");
-  });
-
-  it("omikuji : en tout premier si pas encore tirée, même avec du dû", () => {
-    const a = pickNext(state({ omikuji: { drawnToday: false, completedToday: false }, dueCount: 12 }));
-    expect(a.kind).toBe("omikuji");
-  });
-
-  it("omikuji : pas re-proposée dans la session si refermée sans tirer", () => {
-    const a = pickNext(
-      state({
-        omikuji: { drawnToday: false, completedToday: false },
-        omikujiOfferedThisFlow: true,
-        dueCount: 12,
-      }),
-    );
-    expect(a.kind).toBe("review");
-  });
-
-  it("après le bloc omikuji, on passe aux révisions", () => {
-    const a = pickNext(
-      state({ omikuji: { drawnToday: false, completedToday: false }, lastActivity: "omikuji", dueCount: 12 }),
-    );
-    expect(a.kind).toBe("review");
-  });
-
-  it("omikuji : plus jamais proposé une fois tiré", () => {
-    const a = pickNext(state({ flowMsToday: 10 * 60_000 }));
-    expect(a.kind).not.toBe("omikuji");
   });
 
   it("leçon suivante quand elle est prête et l'objectif atteint", () => {
@@ -129,15 +100,9 @@ describe("pickNext — barème", () => {
 });
 
 describe("previewFlow — prévisualisation de la carte d'accueil", () => {
-  it("annonce omikuji, puis les révisions, puis une lecture", () => {
-    const steps = previewFlow(
-      state({
-        dueCount: 34,
-        omikuji: { drawnToday: false, completedToday: false },
-        currentLesson: lessonInProgress,
-      }),
-    );
-    expect(steps.map((s) => s.label)).toEqual(["l'omikuji du jour", "34 révisions", "une lecture"]);
+  it("annonce les révisions, puis une lecture", () => {
+    const steps = previewFlow(state({ dueCount: 34, currentLesson: lessonInProgress }));
+    expect(steps.map((s) => s.label)).toEqual(["34 révisions", "une lecture"]);
   });
 
   it("objectif atteint : au plus 2 blocs de renforcement puis fin", () => {
@@ -150,11 +115,7 @@ describe("previewFlow — prévisualisation de la carte d'accueil", () => {
   });
 
   it("pureté : l'état passé n'est pas muté", () => {
-    const s = state({
-      dueCount: 34,
-      omikuji: { drawnToday: false, completedToday: false },
-      currentLesson: { ...lessonInProgress },
-    });
+    const s = state({ dueCount: 34, currentLesson: { ...lessonInProgress } });
     const snapshot = structuredClone(s);
     previewFlow(s);
     expect(s).toEqual(snapshot);

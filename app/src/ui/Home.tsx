@@ -3,6 +3,7 @@ import type { StoryRecord } from "../lib/db";
 import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { gatherFlowState, previewFlow, type FlowPreviewStep } from "../lib/flow";
 import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
+import { shouldOpenOmikuji } from "../lib/omikuji";
 import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
@@ -11,6 +12,7 @@ import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoSt
 import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
 import { OmikujiCard } from "./OmikujiCard";
+import { OmikujiSheet } from "./OmikujiSheet";
 import { StationArrival } from "./StationArrival";
 import { TokaidoStrip } from "./TokaidoStrip";
 import { Button } from "./kit/Button";
@@ -45,6 +47,12 @@ function flowPhrase(steps: FlowPreviewStep[]): string {
   return `Au programme : ${labels.join(", puis ")}.`;
 }
 
+// Une seule ouverture automatique par session d'app. Le drapeau persistant (meta
+// `omikuji.seenDate`) couvre la journée d'un lancement à l'autre ; celui-ci couvre les
+// remontages de l'accueil dans la même page (retour d'une sous-page, changement d'onglet),
+// avant même que l'écriture IndexedDB ne soit relue.
+let omikujiOpenedThisAppSession = false;
+
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
   const todayStr = localDateString();
   const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
@@ -66,6 +74,10 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
   const [reco, setReco] = useState<Recommendation | null>(null);
   const [flowSteps, setFlowSteps] = useState<FlowPreviewStep[] | null>(null);
+  // Bandelette du jour ouverte d'office au lancement, et clé de remontage de la carte
+  // omikuji (elle porte son propre état : la refermer doit la faire relire la base).
+  const [omikujiOpen, setOmikujiOpen] = useState(false);
+  const [omikujiVersion, setOmikujiVersion] = useState(0);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
@@ -92,6 +104,18 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   useEffect(() => {
     void refresh();
   }, [dataVersion]);
+
+  // L'omikuji du jour n'est plus une étape du flux d'étude : la bandelette s'ouvre d'
+  // elle-même au lancement de l'app tant qu'elle n'a pas été vue aujourd'hui. Pas vue =
+  // ni tirée, ni simplement présentée (voir `shouldOpenOmikuji`).
+  useEffect(() => {
+    if (omikujiOpenedThisAppSession) return;
+    void shouldOpenOmikuji().then((open) => {
+      if (!open || omikujiOpenedThisAppSession) return;
+      omikujiOpenedThisAppSession = true;
+      setOmikujiOpen(true);
+    });
+  }, []);
 
   async function dismissUnlock(lesson: Lesson) {
     await markUnlockNotified(lesson.id);
@@ -173,7 +197,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
         </section>
       )}
 
-      <OmikujiCard />
+      <OmikujiCard key={omikujiVersion} />
 
       {mirror && (
         <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
@@ -255,6 +279,15 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
           Statistiques →
         </button>
       </div>
+
+      {omikujiOpen && (
+        <OmikujiSheet
+          onClose={() => {
+            setOmikujiOpen(false);
+            setOmikujiVersion((n) => n + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

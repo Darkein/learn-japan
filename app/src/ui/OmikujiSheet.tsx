@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import type { OmikujiRecord } from "../lib/db";
 import { getOmikuji, localDateString } from "../lib/db";
-import { challengeById, drawOmikuji, FORTUNES, type OmikujiEnv } from "../lib/omikuji";
+import {
+  challengeById,
+  drawOmikuji,
+  FORTUNES,
+  markOmikujiSeen,
+  type OmikujiEnv,
+} from "../lib/omikuji";
 import { loadSettings } from "../lib/settings";
 import { Button } from "./kit/Button";
 import { SectionLabel } from "./kit/SectionLabel";
@@ -25,6 +31,10 @@ function labelEnv(): OmikujiEnv {
 /**
  * La bandelette d'omikuji : tirage rituel (un tap), révélation sobre de la fortune
  * (kanji vertical, papier, filets — aucun doré, aucun confetti) et du défi du jour.
+ *
+ * Présentée, la bandelette est marquée VUE pour la journée — tirée ou non. C'est ce
+ * drapeau qui empêche l'ouverture automatique au lancement de revenir à chaque
+ * rechargement de la page (voir `shouldOpenOmikuji`).
  */
 export function OmikujiSheet({ onClose }: Props) {
   const [rec, setRec] = useState<OmikujiRecord | null>(null);
@@ -32,6 +42,7 @@ export function OmikujiSheet({ onClose }: Props) {
 
   useEffect(() => {
     void getOmikuji(localDateString()).then((r) => setRec(r ?? null));
+    void markOmikujiSeen();
   }, []);
 
   async function draw() {

@@ -1,6 +1,7 @@
-// Flux d'étude continu : l'app enchaîne les activités (omikuji → révisions → lecture →
-// leçon → miroir) avec un point de sortie à chaque checkpoint — on reste 5 minutes ou
-// 2 heures, tout compte.
+// Flux d'étude continu : l'app enchaîne les activités (révisions → lecture → leçon →
+// miroir) avec un point de sortie à chaque checkpoint — on reste 5 minutes ou 2 heures,
+// tout compte. L'omikuji du jour n'en fait PAS partie : la bandelette s'ouvre d'elle-même
+// au lancement de l'app (voir lib/omikuji.ts, ui/Home.tsx).
 //
 // RÈGLE DURE : `pickNext` est PURE et DÉTERMINISTE — aucun Math.random, aucun accès IO.
 // Même FlowState → même activité, entre l'accueil et le checkpoint, et dans les tests.
@@ -10,7 +11,6 @@ import { SRS } from "./config";
 import {
   allStories,
   getMeta,
-  getOmikuji,
   getSrsDaily,
   localDateString,
   type StoryRecord,
@@ -27,7 +27,6 @@ export type FlowActivityKind =
   | "exam" // contrôle de la leçon en cours (le 関所) : il ouvre la suivante
   | "lesson" // découvrir la prochaine leçon prête
   | "mirror" // relecture-miroir (une vieille histoire, pour mesurer le chemin)
-  | "omikuji" // tirage du jour
   | "done"; // sortie naturelle
 
 export interface FlowActivity {
@@ -57,12 +56,9 @@ export interface FlowState {
   };
   nextLesson?: { id: string; title: string; ready: boolean };
   mirrorCandidate?: { storyId: string; title: string; ageDays: number };
-  omikuji: { drawnToday: boolean; completedToday: boolean };
   lastActivity?: FlowActivityKind;
   /** Blocs de renforcement déjà terminés dans cette session de flux (0 hors flux). */
   reinforceCountThisFlow?: number;
-  /** Omikuji déjà proposée dans cette session de flux (tirée OU refermée sans tirer). */
-  omikujiOfferedThisFlow?: boolean;
 }
 
 /** Le renforcement s'arrête après ce nombre de blocs par session de flux : le dû restant
@@ -71,32 +67,21 @@ export const MAX_REINFORCE_PER_FLOW = 2;
 
 /**
  * Choisit LA meilleure activité suivante. Barème, dans l'ordre :
- * ① omikuji en ouverture du flux si pas encore tirée aujourd'hui — une seule proposition
- *    par session de flux (refermée sans tirer, elle attend la prochaine session) ;
- * ② lecture d'une histoire de la leçon en cours juste après un bloc d'effort
+ * ① lecture d'une histoire de la leçon en cours juste après un bloc d'effort
  *    (révision OU renforcement — alternance travail/plaisir) ;
- * ③ révisions si des cartes sont dues et l'objectif du jour pas atteint ;
- * ④ contrôle de la leçon en cours dès qu'il est ouvert : c'est lui qui débloque la
+ * ② révisions si des cartes sont dues et l'objectif du jour pas atteint ;
+ * ③ contrôle de la leçon en cours dès qu'il est ouvert : c'est lui qui débloque la
  *    suite, il passe donc AVANT la découverte d'une nouvelle leçon ;
- * ⑤ prochaine leçon si elle est prête et débloquée ;
- * ⑥ relecture-miroir si un candidat existe ;
- * ⑦ histoire non lue de la leçon en cours (même sans révision préalable) ;
- * ⑧ renforcement si backlog dû restant, plafonné à MAX_REINFORCE_PER_FLOW blocs ;
- * ⑨ done — le flux propose toujours une sortie élégante, même s'il reste du dû.
+ * ④ prochaine leçon si elle est prête et débloquée ;
+ * ⑤ relecture-miroir si un candidat existe ;
+ * ⑥ histoire non lue de la leçon en cours (même sans révision préalable) ;
+ * ⑦ renforcement si backlog dû restant, plafonné à MAX_REINFORCE_PER_FLOW blocs ;
+ * ⑧ done — le flux propose toujours une sortie élégante, même s'il reste du dû.
  */
 export function pickNext(state: FlowState): FlowActivity {
   const s = state;
   const unread = s.currentLesson?.unreadStoryId;
 
-  // La garde `lastActivity` couvre les appelants qui ne traquent pas la session de flux
-  // (rappels) ; dans le flux, c'est `omikujiOfferedThisFlow` qui fait foi.
-  if (!s.omikuji.drawnToday && !s.omikujiOfferedThisFlow && s.lastActivity !== "omikuji") {
-    return {
-      kind: "omikuji",
-      title: "Omikuji du jour",
-      reason: "Tire ta fortune au temple — un petit défi t'attend.",
-    };
-  }
   if ((s.lastActivity === "review" || s.lastActivity === "reinforce") && unread) {
     return readStory(s);
   }
@@ -135,7 +120,7 @@ export function pickNext(state: FlowState): FlowActivity {
   }
   if (unread && s.lastActivity !== "read-story") return readStory(s);
   // Renforcement plafonné : pas de garde `lastActivity`, c'est le compteur qui borne
-  // (la règle ② intercale une lecture quand il y en a une). Au-delà du plafond, le dû
+  // (la règle ① intercale une lecture quand il y en a une). Au-delà du plafond, le dû
   // restant attend demain et le flux atteint `done`.
   if (s.dueCount > 0 && (s.reinforceCountThisFlow ?? 0) < MAX_REINFORCE_PER_FLOW) {
     return {
@@ -155,7 +140,7 @@ export function pickNext(state: FlowState): FlowActivity {
 
 export interface FlowPreviewStep {
   kind: FlowActivityKind;
-  /** Libellé court en français, prêt à joindre : « l'omikuji du jour, puis 34 révisions ». */
+  /** Libellé court en français, prêt à joindre : « 34 révisions, puis une lecture ». */
   label: string;
 }
 
@@ -168,20 +153,14 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
   const sim: FlowState = {
     ...state,
     currentLesson: state.currentLesson ? { ...state.currentLesson } : undefined,
-    omikuji: { ...state.omikuji },
     lastActivity: undefined,
     reinforceCountThisFlow: 0,
-    omikujiOfferedThisFlow: false,
   };
   const steps: FlowPreviewStep[] = [];
   while (steps.length < n) {
     const a = pickNext(sim);
     if (a.kind === "done") break;
     switch (a.kind) {
-      case "omikuji":
-        steps.push({ kind: a.kind, label: "l'omikuji du jour" });
-        sim.omikuji.drawnToday = true;
-        break;
       case "review":
         steps.push({
           kind: a.kind,
@@ -246,7 +225,6 @@ async function firstUnreadStory(stories: StoryRecord[]): Promise<StoryRecord | u
 export interface FlowSessionCtx {
   lastActivity?: FlowActivityKind;
   reinforceCountThisFlow?: number;
-  omikujiOfferedThisFlow?: boolean;
 }
 
 export async function gatherFlowState(
@@ -254,11 +232,10 @@ export async function gatherFlowState(
   now: Date = new Date(),
 ): Promise<FlowGathered> {
   const today = localDateString(now);
-  const [lessons, stats, daily, omikujiRec, stories] = await Promise.all([
+  const [lessons, stats, daily, stories] = await Promise.all([
     listLessons(),
     sessionStats(now),
     getSrsDaily(today),
-    getOmikuji(today),
     allStories(),
   ]);
   const settings = loadSettings();
@@ -287,7 +264,6 @@ export async function gatherFlowState(
     mirrorCandidate: mirror
       ? { storyId: mirror.storyId, title: mirror.title, ageDays: mirror.ageDays }
       : undefined,
-    omikuji: { drawnToday: !!omikujiRec, completedToday: !!omikujiRec?.completedAt },
     ...ctx,
   };
   return { state, lessons };

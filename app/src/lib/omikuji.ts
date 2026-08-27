@@ -11,9 +11,11 @@ import {
   allReviews,
   allStories,
   allVocab,
+  getMeta,
   getOmikuji,
   getSrsDaily,
   localDateString,
+  putMeta,
   putOmikuji,
   type OmikujiFortune,
   type OmikujiRecord,
@@ -261,6 +263,32 @@ export async function drawOmikuji(now: Date = new Date()): Promise<OmikujiRecord
   };
   await putOmikuji(rec);
   return rec;
+}
+
+// ---- « Vue aujourd'hui ? » -------------------------------------------------------
+//
+// L'omikuji n'est PAS une étape du flux d'étude : la bandelette s'ouvre d'elle-même au
+// lancement de l'app, une fois par jour. Le tirage seul ne suffit pas à dire « vue » —
+// on peut refermer la bandelette sans tirer, et elle ne doit pas revenir à chaque
+// rechargement de la page. D'où ce drapeau persistant, la date locale de la dernière
+// présentation.
+
+const SEEN_KEY = "omikuji.seenDate";
+
+/** Marque l'omikuji du jour comme VUE (bandelette présentée, tirée ou non). */
+export async function markOmikujiSeen(now: Date = new Date()): Promise<void> {
+  await putMeta(SEEN_KEY, localDateString(now));
+}
+
+/**
+ * La bandelette doit-elle s'ouvrir d'elle-même ? Oui tant qu'elle n'a pas été vue
+ * aujourd'hui. Un tirage déjà en base vaut « vue » : il couvre les jours d'avant ce
+ * drapeau, et un tirage venu d'un autre appareil (sauvegarde cloud).
+ */
+export async function shouldOpenOmikuji(now: Date = new Date()): Promise<boolean> {
+  const today = localDateString(now);
+  const [seen, rec] = await Promise.all([getMeta<string>(SEEN_KEY), getOmikuji(today)]);
+  return seen !== today && !rec;
 }
 
 /** Progression d'un défi : `done`/`target` pour la jauge (les deux ≥ 0). */
