@@ -43,6 +43,11 @@ npm run data:jmdict    # JMdict-FR (jmdict-simplified) -> app/src/../public/jmdi
 npm run curriculum:check  # vérifie la cohérence du curriculum (couverture, prérequis, références)
 ```
 
+Les **sons de retour** des exercices (juste / raté / série terminée) sont eux fabriqués **sans
+réseau** : `npm run data:sfx` synthétise les trois MP3 committés dans `app/src/assets/sfx/`
+(tirages à graine fixe, donc fichiers identiques d'une machine à l'autre). À relancer seulement
+pour changer un son — voir `scripts/build-sfx.mts` et [`SPEC.md`](SPEC.md) §10.
+
 L'**inventaire** (`app/src/data/inventory/`) est le référentiel committé : `kanji.json` et
 `vocab.json` sont (re)générés par `data:inventory` ; les sens **français** sont curés dans les
 overlays `kanji-fr.json` / `vocab-fr.json` (repli sur l'anglais sinon) ; `grammar.json` est curé à

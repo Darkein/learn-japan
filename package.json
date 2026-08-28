@@ -20,9 +20,11 @@
     "content:batch": "tsx scripts/pregenerate.ts",
     "data:examples": "tsx scripts/build-examples.ts",
     "data:mnemonics": "tsx scripts/build-mnemonics.ts",
-    "data:word-mnemonics": "tsx scripts/build-word-mnemonics.ts"
+    "data:word-mnemonics": "tsx scripts/build-word-mnemonics.ts",
+    "data:sfx": "tsx scripts/build-sfx.mts"
   },
   "devDependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

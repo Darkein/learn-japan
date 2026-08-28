@@ -400,11 +400,14 @@ de consolidation passive**.
   2. mot arbitraire en ligne → petit appel Cloud TTS **mis en cache** ;
   3. repli hors-ligne / zéro quota → **Web Speech API** du navigateur.
 - **Sons de retour des exercices** (`lib/sfx.ts`) : réponse juste (cloche りん, quinte montante),
-  réponse ratée (claquement de bois sourd), série terminée (trois cloches montantes). **Synthétisés
-  en Web Audio**, jamais des fichiers : rien à télécharger, rien à mettre en cache, hors-ligne par
-  construction. Réglage « Sons de retour dans les exercices » (activé par défaut) ; la **pause
-  d'écoute** (« Je ne peux pas écouter ») et le mode **sans le son** les coupent aussi — le
-  téléphone doit rester muet quand l'utilisateur a dit qu'il devait l'être.
+  réponse ratée (claquement de bois sourd), série terminée (trois cloches montantes). Trois **MP3
+  courts** (~30 Ko pièce) **fabriqués au build** par `npm run data:sfx` (synthèse additive dans
+  `scripts/build-sfx.mts`, tirages à graine fixe → fichiers reproductibles), embarqués au bundle et
+  précachés par le service worker : hors-ligne, zéro appel réseau à l'usage. Lecture en Web Audio
+  (tampon décodé une fois, rejoué sans latence) plutôt qu'un `<audio>`, qui redemande le focus
+  média à l'OS à chaque lecture. Réglage « Sons de retour dans les exercices » (activé par
+  défaut) ; la **pause d'écoute** (« Je ne peux pas écouter ») et le mode **sans le son** les
+  coupent aussi — le téléphone doit rester muet quand l'utilisateur a dit qu'il devait l'être.
 
 ## 11. Architecture (hébergement gratuit, clés protégées, génération automatisée)
 

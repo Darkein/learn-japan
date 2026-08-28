@@ -1,31 +1,31 @@
 // Sons de retour des exercices : juste, raté, série terminée.
 //
-// Tout est SYNTHÉTISÉ à la volée (Web Audio) plutôt que servi par des fichiers : pas
-// d'octets binaires dans le dépôt, rien à télécharger ni à mettre en cache pour le
-// service worker, et donc un retour sonore disponible hors ligne comme le reste de l'app.
-// La synthèse additive donne aussi un timbre propre, sans compression ni souffle.
+// Trois MP3 courts (17 à 41 Ko), embarqués dans le bundle et précachés par le service
+// worker : disponibles hors-ligne comme le reste de l'app, sans le moindre appel réseau à
+// l'usage. Ils sont FABRIQUÉS par `npm run data:sfx` (scripts/build-sfx.mts) — la synthèse
+// vit au build, pas ici ; ce module ne fait que décoder et jouer.
 //
-// La palette suit DESIGN.md — de la retenue, pas d'arcade :
-//   - juste          → une cloche りん (deux frappes, quinte montante), claire et brève ;
-//   - raté           → un claquement de bois 拍子木, sourd et grave, jamais un buzzer ;
-//   - série terminée → trois cloches montantes en quartes/quintes, queue longue.
-//
-// Une cloche n'est pas une sinusoïde : ses partiels sont INHARMONIQUES (rapports non
-// entiers) et s'éteignent d'autant plus vite qu'ils sont aigus. C'est ce qui sépare un
-// « ding » de synthé d'un métal frappé, d'où la table BELL_PARTIALS ci-dessous. Une courte
-// réverbération (réponse impulsionnelle générée, elle aussi) pose les sons dans une pièce
-// au lieu de les coller à l'oreille.
+// Lecture via Web Audio (et non un <audio>) : un tampon décodé une fois se rejoue sans
+// latence ni nouvelle demande de focus audio à l'OS — le lecteur de médias, lui, rouvre
+// une session à chaque play et peut faire baisser le volume système sur Android (cf. le
+// contournement de lib/audioFocus.ts).
 
+import successUrl from "../assets/sfx/success.mp3";
+import errorUrl from "../assets/sfx/error.mp3";
+import completeUrl from "../assets/sfx/complete.mp3";
 import { isSilentMode, loadSettings, type AppSettings } from "./settings";
 
 export type SfxKind = "success" | "error" | "complete";
 
-/** Volume général : présent sans couvrir la synthèse vocale ni la musique de l'utilisateur. */
-const MASTER_GAIN = 0.28;
-/** Part de réverbération dans le mélange (le reste est direct). */
-const WET_GAIN = 0.2;
-/** Attaque commune : ~3 ms, assez pour éviter le clic de départ, trop court pour s'entendre. */
-const ATTACK = 0.003;
+const FILES: Record<SfxKind, string> = {
+  success: successUrl,
+  error: errorUrl,
+  complete: completeUrl,
+};
+
+/** Volume de lecture : les fichiers sont encodés à −3 dBFS, ceci les remet à leur place
+ *  — présents sans couvrir la synthèse vocale ni la musique de l'utilisateur. */
+const MASTER_GAIN = 0.4;
 
 /**
  * Retour sonore actif ? Le réglage le commande, mais la pause d'écoute (« Je ne peux pas
@@ -40,8 +40,7 @@ export function sfxEnabled(s: AppSettings, now: Date = new Date()): boolean {
 
 interface Bus {
   ac: AudioContext;
-  /** Entrée des voix : mélange direct + réverbération, puis volume général. */
-  input: GainNode;
+  out: GainNode;
 }
 
 let bus: Bus | null = null;
@@ -56,22 +55,6 @@ function audioContextCtor(): AudioContextCtor | null {
   return w.AudioContext ?? w.webkitAudioContext ?? null;
 }
 
-/**
- * Réponse impulsionnelle d'une petite pièce : bruit décroissant en puissance, stéréo
- * décorrélée (chaque canal son propre bruit) pour une queue large, et non un écho centré.
- */
-function buildImpulse(ac: AudioContext, seconds: number, decay: number): AudioBuffer {
-  const len = Math.max(1, Math.floor(ac.sampleRate * seconds));
-  const buf = ac.createBuffer(2, len, ac.sampleRate);
-  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
-    const data = buf.getChannelData(ch);
-    for (let i = 0; i < len; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
-    }
-  }
-  return buf;
-}
-
 /** Bus audio, créé au premier son (donc dans un geste utilisateur) puis réutilisé. */
 function getBus(): Bus | null {
   const Ctor = audioContextCtor();
@@ -79,22 +62,10 @@ function getBus(): Bus | null {
   if (!bus) {
     try {
       const ac = new Ctor();
-      const master = ac.createGain();
-      master.gain.value = MASTER_GAIN;
-      master.connect(ac.destination);
-
-      const input = ac.createGain();
-      input.connect(master); // voie directe
-
-      const convolver = ac.createConvolver();
-      convolver.buffer = buildImpulse(ac, 1.4, 3.5);
-      const wet = ac.createGain();
-      wet.gain.value = WET_GAIN;
-      input.connect(convolver);
-      convolver.connect(wet);
-      wet.connect(master); // voie réverbérée
-
-      bus = { ac, input };
+      const out = ac.createGain();
+      out.gain.value = MASTER_GAIN;
+      out.connect(ac.destination);
+      bus = { ac, out };
     } catch {
       return null; // Web Audio indisponible (contexte bloqué, quota d'AudioContext…)
     }
@@ -105,134 +76,107 @@ function getBus(): Bus | null {
   return bus;
 }
 
-// ---------- Voix -------------------------------------------------------------
+// ---------- Chargement des fichiers ------------------------------------------
 
-/**
- * Partiels d'une cloche frappée : rapports inharmoniques (relevés sur un りん), poids
- * décroissant, et extinction d'autant plus rapide que le partiel est aigu — c'est cette
- * dernière règle qui donne l'éclat de l'attaque puis le bourdon chaud de la queue.
- */
-const BELL_PARTIALS: { ratio: number; gain: number; decay: number }[] = [
-  { ratio: 1, gain: 1, decay: 1 },
-  { ratio: 2.01, gain: 0.46, decay: 0.66 },
-  { ratio: 2.99, gain: 0.26, decay: 0.46 },
-  { ratio: 4.18, gain: 0.13, decay: 0.3 },
-  { ratio: 5.43, gain: 0.07, decay: 0.2 },
-];
+/** Octets des MP3, demandés une fois — avant même qu'un contexte audio existe. */
+const bytes = new Map<SfxKind, Promise<ArrayBuffer | null>>();
+/** Tampons décodés, prêts à rejouer indéfiniment. */
+const decoded = new Map<SfxKind, AudioBuffer>();
+const decoding = new Map<SfxKind, Promise<AudioBuffer | null>>();
 
-/** Une frappe de cloche à `freq` Hz, `at` secondes après maintenant. */
-function bell(b: Bus, freq: number, at: number, gain: number, decay: number): void {
-  const { ac, input } = b;
-  const t0 = ac.currentTime + at;
-  for (const p of BELL_PARTIALS) {
-    const osc = ac.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freq * p.ratio;
-    // Léger désaccord des partiels aigus : deux battements très lents, le métal « vit »
-    // au lieu de sonner comme un orgue parfaitement juste.
-    if (p.ratio > 1) osc.detune.value = (p.ratio % 2 === 0 ? 1 : -1) * 4;
-
-    const g = ac.createGain();
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(gain * p.gain, t0 + ATTACK);
-    const stop = t0 + decay * p.decay;
-    g.gain.exponentialRampToValueAtTime(0.0001, stop);
-
-    osc.connect(g);
-    g.connect(input);
-    osc.start(t0);
-    osc.stop(stop + 0.02);
-    osc.onended = () => g.disconnect();
+function fetchBytes(kind: SfxKind): Promise<ArrayBuffer | null> {
+  let p = bytes.get(kind);
+  if (!p) {
+    p = fetch(FILES[kind])
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .catch(() => null); // hors-ligne au tout premier usage : tant pis, pas de son
+    bytes.set(kind, p);
   }
+  return p;
 }
 
-/**
- * Claquement de bois : une salve de bruit filtrée (le « clac » du choc) sur un corps
- * grave qui descend (la masse du bloc). Sec et sourd — un raté se signale, il ne se
- * punit pas.
- */
-function woodClack(b: Bus, at: number, gain: number): void {
-  const { ac, input } = b;
-  const t0 = ac.currentTime + at;
-  const noiseMs = 0.09;
-
-  const len = Math.max(1, Math.floor(ac.sampleRate * noiseMs));
-  const buf = ac.createBuffer(1, len, ac.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const noise = ac.createBufferSource();
-  noise.buffer = buf;
-
-  // Passe-bande médium : au-dessus ça siffle, en dessous ça cogne — le bois est là.
-  const band = ac.createBiquadFilter();
-  band.type = "bandpass";
-  band.frequency.setValueAtTime(1100, t0);
-  band.frequency.exponentialRampToValueAtTime(520, t0 + noiseMs);
-  band.Q.value = 1.1;
-
-  const ng = ac.createGain();
-  ng.gain.setValueAtTime(gain, t0);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t0 + noiseMs);
-  noise.connect(band);
-  band.connect(ng);
-  ng.connect(input);
-  noise.start(t0);
-  noise.stop(t0 + noiseMs);
-  noise.onended = () => ng.disconnect();
-
-  const body = ac.createOscillator();
-  body.type = "sine";
-  body.frequency.setValueAtTime(196, t0); // sol grave, sous la voix
-  body.frequency.exponentialRampToValueAtTime(138, t0 + 0.18);
-  const bg = ac.createGain();
-  bg.gain.setValueAtTime(0.0001, t0);
-  bg.gain.exponentialRampToValueAtTime(gain * 0.7, t0 + ATTACK);
-  bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
-  body.connect(bg);
-  bg.connect(input);
-  body.start(t0);
-  body.stop(t0 + 0.24);
-  body.onended = () => bg.disconnect();
-}
-
-// ---------- Sons ------------------------------------------------------------
-
-// Hauteurs : quartes et quintes justes (pas de tierce), la couleur des gammes
-// pentatoniques japonaises — juste sans être sucré.
-const A5 = 880;
-const E6 = 1318.51;
-const D5 = 587.33;
-const D6 = 1174.66;
-
-function render(kind: SfxKind, b: Bus): void {
-  if (kind === "success") {
-    bell(b, A5, 0, 0.6, 1.3);
-    bell(b, E6, 0.085, 0.42, 1.5); // quinte au-dessus : la réponse « oui »
-  } else if (kind === "error") {
-    // Plus fort que les cloches à l'oscilloscope, pas à l'oreille : 90 ms de bois se
-    // perçoivent bien plus bas qu'un métal qui résonne une seconde.
-    woodClack(b, 0, 0.75);
-  } else {
-    // Fin de série : trois frappes montantes, la dernière laissée résonner.
-    bell(b, D5, 0, 0.5, 1.1);
-    bell(b, A5, 0.16, 0.5, 1.3);
-    bell(b, D6, 0.34, 0.46, 2.2);
+function decode(kind: SfxKind, b: Bus): Promise<AudioBuffer | null> {
+  let p = decoding.get(kind);
+  if (!p) {
+    p = fetchBytes(kind)
+      // Copie : decodeAudioData DÉTACHE le tampon qu'on lui passe, et les octets servent
+      // aussi de cache si un décodage doit être refait (contexte recréé).
+      .then((raw) => (raw ? b.ac.decodeAudioData(raw.slice(0)) : null))
+      .then((buf) => {
+        if (buf) decoded.set(kind, buf);
+        return buf;
+      })
+      .catch(() => null);
+    decoding.set(kind, p);
   }
+  return p;
 }
 
 /**
- * Joue un son de retour, si le réglage l'autorise. Sans Web Audio (ou contexte refusé),
- * l'appel ne fait simplement rien : le son est un bonus, jamais une dépendance.
- * À appeler depuis un geste utilisateur (clic de réponse) — hors geste, le navigateur
- * garde le contexte suspendu.
+ * Amorce le téléchargement des trois sons. Appelé au chargement du module (donc quand
+ * l'écran d'exercices arrive), bien avant le premier clic de réponse : le décodage du
+ * moment venu part alors d'octets déjà en mémoire. Rien n'est téléchargé si le retour
+ * sonore est coupé — inutile de payer 90 Ko pour du silence ; un réglage réactivé en
+ * cours de route se rattrape au premier son (chargement à la demande).
+ */
+export function prefetchSfx(): void {
+  if (typeof window === "undefined" || typeof fetch === "undefined") return;
+  if (!sfxEnabled(loadSettings())) return;
+  for (const kind of Object.keys(FILES) as SfxKind[]) void fetchBytes(kind);
+}
+
+prefetchSfx();
+
+// ---------- Lecture ----------------------------------------------------------
+
+/**
+ * Silence de tête du décodeur : un MP3 sans en-tête gapless rend quelques dizaines de ms
+ * de vide avant l'attaque (délai d'encodeur). On le mesure une fois par son et on démarre
+ * la lecture après, sinon le retour semble détaché du clic.
+ */
+const leadIn = new Map<SfxKind, number>();
+
+function findLeadIn(kind: SfxKind, buf: AudioBuffer): number {
+  let v = leadIn.get(kind);
+  if (v === undefined) {
+    const data = buf.getChannelData(0);
+    const limit = Math.min(data.length, Math.floor(buf.sampleRate * 0.1));
+    v = 0;
+    for (let i = 0; i < limit; i++) {
+      if (Math.abs(data[i]) > 0.001) { v = i / buf.sampleRate; break; }
+    }
+    leadIn.set(kind, v);
+  }
+  return v;
+}
+
+function start(kind: SfxKind, b: Bus, buf: AudioBuffer): void {
+  const src = b.ac.createBufferSource();
+  src.buffer = buf;
+  src.connect(b.out);
+  src.start(0, findLeadIn(kind, buf));
+  src.onended = () => src.disconnect();
+}
+
+/** Au-delà, un son arrivé en retard (premier décodage lent) ne commente plus rien. */
+const LATE_MS = 800;
+
+/**
+ * Joue un son de retour, si le réglage l'autorise. Sans Web Audio, sans fichier joignable
+ * ou sur décodage impossible, l'appel ne fait simplement rien : le son est un bonus,
+ * jamais une dépendance. À appeler depuis un geste utilisateur (clic de réponse) — hors
+ * geste, le navigateur garde le contexte suspendu.
  */
 export function playSfx(kind: SfxKind, settings: AppSettings = loadSettings()): void {
   if (!sfxEnabled(settings)) return;
   const b = getBus();
   if (!b) return;
-  try {
-    render(kind, b);
-  } catch {
-    /* nœud refusé (contexte fermé entre-temps) : silence, rien de plus */
-  }
+  const ready = decoded.get(kind);
+  if (ready) return start(kind, b, ready);
+  // Premier passage : décodage asynchrone, on joue dès qu'il est prêt — sauf s'il a
+  // traîné au point que la réponse ne soit plus à l'écran.
+  const asked = Date.now();
+  void decode(kind, b).then((buf) => {
+    if (buf && Date.now() - asked < LATE_MS) start(kind, b, buf);
+  });
 }

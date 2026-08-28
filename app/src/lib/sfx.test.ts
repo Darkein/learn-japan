@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadSettings, SILENT_PAUSE_MS, type AppSettings } from "./settings";
-import { playSfx, sfxEnabled } from "./sfx";
+import { playSfx, prefetchSfx, sfxEnabled } from "./sfx";
 
 const base: AppSettings = loadSettings(); // valeurs par défaut (pas de localStorage en node)
 
@@ -28,7 +28,10 @@ describe("sfxEnabled", () => {
 });
 
 describe("playSfx", () => {
+  // Hors navigateur (ici) : ni fetch des MP3, ni contexte audio — le son est un bonus,
+  // son absence ne doit jamais casser l'appelant.
   it("ne fait rien (sans lever) quand Web Audio est absent", () => {
+    expect(() => prefetchSfx()).not.toThrow();
     expect(() => playSfx("success", base)).not.toThrow();
     expect(() => playSfx("error", base)).not.toThrow();
     expect(() => playSfx("complete", base)).not.toThrow();

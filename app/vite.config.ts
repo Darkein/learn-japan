@@ -105,7 +105,7 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.ts",
       injectManifest: {
-        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2,mp3}"],
         globIgnores: ["**/dict/**"],
       },
       manifest: {
