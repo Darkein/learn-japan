@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pushAvailable, syncPushSubscription, type PushState } from "../lib/push";
 import { ensurePeriodicSync, showReminderNow } from "../lib/reminders";
+import { playSfx } from "../lib/sfx";
 import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
 import { useSettings, THEMES, READER_FONT_SCALES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
@@ -76,6 +77,16 @@ export function SettingsSections({ quick }: Props) {
               label="Romaji → kana dans les révisions"
               value={settings.warmupRomaji}
               onChange={(v) => update({ warmupRomaji: v })}
+            />
+            {/* Activation : on joue l'aperçu tout de suite — un réglage de son doit
+                s'entendre, et le clic est le geste qui déverrouille l'audio. */}
+            <Toggle
+              label="Sons de retour dans les exercices"
+              value={settings.feedbackSounds}
+              onChange={(v) => {
+                update({ feedbackSounds: v });
+                if (v) playSfx("success", { ...settings, feedbackSounds: true });
+              }}
             />
             <Toggle
               label="Sans le son : remplacer l'écoute par de l'écrit"

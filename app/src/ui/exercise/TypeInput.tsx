@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toHiragana } from "wanakana";
 import { translateExampleFr, type TypeExercise } from "../../lib/exercise";
 import { normalizeReading } from "../../lib/kana";
+import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { isNearMiss } from "../../lib/typo";
 import { Button } from "../kit/Button";
@@ -34,9 +35,15 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
 
   function checkType() {
     const norm = normalizeReading(toHiragana(entry));
-    if (ex.answers.includes(norm)) setResult("correct");
-    else if (ex.answers.some((a) => isNearMiss(norm, a))) setResult("almost");
-    else setResult("wrong");
+    // Une réponse à la coquille près est ACCEPTÉE (notée "hard") : elle sonne juste, même
+    // si la note est plus sévère — le son dit « c'est bon », pas « c'est facile ».
+    const res: TypeResult = ex.answers.includes(norm)
+      ? "correct"
+      : ex.answers.some((a) => isNearMiss(norm, a))
+        ? "almost"
+        : "wrong";
+    setResult(res);
+    playSfx(res === "wrong" ? "error" : "success");
   }
 
   return (
@@ -81,7 +88,13 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
             <Button variant="primary" onClick={checkType} disabled={!entry.trim()}>
               Vérifier
             </Button>
-            <Button variant="ghost" onClick={() => setResult("wrong")}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setResult("wrong");
+                playSfx("error");
+              }}
+            >
               Je ne sais pas
             </Button>
           </div>

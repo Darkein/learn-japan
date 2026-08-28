@@ -25,6 +25,9 @@ export interface AppSettings {
   /** Pause d'écoute temporaire (« Je ne peux pas écouter ») : timestamp de fin, 0 = aucune.
    * Même effet que `silentReviews` tant qu'elle court, mais elle expire toute seule. */
   silentUntil: number;
+  /** Sons de retour des exercices (juste / raté / série terminée, cf. lib/sfx.ts).
+   * La pause d'écoute et le mode sans le son les coupent aussi : voir `sfxEnabled`. */
+  feedbackSounds: boolean;
   /** Vitesse du lecteur audio — leçons et histoires (1 = vitesse normale). */
   storyRate: number;
   /** Échelle du texte japonais — leçons, histoires et articles (1 = taille normale). */
@@ -43,6 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   warmupRomaji: true,
   silentReviews: false,
   silentUntil: 0,
+  feedbackSounds: true,
   storyRate: 1,
   readerFontScale: 1,
   reminders: { enabled: false, hour: 9 },

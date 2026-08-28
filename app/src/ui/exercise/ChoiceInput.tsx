@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { translateExampleFr, type ChoiceExercise } from "../../lib/exercise";
 import { hasJapanese } from "../../lib/kana";
+import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
@@ -40,6 +41,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
   function pickChoice(idx: number) {
     if (picked !== null) return;
     setPicked(idx);
+    playSfx(idx === ex.answerIndex ? "success" : "error");
   }
 
   return (

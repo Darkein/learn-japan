@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { isCorrectOrder, shuffleTiles, type Tile } from "../../lib/builder";
 import { isAcceptableOrder } from "../../lib/buildOrders";
 import { translateExampleFr, type BuildExercise } from "../../lib/exercise";
+import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
 import { GradeButtons } from "./GradeButtons";
@@ -36,9 +37,14 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
   }
   function checkBuild() {
     const tiles = placed.map((t) => t.tile);
-    if (isCorrectOrder(tiles, ex.target)) setChecked("exact");
-    else if (isAcceptableOrder(tiles, ex.tokens)) setChecked("alt");
-    else setChecked("wrong");
+    // Un autre ordre grammaticalement valide est correct : même son que l'ordre du texte.
+    const res: BuildResult = isCorrectOrder(tiles, ex.target)
+      ? "exact"
+      : isAcceptableOrder(tiles, ex.tokens)
+        ? "alt"
+        : "wrong";
+    setChecked(res);
+    playSfx(res === "wrong" ? "error" : "success");
   }
 
   return (
