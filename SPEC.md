@@ -406,8 +406,11 @@ de consolidation passive**.
   précachés par le service worker : hors-ligne, zéro appel réseau à l'usage. Lecture en Web Audio
   (tampon décodé une fois, rejoué sans latence) plutôt qu'un `<audio>`, qui redemande le focus
   média à l'OS à chaque lecture. Réglage « Sons de retour dans les exercices » (activé par
-  défaut) ; la **pause d'écoute** (« Je ne peux pas écouter ») et le mode **sans le son** les
-  coupent aussi — le téléphone doit rester muet quand l'utilisateur a dit qu'il devait l'être.
+  défaut, coupable depuis les **réglages rapides**) ; la **pause d'écoute** (« Je ne peux pas
+  écouter ») et le mode **sans le son** les coupent aussi — le téléphone doit rester muet quand
+  l'utilisateur a dit qu'il devait l'être. Les trois sons sont calibrés à **niveau perçu égal**,
+  mesuré à travers un modèle de petit haut-parleur (passe-haut 400 Hz) : un claquement grave et
+  bref s'entendait 13 dB sous la cloche, donc pas du tout sur un téléphone.
 
 ## 11. Architecture (hébergement gratuit, clés protégées, génération automatisée)
 

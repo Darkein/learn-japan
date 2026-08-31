@@ -78,38 +78,46 @@ export function SettingsSections({ quick }: Props) {
               value={settings.warmupRomaji}
               onChange={(v) => update({ warmupRomaji: v })}
             />
-            {/* Activation : on joue l'aperçu tout de suite — un réglage de son doit
-                s'entendre, et le clic est le geste qui déverrouille l'audio. */}
-            <Toggle
-              label="Sons de retour dans les exercices"
-              value={settings.feedbackSounds}
-              onChange={(v) => {
-                update({ feedbackSounds: v });
-                if (v) playSfx("success", { ...settings, feedbackSounds: true });
-              }}
-            />
             <Toggle
               label="Sans le son : remplacer l'écoute par de l'écrit"
               value={settings.silentReviews}
               onChange={(v) => update({ silentReviews: v })}
             />
-            {/* Pause posée depuis une carte (« Je ne peux pas écouter ») : elle expire
-                d'elle-même, mais reste annulable ici — sinon rien ne l'explique. */}
-            {settings.silentUntil > Date.now() && (
-              <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
-                Écoute en pause encore{" "}
-                {Math.ceil((settings.silentUntil - Date.now()) / 60000)} min.
-                <button
-                  className="cursor-pointer text-xs text-muted underline"
-                  onClick={() => update({ silentUntil: 0 })}
-                >
-                  Réactiver le son
-                </button>
-              </p>
-            )}
           </div>
         </section>
       )}
+
+      <section>
+        <SectionLabel as="h3" className="mb-3">Son</SectionLabel>
+        <div className="flex flex-col gap-3">
+          {/* Activation : on joue l'aperçu tout de suite — un réglage de son doit
+              s'entendre, et le clic est le geste qui déverrouille l'audio. */}
+          <Toggle
+            label="Sons de retour dans les exercices"
+            value={settings.feedbackSounds}
+            onChange={(v) => {
+              update({ feedbackSounds: v });
+              if (v) playSfx("success", { ...settings, feedbackSounds: true });
+            }}
+          />
+          {/* Pause posée depuis une carte (« Je ne peux pas écouter ») : elle expire
+              d'elle-même, mais reste annulable ici — sinon rien n'explique le silence,
+              y compris celui des sons de retour, qu'elle coupe aussi. */}
+          {settings.silentUntil > Date.now() && (
+            <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
+              Écoute en pause encore{" "}
+              {Math.ceil((settings.silentUntil - Date.now()) / 60000)} min — les sons de
+              retour se taisent aussi.
+              <button
+                className="cursor-pointer text-xs text-muted underline"
+                onClick={() => update({ silentUntil: 0 })}
+              >
+                Réactiver le son
+              </button>
+            </p>
+          )}
+        </div>
+      </section>
 
       {!quick && <ReminderSection />}
 

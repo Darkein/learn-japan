@@ -36,8 +36,11 @@ const OUT_DIR = join(ROOT, "app", "src", "assets", "sfx");
 
 const RATE = 44100;
 const BITRATE = 192; // kbps, stéréo : la frappe du bois garde son mordant, ~30 Ko par son
-/** Crête visée, −3 dBFS : de la marge pour le dépassement du décodeur MP3. */
+/** Crête visée pour le son de référence, −3 dBFS : de la marge pour le dépassement du
+ *  décodeur MP3. */
 const PEAK = 0.707;
+/** Plafond absolu d'un son (−2 dBFS), quel que soit son niveau relatif. */
+const CEILING = 0.8;
 /** Part de réverbération dans le mélange (le reste est direct). */
 const WET = 0.2;
 /** Attaque commune : ~3 ms, assez pour éviter le clic de départ, trop court pour s'entendre. */
@@ -106,35 +109,57 @@ function bell(buf: Float64Array, freq: number, at: number, gain: number, decay: 
 
 /**
  * Claquement de bois : une salve de bruit filtrée (le « clac » du choc) sur un corps
- * grave qui descend (la masse du bloc). Sec et sourd — un raté se signale, il ne se
- * punit pas.
+ * qui descend (la masse du bloc). Sec et bref — un raté se signale, il ne se punit pas.
+ *
+ * Tout est calé dans le MÉDIUM (salve autour de 1,8 kHz, corps vers 300 Hz) : un
+ * haut-parleur de téléphone ne descend pas sous ~400 Hz, et une première version posée
+ * sur un corps à 196 Hz s'entendait 13 dB sous la cloche de réussite — présente à
+ * l'oscilloscope, inaudible dans la main.
  */
 function woodClack(buf: Float64Array, at: number, gain: number, rand: () => number): void {
   const burst = 0.09; // durée de la salve de bruit
   const n = Math.ceil(burst * RATE);
-  // Passe-bande médium qui descend : au-dessus ça siffle, en dessous ça cogne — le bois
-  // est là. Biquad RBJ recalculé à chaque échantillon puisque la fréquence balaye.
+  // Passe-bande qui descend : au-dessus ça siffle, en dessous ça cogne — le bois est là.
+  // Biquad RBJ recalculé à chaque échantillon puisque la fréquence balaye.
   const Q = 1.1;
   let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
   for (let i = 0; i < n; i++) {
     const t = i / RATE;
     const x = (rand() * 2 - 1) * (1 - i / n);
-    const w0 = (2 * Math.PI * ramp(1100, 520, burst, t)) / RATE;
+    const w0 = (2 * Math.PI * ramp(1900, 850, burst, t)) / RATE;
     const alpha = Math.sin(w0) / (2 * Q);
     const a0 = 1 + alpha;
     const y =
       (alpha * x - alpha * x2 - -2 * Math.cos(w0) * y1 - (1 - alpha) * y2) / a0;
     x2 = x1; x1 = x; y2 = y1; y1 = y;
-    add(buf, at + t, y * ramp(gain, FLOOR, burst, t));
+    add(buf, at + t, y * ramp(gain * 0.55, FLOOR, burst, t));
   }
 
-  const bodyEnd = 0.22;
-  const bodyPeak = gain * 0.7;
+  // Résonance du bloc : un bois frappé SONNE, brièvement, sur deux modes. C'est ce qui
+  // porte le son sur un petit haut-parleur — le bruit seul, très « pointu » (crête haute,
+  // énergie faible), s'entendait 5 dB sous la cloche à crête pourtant comparable.
+  for (const [freq, peakGain, decay] of [
+    [980, 0.85, 0.075],
+    [1470, 0.32, 0.045],
+  ]) {
+    const n2 = Math.ceil(decay * RATE);
+    for (let i = 0; i < n2; i++) {
+      const t = i / RATE;
+      const peak = gain * peakGain;
+      const env =
+        t < ATTACK ? ramp(FLOOR, peak, ATTACK, t) : ramp(peak, FLOOR, decay - ATTACK, t - ATTACK);
+      add(buf, at + t, Math.sin(2 * Math.PI * freq * t) * env);
+    }
+  }
+
+  const bodyEnd = 0.2;
+  const bodyPeak = gain * 0.95;
   let phase = 0;
   for (let i = 0; i < Math.ceil(bodyEnd * RATE); i++) {
     const t = i / RATE;
-    // Sol grave qui descend, sous la voix : la masse du bloc, pas une note.
-    phase += (2 * Math.PI * ramp(196, 138, 0.18, Math.min(t, 0.18))) / RATE;
+    // Le corps descend d'un ton et demi : la masse du bloc, pas une note — mais assez
+    // haut pour qu'un petit haut-parleur le rende.
+    phase += (2 * Math.PI * ramp(340, 240, 0.16, Math.min(t, 0.16))) / RATE;
     const env =
       t < ATTACK
         ? ramp(FLOOR, bodyPeak, ATTACK, t)
@@ -230,6 +255,10 @@ interface Recipe {
   seconds: number; // durée de synthèse avant la queue de réverbération
   seed: number;
   render: (buf: Float64Array, rand: () => number) => void;
+  /** Saturation douce (tanh) avant réverbération : arrondit les pointes du bruit, donc
+   *  monte l'ÉNERGIE à crête égale. Sans elle, un claquement plafonne bien plus bas
+   *  qu'une cloche de même crête — et s'entend d'autant moins. */
+  drive?: number;
 }
 
 const RECIPES: Recipe[] = [
@@ -244,12 +273,15 @@ const RECIPES: Recipe[] = [
   },
   {
     name: "error",
-    seconds: 0.4,
+    seconds: 0.6,
     seed: 2,
+    drive: 2.2,
     render: (b, rand) => {
-      // Plus fort que les cloches à l'oscilloscope, pas à l'oreille : 90 ms de bois se
-      // perçoivent bien plus bas qu'un métal qui résonne une seconde.
-      woodClack(b, 0, 0.75, rand);
+      // DEUX frappes, comme un vrai 拍子木 (deux blocs qu'on claque l'un contre l'autre) :
+      // 90 ms de bois isolées passent inaperçues à côté d'une cloche qui résonne une
+      // seconde ; la reprise donne au raté la même présence sans le rendre agressif.
+      woodClack(b, 0, 1.15, rand);
+      woodClack(b, 0.115, 0.95, rand);
     },
   },
   {
@@ -270,6 +302,10 @@ function renderStereo(r: Recipe): [Float64Array, Float64Array] {
   const rand = rng(r.seed);
   const dry = new Float64Array(Math.ceil(r.seconds * RATE));
   r.render(dry, rand);
+  if (r.drive) {
+    const k = r.drive;
+    for (let i = 0; i < dry.length; i++) dry[i] = Math.tanh(k * dry[i]) / Math.tanh(k);
+  }
   const channels: Float64Array[] = [];
   for (let ch = 0; ch < 2; ch++) {
     const wet = convolve(dry, impulse(1.4, 3.5, rand));
@@ -328,21 +364,27 @@ const rendered = RECIPES.map((r) => {
   return { recipe: r, left: left.subarray(0, n), right: right.subarray(0, n) };
 });
 
-// Un SEUL facteur d'échelle pour les trois : le son le plus fort atteint la crête visée,
-// les autres gardent leur place relative — l'équilibre entre juste, raté et fin de série
-// est un choix de mixage, il ne doit pas dépendre de la normalisation.
-let loudest = 0;
-for (const { left, right } of rendered)
-  for (const ch of [left, right]) for (const v of ch) loudest = Math.max(loudest, Math.abs(v));
-const gain = PEAK / loudest;
+// Échelle commune ANCRÉE sur la cloche de réussite : c'est elle qui fixe le niveau de
+// référence de l'app, les autres sons gardent leur place relative autour. (Ancrer sur le
+// plus fort des trois ferait baisser la réussite dès qu'un autre son gagne en présence.)
+function peakOf(chs: Float64Array[]): number {
+  let p = 0;
+  for (const ch of chs) for (const v of ch) p = Math.max(p, Math.abs(v));
+  return p;
+}
+const reference = rendered.find((r) => r.recipe.name === "success")!;
+const gain = PEAK / peakOf([reference.left, reference.right]);
 
 mkdirSync(OUT_DIR, { recursive: true });
 for (const { recipe, left, right } of rendered) {
-  const mp3 = encodeMp3(left, right, gain);
+  // Garde-fou : un son plus dense que la référence ne doit pas frôler le plein niveau —
+  // le décodeur MP3 dépasse un peu la valeur encodée et écrêterait.
+  const safe = Math.min(gain, CEILING / peakOf([left, right]));
+  const mp3 = encodeMp3(left, right, safe);
   const path = join(OUT_DIR, `${recipe.name}.mp3`);
   writeFileSync(path, mp3);
   let peak = 0;
-  for (const v of left) peak = Math.max(peak, Math.abs(v) * gain);
+  for (const v of left) peak = Math.max(peak, Math.abs(v) * safe);
   console.log(
     `${recipe.name.padEnd(9)} ${(left.length / RATE).toFixed(2)} s · ` +
       `crête ${peak.toFixed(3)} · ${(mp3.length / 1024).toFixed(1)} Ko → ${path}`,
