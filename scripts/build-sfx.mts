@@ -36,9 +36,16 @@ const OUT_DIR = join(ROOT, "app", "src", "assets", "sfx");
 
 const RATE = 44100;
 const BITRATE = 192; // kbps, stéréo : la frappe du bois garde son mordant, ~30 Ko par son
-/** Crête visée pour le son de référence, −3 dBFS : de la marge pour le dépassement du
- *  décodeur MP3. */
-const PEAK = 0.707;
+/**
+ * Niveau visé pour le son de RÉFÉRENCE (la cloche de réussite) : RMS de sa fenêtre de
+ * 50 ms la plus forte. On ancre sur la sonie et non sur la crête, parce que la crête ne
+ * dit rien de ce qu'on entend : à crête égale, adoucir une cloche (moins de partiels)
+ * l'a rendue 2,5 dB PLUS forte, le signal devenant moins pointu. Cette valeur est celle
+ * validée à l'oreille — la garder fixe protège le niveau des retouches de timbre.
+ */
+const TARGET_RMS = 0.27;
+/** Fenêtre sur laquelle cette sonie est mesurée. */
+const RMS_WINDOW = 0.05;
 /** Plafond absolu d'un son (−2 dBFS), quel que soit son niveau relatif. */
 const CEILING = 0.8;
 /** Part de réverbération dans le mélange (le reste est direct). */
@@ -79,29 +86,41 @@ function add(buf: Float64Array, t: number, value: number): void {
  * Partiels d'une cloche frappée : rapports inharmoniques (relevés sur un りん), poids
  * décroissant, et extinction d'autant plus rapide que le partiel est aigu — c'est cette
  * dernière règle qui donne l'éclat de l'attaque puis le bourdon chaud de la queue.
+ *
+ * Trois partiels seulement, les aigus retenus : au-delà, la cloche devient un « ding »
+ * de synthé, brillant et dur. Une frappe DOUCE, c'est peu de haut du spectre et une
+ * attaque qui prend son temps (BELL_ATTACK).
+ *
+ * Aucun désaccord : une version précédente désaccordait les partiels de ±4 cents pour
+ * « faire vivre » le métal. Ça s'entendait — mais comme un grésillement pulsé en fin de
+ * son, le partiel 3 de la première cloche battant à ~19 Hz contre le partiel 2 de la
+ * seconde. Deux cloches justes ne battent pas.
  */
 const BELL_PARTIALS = [
   { ratio: 1, gain: 1, decay: 1 },
-  { ratio: 2.01, gain: 0.46, decay: 0.66 },
-  { ratio: 2.99, gain: 0.26, decay: 0.46 },
-  { ratio: 4.18, gain: 0.13, decay: 0.3 },
-  { ratio: 5.43, gain: 0.07, decay: 0.2 },
+  { ratio: 2.01, gain: 0.26, decay: 0.6 },
+  { ratio: 2.99, gain: 0.06, decay: 0.35 },
 ];
+
+/** Attaque d'une cloche : 25 ms en cosinus surélevé (et non les 3 ms sèches du bois) —
+ *  c'est ce temps de montée, plus que le timbre, qui sépare une frappe douce d'un choc. */
+const BELL_ATTACK = 0.025;
 
 /** Une frappe de cloche à `freq` Hz, `at` secondes après le début du son. */
 function bell(buf: Float64Array, freq: number, at: number, gain: number, decay: number): void {
   for (const p of BELL_PARTIALS) {
-    // Léger désaccord des partiels aigus (±4 cents) : deux battements très lents, le
-    // métal « vit » au lieu de sonner comme un orgue parfaitement juste.
-    const detune = p.ratio === 1 ? 0 : (p.ratio % 2 === 0 ? 1 : -1) * 4;
-    const f = freq * p.ratio * Math.pow(2, detune / 1200);
+    const f = freq * p.ratio;
     const peak = gain * p.gain;
     const end = decay * p.decay;
     const n = Math.ceil(end * RATE);
     for (let i = 0; i < n; i++) {
       const t = i / RATE;
       const env =
-        t < ATTACK ? ramp(FLOOR, peak, ATTACK, t) : ramp(peak, FLOOR, end - ATTACK, t - ATTACK);
+        t < BELL_ATTACK
+          ? // Cosinus surélevé : pente nulle au départ ET à l'arrivée, donc pas de
+            // « coup » au sommet de l'attaque comme en rampe exponentielle.
+            peak * 0.5 * (1 - Math.cos((Math.PI * t) / BELL_ATTACK))
+          : ramp(peak, FLOOR, end - BELL_ATTACK, t - BELL_ATTACK);
       add(buf, at + t, Math.sin(2 * Math.PI * f * t) * env);
     }
   }
@@ -267,8 +286,10 @@ const RECIPES: Recipe[] = [
     seconds: 2,
     seed: 1,
     render: (b) => {
-      bell(b, A5, 0, 0.6, 1.3);
-      bell(b, E6, 0.085, 0.42, 1.5); // quinte au-dessus : la réponse « oui »
+      bell(b, A5, 0, 0.62, 1.5);
+      // Quinte au-dessus, la réponse « oui » : elle entre plus tard et en retrait, pour
+      // se poser sur la première au lieu de la percuter.
+      bell(b, E6, 0.13, 0.3, 1.6);
     },
   },
   {
@@ -290,9 +311,9 @@ const RECIPES: Recipe[] = [
     seed: 3,
     render: (b) => {
       // Fin de série : trois frappes montantes, la dernière laissée résonner.
-      bell(b, D5, 0, 0.5, 1.1);
-      bell(b, A5, 0.16, 0.5, 1.3);
-      bell(b, D6, 0.34, 0.46, 2.2);
+      bell(b, D5, 0, 0.56, 1.1);
+      bell(b, A5, 0.16, 0.56, 1.3);
+      bell(b, D6, 0.34, 0.52, 2.2);
     },
   },
 ];
@@ -317,14 +338,16 @@ function renderStereo(r: Recipe): [Float64Array, Float64Array] {
 }
 
 /**
- * Coupe la queue de réverbération 50 dB sous la crête du son (au-delà, on encoderait des
- * secondes d'inaudible), avec un fondu de 30 ms : une troncature nette claquerait.
+ * Coupe la queue de réverbération 40 dB sous la crête du son, avec un fondu de 80 ms.
+ * Au-delà on encode de l'inaudible — et surtout, un MP3 rend mal une queue tonale très
+ * basse : le codec « gargouille » sur ce qu'il n'a presque plus de bits pour décrire, et
+ * ça s'entend comme un petit grésillement de fin de son. Autant ne pas l'encoder.
  */
-const TAIL_FADE = 0.03;
+const TAIL_FADE = 0.08;
 function trim(chs: Float64Array[]): number {
   let peak = 0;
   for (const ch of chs) for (const v of ch) peak = Math.max(peak, Math.abs(v));
-  const floor = peak / 316; // −50 dB
+  const floor = peak / 100; // −40 dB
   let last = 0;
   for (const ch of chs)
     for (let i = ch.length - 1; i > last; i--)
@@ -372,8 +395,20 @@ function peakOf(chs: Float64Array[]): number {
   for (const ch of chs) for (const v of ch) p = Math.max(p, Math.abs(v));
   return p;
 }
+/** RMS de la fenêtre de `RMS_WINDOW` la plus forte — la sonie telle qu'on l'entend. */
+function loudestRms(ch: Float64Array): number {
+  const win = Math.round(RMS_WINDOW * RATE);
+  let sum = 0;
+  for (let i = 0; i < Math.min(win, ch.length); i++) sum += ch[i] * ch[i];
+  let best = sum;
+  for (let i = win; i < ch.length; i++) {
+    sum += ch[i] * ch[i] - ch[i - win] * ch[i - win];
+    if (sum > best) best = sum;
+  }
+  return Math.sqrt(best / win);
+}
 const reference = rendered.find((r) => r.recipe.name === "success")!;
-const gain = PEAK / peakOf([reference.left, reference.right]);
+const gain = TARGET_RMS / loudestRms(reference.left);
 
 mkdirSync(OUT_DIR, { recursive: true });
 for (const { recipe, left, right } of rendered) {
