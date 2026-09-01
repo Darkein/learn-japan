@@ -283,13 +283,13 @@ interface Recipe {
 const RECIPES: Recipe[] = [
   {
     name: "success",
-    seconds: 2,
+    seconds: 1.2,
     seed: 1,
     render: (b) => {
-      bell(b, A5, 0, 0.62, 1.5);
+      bell(b, A5, 0, 0.62, 0.85);
       // Quinte au-dessus, la réponse « oui » : elle entre plus tard et en retrait, pour
       // se poser sur la première au lieu de la percuter.
-      bell(b, E6, 0.13, 0.3, 1.6);
+      bell(b, E6, 0.11, 0.3, 0.9);
     },
   },
   {
