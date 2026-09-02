@@ -26,27 +26,3 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           # Optionnel : nécessaire seulement si le token couvre plusieurs comptes.
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      # `wrangler deploy` résume un échec en « A request to the Cloudflare API (…) failed. »
-      # SANS le code ni le corps de la réponse. Ça a coûté cher une fois : depuis l'ajout du
-      # cron du rappel quotidien, le script se déployait bien mais l'appel à /schedules
-      # échouait (400) — donc AUCUN trigger cron en production, et aucun moyen de savoir
-      # pourquoi depuis GitHub. Le journal de wrangler porte la réponse… mais expurgée par
-      # défaut, d'où le rejeu ci-dessous, réservé à l'échec.
-      #
-      # `triggers deploy` ne touche QUE les triggers (pas de nouvel upload du script), et
-      # `WRANGLER_LOG_SANITIZE=false` est ce qui fait écrire le corps de la réponse. On ne
-      # l'active donc jamais sur le chemin nominal, et on écarte les lignes d'en-têtes du
-      # vidage (le jeton y figure ; GitHub le masque déjà, ça fait la deuxième barrière).
-      - name: Détail de l'échec (rejeu des triggers, journal non expurgé)
-        if: failure()
-        working-directory: worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WRANGLER_LOG_SANITIZE: "false"
-        run: |
-          npx wrangler triggers deploy || true
-          cat ~/.config/.wrangler/logs/*.log \
-            | grep -viE '^\s*(headers|init|query string):|authorization|bearer' \
-            | tail -n 150
