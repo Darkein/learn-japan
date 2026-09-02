@@ -121,6 +121,11 @@ Avant qu'un **nouveau point de grammaire** n'apparaisse pour la première fois d
 L'apprentissage se fait **juste avant l'exposition en contexte**. Pas de cours formel séparé ; léger,
 au service de la lecture.
 
+**Commencer une leçon est un geste d'ÉTUDE**, jamais un effet de bord : ouvrir son cours, lire
+une de ses histoires, l'écouter en podcast, « commencer quand même ». **Préparer la matière
+n'est pas l'étudier** — générer ou télécharger le contenu d'une leçon ne la commence pas, ne
+met pas ses éléments en rotation SRS et n'en fait pas la leçon courante du flux.
+
 ### 3.1 Curriculum — porte d'entrée du débutant
 
 Pour un utilisateur qui démarre de zéro, le « juste-à-temps » seul ne suffit pas : il faut un fil
@@ -320,6 +325,13 @@ rejouent une tentative à l'identique.
 **Double clé du parcours** :
 - **Droit de se présenter** — `SRS.examEligibility` (60 % des éléments de la leçon assez
   stables, même mesure que `unlockProgress`) : on ne s'évalue pas sans avoir travaillé.
+  Le **flux d'étude**, lui, ne PROPOSE le contrôle que si la leçon a en plus été
+  réellement **enseignée** : son cours lu (`courseReadAt` — bloc « Leçon » du flux validé
+  ou page de la leçon ouverte) et au moins une de ses histoires lue. Un seuil de stabilité
+  peut être atteint sans avoir jamais vu la leçon (mots communs croisés ailleurs, objectifs
+  partagés entre leçons) : la barrière ne se dresse pas devant un cours jamais donné. Si le
+  cours n'a pas été lu, le flux donne le cours **avant** le contrôle. Depuis la page de la
+  leçon, le droit de se présenter reste le seul seuil : on peut toujours tenter la barrière.
 - **Déblocage** — l'**admission** (≥ `EXAM.passMark`, 12/20) ouvre la leçon suivante et
   marque la leçon terminée. Une leçon déjà commencée (« Commencer quand même ») ne se
   referme jamais.

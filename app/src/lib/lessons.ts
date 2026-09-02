@@ -55,7 +55,15 @@ export interface Lesson extends CurriculumEntry {
   /** Histoires rattachées (seed matérialisé + générées), via le pipeline `stories`. */
   stories: StoryRecord[];
   completedAt?: number;
+  /**
+   * On a TOUCHÉ à la leçon (cours ouvert, histoire lue, podcast écouté, « commencer quand
+   * même ») : ses objectifs entrent en rotation SRS et elle devient la leçon courante du
+   * flux. Générer ou télécharger son contenu ne suffit PAS — préparer la matière n'est pas
+   * l'étudier (cf. lib/download.ts, lib/genJobs.ts).
+   */
   startedAt?: number;
+  /** Le cours a été mis sous les yeux de l'utilisateur (voir LessonProgressRecord). */
+  courseReadAt?: number;
   /** Date d'admission au contrôle (progression locale) — fait foi pour le déblocage. */
   examPassedAt?: number;
   /** Contenu pré-généré disponible en cache R2 (cours + au moins une histoire). */
@@ -254,6 +262,7 @@ async function hydrate(
     stories,
     completedAt: progress?.completedAt,
     startedAt: progress?.startedAt,
+    courseReadAt: progress?.courseReadAt,
     examPassedAt: progress?.examPassedAt,
     pregenerated,
     remoteStoryVariants,
@@ -384,6 +393,23 @@ export async function markLessonStarted(id: string): Promise<void> {
   const prev = (await getLessonProgress(id)) ?? { id };
   const next: LessonProgressRecord = { ...prev, startedAt: prev.startedAt ?? Date.now() };
   await putLessonProgress(next);
+  void enrollLesson(id);
+}
+
+/**
+ * Le cours de la leçon vient d'être LU (bloc « Leçon » du flux validé, page de la leçon
+ * ouverte). Marque aussi la leçon commencée : on ne lit pas un cours sans commencer sa
+ * leçon. C'est ce jalon — et non `startedAt`, que de simples effets de bord posent — qui
+ * autorise le flux à proposer le contrôle de fin de leçon.
+ */
+export async function markLessonCourseRead(id: string): Promise<void> {
+  const prev = (await getLessonProgress(id)) ?? { id };
+  const now = Date.now();
+  await putLessonProgress({
+    ...prev,
+    startedAt: prev.startedAt ?? now,
+    courseReadAt: prev.courseReadAt ?? now,
+  });
   void enrollLesson(id);
 }
 

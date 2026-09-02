@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getSrsDaily, getStory, localDateString } from "../lib/db";
 import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
-import { getLesson, markLessonStarted, type Lesson } from "../lib/lessons";
+import { getLesson, markLessonCourseRead, type Lesson } from "../lib/lessons";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival } from "../lib/tokaido";
 import { MirrorDeltaView } from "./MirrorDelta";
@@ -11,6 +11,8 @@ import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
 import { ReviewSession } from "./ReviewSession";
 import { ExamSession } from "./exam/ExamSession";
+import { GenProgress } from "./GenProgress";
+import { useLessonGen } from "./useLessonGen";
 import { StationArrival } from "./StationArrival";
 import { Markdown } from "./LessonMarkdown";
 import { Button } from "./kit/Button";
@@ -248,16 +250,54 @@ function LessonBlock({
   onDone: () => void;
 }) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  useEffect(() => {
+  const reload = useCallback(async () => {
     if (!lessonId) return;
-    void getLesson(lessonId).then((l) => l && setLesson(l));
+    const l = await getLesson(lessonId);
+    if (l) setLesson(l);
   }, [lessonId]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   if (!lessonId) return null;
   if (!lesson) return <LoadingScreen />;
+  return <LessonCourse lesson={lesson} furigana={furigana} onReload={reload} onDone={onDone} />;
+}
+
+/**
+ * Le bloc « Leçon » du flux : le cours, puis « Leçon lue ». Le cours peut manquer (leçon
+ * devenue courante sans passer par sa page, contenu pré-généré non matérialisé) — on le
+ * génère ICI plutôt que de renvoyer l'utilisateur hors du flux.
+ */
+function LessonCourse({
+  lesson,
+  furigana,
+  onReload,
+  onDone,
+}: {
+  lesson: Lesson;
+  furigana: boolean;
+  onReload: () => Promise<void>;
+  onDone: () => void;
+}) {
+  const { busy, error, progress, label, start, retry } = useLessonGen(lesson);
+  const missing = !lesson.framing;
+  useEffect(() => {
+    if (missing && !busy && !error) start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson.id, missing]);
+  // Génération terminée → le cadrage est en base : on recharge la leçon pour l'afficher.
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (wasBusy.current && !busy) void onReload();
+    wasBusy.current = busy;
+  }, [busy, onReload]);
 
   async function finish() {
-    await markLessonStarted(lessonId!);
+    // `markLessonCourseRead` et non `markLessonStarted` : c'est ce jalon qui atteste que la
+    // leçon a été ENSEIGNÉE — le flux ne re-proposera pas son cours, et son contrôle peut
+    // s'ouvrir une fois une histoire lue (voir lib/flow.ts).
+    await markLessonCourseRead(lesson.id);
     onDone();
   }
 
@@ -267,14 +307,23 @@ function LessonBlock({
         <SectionLabel>Leçon{lesson.level ? ` · N${lesson.level}` : ""}</SectionLabel>
         <p className="m-0 font-serif text-lg text-text">{lesson.title}</p>
       </div>
-      {lesson.framing ? (
-        <Markdown text={lesson.framing} reveal={furigana} />
-      ) : (
+      {lesson.framing && <Markdown text={lesson.framing} reveal={furigana} />}
+      {missing && busy && <GenProgress label={label} progress={progress} />}
+      {missing && !busy && (
         <Card className="py-4">
           <p className="m-0 text-sm text-muted">
-            Le cours de cette leçon n'est pas encore généré — ouvre la page de la leçon pour
-            lancer la génération, puis reviens dans le flux.
+            {error
+              ? "Le cours de cette leçon n'a pas pu être généré (hors ligne ?)."
+              : "Le cours de cette leçon n'est pas encore disponible."}{" "}
+            Sa page en montre la matière (mots, règles) sans génération.
           </p>
+          {/* `retry` relance le job en erreur ; sans job (rien n'a pu démarrer), on en crée un. */}
+          <button
+            className="mt-2 cursor-pointer text-sm underline"
+            onClick={() => (error ? retry() : start())}
+          >
+            Réessayer
+          </button>
         </Card>
       )}
       <Button variant="primary" className="self-start" onClick={() => void finish()}>

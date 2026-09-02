@@ -29,7 +29,6 @@ import {
   ensureLessonFraming,
   getLesson,
   invalidateGeneratedIndex,
-  markLessonStarted,
   nextStoryVariant,
   type Lesson,
 } from "./lessons";
@@ -134,7 +133,12 @@ async function run(job: GenJobRecord): Promise<void> {
         await persist(job);
         await ensureLessonFraming(lesson, undefined, { force: job.refresh });
       }
-      await markLessonStarted(lesson.id);
+      // On NE marque PAS la leçon commencée ici : préparer la matière n'est pas l'étudier.
+      // Le faire mettait en rotation SRS le vocabulaire et la grammaire d'une leçon jamais
+      // lue, faisait de cette leçon la « leçon courante » du flux, et lui ouvrait son
+      // contrôle une fois les cartes stabilisées — un 関所 sur un cours jamais enseigné.
+      // C'est un geste d'étude qui commence une leçon (ouvrir son cours, lire une de ses
+      // histoires, l'écouter en podcast) — même règle que le téléchargement (lib/download.ts).
       onDataChange?.(); // le cours est disponible → la leçon devient lisible
       lesson = (await getLesson(job.lessonId)) ?? lesson;
     }

@@ -5,7 +5,7 @@ import { EXAM, SRS } from "../lib/config";
 import { mentionFor } from "../lib/exam";
 import { grammarDetail } from "../lib/inventory";
 import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
-import { markLessonStarted, type Lesson } from "../lib/lessons";
+import { markLessonCourseRead, markLessonStarted, type Lesson } from "../lib/lessons";
 import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
@@ -29,7 +29,7 @@ interface Props {
   /** Ouvre le contrôle de fin de leçon (le 関所) — c'est lui qui débloque la suivante. */
   onStartExam?: (lessonId: string) => void;
   /** Rendu en aperçu (couche voisine du carrousel) : neutralise les effets de bord au montage
-   * (pas de génération auto du cours ni de `markLessonStarted`) et masque les actions d'en-tête. */
+   * (pas de génération auto du cours ni de `markLessonCourseRead`) et masque les actions d'en-tête. */
   preview?: boolean;
 }
 
@@ -65,11 +65,21 @@ export function CourseDetail({
   const storyInProgress = busy && job?.phase === "story";
 
   const lessonId = lesson.id;
+
+  // Ouvrir la page d'une leçon, c'est en lire le cours : la leçon est commencée et son
+  // cours compte comme enseigné (le flux n'a plus à le présenter, et le contrôle peut
+  // s'ouvrir). Marqué ICI et non dans la génération : préparer la matière n'est pas
+  // l'étudier, et le cours reste lisible même sans génération (il s'assemble depuis
+  // l'inventaire). En aperçu, rien — le geste de navigation n'est pas validé.
+  useEffect(() => {
+    if (!preview) void markLessonCourseRead(lessonId);
+  }, [lessonId, preview]);
+
   useEffect(() => {
     // Cours absent OU périmé (curriculum changé sous cet id) : (re)génération auto.
     // L'ancien cours reste affiché pendant la régénération ; conservé si elle échoue.
-    // En aperçu (couche voisine du carrousel), on ne génère pas (effet de bord + markStarted) :
-    // la génération réelle se fera au montage actif, après validation du geste.
+    // En aperçu (couche voisine du carrousel), on ne génère pas : la génération réelle se
+    // fera au montage actif, après validation du geste.
     if (!preview && (!lesson.framing || lesson.framingStale) && !error) void start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
