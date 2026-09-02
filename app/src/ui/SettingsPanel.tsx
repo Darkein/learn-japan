@@ -6,7 +6,8 @@ import { Sheet } from "./kit/Sheet";
 import { SettingsSections } from "./SettingsSections";
 
 /** Tiroir latéral de réglages rapides : mêmes sections que la page Settings (mode
- * `quick` : sans la section Révision), plus le lien vers tous les paramètres. */
+ * `quick` : sans la section Révision — mais avec Son, couper le retour sonore est un
+ * geste du moment), plus le lien vers tous les paramètres. */
 // Date du build formatée dans le fuseau horaire du navigateur (PC / mobile). L'instant
 // est injecté en ISO UTC (`__BUILD_TIME__`) et converti à l'exécution par `toLocaleString`.
 const BUILD_DATE = new Date(__BUILD_TIME__).toLocaleString("fr-FR", {

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getGrammar, getVocab } from "../lib/db";
 import type { Exercise } from "../lib/exercise";
+import { playSfx } from "../lib/sfx";
 import { isMastered, isUnlockReady, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
 import { ClozeText } from "./exercise/ClozeText";
@@ -36,6 +37,16 @@ interface Props {
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
 export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed }: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
+  const chimed = useRef(false);
+
+  // Fin de série : la cadence de cloches, une seule fois par bilan (garde-fou contre le
+  // double montage du mode strict en dev, qui la jouerait deux fois). Le bilan s'ouvre
+  // sur le clic de la dernière carte : l'audio est encore déverrouillé par ce geste.
+  useEffect(() => {
+    if (chimed.current) return;
+    chimed.current = true;
+    playSfx("complete");
+  }, []);
 
   useEffect(() => {
     setSummary(null);
