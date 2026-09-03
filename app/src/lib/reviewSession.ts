@@ -33,8 +33,8 @@ import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { leechIds as leechIdsFromReviews } from "./stats";
-import { effectiveExample, purgeNameVocab, repairConjugatedVocab } from "./vocab";
-import { faceText, isTrainableVocab } from "./vocabFaces";
+import { effectiveExample, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
+import { isTrainableVocab } from "./vocabFaces";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
@@ -63,7 +63,17 @@ export interface SessionStats {
 }
 
 export async function sessionStats(now: Date = new Date()): Promise<SessionStats> {
-  const [vocab, grammar] = await Promise.all([allVocab(), allGrammar()]);
+  const [vocab, grammar, started] = await Promise.all([
+    allVocab(),
+    allGrammar(),
+    startedCurriculumEntries(),
+  ]);
+  // Les nouveautés annoncées sont celles que la session peut RÉELLEMENT promouvoir : les
+  // objectifs des leçons commencées (cf. newVocabToPromote). Le vocabulaire incident d'une
+  // histoire est en base sans carte lui aussi — le compter gonflerait le chiffre de mots
+  // qui n'entreront jamais en rotation tout seuls.
+  const promotableVocab = new Set(started.flatMap((e) => e.introduces.vocab));
+  const promotableGrammar = new Set(started.flatMap((e) => e.introduces.grammar));
   // +15 min : inclut les cartes dues imminentes (step relearning FSRS = 10 min)
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
   let dueCount = 0;
@@ -72,7 +82,7 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     if (!isTrainableVocab(v)) continue;
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
-    else newCount++;
+    else if (promotableVocab.has(v.id)) newCount++;
     // Compétences écoute et production : cartes dédiées, planifiées indépendamment.
     // Une carte orale n'est servable qu'avec une phrase d'exemple (même filtre que
     // buildSessionDue) — sinon le backlog affiché surestime la session réelle.
@@ -81,7 +91,7 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
   }
   for (const g of grammar) {
     if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
-    else newCount++;
+    else if (promotableGrammar.has(g.id)) newCount++;
   }
   return { dueCount, newCount };
 }
@@ -104,9 +114,11 @@ export async function buildSession(
 
   // Hygiène des stores avant de construire : formes conjuguées stockées en surface
   // (révisions FR → JA qui exigeaient « し » pour faire), noms croisés dans un article ou
-  // inventés par une histoire (田中, クロ le chat) et piste compréhension retirée.
+  // inventés par une histoire (田中, クロ le chat), vocabulaire incident promu tout seul par
+  // les anciennes sessions, et piste compréhension retirée.
   await repairConjugatedVocab();
   await purgeNameVocab();
+  await purgeIncidentalCards();
   await purgeComprehension();
 
   // Les éléments difficiles sont connus AVANT la construction : un leech repasse au QCM
@@ -162,16 +174,18 @@ async function startedCurriculumEntries(): Promise<CurriculumEntry[]> {
 }
 
 /**
- * Ordre de promotion des NOUVEAUX items de vocabulaire : d'abord les objectifs des leçons
- * commencées (dans l'ordre du curriculum), puis le vocabulaire incident des histoires.
- * Sans cela, l'ordre des clés IndexedDB (alphabétique) décidait quels mots entraient en
- * rotation — les mots-cibles d'une leçon pouvaient passer après un mot croisé au hasard.
+ * NOUVEAUX items de vocabulaire promus par la révision : UNIQUEMENT les objectifs des
+ * leçons commencées, dans l'ordre du curriculum (il est curé).
  *
- * Le vocabulaire incident passe GRAPHIES EN KANJI D'ABORD : à budget de nouveautés égal,
- * un mot qui s'écrit en kanji apporte plus qu'un mot déjà lisible tel quel en kana. Les
- * objectifs de leçon, eux, gardent l'ordre du curriculum (il est curé).
+ * Le vocabulaire INCIDENT — les mots croisés dans une histoire ou un article, matérialisés
+ * en base par `enrollStory` / `ensureVocabItems` — n'entre JAMAIS en rotation tout seul :
+ * une histoire de leçon contient des dizaines de mots hors objectifs, et les promouvoir
+ * automatiquement noyait les mots-cibles de la leçon sous du vocabulaire jamais choisi.
+ * Un mot incident entre en planification quand l'utilisateur le décide DEPUIS le texte, et
+ * ces chemins créent la carte eux-mêmes : tap du Lecteur (`applyStatus`), exercices de
+ * l'histoire (`gradeExercise`), suggestion de la fiche kanji (`addInventoryWordToReview`).
  */
-function prioritizeNewVocab(vocabAll: VocabItem[], started: CurriculumEntry[]): VocabItem[] {
+function newVocabToPromote(vocabAll: VocabItem[], started: CurriculumEntry[]): VocabItem[] {
   const byId = new Map(vocabAll.filter((v) => !v.cards.written).map((v) => [v.id, v]));
   const ordered: VocabItem[] = [];
   for (const entry of started) {
@@ -179,18 +193,15 @@ function prioritizeNewVocab(vocabAll: VocabItem[], started: CurriculumEntry[]): 
       const v = byId.get(id);
       if (v) {
         ordered.push(v);
-        byId.delete(id);
+        byId.delete(id); // un même mot peut être objectif de deux leçons
       }
     }
   }
-  const incidental = [...byId.values()];
-  const written = (v: VocabItem) => (faceText(v, "kanji") ? 0 : 1);
-  ordered.push(...incidental.sort((a, b) => written(a) - written(b)));
   return ordered;
 }
 
-/** Même priorisation pour la grammaire : points des leçons commencées d'abord. */
-function prioritizeNewGrammar(grammarAll: GrammarItem[], started: CurriculumEntry[]): GrammarItem[] {
+/** Même règle pour la grammaire : seuls les points des leçons commencées sont promus. */
+function newGrammarToPromote(grammarAll: GrammarItem[], started: CurriculumEntry[]): GrammarItem[] {
   const byId = new Map(grammarAll.filter((g) => !g.card).map((g) => [g.id, g]));
   const ordered: GrammarItem[] = [];
   for (const entry of started) {
@@ -202,7 +213,6 @@ function prioritizeNewGrammar(grammarAll: GrammarItem[], started: CurriculumEntr
       }
     }
   }
-  ordered.push(...byId.values());
   return ordered;
 }
 
@@ -432,8 +442,8 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
     const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length, room));
     const started = await startedCurriculumEntries();
 
-    // Vocab sans carte — objectifs des leçons commencées d'abord, incidents ensuite.
-    for (const v of prioritizeNewVocab(vocabAll, started)) {
+    // Vocab sans carte — objectifs des leçons commencées, à l'exclusion de l'incident.
+    for (const v of newVocabToPromote(vocabAll, started)) {
       if (newCards.length >= toPromote) break;
       if (!isTrainableVocab(v)) continue;
       const card = newCard(now);
@@ -442,9 +452,9 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
       newCards.push(triangle.build(v, card.due.getTime()));
     }
 
-    // Grammaire sans carte — même priorisation.
+    // Grammaire sans carte — même règle.
     if (newCards.length < toPromote) {
-      for (const g of prioritizeNewGrammar(grammarAll, started)) {
+      for (const g of newGrammarToPromote(grammarAll, started)) {
         if (newCards.length >= toPromote) break;
         const card = newCard(now);
         g.card = card;

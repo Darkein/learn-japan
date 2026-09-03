@@ -51,6 +51,15 @@ Deux filtres, parce qu'un nom se présente de deux façons :
 Un mot peut donc être **lisible et glosé sans être suivi** : le lecteur et le SRS ne cherchent pas
 la même chose.
 
+**Ce qui entre en rotation — les objectifs de leçon, et rien d'autre.** Lire une histoire
+matérialise en base tous ses mots de contenu (lecteur, gloss, distracteurs de QCM, exercices du
+texte), mais **sans carte SRS**. Seuls les **objectifs des leçons commencées** sont promus
+automatiquement en révision, dans l'ordre curé du curriculum : une histoire de leçon charrie des
+dizaines de mots hors objectifs, et les promouvoir noyait les mots-cibles sous du vocabulaire jamais
+choisi. Un mot **incident** entre en planification quand l'utilisateur le décide **depuis le
+texte** — tap sur le mot dans le Lecteur (connu / à revoir / oublié), exercices de l'histoire,
+bouton de suggestion de la fiche kanji — et ces gestes créent la carte eux-mêmes.
+
 ### 2.2 Trois compétences par élément (vocabulaire)
 S'activent **progressivement**, dans cet ordre :
 1. **Reconnaissance écrite** (voir 猫 → comprendre « chat »)
@@ -82,8 +91,7 @@ Le tirage **privilégie la face kanji** (`KANJI_WEIGHT`) : une direction qui mon
 graphie passe devant une direction purement kana (lecture ↔ traduction) — c'est la graphie qui
 coûte à apprendre, la transcription en kana d'un mot qu'on sait lire n'apprend plus rien. C'est une
 pondération, pas une exclusion : les directions kana restent tirables, et sont les seules d'un mot
-sans face kanji. Même intention côté nouveautés : à budget égal, le vocabulaire **incident** entre
-en rotation graphies en kanji d'abord (les objectifs de leçon gardent l'ordre curé du curriculum).
+sans face kanji.
 
 Le **mode d'entrée** suit la face demandée et la maîtrise :
 

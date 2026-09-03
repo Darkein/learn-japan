@@ -15,6 +15,7 @@ import {
   type ItemStatus,
   type VocabItem,
 } from "./db";
+import { getCurriculum } from "./curriculum";
 import { resolveVocab, staticExample, vocabLevel, type InvVocab } from "./inventory";
 import { isTrainableVocab } from "./vocabFaces";
 import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
@@ -212,6 +213,43 @@ export async function purgeNameVocab(): Promise<number> {
   }
   if (complete) await putMeta(NAME_PURGE_KEY, true);
   return removed;
+}
+
+/** Drapeau `meta` de la sortie de rotation du vocabulaire incident : une seule passe. */
+const INCIDENTAL_PURGE_KEY = "purge.incidentalCards";
+
+/**
+ * Sort de la planification SRS le vocabulaire INCIDENT déjà promu automatiquement.
+ *
+ * La révision promouvait autrefois n'importe quel mot sans carte, y compris les dizaines de
+ * mots hors objectifs qu'une histoire matérialise en base à sa lecture (`enrollStory`) : les
+ * révisions se remplissaient de vocabulaire jamais choisi, au détriment des mots-cibles de
+ * la leçon. La promotion est désormais réservée aux objectifs des leçons commencées
+ * (`newVocabToPromote`, lib/reviewSession.ts) ; cette passe unique rattrape les bases
+ * constituées avant.
+ *
+ * Est démonté tout mot ABSENT des objectifs du curriculum : ses cartes FSRS sont retirées,
+ * l'item lui-même reste en base (lecteur, glossaire, distracteurs, exercices d'histoire)
+ * avec son statut et son historique de révisions. Aucun signal ne distingue, dans une base
+ * ancienne, un mot promu tout seul d'un mot ajouté à la main depuis le Lecteur : les
+ * quelques ajouts manuels d'alors sont donc démontés aussi, et se réajoutent d'un tap. Après
+ * cette passe la question ne se pose plus — plus aucun chemin automatique ne crée de carte
+ * hors objectifs. Renvoie le nombre de mots sortis de la rotation.
+ */
+export async function purgeIncidentalCards(): Promise<number> {
+  if (await getMeta<boolean>(INCIDENTAL_PURGE_KEY)) return 0;
+  const objectives = new Set(getCurriculum().flatMap((e) => e.introduces.vocab));
+  const items = await allVocab();
+  let demoted = 0;
+  for (const item of items) {
+    if (objectives.has(item.id)) continue;
+    if (!item.cards.written && !item.cards.oral && !item.cards.production) continue;
+    // `streak` pilote le passage du QCM à la saisie : il n'a plus de sens sans carte.
+    await putVocab({ ...item, cards: {}, streak: 0 });
+    demoted++;
+  }
+  await putMeta(INCIDENTAL_PURGE_KEY, true);
+  return demoted;
 }
 
 /**

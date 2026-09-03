@@ -69,6 +69,13 @@ if (import.meta.env.PROD) {
 // à partir du taux d'erreur mesuré (voir lib/tuning.ts). Non bloquant.
 if (typeof indexedDB !== "undefined") void initTuning();
 
+// Sortie de rotation du vocabulaire incident promu par les anciennes sessions (passe unique,
+// voir lib/vocab.ts). Aussi appelée par `buildSession`, mais au démarrage les compteurs de
+// l'accueil (badge de révisions, rappel du soir) annoncent tout de suite le bon chiffre.
+if (typeof indexedDB !== "undefined") {
+  void import("./lib/vocab").then(({ purgeIncidentalCards }) => purgeIncidentalCards());
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
