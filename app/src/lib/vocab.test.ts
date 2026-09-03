@@ -10,10 +10,12 @@ import {
   isTrackedWord,
   itemIdFor,
   meaningFor,
+  purgeIncidentalCards,
   purgeNameVocab,
   refreshStoredMeanings,
   repairConjugatedVocab,
 } from "./vocab";
+import { newCard } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
 // JMdict-FR de test : minuscule, mais CHARGÉ — `isTrackedWord` ne conclut rien d'un sens
@@ -170,6 +172,41 @@ describe("purgeNameVocab", () => {
     expect(await getVocab("シロ|しろ")).toBeDefined();
     expect(await getVocab("日本|にっぽん")).toBeDefined();
     expect(await getVocab("架空語|かくうご")).toBeDefined();
+  });
+});
+
+describe("purgeIncidentalCards", () => {
+  it("démonte les cartes des mots hors curriculum, garde l'item et les objectifs", async () => {
+    // Objectif de leçon : sa carte est conservée.
+    await putVocab({
+      id: "山|やま", surface: "山", reading: "やま", meaning: "montagne",
+      tags: [], status: "review", cards: { written: newCard(new Date("2020-01-01")) },
+    });
+    // Mot croisé dans une histoire, promu tout seul par une ancienne session.
+    await putVocab({
+      id: "夢語|ゆめご", surface: "夢語", reading: "ゆめご", meaning: "mot rêvé",
+      tags: [], status: "review", streak: 2,
+      cards: { written: newCard(new Date("2020-01-01")), oral: newCard(new Date("2020-01-01")) },
+    });
+
+    await purgeIncidentalCards();
+
+    const incidental = await getVocab("夢語|ゆめご");
+    expect(incidental?.cards).toEqual({});
+    expect(incidental?.streak).toBe(0);
+    // L'item reste lisible/glosable dans le lecteur, avec son statut.
+    expect(incidental?.status).toBe("review");
+    expect((await getVocab("山|やま"))?.cards.written).toBeDefined();
+  });
+
+  it("ne passe qu'une fois : un mot réajouté ensuite garde sa carte", async () => {
+    await putVocab({
+      id: "幻語|まぼろしご", surface: "幻語", reading: "まぼろしご", meaning: "mot illusoire",
+      tags: [], status: "review", cards: { written: newCard(new Date("2020-01-01")) },
+    });
+
+    expect(await purgeIncidentalCards()).toBe(0); // drapeau déjà posé par le test précédent
+    expect((await getVocab("幻語|まぼろしご"))?.cards.written).toBeDefined();
   });
 });
 

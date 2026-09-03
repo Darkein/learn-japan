@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Card } from "ts-fsrs";
-import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, _resetDbForTests } from "./db";
+import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, putMeta, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
 import { gradeCard, buildSession, pickOralVariant, silenceDeck } from "./reviewSession";
@@ -37,9 +37,15 @@ vi.mock("./tokenizer", () => ({
 const TODAY = "2026-06-30";
 const NOW = new Date(`${TODAY}T08:00:00`);
 
-beforeEach(() => {
+// Drapeau de la passe unique `purgeIncidentalCards` (lib/vocab.ts) : posé d'office pour
+// que les tests raisonnent sur les items qu'ils sèment (hors curriculum pour la plupart,
+// donc tous démontés par la purge). Le describe dédié le remet à zéro.
+const INCIDENTAL_PURGE_KEY = "purge.incidentalCards";
+
+beforeEach(async () => {
   (globalThis as any).indexedDB = new IDBFactory();
   _resetDbForTests();
+  await putMeta(INCIDENTAL_PURGE_KEY, true);
 });
 
 describe("échauffement SRS (existant)", () => {
@@ -200,13 +206,19 @@ describe("buildSession", () => {
     expect(result.length).toBe(0);
   });
 
-  it("scope:due : après promotion de 3 items, getSrsDaily(today).introduced === 3", async () => {
-    for (let i = 0; i < 3; i++) {
+  it("scope:due : après promotion de 3 objectifs, getSrsDaily(today).introduced === 3", async () => {
+    // Seuls les objectifs d'une leçon COMMENCÉE sont promus (cf. newVocabToPromote) : le
+    // compteur du jour se mesure donc sur des mots du curriculum.
+    const lessonId = "n5-01-today-book";
+    const ids = getCurriculumEntry(lessonId)!.introduces.vocab.slice(0, 3);
+    await putLessonProgress({ id: lessonId, startedAt: Date.now() });
+    for (const id of ids) {
+      const [surface, reading] = id.split("|");
       await putVocab({
-        id: `new|${i}`,
-        surface: `new${i}`,
-        reading: `new${i}`,
-        meaning: `meaning${i}`,
+        id,
+        surface,
+        reading: reading ?? surface,
+        meaning: "test",
         tags: [],
         status: "unknown",
         cards: {},
@@ -301,7 +313,7 @@ describe("buildSession", () => {
   });
 });
 
-describe("priorisation des nouveaux items", () => {
+describe("promotion des nouveaux items", () => {
   it("budget serré : les objectifs d'une leçon commencée sont promus, pas l'incident", async () => {
     const { getCurriculum } = await import("./curriculum");
     const first = getCurriculum()[0];
@@ -342,9 +354,12 @@ describe("priorisation des nouveaux items", () => {
     expect(ids).not.toContain("ああ|ああ");
   });
 
-  it("vocabulaire incident : les graphies en kanji entrent en rotation d'abord", async () => {
-    // Deux mots incidents (aucune leçon commencée), le mot kana AVANT le mot en kanji dans
-    // l'ordre des clés : seule la priorisation peut inverser les deux.
+  it("budget large : le vocabulaire incident n'entre jamais en rotation tout seul", async () => {
+    // Les mots d'une histoire sont matérialisés en base à la lecture (`enrollStory`) sans
+    // carte. Leçon commencée et budget de nouveautés intact (ses objectifs, eux, ne sont
+    // pas en base) : la session ne doit pourtant rien promouvoir — un mot croisé dans une
+    // histoire ne s'ajoute que depuis le texte.
+    await putLessonProgress({ id: "n5-01-today-book", startedAt: Date.now() });
     await putVocab({
       id: "あめ|あめ",
       surface: "あめ",
@@ -363,12 +378,85 @@ describe("priorisation des nouveaux items", () => {
       status: "unknown",
       cards: {},
     });
-    // Une seule nouveauté promue aujourd'hui : c'est le mot en kanji qui doit la prendre.
-    await bumpSrsDaily(TODAY, { introduced: SRS.newPerDay - 1 });
 
+    const deck = await buildSession(NOW, { scope: "due" });
+    expect(deck).toHaveLength(0);
+    expect((await getVocab("山|やま"))?.cards.written).toBeUndefined();
+    expect((await getVocab("あめ|あめ"))?.cards.written).toBeUndefined();
+  });
+
+  it("un mot incident ajouté à la main garde sa carte et revient en révision", async () => {
+    // Chemin manuel (tap du Lecteur / exercices de l'histoire) : la carte existe déjà,
+    // la session la sert comme n'importe quelle carte due.
+    await putVocab({
+      id: "あめ|あめ",
+      surface: "あめ",
+      reading: "あめ",
+      meaning: "bonbon",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")) },
+    });
     const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
-    expect(ids).toContain("山|やま");
-    expect(ids).not.toContain("あめ|あめ");
+    expect(ids).toContain("あめ|あめ");
+  });
+});
+
+describe("purge du vocabulaire incident déjà promu", () => {
+  beforeEach(async () => {
+    await putMeta(INCIDENTAL_PURGE_KEY, false); // base d'avant le correctif
+  });
+
+  it("retire les cartes des mots hors objectifs et garde celles des objectifs", async () => {
+    const { getCurriculum } = await import("./curriculum");
+    const lessonVocabId = getCurriculum()[0].introduces.vocab[0];
+    if (!lessonVocabId) return; // curriculum sans vocab : rien à tester
+    const [surface, reading] = lessonVocabId.split("|");
+    await putVocab({
+      id: lessonVocabId,
+      surface,
+      reading: reading ?? surface,
+      meaning: "test",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")) },
+      streak: 2,
+    });
+    await putVocab({
+      id: "あめ|あめ",
+      surface: "あめ",
+      reading: "あめ",
+      meaning: "bonbon",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")), oral: newCard(new Date("2020-01-01")) },
+      streak: 2,
+    });
+
+    await buildSession(NOW, { scope: "due" });
+
+    const incidental = await getVocab("あめ|あめ");
+    expect(incidental?.cards.written).toBeUndefined();
+    expect(incidental?.cards.oral).toBeUndefined();
+    // L'item reste en base (lecteur, glossaire, distracteurs) avec son statut.
+    expect(incidental?.status).toBe("review");
+    expect((await getVocab(lessonVocabId))?.cards.written).toBeDefined();
+  });
+
+  it("passe une seule fois : un mot réajouté ensuite garde sa carte", async () => {
+    await buildSession(NOW, { scope: "due" }); // pose le drapeau de purge
+
+    await putVocab({
+      id: "あめ|あめ",
+      surface: "あめ",
+      reading: "あめ",
+      meaning: "bonbon",
+      tags: [],
+      status: "review",
+      cards: { written: newCard(new Date("2020-01-01")) },
+    });
+    await buildSession(NOW, { scope: "due" });
+    expect((await getVocab("あめ|あめ"))?.cards.written).toBeDefined();
   });
 });
 
