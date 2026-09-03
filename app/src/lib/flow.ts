@@ -25,7 +25,8 @@ export type FlowActivityKind =
   | "reinforce" // objectif atteint mais backlog dû
   | "read-story" // lire une histoire de la leçon en cours
   | "exam" // contrôle de la leçon en cours (le 関所) : il ouvre la suivante
-  | "lesson" // découvrir la prochaine leçon prête
+  | "lesson" // lire le cours d'une leçon : celui de la leçon en cours s'il a été sauté,
+  //            sinon découvrir la prochaine leçon prête
   | "mirror" // relecture-miroir (une vieille histoire, pour mesurer le chemin)
   | "done"; // sortie naturelle
 
@@ -51,6 +52,16 @@ export interface FlowState {
     /** Première histoire de la leçon jamais ouverte (meta storyRead absent). */
     unreadStoryId?: string;
     unreadStoryTitle?: string;
+    /** Au moins une histoire de la leçon a été lue. */
+    storyRead?: boolean;
+    /**
+     * Le cours a été LU : bloc « Leçon » du flux validé, ou page de la leçon ouverte
+     * (`courseReadAt`). Une leçon peut être « courante » sans cela — une histoire lue, un
+     * podcast écouté, un « commencer quand même » suffisent à la commencer.
+     */
+    courseRead?: boolean;
+    /** Le cours est présentable maintenant (leçon prête, cf. LessonState). */
+    courseReady?: boolean;
     /** Contrôle ouvert (leçon assez travaillée) et pas encore réussi. */
     examDue?: boolean;
   };
@@ -70,13 +81,18 @@ export const MAX_REINFORCE_PER_FLOW = 2;
  * ① lecture d'une histoire de la leçon en cours juste après un bloc d'effort
  *    (révision OU renforcement — alternance travail/plaisir) ;
  * ② révisions si des cartes sont dues et l'objectif du jour pas atteint ;
- * ③ contrôle de la leçon en cours dès qu'il est ouvert : c'est lui qui débloque la
- *    suite, il passe donc AVANT la découverte d'une nouvelle leçon ;
- * ④ prochaine leçon si elle est prête et débloquée ;
- * ⑤ relecture-miroir si un candidat existe ;
- * ⑥ histoire non lue de la leçon en cours (même sans révision préalable) ;
- * ⑦ renforcement si backlog dû restant, plafonné à MAX_REINFORCE_PER_FLOW blocs ;
- * ⑧ done — le flux propose toujours une sortie élégante, même s'il reste du dû.
+ * ③ COURS de la leçon en cours s'il n'a jamais été lu : une leçon peut être devenue
+ *    « courante » sans que le flux ne l'ait jamais enseignée (histoire lue depuis le
+ *    catalogue, podcast, « commencer quand même ») — on la présente avant tout le reste
+ *    de la leçon, et surtout avant son contrôle ;
+ * ④ contrôle de la leçon en cours dès qu'il est ouvert ET que la leçon a été travaillée
+ *    (cours lu + au moins une histoire lue) : c'est lui qui débloque la suite, il passe
+ *    donc AVANT la découverte d'une nouvelle leçon ;
+ * ⑤ prochaine leçon si elle est prête et débloquée ;
+ * ⑥ relecture-miroir si un candidat existe ;
+ * ⑦ histoire non lue de la leçon en cours (même sans révision préalable) ;
+ * ⑧ renforcement si backlog dû restant, plafonné à MAX_REINFORCE_PER_FLOW blocs ;
+ * ⑨ done — le flux propose toujours une sortie élégante, même s'il reste du dû.
  */
 export function pickNext(state: FlowState): FlowActivity {
   const s = state;
@@ -94,11 +110,25 @@ export function pickNext(state: FlowState): FlowActivity {
       reason: "L'objectif du jour n'est pas encore atteint.",
     };
   }
-  if (s.currentLesson?.examDue && s.lastActivity !== "exam") {
+  const cur = s.currentLesson;
+  if (cur && !cur.courseRead && cur.courseReady && s.lastActivity !== "lesson") {
+    return {
+      kind: "lesson",
+      refId: cur.id,
+      title: `Leçon — ${cur.title}`,
+      reason: "Tu as commencé cette leçon sans jamais lire son cours — le voici.",
+    };
+  }
+  // Le 関所 ne s'ouvre que sur une leçon RÉELLEMENT travaillée : assez d'items stabilisés
+  // (examDue) ET la leçon enseignée — son cours lu, au moins une de ses histoires lue.
+  // Sans cette garde, un contrôle tombait sur une leçon jamais vue : ses mots avaient pu se
+  // stabiliser ailleurs (mots communs croisés dans d'autres histoires, objectifs partagés
+  // entre leçons), et la barrière se dressait devant un cours jamais enseigné.
+  if (cur?.examDue && cur.courseRead && cur.storyRead && s.lastActivity !== "exam") {
     return {
       kind: "exam",
-      refId: s.currentLesson.id,
-      title: `Contrôle — ${s.currentLesson.title}`,
+      refId: cur.id,
+      title: `Contrôle — ${cur.title}`,
       reason: "Le poste de contrôle est ouvert : franchis la barrière pour ouvrir la suite.",
     };
   }
@@ -176,11 +206,21 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
         break;
       case "read-story":
         steps.push({ kind: a.kind, label: "une lecture" });
-        if (sim.currentLesson) sim.currentLesson.unreadStoryId = undefined;
+        if (sim.currentLesson) {
+          sim.currentLesson.unreadStoryId = undefined;
+          sim.currentLesson.storyRead = true;
+        }
         break;
       case "lesson":
-        steps.push({ kind: a.kind, label: "une leçon" });
-        sim.nextLesson = undefined;
+        // Deux leçons possibles derrière le même `kind` : le cours jamais lu de la leçon
+        // courante (règle ③) ou la découverte de la suivante (règle ⑤).
+        if (sim.currentLesson && a.refId === sim.currentLesson.id) {
+          steps.push({ kind: a.kind, label: "le cours de ta leçon" });
+          sim.currentLesson.courseRead = true;
+        } else {
+          steps.push({ kind: a.kind, label: "une leçon" });
+          sim.nextLesson = undefined;
+        }
         break;
       case "exam":
         steps.push({ kind: a.kind, label: "le contrôle de la leçon" });
@@ -213,12 +253,21 @@ export interface FlowGathered {
   lessons: Lesson[];
 }
 
-/** Première histoire de la leçon jamais ouverte (meta `storyRead.<id>` absent). */
-async function firstUnreadStory(stories: StoryRecord[]): Promise<StoryRecord | undefined> {
+/**
+ * État de lecture des histoires d'une leçon (meta `storyRead.<id>`) : la première jamais
+ * ouverte (à proposer) et s'il y en a au moins une de lue (la leçon a été travaillée).
+ */
+async function storyReadState(
+  stories: StoryRecord[],
+): Promise<{ unread?: StoryRecord; anyRead: boolean }> {
+  let unread: StoryRecord | undefined;
+  let anyRead = false;
   for (const s of stories) {
-    if ((await getMeta<number>(`storyRead.${s.id}`)) == null) return s;
+    const read = (await getMeta<number>(`storyRead.${s.id}`)) != null;
+    if (read) anyRead = true;
+    else if (!unread) unread = s;
   }
-  return undefined;
+  return { unread, anyRead };
 }
 
 /** Contexte de la session de flux en cours, traqué par l'UI (FlowSession) — pas en DB. */
@@ -241,7 +290,10 @@ export async function gatherFlowState(
   const settings = loadSettings();
 
   const current = lessons.find((l) => l.startedAt && !l.completedAt);
-  const unread = current ? await firstUnreadStory(current.stories) : undefined;
+  const storyState = current
+    ? await storyReadState(current.stories)
+    : { unread: undefined, anyRead: false };
+  const unread = storyState.unread;
   const next = lessons.find((l) => !l.startedAt && !l.completedAt && !l.locked);
   const mirror = await currentMirrorCandidate(stories, now);
 
@@ -257,6 +309,9 @@ export async function gatherFlowState(
           title: current.title,
           unreadStoryId: unread?.id,
           unreadStoryTitle: unread ? (unread.titleFr ?? unread.title) : undefined,
+          storyRead: storyState.anyRead,
+          courseRead: !!current.courseReadAt,
+          courseReady: current.state === "ready",
           examDue: current.examEligible && !current.examPassed,
         }
       : undefined,

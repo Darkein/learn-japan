@@ -40,6 +40,8 @@ const {
   getLesson,
   getUnlockedGrammarIds,
   listLessons,
+  markLessonCourseRead,
+  markLessonStarted,
   markUnlockNotified,
   objectivesHash,
 } = await import("./lessons");
@@ -325,6 +327,37 @@ describe("markUnlockNotified", () => {
     const rec = await getLessonProgress("lesson-xyz");
     expect(rec?.startedAt).toBe(12345);
     expect(rec?.unlockedNotified).toBe(true);
+  });
+});
+
+describe("markLessonStarted / markLessonCourseRead", () => {
+  it("commencer une leçon ne signifie PAS que son cours a été lu", async () => {
+    await markLessonStarted("lesson-podcast");
+    const rec = await getLessonProgress("lesson-podcast");
+    expect(rec?.startedAt).toBeGreaterThan(0);
+    expect(rec?.courseReadAt).toBeUndefined();
+  });
+
+  it("lire le cours pose courseReadAt et commence la leçon", async () => {
+    await markLessonCourseRead("lesson-read");
+    const rec = await getLessonProgress("lesson-read");
+    expect(rec?.courseReadAt).toBeGreaterThan(0);
+    expect(rec?.startedAt).toBeGreaterThan(0);
+  });
+
+  it("idempotent : la première date de lecture est conservée", async () => {
+    await putLessonProgress({ id: "lesson-old", startedAt: 111, courseReadAt: 222 });
+    await markLessonCourseRead("lesson-old");
+    const rec = await getLessonProgress("lesson-old");
+    expect(rec?.startedAt).toBe(111);
+    expect(rec?.courseReadAt).toBe(222);
+  });
+
+  it("le champ remonte dans la leçon hydratée", async () => {
+    const curriculum = getCurriculum();
+    await markLessonCourseRead(curriculum[0].id);
+    const lesson = await getLesson(curriculum[0].id);
+    expect(lesson?.courseReadAt).toBeGreaterThan(0);
   });
 });
 
