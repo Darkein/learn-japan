@@ -16,6 +16,7 @@ import { shouldOpenOmikuji } from "./omikuji";
 import { syncPushSubscription } from "./push";
 import { reminderItemPool } from "./reminderItem";
 import {
+  REMINDER_ICONS,
   REMINDER_TAG,
   reminderNotification,
   type ReminderEvent,
@@ -193,7 +194,7 @@ export async function maybeNotifyOnOpen(reminders: ReminderSettings): Promise<vo
     ]);
     const { title, body, eventShown } = reminderNotification(due, hint, today, lastEvent);
     if (eventShown) await putMeta(LAST_EVENT_KEY, eventShown);
-    await reg.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
+    await reg.showNotification(title, { body, tag: REMINDER_TAG, ...REMINDER_ICONS });
   } catch {
     /* Pas de SW prêt (dev) : tant pis pour cette fois. */
   }
@@ -217,7 +218,7 @@ export async function showReminderNow(): Promise<boolean> {
       getMeta<string>(LAST_EVENT_KEY),
     ]);
     const { title, body } = reminderNotification(due, hint, today, lastEvent);
-    await reg.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
+    await reg.showNotification(title, { body, tag: REMINDER_TAG, ...REMINDER_ICONS });
     return true;
   } catch {
     return false;

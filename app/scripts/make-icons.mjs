@@ -41,4 +41,16 @@ const maskable = svg
   .replace(/<\/svg>/, "</g></svg>");
 await shoot("icon-maskable-512.png", 512, maskable);
 
+// Badge de notification (petite icône : barre d'état Android, notification repliée).
+// Android n'en garde que l'ALPHA et repeint tout en blanc : le fond sombre et les couleurs
+// disparaîtraient dans un aplat opaque. On enlève donc le fond, on ne garde que le glyphe,
+// épaissi (le trait d'origine devient un cheveu à 24 dp) et agrandi pour occuper la vignette.
+const badge = svg
+  .replace(/<rect width="512" height="512"[^/]*\/>/, "")
+  .replace(/stroke-width="22"/, 'stroke-width="34"')
+  .replace(/#D8503C|#E8E2D4/g, "#fff")
+  .replace(/(<circle)/, '<g transform="translate(-76.8 -76.8) scale(1.3)">$1')
+  .replace(/<\/svg>/, "</g></svg>");
+await shoot("badge-96.png", 96, badge);
+
 await browser.close();

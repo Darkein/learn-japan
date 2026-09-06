@@ -12,7 +12,12 @@ import { CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { WORKER_URL } from "./lib/config";
 import { countDueFromIndexedDB, readMetaRaw, writeMetaRaw } from "./lib/dueCount";
-import { REMINDER_TAG, reminderNotification, type ReminderHint } from "./lib/reminderText";
+import {
+  REMINDER_ICONS,
+  REMINDER_TAG,
+  reminderNotification,
+  type ReminderHint,
+} from "./lib/reminderText";
 import type { ReminderSettings } from "./lib/settings";
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -67,7 +72,7 @@ async function showDailyReminder(now: Date = new Date()): Promise<void> {
   const { title, body, eventShown } = reminderNotification(due, hint, today, lastEvent);
   // Mémorise le rendez-vous annoncé : demain, ce sera au tour d'autre chose.
   if (eventShown) await writeMetaRaw("reminder.lastEvent", eventShown);
-  await self.registration.showNotification(title, { body, tag: REMINDER_TAG, icon: "icon.svg" });
+  await self.registration.showNotification(title, { body, tag: REMINDER_TAG, ...REMINDER_ICONS });
 }
 
 // Web Push : le push est VIDE (il ne transporte rien, il réveille juste ce SW). Il DOIT
