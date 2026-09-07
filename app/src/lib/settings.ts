@@ -23,10 +23,12 @@ export interface AppSettings {
    * (cloze de production noté sur la carte orale) tant que le réglage est actif. */
   silentReviews: boolean;
   /** Pause d'écoute temporaire (« Je ne peux pas écouter ») : timestamp de fin, 0 = aucune.
-   * Même effet que `silentReviews` tant qu'elle court, mais elle expire toute seule. */
+   * Même effet que `silentReviews` sur le contenu des révisions tant qu'elle court, mais
+   * elle expire toute seule — et elle fait taire l'appareil pour de bon : voir
+   * `isListeningPaused` et `sfxEnabled`. */
   silentUntil: number;
   /** Sons de retour des exercices (juste / raté / série terminée, cf. lib/sfx.ts).
-   * La pause d'écoute et le mode sans le son les coupent aussi : voir `sfxEnabled`. */
+   * Seule la pause d'écoute les coupe aussi : voir `sfxEnabled`. */
   feedbackSounds: boolean;
   /** Vitesse du lecteur audio — leçons et histoires (1 = vitesse normale). */
   storyRate: number;
@@ -56,11 +58,24 @@ const DEFAULT_SETTINGS: AppSettings = {
 export const SILENT_PAUSE_MS = 15 * 60 * 1000;
 
 /**
+ * Pause d'écoute en cours ? Déclenchée depuis une carte (« Je ne peux pas écouter »), elle
+ * dit qu'AUCUN son ne doit sortir de l'appareil maintenant — transports, réunion. C'est la
+ * seule chose qui coupe aussi les sons de retour (cf. `sfxEnabled`), et elle expire seule.
+ */
+export function isListeningPaused(s: AppSettings, now: Date = new Date()): boolean {
+  return s.silentUntil > now.getTime();
+}
+
+/**
  * Faut-il servir les révisions sans le son ? Réglage permanent, ou pause temporaire encore
  * en cours — dans les deux cas les exercices d'écoute passent à leur équivalent écrit.
+ *
+ * Ne PAS s'en servir pour décider si l'appareil doit se taire : le réglage permanent dit
+ * « je ne veux pas d'exercices d'écoute », pas « pas un bruit » — les brefs sons de retour
+ * restent les bienvenus. Pour ce silence-là, c'est `isListeningPaused`.
  */
 export function isSilentMode(s: AppSettings, now: Date = new Date()): boolean {
-  return s.silentReviews || s.silentUntil > now.getTime();
+  return s.silentReviews || isListeningPaused(s, now);
 }
 
 export function loadSettings(): AppSettings {

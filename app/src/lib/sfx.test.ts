@@ -22,8 +22,10 @@ describe("sfxEnabled", () => {
     expect(sfxEnabled({ ...base, silentUntil }, new Date(silentUntil + 1))).toBe(true);
   });
 
-  it("se tait en mode sans le son", () => {
-    expect(sfxEnabled({ ...base, silentReviews: true })).toBe(false);
+  it("reste actif en mode « Sans le son » (qui ne vise que les exercices d'écoute)", () => {
+    expect(sfxEnabled({ ...base, silentReviews: true })).toBe(true);
+    // …et le réglage propre aux sons de retour reste, lui, souverain.
+    expect(sfxEnabled({ ...base, silentReviews: true, feedbackSounds: false })).toBe(false);
   });
 });
 
