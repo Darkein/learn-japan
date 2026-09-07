@@ -20,6 +20,17 @@ import type { FlowActivityKind } from "./flow";
 /** Le tag fait qu'un rappel REMPLACE le précédent au lieu de s'empiler dans le centre. */
 export const REMINDER_TAG = "revision";
 
+/**
+ * Les deux images d'un rappel, à passer telles quelles à `showNotification`.
+ *
+ * `icon` est la grande image de la notification dépliée : le logo tel quel, en couleur.
+ * `badge` est la PETITE icône (barre d'état Android, notification repliée) — Android n'en
+ * garde que l'ALPHA et la repeint en blanc, d'où un PNG dédié, monochrome et sur fond
+ * transparent (scripts/make-icons.mjs). Sans `badge`, Chrome affiche sa cloche générique
+ * à la place du logo : c'est le seul moyen d'avoir la marque de l'app aux deux endroits.
+ */
+export const REMINDER_ICONS = { icon: "icon.svg", badge: "badge-96.png" } as const;
+
 /** Repli quand rien n'est identifiable : une invitation, jamais une affirmation. */
 const GENERIC: ReminderNotification = {
   title: "Cinq minutes de japonais ?",
