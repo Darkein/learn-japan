@@ -101,18 +101,20 @@ export function SettingsSections({ quick }: Props) {
             }}
           />
           {/* Pause posée depuis une carte (« Je ne peux pas écouter ») : elle expire
-              d'elle-même, mais reste annulable ici — sinon rien n'explique le silence,
-              y compris celui des sons de retour, qu'elle coupe aussi. */}
+              d'elle-même, mais reste annulable ici. Sa place est ici et non dans la
+              section Révision, que le tiroir rapide masque — or c'est en pleine session
+              qu'on veut revenir dessus. Elle ne touche PAS les sons de retour
+              ci-dessus (cf. lib/sfx.ts) : la note ne promet donc que l'écoute. */}
           {settings.silentUntil > Date.now() && (
             <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">
               Écoute en pause encore{" "}
-              {Math.ceil((settings.silentUntil - Date.now()) / 60000)} min — les sons de
-              retour se taisent aussi.
+              {Math.ceil((settings.silentUntil - Date.now()) / 60000)} min — les exercices
+              d'écoute passent à l'écrit.
               <button
                 className="cursor-pointer text-xs text-muted underline"
                 onClick={() => update({ silentUntil: 0 })}
               >
-                Réactiver le son
+                Réactiver l'écoute
               </button>
             </p>
           )}
