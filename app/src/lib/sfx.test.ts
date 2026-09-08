@@ -14,16 +14,26 @@ describe("sfxEnabled", () => {
     expect(sfxEnabled({ ...base, feedbackSounds: false })).toBe(false);
   });
 
-  it("se tait pendant une pause d'écoute (« Je ne peux pas écouter »)", () => {
-    const now = new Date("2025-01-01T10:00:00Z");
-    const silentUntil = now.getTime() + SILENT_PAUSE_MS;
-    expect(sfxEnabled({ ...base, silentUntil }, now)).toBe(false);
-    // …et redevient actif une fois la pause expirée.
-    expect(sfxEnabled({ ...base, silentUntil }, new Date(silentUntil + 1))).toBe(true);
+  // Les deux réglages « sans le son » choisissent le CONTENU des révisions (écoute ou
+  // écrit) : ils n'ont pas leur mot à dire sur un « juste / raté » de 0,7 s.
+  it("reste actif en mode « Sans le son » permanent", () => {
+    expect(sfxEnabled({ ...base, silentReviews: true })).toBe(true);
   });
 
-  it("se tait en mode sans le son", () => {
-    expect(sfxEnabled({ ...base, silentReviews: true })).toBe(false);
+  it("reste actif pendant une pause d'écoute (« Je ne peux pas écouter »)", () => {
+    const silentUntil = Date.now() + SILENT_PAUSE_MS;
+    expect(sfxEnabled({ ...base, silentUntil })).toBe(true);
+  });
+
+  it("ne dépend que de son propre réglage", () => {
+    expect(
+      sfxEnabled({
+        ...base,
+        feedbackSounds: false,
+        silentReviews: false,
+        silentUntil: 0,
+      }),
+    ).toBe(false);
   });
 });
 

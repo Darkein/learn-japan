@@ -13,7 +13,7 @@
 import successUrl from "../assets/sfx/success.mp3";
 import errorUrl from "../assets/sfx/error.mp3";
 import completeUrl from "../assets/sfx/complete.mp3";
-import { isSilentMode, loadSettings, type AppSettings } from "./settings";
+import { loadSettings, type AppSettings } from "./settings";
 
 export type SfxKind = "success" | "error" | "complete";
 
@@ -28,12 +28,16 @@ const FILES: Record<SfxKind, string> = {
 const MASTER_GAIN = 0.4;
 
 /**
- * Retour sonore actif ? Le réglage le commande, mais la pause d'écoute (« Je ne peux pas
- * écouter », transports ou réunion) le coupe aussi : elle dit qu'AUCUN son ne doit sortir
- * du téléphone maintenant, pas seulement les phrases japonaises.
+ * Retour sonore actif ? Un seul réglage le commande, celui qui porte son nom.
+ *
+ * Ni « Sans le son » ni la pause « Je ne peux pas écouter » n'entrent ici, malgré leurs
+ * noms : toutes deux disent « remplace les exercices d'ÉCOUTE par de l'écrit » — le
+ * japonais parlé est inaudible ou incompris là, tout de suite. Un « juste / raté » de
+ * 0,7 s n'est pas un exercice d'écoute. Les couper au passage rendait le réglage
+ * « Sons de retour dans les exercices » menteur : coché, et pourtant muet.
  */
-export function sfxEnabled(s: AppSettings, now: Date = new Date()): boolean {
-  return s.feedbackSounds && !isSilentMode(s, now);
+export function sfxEnabled(s: AppSettings): boolean {
+  return s.feedbackSounds;
 }
 
 // ---------- Contexte audio (paresseux, partagé) -------------------------------

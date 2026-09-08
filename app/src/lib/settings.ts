@@ -26,7 +26,9 @@ export interface AppSettings {
    * Même effet que `silentReviews` tant qu'elle court, mais elle expire toute seule. */
   silentUntil: number;
   /** Sons de retour des exercices (juste / raté / série terminée, cf. lib/sfx.ts).
-   * La pause d'écoute et le mode sans le son les coupent aussi : voir `sfxEnabled`. */
+   * SEUL réglage à les commander : ni `silentReviews` ni `silentUntil` ne les touchent —
+   * ceux-là choisissent le CONTENU des révisions (écoute ou écrit), pas ce que l'appareil
+   * a le droit d'émettre. Voir `sfxEnabled`. */
   feedbackSounds: boolean;
   /** Vitesse du lecteur audio — leçons et histoires (1 = vitesse normale). */
   storyRate: number;
@@ -58,6 +60,10 @@ export const SILENT_PAUSE_MS = 15 * 60 * 1000;
 /**
  * Faut-il servir les révisions sans le son ? Réglage permanent, ou pause temporaire encore
  * en cours — dans les deux cas les exercices d'écoute passent à leur équivalent écrit.
+ *
+ * Choix de CONTENU, et rien d'autre : les deux disent « pas d'exercice d'écoute », pas
+ * « pas un bruit ». Les sons de retour, eux, ne dépendent que de `feedbackSounds` — ne pas
+ * rebrancher cette fonction sur `sfxEnabled`, c'était le bug.
  */
 export function isSilentMode(s: AppSettings, now: Date = new Date()): boolean {
   return s.silentReviews || s.silentUntil > now.getTime();
