@@ -64,8 +64,9 @@ function vocabGloss(v: VocabInvEntry, id: string = v.id): string | undefined {
 
 /**
  * Sens FR d'un kanji — même ordre, mêmes raisons que `vocabGloss` : l'overlay curé
- * (`kanji-fr.json`) d'abord, puis `kanji.json`, puis l'anglais du dataset. Seuls 88 des
- * 2211 kanji sont curés à ce jour : le repli anglais reste la règle, pas l'exception.
+ * (`kanji-fr.json`) d'abord, puis `kanji.json`, puis l'anglais du dataset. Les 2211 kanji
+ * du référentiel sont désormais curés : le repli anglais ne sert plus qu'aux caractères
+ * qu'un futur rafraîchissement du dataset introduirait avant leur curation.
  */
 function kanjiGloss(k: KanjiInvEntry): string {
   return kanjiFr[k.id] ?? k.fr ?? k.meanings[0] ?? k.id;
