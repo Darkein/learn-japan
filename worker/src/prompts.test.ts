@@ -439,6 +439,39 @@ describe("buildMnemonicPrompt (lot)", () => {
   });
 });
 
+describe("buildPartGlossPrompt (lot)", () => {
+  it("numérote le lot et donne le contexte que le Worker n'a pas (base, lecture, hôtes)", () => {
+    const prompt = composePrompt({
+      kind: "part-gloss",
+      items: [
+        { ja: "亻", fr: "人 = personne", components: ["休 = repos", "他 = autre"] },
+        { ja: "咅", fr: "", yomi: "フ", components: ["部 = partie"] },
+      ],
+    });
+    expect(prompt).toContain("2 COMPOSANTS");
+    expect(prompt).toContain("1. 亻 — forme de base : 人 = personne ; apparaît dans : 休 = repos, 他 = autre");
+    expect(prompt).toContain("2. 咅 — lecture phonétique : フ ; apparaît dans : 部 = partie");
+  });
+
+  it("impose une étiquette courte et l'échappatoire, interdit la phrase et le japonais", () => {
+    const prompt = composePrompt({ kind: "part-gloss", items: [{ ja: "宀", fr: "" }] });
+    expect(prompt).toContain("1 à 4 MOTS");
+    expect(prompt).toContain("MINUSCULES");
+    expect(prompt).toContain("jamais de phrase");
+    expect(prompt).toContain("AUCUN caractère japonais");
+    expect(prompt).toContain("« phonétique »");
+    expect(prompt).toContain("« sens incertain »");
+    expect(prompt).toContain("mieux vaut « phonétique » qu'une glose inventée");
+  });
+
+  it("borne le lot à partItemsList (40)", () => {
+    const items = Array.from({ length: 60 }, (_, i) => ({ ja: `部${i}`, fr: "" }));
+    const prompt = composePrompt({ kind: "part-gloss", items });
+    expect(prompt).toContain("40 COMPOSANTS");
+    expect(prompt).not.toContain("部45");
+  });
+});
+
 describe("buildWordMnemonicPrompt (lot)", () => {
   it("numérote le lot, impose UN mnémo son+sens et la composition en explication", () => {
     const prompt = composePrompt({

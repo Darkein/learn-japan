@@ -126,6 +126,16 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
   - icônes = **SVG du kit** (`kit/Icon.tsx`, trait 1.5, `currentColor`), jamais de glyphes
     unicode/emoji (⚙ ▶ ✕…) au rendu variable selon la plateforme.
 - **Listes (catalogue)** : lignes séparées par filets, libellés méta en petites capitales.
+- **Fiche kanji** (`ui/KanjiSheet.tsx`) — trois sections dans cet ordre, du geste au récit :
+  *Tracé* (`ui/KanjiStrokes.tsx`) où le caractère se dessine trait à trait (grille KanjiVG
+  109×109, filet `--text` sur un fantôme `--hairline-strong`, bouton « Rejouer ») ; puis
+  *Composants*, une rangée par partie (glyphe, sens, mentions « radical » / « donne la
+  lecture ») ; puis le mnémo. Le mouvement **est** le contenu : sous
+  `prefers-reduced-motion` le tracé s'affiche entier, sans lecture automatique, et le bouton
+  reste le seul déclencheur. Ne pas confondre les deux décompositions : « **Kanji du mot** »
+  (`ui/KanjiBreakdown.tsx`) va du mot vers ses kanji, « **Composants** » va du kanji vers ses
+  parties. La seconde apparaît aussi, résumée en une ligne (« 目 œil + 儿 »), sous chaque
+  rangée de la première dans la correction d'exercice — le moment d'étude.
 - **Barre de progression** : filet de fond + remplissage `--accent`, hauteur 2–3px.
 - **Carte d'exercice** (`ui/exercise/`) — pensée pour la mémoire visuelle :
   - *Face avant* (`JpFront`) : elle porte sa propre typographie, les appelants ne décident rien.

@@ -1,6 +1,7 @@
 // Parseurs PURS des réponses LLM (robustes au bruit du modèle) : traduction d'histoire
-// alignée phrase par phrase, QCM de compréhension. Le transport (fetch vers le Worker)
-// vit dans lib/genClient.ts ; ici uniquement du texte → structures, testable en Node.
+// alignée phrase par phrase, QCM de compréhension, mnémotechniques, gloses de composants
+// de kanji. Le transport (fetch vers le Worker) vit dans lib/genClient.ts ; ici uniquement
+// du texte → structures, testable en Node.
 
 import { shuffleTracking } from "./random";
 
@@ -52,6 +53,64 @@ export function parseMnemonicBatch(raw: string, n: number): (Mnemonic | null)[] 
       .replace(COMPOSITION_LABEL, "");
     if (!story && !composition) continue;
     out[idx] = { story, composition };
+  }
+  return out;
+}
+
+/**
+ * Composant sans sens propre exploitable : rôle purement phonétique, ou forme dont aucun
+ * sens n'est établi (咅, 尞, 𢦏…). Le prompt EXIGE l'un de ces deux aveux plutôt qu'une
+ * étymologie inventée ; ce sont des libellés valides, affichés tels quels.
+ */
+export const PART_GLOSS_PHONETIC = "phonétique";
+export const PART_GLOSS_UNKNOWN = "sens incertain";
+
+// Ceintures (le prompt interdit déjà tout ça) : libellé ou composant recopié en tête de
+// ligne (« 亻 — », « GLOSE : »), article initial, guillemets, point final.
+const GLOSS_HEAD = /^[^\p{Script=Latin}]{1,6}[—–-]\s*/u;
+const GLOSS_LABEL = /^(?:glose|sens|signification)\s*[:：]\s*/i;
+const GLOSS_ARTICLE = /^(?:l['’]|le |la |les |un |une |du |de la |des )/i;
+const GLOSS_JAPANESE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+
+/** Une glose de composant tient en 4 mots ; au-delà c'est une explication, pas un libellé. */
+const GLOSS_MAX_WORDS = 4;
+const GLOSS_MAX_CHARS = 40;
+
+/**
+ * Normalise UNE glose de composant, ou null si elle n'est pas utilisable comme libellé de
+ * rangée. On REFUSE plutôt que de rattraper : une phrase, un caractère japonais, une
+ * ponctuation interne ou plus de quatre mots trahissent une réponse hors format, et un trou
+ * se régénère (le lot suivant n'a pas le même prompt, donc pas la même clé de cache).
+ */
+export function normalizePartGloss(raw: string): string | null {
+  const g = raw
+    .split("||")[0]
+    .trim()
+    .replace(/^["'«»\s]+|["'«».\s]+$/g, "")
+    .replace(GLOSS_HEAD, "")
+    .replace(GLOSS_LABEL, "")
+    .replace(GLOSS_ARTICLE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!g || g.length > GLOSS_MAX_CHARS) return null;
+  if (GLOSS_JAPANESE.test(g) || /[.;:!?]/.test(g)) return null;
+  if (g.split(" ").length > GLOSS_MAX_WORDS) return null;
+  return g[0].toLowerCase() + g.slice(1);
+}
+
+/**
+ * Extrait un LOT de gloses d'une réponse « N. glose » (une ligne par composant, cf.
+ * buildPartGlossPrompt côté Worker). Même contrat que parseMnemonicBatch : tableau de
+ * longueur `n` aligné sur l'ordre demandé, null pour une ligne manquante OU refusée.
+ */
+export function parsePartGlossBatch(raw: string, n: number): (string | null)[] {
+  const out: (string | null)[] = new Array(n).fill(null);
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*(\d+)\s*[.．)]\s*(.+)$/);
+    if (!m) continue;
+    const idx = Number(m[1]) - 1;
+    if (idx < 0 || idx >= n || out[idx]) continue;
+    out[idx] = normalizePartGloss(m[2]);
   }
   return out;
 }

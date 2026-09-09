@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  PART_GLOSS_PHONETIC,
+  PART_GLOSS_UNKNOWN,
   parseComprehensionQcm,
   parseExamText,
   parseMnemonicBatch,
+  parsePartGlossBatch,
   parseStoryTranslation,
 } from "./genParsers";
 
@@ -142,6 +145,38 @@ describe("parseMnemonicBatch", () => {
       composition: "皆 tous + さん suffixe.",
     });
     expect(out[2]).toEqual({ story: "La borne disparaît.", composition: "Un fil emmêlé." });
+  });
+});
+
+describe("parsePartGlossBatch (gloses de composants)", () => {
+  it("aligne les lignes numérotées « N. glose »", () => {
+    const raw = ["1. personne", "2. toit", "3. fil de soie"].join("\n");
+    expect(parsePartGlossBatch(raw, 3)).toEqual(["personne", "toit", "fil de soie"]);
+  });
+
+  it("laisse un trou (null) pour une ligne manquante, longueur = n", () => {
+    const out = parsePartGlossBatch("2. eau", 3);
+    expect(out).toEqual([null, "eau", null]);
+  });
+
+  it("retire les parasites recopiés du prompt (composant, libellé, article, guillemets)", () => {
+    const raw = ["1. 亻 — GLOSE : Le toit", "2. « une herbe »", "3. Sens : La marche"].join("\n");
+    expect(parsePartGlossBatch(raw, 3)).toEqual(["toit", "herbe", "marche"]);
+  });
+
+  it("laisse passer les deux aveux — mieux vaut « phonétique » qu'un sens inventé", () => {
+    const raw = [`1. ${PART_GLOSS_PHONETIC}`, `2. ${PART_GLOSS_UNKNOWN}`].join("\n");
+    expect(parsePartGlossBatch(raw, 2)).toEqual([PART_GLOSS_PHONETIC, PART_GLOSS_UNKNOWN]);
+  });
+
+  it("refuse ce qui n'est pas une étiquette : phrase, japonais, plus de quatre mots", () => {
+    const raw = [
+      "1. Ce composant représente une personne penchée.",
+      "2. personne (人)",
+      "3. un toit avec une cheminée et deux fenêtres",
+      "4. eau; liquide",
+    ].join("\n");
+    expect(parsePartGlossBatch(raw, 4)).toEqual([null, null, null, null]);
   });
 });
 

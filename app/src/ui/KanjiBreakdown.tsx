@@ -4,6 +4,7 @@
 // un bouton qui ne mène nulle part se tapote pour rien.
 
 import { kanjiBreakdown, wordKanjiReadings } from "../lib/kanjiInfo";
+import { partsSummary } from "../lib/kanjiParts";
 import { Badge } from "./kit/Badge";
 
 const ROW = "flex w-full min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-hairline py-2 text-left";
@@ -19,11 +20,18 @@ export function KanjiBreakdown({
   surface,
   reading,
   onOpenKanji,
+  showParts,
 }: {
   surface: string;
   /** Lecture du mot d'où l'on vient : sert à montrer d'abord la lecture à l'œuvre ICI. */
   reading?: string;
   onOpenKanji?: (ch: string) => void;
+  /**
+   * Ajoute sous chaque rangée la composition du kanji (« 目 œil + 儿 jambes »). Réservé au
+   * moment d'étude (correction d'exercice) : dans une feuille de mot, la fiche kanji est à
+   * un tap et porte la version détaillée.
+   */
+  showParts?: boolean;
 }) {
   const items = kanjiBreakdown(surface);
   if (items.length === 0) return null;
@@ -43,6 +51,7 @@ export function KanjiBreakdown({
               <Badge>N{k.level}</Badge>
             </>
           );
+          const parts = showParts ? partsSummary(k.id) : "";
           return (
             <li key={k.id}>
               {onOpenKanji ? (
@@ -56,6 +65,9 @@ export function KanjiBreakdown({
               ) : (
                 <div className={ROW}>{body}</div>
               )}
+              {/* Composition sur SA propre ligne : la rangée porte déjà lectures + sens +
+                  niveau, l'y glisser la ferait passer à la ligne n'importe où. */}
+              {parts && <p className="m-0 pb-2 text-xs text-muted">{parts}</p>}
             </li>
           );
         })}

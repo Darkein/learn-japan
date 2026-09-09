@@ -41,7 +41,8 @@ export type GenKind =
   | "exam-lesson-qcm"
   | "vocab-examples"
   | "mnemonic"
-  | "word-mnemonic";
+  | "word-mnemonic"
+  | "part-gloss";
 
 /** Requête de génération : UNIQUEMENT des paramètres structurés (aucun prompt brut). */
 export interface GenerateRequest {
@@ -67,8 +68,9 @@ export interface GenerateRequest {
   sentences?: string[];
   // kind: "vocab-examples" — lexique déjà connu à privilégier dans les phrases.
   allowedVocab?: string[];
-  // kind: "mnemonic" / "word-mnemonic" — LOT d'éléments (kanji ou mots) traités en UN appel,
-  // chacun avec ses métadonnées (le Worker n'a pas d'inventaire).
+  // kind: "mnemonic" / "word-mnemonic" / "part-gloss" — LOT d'éléments (kanji, mots ou
+  // composants) traités en UN appel, chacun avec ses métadonnées (le Worker n'a pas
+  // d'inventaire : tout le contexte voyage dans le lot).
   items?: MnemonicItem[];
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
@@ -96,6 +98,9 @@ const LIMITS = {
   allowedVocabItem: 40,
   // kind: "mnemonic" / "word-mnemonic" — lot d'éléments + leurs lectures/sens/composants.
   mnemonicItemsList: 15,
+  // kind: "part-gloss" — lot de COMPOSANTS de kanji. La sortie tient en 1 à 4 mots par
+  // ligne (contre une phrase par mnémo) : le lot peut être bien plus large.
+  partItemsList: 40,
   frMeaning: 80,
   wordSurface: 40,
   wordReading: 60,
@@ -180,11 +185,15 @@ function cleanVocab(value: unknown): VocabItem[] {
     .filter((v) => v.ja || v.fr);
 }
 
-/** Assainit un lot d'éléments de mnémotechnique (kanji ou mots) : nombre et champs bornés. */
-function cleanMnemonicItems(value: unknown): MnemonicItem[] {
+/**
+ * Assainit un lot d'éléments (kanji, mots ou composants) : nombre et champs bornés. Le
+ * plafond dépend du `kind` — un lot de gloses de composants coûte bien moins qu'un lot de
+ * mnémos, cf. LIMITS.partItemsList.
+ */
+function cleanMnemonicItems(value: unknown, maxItems: number = LIMITS.mnemonicItemsList): MnemonicItem[] {
   if (!Array.isArray(value)) return [];
   return value
-    .slice(0, LIMITS.mnemonicItemsList)
+    .slice(0, maxItems)
     .map((v) => {
       const it = (v ?? {}) as Record<string, unknown>;
       return {
@@ -652,6 +661,61 @@ export function buildWordMnemonicPrompt(r: GenerateRequest): string {
   ].join("\n");
 }
 
+/**
+ * Glose française COURTE d'un LOT de COMPOSANTS de kanji (radicaux et parties de tracé,
+ * extraits de KanjiVG par scripts/build-kanji-parts.ts). Ces composants ne sont PAS des
+ * kanji de l'inventaire (亻 宀 辶 頁 隹…) : ils n'ont donc aucun sens curé, alors qu'ils
+ * servent d'ÉTIQUETTE de ligne dans la composition affichée sur la fiche kanji (« 亻
+ * personne », « 宀 toit »). D'où la contrainte : un groupe nominal de 1 à 4 mots en
+ * minuscules, jamais une phrase — et un aveu explicite (« phonétique », « sens incertain »)
+ * quand le composant n'a pas de sens exploitable (咅, 尞, 昜…) plutôt qu'une étymologie
+ * inventée. Contexte fourni par le script, le Worker n'ayant pas d'inventaire : la forme de
+ * base quand le composant en est une variante (亻 → « 人 = personne »), la lecture quand
+ * KanjiVG marque le composant phonétique, et des kanji qui le contiennent avec leur sens.
+ * Sortie : UNE ligne par composant « N. glose » (parsée côté client, parsePartGlossBatch).
+ */
+export function buildPartGlossPrompt(r: GenerateRequest): string {
+  const items = cleanMnemonicItems(r.items, LIMITS.partItemsList);
+  const numbered = items
+    .map((it, i) => {
+      const meta = [
+        it.fr ? `forme de base : ${it.fr}` : "",
+        it.yomi ? `lecture phonétique : ${it.yomi}` : "",
+        it.components?.length ? `apparaît dans : ${it.components.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ; ");
+      return `${i + 1}. ${it.ja}${meta ? ` — ${meta}` : ""}`;
+    })
+    .join("\n");
+
+  return [
+    "Tu es un spécialiste de l'écriture japonaise qui prépare des ÉTIQUETTES pour une application d'apprentissage francophone.",
+    `Voici ${items.length} COMPOSANTS de kanji (radicaux ou parties de tracé), un par ligne numérotée. Chaque ligne indique, quand ils sont connus : la forme de base dont le composant est une variante, sa lecture s'il joue un rôle phonétique, et des kanji qui le contiennent avec leur sens français.`,
+    numbered,
+    "",
+    "Pour CHAQUE composant, donne UNIQUEMENT sa glose française : le nom de ce que le composant représente, tel qu'il sera affiché comme libellé de ligne dans la composition d'un kanji.",
+    "",
+    "RÈGLES de la glose, impératives :",
+    "- un groupe nominal de 1 à 4 MOTS maximum : « personne », « toit », « eau », « marche », « fil de soie » ;",
+    "- entièrement en MINUSCULES et SANS article : « toit », jamais « Le toit » ;",
+    "- jamais de phrase, jamais de verbe conjugué, jamais de ponctuation finale, aucune explication, aucune étymologie, aucun commentaire ;",
+    "- AUCUN caractère japonais (ni kanji, ni kana), aucun romaji, aucune lecture entre parenthèses ;",
+    "- si le composant est la variante d'une forme de base, reprends le sens de cette forme de base (亻 → « personne », 氵 → « eau », 艹 → « herbe ») ;",
+    "- plusieurs sens possibles ? garde le plus CONCRET, celui qui aide à reconnaître le composant.",
+    "",
+    "ÉCHAPPATOIRE OBLIGATOIRE — n'invente JAMAIS un sens :",
+    "- si le composant ne sert qu'à noter le SON du kanji et n'a pas de sens propre exploitable, réponds exactement « phonétique » ;",
+    "- si tu ne connais pas de sens ÉTABLI pour ce composant, réponds exactement « sens incertain ».",
+    "Ces deux réponses sont attendues et comptées comme correctes : mieux vaut « phonétique » qu'une glose inventée.",
+    "",
+    "Format STRICT, une ligne par composant, dans l'ordre, sans aucune autre ligne :",
+    "« N. glose ». Pas de puce, pas de ligne vide, pas de séparateur « || », ne recopie ni le composant ni un libellé comme « GLOSE : ».",
+    "Exemple de réponse pour un composant : 1. personne",
+  ].join("\n");
+}
+
+
 // ---------- Illustration d'histoire (ukiyo-e) --------------------------------
 // L'image est produite CÔTÉ WORKER, juste après le texte d'une histoire (voir index.ts),
 // à partir de ce texte. Aucun endpoint image public : la génération est repliée dans
@@ -767,6 +831,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildMnemonicPrompt(req);
     case "word-mnemonic":
       return buildWordMnemonicPrompt(req);
+    case "part-gloss":
+      return buildPartGlossPrompt(req);
     case "story":
     case undefined:
       return buildStoryPrompt(req);

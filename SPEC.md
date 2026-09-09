@@ -484,8 +484,7 @@ localement (Cache API / IndexedDB), **lue hors-ligne** ensuite — essentiel pou
 |---|---|---|
 | Furigana / lectures en contexte | kuromoji / Kuroshiro (UniDic) | Erreurs sur lectures ambiguës |
 | Gloss littéral (morphèmes) | kuromoji + JMdict + table particules | Grammaire = réponse déterministe |
-| Composition / radicaux | KRADFILE | Composants exacts |
-| Tracés / ordre des traits | KanjiVG | Précision graphique |
+| Composition / radicaux + tracés | KanjiVG | Composants exacts (arbre annoté : radical, composant phonétique) et précision graphique. Préféré à KRADFILE, dont la liste plate mêle les sous-parties |
 | Lectures + sens des kanji | KanjiDic | Référence fiable |
 | Noms propres | JMnedict + dico manuel | Lectures hautement ambiguës |
 | Histoires, trad fluide, explications | LLM (Gemini) | Jugées par l'utilisateur |

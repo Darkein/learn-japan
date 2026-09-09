@@ -136,6 +136,25 @@
   animation: ink-reveal 320ms cubic-bezier(0.2, 0, 0.2, 1) 120ms forwards;
 }
 
+/* Ordre des traits d'un kanji (KanjiStrokes) : chaque trait se dessine à son tour, le
+   suivant attendant son délai. `both` fait tenir l'état de départ PENDANT le délai — sans
+   quoi tous les traits seraient déjà là avant leur tour. Défaut hors animation :
+   dashoffset 0, donc le caractère entier (c'est ce que voit prefers-reduced-motion, où la
+   règle globale coupe l'animation). */
+@keyframes stroke-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.stroke-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: stroke-draw var(--stroke-ms, 280ms) linear var(--stroke-delay, 0ms) both;
+}
+
 /* Écran de chargement (LoadingScreen) : un ensō (円相) peint d'un coup de pinceau. La forme
    est une bande à épaisseur variable (attaque fine, ventre épais, levée effilée en pointe) ;
    un masque qui balaie la ligne centrale la révèle progressivement, comme le pinceau qui

@@ -1,6 +1,6 @@
-// Fiche kanji : caractère, sens, lectures, traits, niveau, et mots liés —
-// d'abord ceux déjà travaillés (ancrage), puis des suggestions à découvrir
-// qu'on peut ajouter au SRS d'un tap. Purement référentiel : pas de SRS kanji.
+// Fiche kanji : caractère, sens, lectures, traits, niveau, tracé animé, composition en
+// parties, et mots liés — d'abord ceux déjà travaillés (ancrage), puis des suggestions à
+// découvrir qu'on peut ajouter au SRS d'un tap. Purement référentiel : pas de SRS kanji.
 //
 // `KanjiDetail` est le contenu seul : WordSheet/VocabPeekSheet l'affichent dans
 // LEUR feuille (navigation mot → kanji avec retour, plus d'empilement de modales).
@@ -18,6 +18,8 @@ import { speakWord, stopSentence } from "../lib/tts";
 import { addInventoryWordToReview } from "../lib/vocab";
 import { StatusTag } from "./CatalogueInventory";
 import { BottomSheet } from "./BottomSheet";
+import { KanjiParts } from "./KanjiParts";
+import { KanjiStrokes } from "./KanjiStrokes";
 import { Badge } from "./kit/Badge";
 import { Emphasis } from "./kit/Emphasis";
 import { IconSpeaker } from "./kit/Icon";
@@ -107,6 +109,11 @@ export function KanjiDetail({
         )}
         {detail.strokes != null && <span>{detail.strokes} traits</span>}
       </div>
+
+      {/* Le tracé se construit, puis on lit de quoi il est fait : la composition explique
+          le caractère avant que le mnémo le raconte. */}
+      <KanjiStrokes ch={ch} />
+      <KanjiParts ch={ch} />
 
       {mnemonic && (mnemonic.story || mnemonic.composition) && (
         <div className="flex flex-col gap-1 rounded-sm border border-hairline p-3 text-sm">
