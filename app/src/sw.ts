@@ -45,6 +45,17 @@ registerRoute(
   }),
 );
 
+// Tracés des kanji (un asset gzippé par niveau JLPT, 13 à 333 Ko) : hors precache — on ne
+// télécharge que le niveau des kanji consultés — mais gardés en cache dès le premier
+// affichage, pour que la fiche kanji montre le tracé hors-ligne.
+registerRoute(
+  ({ url }) => url.pathname.includes("kanji-strokes-"),
+  new CacheFirst({
+    cacheName: "kanji-strokes",
+    plugins: [new ExpirationPlugin({ maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 365 })],
+  }),
+);
+
 // ---- Rappels du programme du jour (app fermée) ------------------------------------
 
 const PERIODIC_SYNC_TAG = "revision-reminder";

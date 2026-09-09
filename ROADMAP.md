@@ -75,7 +75,8 @@ bouton « à revoir » fait remonter l'item dans la révision suivante.
 
 ## Phase 4 — Finition & consolidation
 **But : confort, fiabilité, motivation.**
-- Composition kanji : **ordre des traits KanjiVG** animé.
+- ~~Composition kanji : **ordre des traits KanjiVG** animé~~ — fait, avec la décomposition en
+  parties (radical, composant phonétique) sur la fiche kanji.
 - **Édition des mnémoniques** ; correction manuelle des furigana (override) ; **dico noms propres**.
 - **Carte de progression** (vocab/kanji/grammaire).
 - **Test de calibrage** complet + import Anki/WaniKani finalisés.

@@ -1,7 +1,11 @@
-// Boucle de génération PAR LOTS, partagée par build-mnemonics et build-word-mnemonics.
-// Regroupe les items en lots (un seul appel LLM par lot), parse la réponse « N. a || b || c »,
-// écrit incrémentalement, gère la reprise (items déjà présents sautés) et la barre de
-// progression. Réduit fortement le nombre d'appels au Worker (≈ /batchSize).
+// Boucle de génération PAR LOTS, partagée par build-mnemonics, build-word-mnemonics et
+// build-kanji-parts-fr. Regroupe les items en lots (un seul appel LLM par lot), parse la
+// réponse ligne par ligne, écrit incrémentalement, gère la reprise (items déjà présents
+// sautés) et la barre de progression. Réduit fortement le nombre d'appels au Worker
+// (≈ /batchSize).
+//
+// La VALEUR produite par item est paramétrable (`parse` / `usable`) : un mnémo
+// { story, composition } par défaut, une simple glose française pour les composants de kanji.
 
 import { writeFileSync } from "node:fs";
 import { parseMnemonicBatch, type Mnemonic } from "../app/src/lib/genParsers";
@@ -9,7 +13,7 @@ import { createProgressBar } from "./progress";
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-export interface BatchedOptions<T> {
+export interface BatchedOptions<T, V = Mnemonic> {
   /** Tous les items du pool (repris inclus). */
   items: T[];
   /** Clé de stockage d'un item (= clé du JSON de sortie). */
@@ -19,7 +23,11 @@ export interface BatchedOptions<T> {
   /** Corps de requête pour un lot (sans `refresh`, ajouté par le lanceur). */
   toBody: (batch: T[]) => Record<string, unknown>;
   /** Résultats existants, mutés en place (sauvegarde incrémentale). */
-  results: Record<string, Mnemonic>;
+  results: Record<string, V>;
+  /** Parse la réponse d'un lot en `n` valeurs alignées (défaut : « N. mnémo || image »). */
+  parse?: (text: string, n: number) => (V | null)[];
+  /** Valeur exploitable ? (défaut : un mnémo portant au moins l'histoire). */
+  usable?: (value: V | null) => boolean;
   outPath: string;
   workerUrl: string;
   refresh: boolean;
@@ -30,7 +38,7 @@ export interface BatchedOptions<T> {
 }
 
 /** Un mnémo est exploitable s'il porte au moins l'histoire (la composition seule ne suffit pas). */
-function usable(m: Mnemonic | null): m is Mnemonic {
+function usableMnemonic(m: Mnemonic | null): m is Mnemonic {
   return !!m && !!m.story;
 }
 
@@ -52,8 +60,12 @@ async function callWorker(
 }
 
 /** Exécute la génération par lots ; renvoie les ratés (à lister en fin de run). */
-export async function generateBatched<T>(opts: BatchedOptions<T>): Promise<string[]> {
+export async function generateBatched<T, V = Mnemonic>(
+  opts: BatchedOptions<T, V>,
+): Promise<string[]> {
   const { items, idOf, labelOf, toBody, results, outPath, workerUrl, refresh, batchSize, gapMs } = opts;
+  const parse = opts.parse ?? ((text: string, n: number) => parseMnemonicBatch(text, n) as (V | null)[]);
+  const usable = opts.usable ?? ((v: V | null) => usableMnemonic(v as Mnemonic | null));
   const problems: string[] = [];
 
   // Phase 1 : sépare les repris (comptés d'emblée) des items à générer.
@@ -79,13 +91,13 @@ export async function generateBatched<T>(opts: BatchedOptions<T>): Promise<strin
       if (idx >= lots.length) return;
       const batch = lots[idx];
       bar.preview(labelOf(batch[0]));
-      let parsed: (Mnemonic | null)[];
+      let parsed: (V | null)[];
       try {
         const text = await callWorker(workerUrl, {
           ...toBody(batch),
           ...(refresh ? { refresh: true } : {}),
         });
-        parsed = parseMnemonicBatch(text, batch.length);
+        parsed = parse(text, batch.length);
       } catch (e) {
         for (const it of batch) {
           problems.push(`✗ ${labelOf(it)} (${idOf(it)}) — ${String(e)}`);
@@ -95,12 +107,15 @@ export async function generateBatched<T>(opts: BatchedOptions<T>): Promise<strin
         continue;
       }
       batch.forEach((it, j) => {
-        const m = parsed[j];
-        if (usable(m)) {
-          results[idOf(it)] = m;
+        const value = parsed[j];
+        if (usable(value)) {
+          results[idOf(it)] = value as V;
           bar.tick("ok", labelOf(it));
         } else {
-          problems.push(`⚠ ${labelOf(it)} (${idOf(it)}) — ligne manquante ou vide`);
+          // Une ligne refusée par le validateur compte comme un trou : elle repartira au
+          // prochain run, dans un lot différent — donc un prompt différent, donc un nouveau
+          // tirage (la clé de cache R2 est le hash du prompt).
+          problems.push(`⚠ ${labelOf(it)} (${idOf(it)}) — ligne manquante, vide ou refusée`);
           bar.tick("empty", labelOf(it));
         }
       });

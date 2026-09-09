@@ -10,9 +10,9 @@ import { Ruby } from "../Ruby";
 
 /**
  * Correction d'une carte du triangle : le mot complet, en grand, avec ses furigana en ruby
- * — puis de quoi l'ancrer visuellement, la décomposition en kanji et le mnémo. C'est le
- * moment d'étude de la carte : on vient de répondre, juste ou faux, et c'est là qu'on
- * regarde vraiment la forme du mot.
+ * — puis de quoi l'ancrer visuellement, la décomposition en kanji (avec la composition de
+ * chacun : « 目 œil + 儿 jambes ») et le mnémo. C'est le moment d'étude de la carte : on
+ * vient de répondre, juste ou faux, et c'est là qu'on regarde vraiment la forme du mot.
  */
 export function WordFeedback({ word }: { word: { id: string; surface: string; reading: string } }) {
   const [mnemonic, setMnemonic] = useState<Mnemonic | undefined>(undefined);
@@ -58,7 +58,7 @@ export function WordFeedback({ word }: { word: { id: string; surface: string; re
       )}
       {hasKanji(word.surface) && (
         <div className="w-full text-left">
-          <KanjiBreakdown surface={word.surface} reading={word.reading} />
+          <KanjiBreakdown surface={word.surface} reading={word.reading} showParts />
         </div>
       )}
     </div>

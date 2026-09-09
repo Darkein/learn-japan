@@ -6,8 +6,8 @@ Les données linguistiques proviennent de bases libres. Attribution requise.
 |---|---|---|
 | Inventaire kanji (lectures, sens EN, niveaux JLPT N5–N1) | [davidluzgouveia/kanji-data](https://github.com/davidluzgouveia/kanji-data) — agrège KANJIDIC + listes JLPT de J. Waller (champs WaniKani exclus) | MIT |
 | Inventaire vocabulaire N5 (lecture, sens EN, niveau) | [jamsinclair/open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks) | MIT |
-| Décomposition / radicaux | KRADFILE (EDRDG) | CC BY-SA 4.0 |
-| Tracés / ordre des traits | KanjiVG | CC BY-SA 3.0 |
+| Composition des kanji en parties + ordre des traits (`app/src/data/inventory/kanji-parts.json` et `app/public/kanji-strokes-n*.json.gz`, **œuvres dérivées** produites par `scripts/build-kanji-parts.ts` et `build-kanji-strokes.ts` depuis la release épinglée `r20240807`) | [KanjiVG](https://kanjivg.tagaini.net/) | CC BY-SA 3.0 — **partage à l'identique** |
+| Gloses françaises des composants hors inventaire (`kanji-parts-fr.json`) | générées par LLM via le Worker (kind `part-gloss`), relues à la main | — |
 | Vocabulaire (gloss littéral FR/EN) | JMdict (EDRDG) | CC BY-SA 4.0 |
 | Priorités de fréquence (`data/jmdict-pri.json.gz` : scores nfXX/ichi/spec/news/gai par entrée et par forme kana, consommés par `scripts/build-jmdict.ts`) | JMdict (EDRDG), extrait one-off via la base SQLite du paquet PyPI [jamdict-data](https://pypi.org/project/jamdict-data/) — les tags de priorité JMdict évoluent très peu | CC BY-SA 4.0 |
 | Noms propres | JMnedict (EDRDG) | CC BY-SA 4.0 |

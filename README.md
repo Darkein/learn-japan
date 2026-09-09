@@ -40,6 +40,9 @@ npm run build          # build de production -> app/dist
 ```bash
 npm run data:inventory # kanji-data + open-anki-jlpt-decks -> app/src/data/inventory/{kanji,vocab}.json
 npm run data:jmdict    # JMdict-FR (jmdict-simplified) -> app/src/../public/jmdict-fr.json.gz (asset committé, ~0.4 Mo)
+npm run data:parts     # KanjiVG -> app/src/data/inventory/kanji-parts.json (composition d'un kanji en parties)
+npm run data:strokes   # KanjiVG -> app/public/kanji-strokes-n{5..1}.json.gz (ordre des traits, 13 à 333 Ko par niveau)
+npm run data:parts-fr  # gloses FR des composants hors inventaire (Worker, kind part-gloss) -> kanji-parts-fr.json
 npm run curriculum:check  # vérifie la cohérence du curriculum (couverture, prérequis, références)
 ```
 
