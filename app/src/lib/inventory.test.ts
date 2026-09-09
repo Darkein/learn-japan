@@ -112,3 +112,23 @@ describe("glosses FR du référentiel — un sens, un mot", () => {
     expect(shared.map(([fr, ids]) => `${fr} → ${ids.join(" / ")}`)).toEqual([]);
   });
 });
+
+/**
+ * Le repli anglais de `kanjiGloss`/`vocabGloss` (`meanings[0]`) est un filet de sécurité pour
+ * un futur rafraîchissement du dataset, pas un mode de fonctionnement : servir « Meeting » ou
+ * « Wisteria » sur une fiche française casse la lecture ET rend insoluble tout exercice qui
+ * part du sens FR. Ces deux tests interdisent de laisser retomber un caractère ou un mot du
+ * référentiel sur l'anglais — un ajout au dataset doit venir avec son gloss curé.
+ */
+describe("couverture FR du référentiel — aucun repli anglais", () => {
+  it("chaque kanji porte un sens FR curé", () => {
+    const overlay = kanjiFrOverlay as Record<string, string | undefined>;
+    const uncurated = kanjiInv.filter((k) => !(overlay[k.id] ?? k.fr)).map((k) => k.id);
+    expect(uncurated).toEqual([]);
+  });
+
+  it("chaque mot porte un sens FR curé", () => {
+    const uncurated = vocabInv.filter((v) => !resolveVocab(v.id).fr).map((v) => v.id);
+    expect(uncurated).toEqual([]);
+  });
+});
