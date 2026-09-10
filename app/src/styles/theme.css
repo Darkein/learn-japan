@@ -23,6 +23,9 @@
 
   /* Trait d'illustration (route Tōkaidō, torii…) — plus doux que --text, SVG uniquement. */
   --ink: rgba(232, 226, 212, 0.55);
+  /* Trait pas encore tracé (fantôme du KanjiStrokes) : assez pâle pour que le trait déjà
+     posé (--text, plein) tranche nettement, assez présent pour montrer où le geste va. */
+  --stroke-ghost: rgba(232, 226, 212, 0.15);
 
   color-scheme: dark;
 }
@@ -44,6 +47,7 @@
     --state-unknown: rgba(46, 67, 116, 0.5);
     --state-review: rgba(192, 57, 43, 0.65);
     --ink: rgba(26, 24, 21, 0.6);
+    --stroke-ghost: rgba(26, 24, 21, 0.16);
     color-scheme: light;
   }
 }
@@ -63,5 +67,6 @@
   --state-unknown: rgba(46, 67, 116, 0.5);
   --state-review: rgba(192, 57, 43, 0.65);
   --ink: rgba(26, 24, 21, 0.6);
+  --stroke-ghost: rgba(26, 24, 21, 0.16);
   color-scheme: light;
 }

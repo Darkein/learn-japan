@@ -140,19 +140,29 @@
    suivant attendant son délai. `both` fait tenir l'état de départ PENDANT le délai — sans
    quoi tous les traits seraient déjà là avant leur tour. Défaut hors animation :
    dashoffset 0, donc le caractère entier (c'est ce que voit prefers-reduced-motion, où la
-   règle globale coupe l'animation). */
+   règle globale coupe l'animation).
+   `opacity: 0` sur l'état de départ : un tiret de longueur nulle garde ses bouts ronds, si
+   bien qu'un trait en attente posait un point d'encre à son point de départ (et le motif
+   se répétant, un autre à son arrivée) avant le passage du pinceau. Le trait reste donc
+   invisible pendant son délai, et le trou de 2 (au lieu de 1) éloigne la répétition du
+   motif hors du chemin. */
 @keyframes stroke-draw {
   from {
     stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
   }
   to {
     stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
 .stroke-draw {
-  stroke-dasharray: 1;
+  stroke-dasharray: 1 2;
   stroke-dashoffset: 0;
-  animation: stroke-draw var(--stroke-ms, 280ms) linear var(--stroke-delay, 0ms) both;
+  animation: stroke-draw var(--stroke-ms, 480ms) linear var(--stroke-delay, 0ms) both;
 }
 
 /* Écran de chargement (LoadingScreen) : un ensō (円相) peint d'un coup de pinceau. La forme

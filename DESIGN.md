@@ -56,6 +56,7 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 | `--hairline-strong` | `rgba(232,226,212,0.32)` | bordures **interactives** (boutons, inputs) |
 | `--elev` | `0 1px 0 rgba(0,0,0,.25), 0 2px 10px rgba(0,0,0,.28)` | ombre d'élévation des panneaux |
 | `--ink` | `rgba(232,226,212,0.55)` | trait d'illustration SVG (route Tōkaidō, torii) — jamais pour du texte |
+| `--stroke-ghost` | `rgba(232,226,212,0.15)` | trait pas encore tracé (fantôme du *Tracé* kanji) — assez pâle pour que l'encre tranche |
 
 ### Couleur — Light (washi)
 | Token | Valeur | Usage |
@@ -72,6 +73,7 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 | `--hairline-strong` | `rgba(26,24,21,0.34)` | bordures interactives |
 | `--elev` | `0 1px 2px rgba(26,24,21,.05), 0 3px 10px rgba(26,24,21,.07)` | élévation panneaux |
 | `--ink` | `rgba(26,24,21,0.6)` | trait d'illustration SVG (route Tōkaidō, torii) |
+| `--stroke-ghost` | `rgba(26,24,21,0.16)` | trait pas encore tracé (fantôme du *Tracé* kanji) |
 
 ### États de révision (jamais fluo — teintes douces)
 | Token | Dark | Light | Sens |
@@ -128,7 +130,9 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
 - **Listes (catalogue)** : lignes séparées par filets, libellés méta en petites capitales.
 - **Fiche kanji** (`ui/KanjiSheet.tsx`) — trois sections dans cet ordre, du geste au récit :
   *Tracé* (`ui/KanjiStrokes.tsx`) où le caractère se dessine trait à trait (grille KanjiVG
-  109×109, filet `--text` sur un fantôme `--hairline-strong`, bouton « Rejouer ») ; puis
+  109×109, encre `--text` épaisse sur un fantôme `--stroke-ghost` plus fin — le trait posé
+  doit trancher d'un coup d'œil ; ≈480 ms par trait et une levée de pinceau entre deux,
+  resserrés pour qu'un kanji chargé tienne sous ~9 s ; bouton « Rejouer ») ; puis
   *Composants*, une rangée par partie (glyphe, sens, mentions « radical » / « donne la
   lecture ») ; puis le mnémo. Le mouvement **est** le contenu : sous
   `prefers-reduced-motion` le tracé s'affiche entier, sans lecture automatique, et le bouton
