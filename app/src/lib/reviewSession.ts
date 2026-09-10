@@ -62,6 +62,22 @@ export interface SessionStats {
   newCount: number;
 }
 
+/**
+ * Taille d'un bloc de révision, en cartes. L'objectif quotidien est un OBJECTIF EN CARTES
+ * (« Objectif quotidien (cartes) » dans les réglages) : un bloc s'arrête donc à ce qu'il
+ * reste à faire pour l'atteindre, et pas au plafond dur. Sans ça, un réglage de 10 servait
+ * quand même des sessions de `sessionCap` (30) : trois fois la dose demandée, et le flux
+ * n'arrivait jamais aux étapes suivantes (lecture, cours, contrôle).
+ *
+ * Objectif déjà atteint → un bloc PLEIN de plus : c'est le renforcement du flux, facultatif,
+ * qui consolide le retard restant. `SRS.sessionCap` reste le plafond dur — un objectif de
+ * 200 cartes ne produit pas une session-fleuve.
+ */
+export function reviewBlockSize(dailyGoal: number, reviewedToday: number): number {
+  const remaining = dailyGoal - reviewedToday;
+  return Math.max(1, Math.min(SRS.sessionCap, remaining > 0 ? remaining : dailyGoal));
+}
+
 export async function sessionStats(now: Date = new Date()): Promise<SessionStats> {
   const [vocab, grammar, started] = await Promise.all([
     allVocab(),
@@ -295,6 +311,44 @@ function seenRecently(v: VocabItem, now: Date): boolean {
   return now.getTime() - last < SKILL_GAP_MS;
 }
 
+/**
+ * Promeut jusqu'à `slots` NOUVEAUX items : objectifs des leçons commencées (vocabulaire
+ * d'abord, puis grammaire), carte FSRS créée et compteur du jour incrémenté. Renvoie leurs
+ * exercices — moins que `slots` s'il n'y a plus rien à introduire.
+ */
+async function promoteNew(
+  slots: number,
+  vocabAll: VocabItem[],
+  grammarAll: GrammarItem[],
+  triangle: ReturnType<typeof triangleFactory>,
+  dateStr: string,
+  now: Date,
+): Promise<Exercise[]> {
+  const out: Exercise[] = [];
+  const started = await startedCurriculumEntries();
+
+  // Vocab sans carte — objectifs des leçons commencées, à l'exclusion de l'incident.
+  for (const v of newVocabToPromote(vocabAll, started)) {
+    if (out.length >= slots) break;
+    if (!isTrainableVocab(v)) continue;
+    const card = newCard(now);
+    v.cards.written = card;
+    await bumpSrsDaily(dateStr, { introduced: 1 });
+    out.push(triangle.build(v, card.due.getTime()));
+  }
+
+  // Grammaire sans carte — même règle.
+  for (const g of newGrammarToPromote(grammarAll, started)) {
+    if (out.length >= slots) break;
+    const card = newCard(now);
+    g.card = card;
+    await putGrammar(g);
+    await bumpSrsDaily(dateStr, { introduced: 1 });
+    out.push(await grammarReviewExercise(g, card.due.getTime()));
+  }
+  return out;
+}
+
 async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercise[]> {
   const s = loadSettings();
   // Sans le son : réglage permanent OU pause « je ne peux pas écouter » encore en cours.
@@ -372,12 +426,44 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
     served.add(v.id);
   }
 
-  // Plafond de session : items dus triés par urgence, coupés à `sessionCap`. Le reste
-  // attendra la session suivante — mieux qu'une session-fleuve après quelques jours
-  // d'absence. Les amorces (écoute) et les nouveautés ne prennent que la place restante.
+  const dateStr = localDateString(now);
+  const daily = await getSrsDaily(dateStr);
+
+  // Taille du bloc : ce qu'il reste à faire pour atteindre l'objectif du jour (cf.
+  // `reviewBlockSize`), plafonnée à `sessionCap`. Le dû qui dépasse attendra le bloc
+  // suivant — renforcement du flux, ou demain : mieux qu'une session-fleuve après
+  // quelques jours d'absence.
+  const cap = reviewBlockSize(s.dailyGoal, daily?.reviewed ?? 0);
+
+  // Budget nouveaux items — débit auto-réglé : la rétention mesurée et le retard dû du jour
+  // (backlog = items dus de cette session) rabotent `newPerDay` quand l'utilisateur peine ou
+  // accumule, pour consolider plutôt qu'empiler du neuf. Voir lib/tuning.ts.
+  //
+  // Ce budget ne dépend QUE de son propre réglage : le brider en plus par l'objectif du
+  // jour (« pas de neuf tant que le dû remplit le bloc ») gelait toute la progression dès
+  // que le retard dépassait l'objectif — les objectifs de la leçon en cours n'obtenaient
+  // jamais de carte, sa part d'items stabilisés ne montait plus, son contrôle ne s'ouvrait
+  // pas, et la leçon suivante restait verrouillée. Le freinage, c'est `effectiveNewPerDay`.
+  const newCap = effectiveNewPerDay(s.newPerDay, tuning.measuredRetention, due.length);
+  const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
+  // Réserve de nouveautés DANS le bloc : au plus la moitié tant qu'il reste du dû (le
+  // retard doit avancer aussi), tout le bloc quand il n'y a rien à revoir.
+  const newSlots = Math.min(budget, due.length > 0 ? Math.floor(cap / 2) : cap);
+
+  // Les nouveautés sont promues AVANT de découper le dû : une réserve non consommée
+  // (plus rien à introduire aujourd'hui, aucune leçon commencée) revient au retard, elle
+  // ne laisse pas un bloc à moitié vide.
+  const newCards =
+    newSlots > 0
+      ? await promoteNew(newSlots, vocabAll, grammarAll, triangle, dateStr, now)
+      : [];
+
+  // Items dus triés par urgence, coupés à la place qui reste dans le bloc.
   due.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
-  const out: Exercise[] = due.slice(0, SRS.sessionCap);
-  let room = SRS.sessionCap - out.length;
+  const out: Exercise[] = due.slice(0, cap - newCards.length);
+  // Place libre : les amorces (écoute, production) prennent ce qui reste, sans manger
+  // les nouveautés du jour.
+  let room = cap - out.length - newCards.length;
 
   // Les amorces raisonnent sur le deck RÉELLEMENT retenu : un mot coupé par le plafond
   // n'a pas été servi, il n'y a pas de raison de lui refuser une amorce.
@@ -429,43 +515,7 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
     }
   }
 
-  // Budget nouveaux items — débit auto-réglé : la rétention mesurée et le retard dû du jour
-  // (backlog = items dus de cette session) rabotent `newPerDay` quand l'utilisateur peine ou
-  // accumule, pour consolider plutôt qu'empiler du neuf. Voir lib/tuning.ts.
-  const dateStr = localDateString(now);
-  const daily = await getSrsDaily(dateStr);
-  const newCap = effectiveNewPerDay(s.newPerDay, tuning.measuredRetention, due.length);
-  const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
-
-  if (out.length < s.dailyGoal && budget > 0 && room > 0) {
-    const newCards: Exercise[] = [];
-    const toPromote = Math.max(0, Math.min(budget, s.dailyGoal - out.length, room));
-    const started = await startedCurriculumEntries();
-
-    // Vocab sans carte — objectifs des leçons commencées, à l'exclusion de l'incident.
-    for (const v of newVocabToPromote(vocabAll, started)) {
-      if (newCards.length >= toPromote) break;
-      if (!isTrainableVocab(v)) continue;
-      const card = newCard(now);
-      v.cards.written = card;
-      await bumpSrsDaily(dateStr, { introduced: 1 });
-      newCards.push(triangle.build(v, card.due.getTime()));
-    }
-
-    // Grammaire sans carte — même règle.
-    if (newCards.length < toPromote) {
-      for (const g of newGrammarToPromote(grammarAll, started)) {
-        if (newCards.length >= toPromote) break;
-        const card = newCard(now);
-        g.card = card;
-        await putGrammar(g);
-        await bumpSrsDaily(dateStr, { introduced: 1 });
-        newCards.push(await grammarReviewExercise(g, card.due.getTime()));
-      }
-    }
-
-    out.push(...newCards);
-  }
+  out.push(...newCards);
 
   // Le tri par urgence ci-dessus sert à CHOISIR les items qui tiennent dans la session ;
   // il ne doit pas dicter l'ordre de passage. Sans mélange, les échéances (identiques pour

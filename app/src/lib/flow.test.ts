@@ -31,6 +31,25 @@ describe("pickNext — barème", () => {
     expect(a.title).toContain("12");
   });
 
+  it("le bouton annonce la dose du bloc, et le retard derrière", () => {
+    // 42 dues, objectif 10 : le bloc en sert 10 — c'est ce chiffre qui doit s'afficher.
+    const a = pickNext(state({ dueCount: 42, dailyGoal: 10 }));
+    expect(a.kind).toBe("review");
+    expect(a.title).toBe("Révisions (10 sur 42 dues)");
+  });
+
+  it("le bloc atteint l'objectif → on passe à la suite le jour même", () => {
+    const a = pickNext(
+      state({
+        dueCount: 32,
+        dailyGoal: 10,
+        reviewedToday: 10,
+        nextLesson: { id: "n5-02", title: "Compter", ready: true },
+      }),
+    );
+    expect(a.kind).toBe("lesson");
+  });
+
   it("alternance : lecture d'une histoire de la leçon juste après un bloc de révision", () => {
     const a = pickNext(
       state({ dueCount: 12, reviewedToday: 5, lastActivity: "review", currentLesson: lessonInProgress }),
@@ -165,9 +184,25 @@ describe("pickNext — le contrôle exige une leçon réellement travaillée", (
 });
 
 describe("previewFlow — prévisualisation de la carte d'accueil", () => {
-  it("annonce les révisions, puis une lecture", () => {
+  it("annonce les révisions jusqu'à l'objectif du jour, puis une lecture", () => {
+    // 34 dues mais un objectif de 20 : la phase de révision en demande 20, pas 34 —
+    // annoncer tout le retard promettait une session que le flux ne sert pas.
     const steps = previewFlow(state({ dueCount: 34, currentLesson: lessonInProgress }));
-    expect(steps.map((s) => s.label)).toEqual(["34 révisions", "une lecture"]);
+    // Les 14 dues restantes partent en renforcement, facultatif — pas dans la phase de
+    // révision, qui s'arrête à l'objectif.
+    expect(steps.map((s) => s.label)).toEqual([
+      "20 révisions",
+      "une lecture",
+      "un bloc de renforcement",
+    ]);
+  });
+
+  it("petit objectif : le retard ne gonfle pas l'annonce", () => {
+    const steps = previewFlow(
+      state({ dueCount: 42, dailyGoal: 10, currentLesson: lessonInProgress }),
+      2,
+    );
+    expect(steps.map((s) => s.label)).toEqual(["10 révisions", "une lecture"]);
   });
 
   it("objectif atteint : au plus 2 blocs de renforcement puis fin", () => {
