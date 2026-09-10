@@ -1,5 +1,5 @@
 // Section « Kanji du mot » : décomposition d'une surface en kanji. Rendue dans WordSheet,
-// VocabPeekSheet et la correction d'un exercice (WordFeedback). Sans `onOpenKanji` les
+// VocabPeekDetail et la correction d'un exercice (WordFeedback). Sans `onOpenKanji` les
 // rangées sont statiques : dans une carte d'exercice il n'y a pas de fiche à ouvrir, et
 // un bouton qui ne mène nulle part se tapote pour rien.
 

@@ -128,7 +128,8 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
   - icônes = **SVG du kit** (`kit/Icon.tsx`, trait 1.5, `currentColor`), jamais de glyphes
     unicode/emoji (⚙ ▶ ✕…) au rendu variable selon la plateforme.
 - **Listes (catalogue)** : lignes séparées par filets, libellés méta en petites capitales.
-- **Fiche kanji** (`ui/KanjiSheet.tsx`) — trois sections dans cet ordre, du geste au récit :
+- **Fiche kanji** (`ui/KanjiDetail.tsx`, dans une feuille `ui/RefSheet.tsx` où mot et kanji
+  s'empilent avec une rangée retour ; chaque mot lié en bas de fiche ouvre sa propre fiche) — trois sections dans cet ordre, du geste au récit :
   *Tracé* (`ui/KanjiStrokes.tsx`) où le caractère se dessine trait à trait (grille KanjiVG
   109×109, encre `--text` épaisse sur un fantôme `--stroke-ghost` plus fin — le trait posé
   doit trancher d'un coup d'œil ; ≈480 ms par trait et une levée de pinceau entre deux,

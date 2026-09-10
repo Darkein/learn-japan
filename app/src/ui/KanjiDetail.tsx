@@ -2,10 +2,10 @@
 // parties, et mots liés — d'abord ceux déjà travaillés (ancrage), puis des suggestions à
 // découvrir qu'on peut ajouter au SRS d'un tap. Purement référentiel : pas de SRS kanji.
 //
-// `KanjiDetail` est le contenu seul : WordSheet/VocabPeekSheet l'affichent dans
-// LEUR feuille (navigation mot → kanji avec retour, plus d'empilement de modales).
-// `KanjiSheet` l'enveloppe dans une BottomSheet pour l'ouverture directe
-// (inventaire du Catalogue).
+// Contenu seul, sans feuille : RefSheet/WordSheet l'affichent dans LEUR feuille, avec une
+// rangée retour (navigation mot → kanji → mot, plus d'empilement de modales). Chaque mot
+// lié est une rangée tapable qui ouvre sa fiche (`onOpenVocab`) ; « À revoir » reste un
+// bouton à part sur la même rangée.
 
 import { useEffect, useState } from "react";
 import { allVocab, type ItemStatus } from "../lib/db";
@@ -17,7 +17,6 @@ import { kanjiSpeechText } from "../lib/speech";
 import { speakWord, stopSentence } from "../lib/tts";
 import { addInventoryWordToReview } from "../lib/vocab";
 import { StatusTag } from "./CatalogueInventory";
-import { BottomSheet } from "./BottomSheet";
 import { KanjiParts } from "./KanjiParts";
 import { KanjiStrokes } from "./KanjiStrokes";
 import { Badge } from "./kit/Badge";
@@ -27,13 +26,23 @@ import { IconSpeaker } from "./kit/Icon";
 const SUGGESTIONS_COLLAPSED = 8;
 const SUGGESTIONS_EXPANDED = 30;
 
+// Rangée d'un mot lié : la partie tapable (mot, lecture, sens, niveau) est un bouton pleine
+// largeur ; l'action de droite (statut ou « À revoir ») est un frère, pas un enfant — un
+// bouton dans un bouton est invalide et le tap y serait ambigu.
+const WORD_ROW = "flex min-h-11 items-center gap-x-3 border-t border-hairline";
+const WORD_BTN =
+  "flex min-w-0 grow cursor-pointer flex-wrap items-baseline gap-x-3 gap-y-1 py-2 text-left transition-colors hover:text-accent";
+
 export function KanjiDetail({
   ch,
   excludeVocabId,
+  onOpenVocab,
 }: {
   ch: string;
   /** Id du mot d'où l'on vient : exclu des mots liés (sa fiche est déjà ouverte). */
   excludeVocabId?: string;
+  /** Tap sur un mot lié : ouvre sa fiche (avec le statut connu au moment du tap). */
+  onOpenVocab: (v: InvVocab, status: ItemStatus) => void;
 }) {
   const detail = kanjiDetail(ch);
   const [statuses, setStatuses] = useState<Map<string, ItemStatus> | null>(null);
@@ -142,13 +151,16 @@ export function KanjiDetail({
           <p className="m-0 text-xs uppercase tracking-wider text-muted">Déjà connus</p>
           <ul className="flex list-none flex-col border-b border-hairline">
             {known.map(({ word: v, status }) => (
-              <li
-                key={v.id}
-                className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-hairline py-2"
-              >
-                <span className="font-jp text-lg text-text">{v.ja}</span>
-                <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
-                <span className="grow font-sans text-sm text-text">{v.fr}</span>
+              <li key={v.id} className={WORD_ROW}>
+                <button
+                  className={WORD_BTN}
+                  onClick={() => onOpenVocab(v, status)}
+                  aria-label={`Ouvrir la fiche du mot ${v.ja}`}
+                >
+                  <span className="font-jp text-lg text-text">{v.ja}</span>
+                  <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
+                  <span className="grow font-sans text-sm text-text">{v.fr}</span>
+                </button>
                 <StatusTag status={status} />
               </li>
             ))}
@@ -161,16 +173,19 @@ export function KanjiDetail({
           <p className="m-0 text-xs uppercase tracking-wider text-muted">À découvrir</p>
           <ul className="flex list-none flex-col border-b border-hairline">
             {shown.map((v) => (
-              <li
-                key={v.id}
-                className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-hairline py-2"
-              >
-                <span className="font-jp text-lg text-text">{v.ja}</span>
-                <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
-                <span className="grow font-sans text-sm text-text">{v.fr}</span>
-                <Badge>N{v.level}</Badge>
+              <li key={v.id} className={WORD_ROW}>
                 <button
-                  className="cursor-pointer rounded-sm border border-hairline px-2 py-1 text-xs text-text transition-colors hover:border-accent"
+                  className={WORD_BTN}
+                  onClick={() => onOpenVocab(v, "unknown")}
+                  aria-label={`Ouvrir la fiche du mot ${v.ja}`}
+                >
+                  <span className="font-jp text-lg text-text">{v.ja}</span>
+                  <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
+                  <span className="grow font-sans text-sm text-text">{v.fr}</span>
+                  <Badge>N{v.level}</Badge>
+                </button>
+                <button
+                  className="shrink-0 cursor-pointer rounded-sm border border-hairline px-2 py-1 text-xs text-text transition-colors hover:border-accent"
                   onClick={() => void addToReview(v)}
                 >
                   À revoir
@@ -193,21 +208,5 @@ export function KanjiDetail({
         <p className="text-sm text-muted">Aucun mot de l'inventaire ne contient ce kanji.</p>
       )}
     </>
-  );
-}
-
-export function KanjiSheet({
-  ch,
-  excludeVocabId,
-  onClose,
-}: {
-  ch: string;
-  excludeVocabId?: string;
-  onClose: () => void;
-}) {
-  return (
-    <BottomSheet onClose={onClose} ariaLabel={`Fiche du kanji ${ch}`}>
-      <KanjiDetail ch={ch} excludeVocabId={excludeVocabId} />
-    </BottomSheet>
   );
 }
