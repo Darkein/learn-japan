@@ -7,7 +7,6 @@
 // Même FlowState → même activité, entre l'accueil et le checkpoint, et dans les tests.
 // Tout l'IO vit dans `gatherFlowState` (collecteur mince, non testé unitairement).
 
-import { SRS } from "./config";
 import {
   allStories,
   getMeta,
@@ -17,7 +16,7 @@ import {
 } from "./db";
 import { listLessons, type Lesson } from "./lessons";
 import { currentMirrorCandidate } from "./mirror";
-import { sessionStats } from "./reviewSession";
+import { reviewBlockSize, sessionStats } from "./reviewSession";
 import { loadSettings } from "./settings";
 
 export type FlowActivityKind =
@@ -102,11 +101,13 @@ export function pickNext(state: FlowState): FlowActivity {
     return readStory(s);
   }
   // Pas de garde anti-répétition ici : si rien d'autre à alterner, on enchaîne les blocs
-  // de révision (sessions plafonnées à 30) jusqu'à l'objectif — c'est le cœur du flux.
+  // de révision jusqu'à l'objectif — c'est le cœur du flux. Un bloc sert la dose qui reste
+  // à faire pour l'atteindre (cf. `reviewBlockSize`), pas tout le retard : c'est ce qui
+  // fait que le flux arrive aux étapes suivantes le jour même.
   if (s.dueCount > 0 && s.reviewedToday < s.dailyGoal) {
     return {
       kind: "review",
-      title: `Révisions (${s.dueCount} due${s.dueCount > 1 ? "s" : ""})`,
+      title: `Révisions (${blockLabel(s)})`,
       reason: "L'objectif du jour n'est pas encore atteint.",
     };
   }
@@ -155,7 +156,7 @@ export function pickNext(state: FlowState): FlowActivity {
   if (s.dueCount > 0 && (s.reinforceCountThisFlow ?? 0) < MAX_REINFORCE_PER_FLOW) {
     return {
       kind: "reinforce",
-      title: `Renforcement (${s.dueCount} restante${s.dueCount > 1 ? "s" : ""})`,
+      title: `Renforcement (${blockLabel(s)})`,
       reason: "Objectif atteint — consolide ce qui reste dû, si tu en as envie.",
     };
   }
@@ -164,6 +165,25 @@ export function pickNext(state: FlowState): FlowActivity {
     title: "Terminer pour aujourd'hui",
     reason: "Tout est fait pour aujourd'hui. La route t'attend demain.",
   };
+}
+
+/**
+ * Nombre de cartes que le PROCHAIN bloc va réellement servir : le bloc est dimensionné par
+ * l'objectif du jour (cf. `reviewBlockSize`), pas par le retard accumulé.
+ */
+function blockCards(s: FlowState): number {
+  return Math.min(s.dueCount, reviewBlockSize(s.dailyGoal, s.reviewedToday));
+}
+
+/**
+ * Libellé du bouton d'un bloc de révision. Annoncer le seul retard (« 42 dues ») donnait
+ * un chiffre que le bloc ne demandait pas — décourageant, et incohérent avec l'objectif
+ * réglé : on annonce la dose du bloc, et le retard derrière quand il en reste.
+ */
+function blockLabel(s: FlowState): string {
+  const n = blockCards(s);
+  if (n < s.dueCount) return `${n} sur ${s.dueCount} dues`;
+  return `${n} due${n > 1 ? "s" : ""}`;
 }
 
 // ---- Prévisualisation (carte d'accueil) ------------------------------------------
@@ -191,17 +211,18 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
     const a = pickNext(sim);
     if (a.kind === "done") break;
     switch (a.kind) {
-      case "review":
-        steps.push({
-          kind: a.kind,
-          label: `${sim.dueCount} révision${sim.dueCount > 1 ? "s" : ""}`,
-        });
+      case "review": {
+        // La phase de révision s'arrête à l'objectif du jour : c'est ce nombre-là qu'on
+        // annonce, pas tout le retard (le reste part en renforcement, ou attend demain).
+        const n = Math.min(sim.dueCount, Math.max(0, sim.dailyGoal - sim.reviewedToday));
+        steps.push({ kind: a.kind, label: `${n} révision${n > 1 ? "s" : ""}` });
         sim.reviewedToday = sim.dailyGoal;
-        sim.dueCount = 0;
+        sim.dueCount -= n;
         break;
+      }
       case "reinforce":
         steps.push({ kind: a.kind, label: "un bloc de renforcement" });
-        sim.dueCount -= Math.min(sim.dueCount, SRS.sessionCap);
+        sim.dueCount -= Math.min(sim.dueCount, reviewBlockSize(sim.dailyGoal, sim.reviewedToday));
         sim.reinforceCountThisFlow = (sim.reinforceCountThisFlow ?? 0) + 1;
         break;
       case "read-story":

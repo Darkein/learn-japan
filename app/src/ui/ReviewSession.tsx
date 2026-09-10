@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { SRS } from "../lib/config";
 import { daysBeforeGrade, TRACK_FR, type Exercise } from "../lib/exercise";
 import type { SrsGrade } from "../lib/srs";
 import { buildSession, gradeCard, sessionStats, silenceDeck, type SessionOpts } from "../lib/reviewSession";
@@ -25,13 +24,16 @@ export function ReviewSession({ opts, onExit }: Props) {
   const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
 
   useEffect(() => {
-    void buildSession(new Date(), opts ?? {}).then(setCards);
-    // Session plafonnée : indique combien d'éléments urgents attendront la suivante.
-    if ((opts?.scope ?? "due") === "due") {
-      void sessionStats().then((stats) =>
-        setBacklog(Math.max(0, stats.dueCount - SRS.sessionCap)),
-      );
-    }
+    void (async () => {
+      // Le retard est mesuré AVANT la construction : celle-ci crée les cartes des
+      // nouveautés du jour (dues sur-le-champ), qui gonfleraient le chiffre annoncé.
+      const due = (opts?.scope ?? "due") === "due" ? (await sessionStats()).dueCount : 0;
+      const deck = await buildSession(new Date(), opts ?? {});
+      setCards(deck);
+      // Bloc dimensionné par l'objectif du jour : indique combien d'éléments urgents
+      // attendront le bloc suivant.
+      setBacklog(Math.max(0, due - deck.length));
+    })();
   }, []);
 
   const card = cards && i < cards.length ? cards[i] : null;
@@ -101,8 +103,8 @@ export function ReviewSession({ opts, onExit }: Props) {
       </span>
       {backlog > 0 && (
         <p className="m-0 text-xs text-muted">
-          Session plafonnée aux {SRS.sessionCap} éléments les plus urgents — {backlog} autre
-          {backlog > 1 ? "s" : ""} attendront la prochaine.
+          Bloc calé sur ton objectif du jour, les plus urgents d'abord — {backlog} autre
+          {backlog > 1 ? "s" : ""} attendront le suivant.
         </p>
       )}
       {silentMinutes > 0 && (

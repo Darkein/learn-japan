@@ -5,7 +5,7 @@ import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, putMeta, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession, pickOralVariant, silenceDeck } from "./reviewSession";
+import { gradeCard, buildSession, pickOralVariant, reviewBlockSize, silenceDeck } from "./reviewSession";
 import { getCurriculumEntry } from "./curriculum";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -204,6 +204,44 @@ describe("buildSession", () => {
     }
     const result = await buildSession(NOW, { scope: "due" });
     expect(result.length).toBe(0);
+  });
+
+  it("un retard supérieur à l'objectif n'empêche plus les nouveautés (progression gelée)", async () => {
+    // Le cas signalé : 42 éléments dus, objectif du jour plus petit → l'ancienne règle
+    // (« pas de neuf tant que le dû remplit le bloc ») ne promouvait plus AUCUN objectif
+    // de la leçon commencée. Sans carte, ses items ne se stabilisaient jamais : contrôle
+    // jamais ouvert, leçon suivante jamais déverrouillée.
+    const lessonId = "n5-01-today-book";
+    const ids = getCurriculumEntry(lessonId)!.introduces.vocab.slice(0, 3);
+    await putLessonProgress({ id: lessonId, startedAt: Date.now() });
+    for (const id of ids) {
+      const [surface, reading] = id.split("|");
+      await putVocab({
+        id,
+        surface,
+        reading: reading ?? surface,
+        meaning: "test",
+        tags: [],
+        status: "unknown",
+        cards: {},
+      });
+    }
+    for (let i = 0; i < 42; i++) {
+      await putVocab({
+        id: `due|${i}`,
+        surface: `due${i}`,
+        reading: `due${i}`,
+        meaning: `m${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+      });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.some((c) => ids.includes(c.id))).toBe(true);
+    expect((await getSrsDaily(TODAY))?.introduced).toBeGreaterThan(0);
+    // Le retard avance quand même : la réserve de nouveautés n'occupe pas tout le bloc.
+    expect(session.some((c) => c.id.startsWith("due|"))).toBe(true);
   });
 
   it("scope:due : après promotion de 3 objectifs, getSrsDaily(today).introduced === 3", async () => {
@@ -489,7 +527,47 @@ describe("scope story (exercices du Lecteur)", () => {
   });
 });
 
-describe("plafond de session (sessionCap)", () => {
+describe("taille d'un bloc de révision (objectif du jour, plafond dur)", () => {
+  it("reviewBlockSize : ce qu'il reste pour atteindre l'objectif, puis un bloc plein", () => {
+    // Objectif de 10 : un bloc en sert 10, et 6 s'il en reste 6 à faire.
+    expect(reviewBlockSize(10, 0)).toBe(10);
+    expect(reviewBlockSize(10, 4)).toBe(6);
+    // Objectif atteint (bloc de renforcement du flux) → un bloc plein de plus.
+    expect(reviewBlockSize(10, 10)).toBe(10);
+    expect(reviewBlockSize(10, 25)).toBe(10);
+    // `sessionCap` reste le plafond dur, et un bloc n'est jamais vide.
+    expect(reviewBlockSize(200, 0)).toBe(SRS.sessionCap);
+    expect(reviewBlockSize(1, 0)).toBe(1);
+  });
+
+  it("un objectif de 10 sert 10 cartes, pas les 42 du retard", async () => {
+    const store = new Map<string, string>([["settings", JSON.stringify({ dailyGoal: 10 })]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      for (let i = 0; i < 42; i++) {
+        await putVocab({
+          id: `due|${i}`,
+          surface: `due${i}`,
+          reading: `due${i}`,
+          meaning: `m${i}`,
+          tags: [],
+          status: "review",
+          cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+        });
+      }
+      const session = await buildSession(NOW, { scope: "due" });
+      expect(session.length).toBe(10);
+      // Le plus urgent (échéance la plus ancienne) est dedans.
+      expect(session.some((c) => c.id === "due|0")).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("coupe aux items les plus urgents et n'ajoute pas de nouveauté", async () => {
     // sessionCap + 10 items dus, échéances étalées (les plus anciens = les plus urgents)
     for (let i = 0; i < SRS.sessionCap + 10; i++) {
@@ -516,7 +594,8 @@ describe("plafond de session (sessionCap)", () => {
       });
     }
     const session = await buildSession(NOW, { scope: "due" });
-    expect(session.length).toBe(SRS.sessionCap);
+    // Bloc dimensionné par l'objectif du jour (20 par défaut), pas par le retard.
+    expect(session.length).toBe(SRS.dailyGoal);
     // Les plus urgents (dates les plus anciennes) sont gardés
     expect(session.some((c) => c.id === "due|0")).toBe(true);
     expect(session.some((c) => c.id === `due|${SRS.sessionCap + 9}`)).toBe(false);

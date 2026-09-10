@@ -52,9 +52,10 @@ export const SRS = {
   newPerDay: 10,
   dailyGoal: 20,
   /**
-   * Taille maximale d'une session de révision. `dailyGoal` ne borne que les nouveautés :
-   * sans plafond, un backlog de quelques jours d'absence produit une session-fleuve
-   * décourageante. Les items les plus urgents passent d'abord, le reste attend.
+   * PLAFOND DUR d'une session de révision. La taille d'un bloc, elle, vient de l'objectif
+   * du jour (`dailyGoal`, cf. `reviewBlockSize`) : ce plafond ne sert plus qu'à borner un
+   * objectif très haut — sans lui, un backlog de quelques jours d'absence produirait une
+   * session-fleuve décourageante. Les items les plus urgents passent d'abord, le reste attend.
    */
   sessionCap: 30,
   /** Plafond du bilan de leçon (« Vérifier mes acquis », scope "all"). */
