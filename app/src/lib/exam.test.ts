@@ -391,6 +391,149 @@ describe("composeExam — le sujet", () => {
       if (q.exercise.mode === "choice") expect(q.exercise.choices).toHaveLength(EXAM.choices);
     }
   });
+
+  it("lecture : la consigne NOMME le mot, sinon c'est le vocabulaire qu'on interroge", () => {
+    const exam = composeExam(material(), 1);
+    const lecture = exam.sections.find((s) => s.id === "lecture")!;
+    for (const q of lecture.questions) {
+      const v = LESSON_WORDS.find((w) => w.id === q.exercise.id)!;
+      // 海 posé seul demande d'abord QUEL MOT ce kanji écrit ; nommé, il ne demande plus
+      // que sa lecture. La réponse attendue reste la lecture, jamais le sens.
+      expect(q.exercise.prompt).toBe(`Écris la lecture de « ${v.meaning} » en kana`);
+      if (q.exercise.mode === "type") expect(q.exercise.answers).toContain(v.reading);
+    }
+  });
+
+  it("lecture : la face avant montre la graphie principale, pas l'entrée de dico", () => {
+    const deuxGraphies = word("川; 河", "かわ", "rivière");
+    const exam = composeExam(
+      material({ vocab: [deuxGraphies], reviewVocab: [], pool: [deuxGraphies, ...OTHER_WORDS] }),
+      1,
+    );
+    const q = exam.sections
+      .find((s) => s.id === "lecture")!
+      .questions.find((q) => q.exercise.id === deuxGraphies.id)!;
+    expect(q.exercise.front).toBe("川");
+    // Les deux graphies restent en correction : l'énoncé maigrit, pas la fiche.
+    expect(q.exercise.back).toBe("川; 河（かわ）");
+  });
+
+  it("règle : l'énoncé montre la FORME seule, jamais la glose qui donne la réponse", () => {
+    const exam = composeExam(
+      material({
+        grammar: [
+          { id: "n5-aru", name: "ある (exister, inanimé)", rule: "", examples: [], tags: [], status: "review" },
+        ],
+      }),
+      1,
+    );
+    const q = exam.sections.find((s) => s.id === "regle")!.questions[0].exercise;
+    expect(q.front).toBe("ある");
+    // La bonne réponse reste la règle du référentiel — c'est l'énoncé qui a maigri.
+    if (q.mode === "choice") expect(q.choices[q.answerIndex]).toMatch(/inanimés/);
+  });
+
+  it("règle : les homonymes ne sont pas leurres l'un de l'autre (trois に au référentiel)", () => {
+    const exam = composeExam(
+      material({
+        grammar: [
+          { id: "n5-ni-time", name: "に (moment)", rule: "", examples: [], tags: [], status: "review" },
+        ],
+      }),
+      1,
+    );
+    const q = exam.sections.find((s) => s.id === "regle")!.questions[0].exercise;
+    expect(q.front).toBe("に");
+    // « に (destination) » et « に (lieu statique) » répondraient aussi à « quel est le rôle
+    // de に ? » : servies comme leurres, elles feraient un QCM à trois bonnes réponses.
+    if (q.mode === "choice") {
+      expect(q.choices.filter((c) => /destination|lieu d'existence/.test(c))).toHaveLength(0);
+    }
+  });
+
+  it("le cours ne redemande pas ce que la règle vient de demander", () => {
+    const exam = composeExam(
+      material({
+        lessonQcm: [
+          {
+            question: "Que marque la particule は ?",
+            options: [
+              "Particule de thème : « quant à… », qui pose le décor.",
+              "Le lieu de l'action.",
+              "Le moyen employé.",
+              "La destination du mouvement.",
+            ],
+            answerIndex: 0,
+            targetGrammarId: "n5-wa-topic",
+          },
+          {
+            question: "Pourquoi は tombe-t-il souvent à l'oral ?",
+            options: [
+              "Parce que le thème est déjà connu des deux interlocuteurs.",
+              "Parce que le verbe le remplace.",
+              "Parce qu'il est interdit après un nom.",
+              "Parce que la phrase deviendrait polie.",
+            ],
+            answerIndex: 0,
+            targetGrammarId: "n5-wa-topic",
+          },
+        ],
+      }),
+      1,
+    );
+    const cours = exam.sections.find((s) => s.id === "cours");
+    // La première question redit la règle de « は (thème) », déjà posée en exercice 5.
+    expect(cours!.questions.map((q) => q.exercise.prompt)).toEqual([
+      "Pourquoi は tombe-t-il souvent à l'oral ?",
+    ]);
+  });
+
+  it("écarte une question du Worker dont l'énoncé porte déjà la réponse", () => {
+    const exam = composeExam(
+      material({
+        comprehension: {
+          text: "猫は水を飲む。",
+          questions: [
+            {
+              question: "Le chat boit-il de l'eau dans la cuisine ?",
+              options: [
+                "Oui, le chat boit de l'eau dans la cuisine.",
+                "Non, il dort.",
+                "Non, il sort.",
+                "Non, il mange.",
+              ],
+              answerIndex: 0,
+            },
+            {
+              question: "Où va le chat ensuite ?",
+              options: ["Dans le jardin.", "À la gare.", "Au magasin.", "Sur la route."],
+              answerIndex: 0,
+            },
+          ],
+        },
+      }),
+      1,
+    );
+    const compr = exam.sections.find((s) => s.id === "comprehension");
+    expect(compr!.questions.map((q) => q.exercise.prompt)).toEqual(["Où va le chat ensuite ?"]);
+  });
+
+  it("section entièrement écartée : le barème est ramené, jamais compté faux", () => {
+    const doublon = {
+      question: "Que marque la particule は ?",
+      options: [
+        "Particule de thème : « quant à… », qui pose le décor.",
+        "Le lieu de l'action.",
+        "Le moyen employé.",
+        "La destination du mouvement.",
+      ],
+      answerIndex: 0,
+      targetGrammarId: "n5-wa-topic",
+    };
+    const exam = composeExam(material({ lessonQcm: [doublon] }), 1);
+    expect(exam.sections.some((s) => s.id === "cours")).toBe(false);
+    expect(exam.skipped.find((s) => s.id === "cours")?.reason).toMatch(/redondantes/);
+  });
 });
 
 describe("verdictFor — la correction", () => {

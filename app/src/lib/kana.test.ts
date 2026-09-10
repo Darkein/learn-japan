@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerVariants, hasKanji, isKanji, kataToHira, splitEntryForms } from "./kana";
+import { answerVariants, hasKanji, isKanji, kataToHira, primaryForm, splitEntryForms } from "./kana";
 
 describe("kana", () => {
   it("convertit katakana → hiragana", () => {
@@ -17,6 +17,19 @@ describe("kana", () => {
     expect(isKanji("い")).toBe(false);
     expect(hasKanji("暑い")).toBe(true);
     expect(hasKanji("です")).toBe(false);
+  });
+
+  describe("primaryForm", () => {
+    it("ne garde que la graphie principale d'une entrée de dico", () => {
+      expect(primaryForm("川; 河")).toBe("川");
+      expect(primaryForm("足; 脚")).toBe("足");
+      expect(primaryForm("べんきょう (する)")).toBe("べんきょう");
+      expect(primaryForm("～円")).toBe("円");
+    });
+
+    it("laisse intacte une entrée déjà simple", () => {
+      expect(primaryForm("猫")).toBe("猫");
+    });
   });
 
   describe("splitEntryForms", () => {

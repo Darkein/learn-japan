@@ -106,8 +106,26 @@ pas un intervalle : lisible et affichable. Un échec ou un « Difficile » le re
 **élément difficile** (leech) repasse au QCM même au-dessus du seuil.
 
 Les distracteurs d'un QCM sont tirés sur **la même face que la réponse** (des graphies contre une
-graphie, des sens contre un sens), en préférant le même niveau JLPT. Sans trois distracteurs
-plausibles, une cible « furigana » bascule en saisie plutôt que de servir un QCM devinable.
+graphie, des sens contre un sens), puis rangés du plus au moins **confondable** — car une option
+qu'on élimine sans lire n'est pas une option :
+
+1. **même okurigana** — le critère qui décide. « ふる → 降る / 夏休み / 少し / 対策 » se cochait sans
+   lire un seul kanji, puisque seule la bonne réponse finit par る. L'okurigana est écrit des deux
+   côtés de la carte, on l'aligne donc dans les deux sens : demander la **graphie**, c'est exiger
+   des options finissant par le même kana ; demander la **lecture**, c'est exiger des lectures
+   finissant par l'okurigana affiché. Sur une graphie sans okurigana (対策), la contrainte s'inverse ;
+2. **même niveau JLPT** — un mot trop éloigné du niveau s'élimine tout seul ;
+3. **longueur comparable** — une option deux fois plus longue que les autres se repère de loin.
+
+C'est un **rangement, pas un filtre** : quand le vivier est pauvre, les rangs du bas complètent.
+Sans trois distracteurs plausibles, une cible « furigana » bascule en saisie plutôt que de servir
+un QCM devinable.
+
+Un QCM de grammaire montre la **forme seule** du point interrogé (`grammarForm`) : le référentiel
+nomme ses entrées avec leur traduction (« ある (exister, inanimé) »), et cette glose EST la réponse
+quand on demande le rôle du point. Les **homonymes** sont alors exclus des leurres — le référentiel
+porte trois に, deux で, deux と : servir la règle d'un homonyme donnerait un QCM à deux réponses
+vraies dont une seule compte.
 
 ### 2.3 Algorithme SRS
 **FSRS** (lib `ts-fsrs`), pas SM-2 : meilleure rétention pour moins de révisions. Chaque élément a
@@ -151,6 +169,9 @@ d'accueil par défaut (onglet **Apprendre**). Chaque entrée du curriculum décr
   vocab. La structure vient toujours de l'inventaire : une leçon non générée n'est donc jamais
   vide, seule la leçon rédigée manque. Celle-ci enseigne et démontre — elle ne redresse pas la
   liste brute du vocabulaire (déjà affichée à côté).
+  Ce **détail structuré est servi partout où la leçon se lit** : sa page ET le bloc « Leçon » du
+  flux d'étude. Le flux n'affichait que la leçon rédigée — on y découvrait les mots dans les
+  exercices sans les avoir jamais vus posés.
   **Longueur adaptative** : la consigne de génération borne la longueur selon la position dans le
   parcours (les leçons 1–5 restent volontairement courtes et rassurantes pour un débutant absolu)
   et selon le nombre de points de grammaire enseignés — jamais de « mur de texte » en ouverture.
@@ -282,8 +303,10 @@ du Tōkaidō — Hakone, Arai, Fukushima —, où l'on ne passait qu'après cont
 2. **Aucune auto-notation** — les boutons *Difficile / Bien / Facile* disparaissent : c'est
    l'app qui note, pas l'élève.
 3. **Béquilles coupées** — la saisie remplace le QCM partout où c'est possible, pas de
-   furigana ni de gloss, pas de traduction à la demande, écoutes comptées (2 en dictée),
-   pas d'échappatoire « Afficher le texte ».
+   furigana, pas de traduction à la demande, écoutes comptées (2 en dictée), pas
+   d'échappatoire « Afficher le texte ». Une seule glose subsiste, et c'est l'exercice de
+   **lecture** qui la porte (voir le tableau ci-dessous) : elle NOMME le mot à lire au lieu
+   de l'affaiblir.
 4. **Un barème, une note /20, une mention, une copie corrigée** (ta réponse / la réponse
    attendue / les points, exercice par exercice).
 
@@ -296,10 +319,10 @@ correction, cours) — l'autre sur la restitution :
 | # | Exercice | Ce qu'il vérifie | Barème |
 |---|---|---|---|
 | 1 | **Dictée** | phrase jouée, reconstruction par tuiles, 2 écoutes | 3 |
-| 2 | **Lecture** | graphie en kanji → lecture en kana, **en saisie** | 3 × 1 |
+| 2 | **Lecture** | graphie en kanji → lecture en kana, **en saisie**, le mot nommé par son sens | 3 × 1 |
 | 3 | **Version** (JA → FR) | QCM de sens, distracteurs de même niveau JLPT | 2 × 1 |
 | 4 | **Thème** (FR → JA) | production en saisie, sans options | 2 × 1 |
-| 5 | **Règle** | « quel est le rôle de を ? », parmi des règles voisines | 1 × 2 |
+| 5 | **Règle** | « quel est le rôle de を ? » — la **forme seule**, parmi des règles voisines | 1 × 2 |
 | 6 | **Emploi** | la particule enseignée retirée d'une phrase (« 本＿読む ») | 1 × 2 |
 | 7 | **Correction** | quatre phrases, **une seule correcte** — la faute à voir | 1 × 2 |
 | 8 | **Le cours** | QCM FR : ce que la forme marque, quand elle tombe, le piège | 2 × 1 |
@@ -309,6 +332,25 @@ Les exercices 1 à 7 sont **déterministes** (inventaire + cartes SRS) ; seuls l
 derniers passent par le Worker (`kind: "exam-lesson-qcm"` et `"exam-text"`). Une section sans
 matière — hors-ligne, écoute en pause, leçon sans grammaire — est **retirée du sujet et du
 barème** : la note reste ramenée sur 20, jamais une section comptée fausse.
+
+**Deux questions qu'un sujet ne doit jamais poser** (`lib/examQuality.ts`), parce qu'elles
+mesurent autre chose que ce qu'elles prétendent :
+- la **réponse dans l'énoncé**. Le cas d'école est le nom d'un point de grammaire, glosé en
+  français au référentiel : « ある (exister, inanimé) : quel est son rôle ? » avec « Existence
+  d'objets inanimés » à cocher. La cause est traitée à la racine — l'énoncé ne montre que la
+  **forme** (`grammarForm`) —, et un filet attrape le reste, y compris ce que produit le Worker ;
+- **deux fois la même question**. La section « Règle » demande le rôle de を, et le QCM de cours
+  le redemande trois questions plus loin sous d'autres mots. Les questions françaises du sujet
+  sont donc comparées entre elles — sur leur énoncé ET sur leur bonne réponse, réduits en
+  radicaux, deux formulations d'une même chose se reconnaissant — et la reformulation tombe. Le
+  filtre passe **avant** le plafond d'une section : trois questions dont deux se répètent en
+  rendent une, pas deux. Une section vidée est retirée du barème comme une section sans matière.
+
+L'exercice de **lecture** nomme le mot qu'il fait lire (« Écris la lecture de « mer » en kana »
+sous 海) pour la raison symétrique : 海 posé seul demande d'abord QUEL MOT ce kanji écrit, et la
+faute comptée est alors une faute de vocabulaire — répondre いけ, c'est avoir lu 池. Le sens est
+déjà interrogé pour lui-même en version et en thème, et un mot ne passe qu'une fois dans le
+sujet : le nommer ici ne donne la réponse d'aucune autre question.
 
 **Deux garde-fous pédagogiques**, parce qu'un contrôle ne doit jamais enseigner un faux :
 - les fautes de l'exercice 7 sont **fabriquées et indiscutables** (deux particules échangées,

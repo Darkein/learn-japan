@@ -93,6 +93,18 @@ export function splitEntryForms(entry: string): string[] {
 }
 
 /**
+ * Graphie (ou lecture) PRINCIPALE d'une entrée du dico : la première de ses formes
+ * alternatives, marqueurs d'affichage retirés — « 川; 河 » → « 川 », « ～円 » → « 円 »,
+ * « べんきょう (する) » → « べんきょう ». C'est ce qu'un énoncé doit MONTRER : « 川; 河 » posé
+ * en question demande deux mots là où il n'y en a qu'un, et se lit comme une coquille.
+ * Les autres formes restent acceptées en réponse (cf. `answerVariants`) et affichées en
+ * correction : les retirer serait un appauvrissement, les montrer dans l'énoncé, un bruit.
+ */
+export function primaryForm(entry: string): string {
+  return splitEntryForms(entry)[0] ?? entry;
+}
+
+/**
  * Développe une entrée du dico en toutes les réponses acceptables pour un exercice de
  * saisie : mêmes découpages que `splitEntryForms`, mais chaque forme est passée à
  * `normalizeReading` (katakana → hiragana) pour comparer une saisie de l'apprenant.

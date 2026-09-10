@@ -37,9 +37,10 @@ import {
 import { getCurriculum } from "./curriculum";
 import { gradeExercise, type Exercise, type ExerciseTrack } from "./exercise";
 import { neighborRules, sentenceSpeechText, wordBackText } from "./exerciseBuild";
+import { keepDistinct, type QuestionSignature } from "./examQuality";
 import type { ComprehensionQuestion } from "./genClient";
-import { grammarDetail } from "./inventory";
-import { answerVariants, normalizeReading } from "./kana";
+import { grammarDetail, grammarForm } from "./inventory";
+import { answerVariants, normalizeReading, primaryForm } from "./kana";
 import { wordSpeechText } from "./speech";
 import { addTokaidoBonus } from "./tokaido";
 import type { KuromojiToken } from "./tokenizer";
@@ -449,8 +450,19 @@ function dicteeQuestion(s: ExamSentence): ExamQuestion | null {
   };
 }
 
-/** Exercice 2 — lecture : graphie en kanji → lecture en kana, en SAISIE (jamais un QCM). */
+/**
+ * Exercice 2 — lecture : graphie en kanji → lecture en kana, en SAISIE (jamais un QCM).
+ *
+ * La consigne NOMME le mot par son sens français quand on le connaît — « Écris la lecture
+ * de « mer » en kana » sous 海. C'est la seule glose du sujet, et elle ne se contredit pas
+ * avec les béquilles coupées (SPEC §5b) : sans elle, 海 posé seul demande d'abord QUEL MOT
+ * ce kanji écrit, et la faute qu'on compte est une faute de vocabulaire (répondre いけ,
+ * c'est avoir lu 池) — pas une faute de lecture. Le sens est déjà interrogé pour lui-même
+ * en version et en thème, et un mot ne passe qu'une fois dans le sujet : le nommer ici ne
+ * donne la réponse d'aucune autre question.
+ */
 function lectureQuestion(v: VocabItem): ExamQuestion {
+  const fr = faceText(v, "fr");
   return {
     key: `exam-lecture:${v.id}`,
     section: "lecture",
@@ -461,8 +473,9 @@ function lectureQuestion(v: VocabItem): ExamQuestion {
       track: "vocab",
       skill: "written",
       id: v.id,
-      front: v.surface,
-      prompt: "Écris la lecture en kana",
+      // La graphie principale : « 川; 河 » est une entrée de dictionnaire, pas un énoncé.
+      front: faceText(v, "kanji") ?? primaryForm(v.surface),
+      prompt: fr ? `Écris la lecture de « ${fr} » en kana` : "Écris la lecture en kana",
       back: wordBackText(v.surface, v.reading),
       ...(hasMeaning(v) ? { meaning: v.meaning } : {}),
       word: { id: v.id, surface: v.surface, reading: v.reading },
@@ -558,7 +571,9 @@ function regleQuestion(g: GrammarItem, rng: () => number): ExamQuestion | null {
       key: `exam-regle:${g.id}`,
       track: "grammar",
       id: g.id,
-      front: detail?.name ?? g.name,
+      // La FORME SEULE, sans la glose du référentiel : « ある (exister, inanimé) » donnait
+      // « Existence d'objets inanimés » à cocher sans rien savoir (cf. grammarForm).
+      front: grammarForm(detail?.name ?? g.name),
       prompt: "Quel est le rôle de ce point de grammaire ?",
       back: rule,
       choices,
@@ -730,9 +745,8 @@ function llmQuestions(
   questions: ComprehensionQuestion[],
   section: ExamSectionId,
   points: number,
-  max: number,
 ): ExamQuestion[] {
-  return questions.slice(0, max).map((q, i) => ({
+  return questions.map((q, i) => ({
     key: `exam-${section}:${i}`,
     section,
     points,
@@ -750,6 +764,18 @@ function llmQuestions(
       answerIndex: q.answerIndex,
     },
   }));
+}
+
+/**
+ * Ce qu'une question DIT, pour la comparer aux autres (lib/examQuality.ts) : son énoncé tel
+ * qu'il se lit (face avant + consigne) et sa bonne réponse. Les options ne comptent pas —
+ * ce sont les candidates, pas la question.
+ */
+function examSignature(q: ExamQuestion): QuestionSignature {
+  return {
+    prompt: `${q.exercise.front} ${q.exercise.prompt ?? ""}`,
+    answer: expectedText(q),
+  };
 }
 
 function section(id: ExamSectionId, questions: ExamQuestion[], preamble?: string): ExamSection {
@@ -845,11 +871,19 @@ export function composeExam(m: ExamMaterial, attempt: number): Exam {
   else skipped.push({ id: "theme", reason: "aucun mot au sens exploitable disponible" });
 
   // 5. Règle — garantie dès qu'un point de grammaire est enseigné.
-  const regle = regleSource
+  // Les questions FRANÇAISES du sujet passent toutes par le même filtre de qualité
+  // (lib/examQuality.ts) : jamais la réponse dans l'énoncé, jamais deux fois la même
+  // question. `asked` accumule celles qu'on garde — les QCM du Worker (8 et 9) sont
+  // confrontés à cette section, qui est posée d'abord parce qu'elle est déterministe.
+  const asked: QuestionSignature[] = [];
+  const regleCandidates = regleSource
     .map((g) => regleQuestion(g, rng))
-    .filter((q): q is ExamQuestion => q !== null)
-    .slice(0, EXAM.counts.regle);
+    .filter((q): q is ExamQuestion => q !== null);
+  const regle = keepDistinct(regleCandidates, examSignature, asked).slice(0, EXAM.counts.regle);
+  asked.push(...regle.map(examSignature));
   if (regle.length > 0) sections.push(section("regle", regle));
+  else if (regleCandidates.length > 0)
+    skipped.push({ id: "regle", reason: "la règle enseignée se lit déjà dans l'énoncé" });
   else skipped.push({ id: "regle", reason: "la leçon n'introduit aucun point de grammaire" });
 
   // 6. Emploi — la règle en situation (cloze de particule).
@@ -861,23 +895,28 @@ export function composeExam(m: ExamMaterial, attempt: number): Exam {
   else skipped.push({ id: "correction", reason: "aucune phrase ne permet de fabriquer des fautes sûres" });
 
   // 8. Le cours — QCM du Worker sur ce que la leçon enseigne (rôle, ellipse, pièges).
-  const cours = m.lessonQcm
-    ? llmQuestions(m.lessonQcm, "cours", EXAM.points.cours, EXAM.counts.cours)
-    : [];
+  // Le filtre passe AVANT le plafond de la section : trois questions dont deux se répètent
+  // doivent en rendre une, pas deux dont l'une est un doublon.
+  const coursCandidates = m.lessonQcm ? llmQuestions(m.lessonQcm, "cours", EXAM.points.cours) : [];
+  const cours = keepDistinct(coursCandidates, examSignature, asked).slice(0, EXAM.counts.cours);
+  asked.push(...cours.map(examSignature));
   if (cours.length > 0) sections.push(section("cours", cours));
+  else if (coursCandidates.length > 0)
+    skipped.push({ id: "cours", reason: "questions de cours redondantes avec le reste du sujet" });
   else skipped.push({ id: "cours", reason: "questions de cours indisponibles (hors-ligne ?)" });
 
   // 9. Compréhension d'un texte inédit — l'autre section qui dépend du Worker.
-  const comprehension = m.comprehension
-    ? llmQuestions(
-        m.comprehension.questions,
-        "comprehension",
-        EXAM.points.comprehension,
-        EXAM.counts.comprehension,
-      )
+  const comprehensionCandidates = m.comprehension
+    ? llmQuestions(m.comprehension.questions, "comprehension", EXAM.points.comprehension)
     : [];
+  const comprehension = keepDistinct(comprehensionCandidates, examSignature, asked).slice(
+    0,
+    EXAM.counts.comprehension,
+  );
   if (comprehension.length > 0) {
     sections.push(section("comprehension", comprehension, m.comprehension!.text));
+  } else if (comprehensionCandidates.length > 0) {
+    skipped.push({ id: "comprehension", reason: "questions de compréhension redondantes ou dont l'énoncé donne la réponse" });
   } else {
     skipped.push({ id: "comprehension", reason: "texte de compréhension indisponible (hors-ligne ?)" });
   }

@@ -9,8 +9,8 @@ import { toTiles, shuffleTiles } from "./builder";
 import type { GrammarItem, VocabItem } from "./db";
 import type { ChoiceExercise, BuildExercise, Exercise, TypeExercise } from "./exercise";
 import { grammarLessonOrder } from "./curriculum";
-import { allGrammarInv, grammarDetail } from "./inventory";
-import { answerVariants, hasKanji, normalizeReading } from "./kana";
+import { allGrammarInv, grammarDetail, grammarForm } from "./inventory";
+import { answerVariants, hasKanji, isKana, normalizeReading } from "./kana";
 import { shuffle } from "./random";
 import { wordSpeechText } from "./speech";
 import { tokenize, type KuromojiToken } from "./tokenizer";
@@ -45,11 +45,43 @@ function frTwins(pool: VocabItem[], v: VocabItem): VocabItem[] {
   return pool.filter((p) => p.id !== v.id && faceText(p, "fr") === fr);
 }
 
+/** Queue en kana d'une graphie — son okurigana : « 降る » → « る », « 夏休み » → « み »,
+ *  « 対策 » → « » (rien). */
+function kanaTail(surface: string): string {
+  let i = surface.length;
+  while (i > 0 && isKana(surface[i - 1])) i--;
+  return surface.slice(i);
+}
+
+/**
+ * Un distracteur PLAUSIBLE partage l'okurigana de la réponse. C'est le défaut le plus
+ * visible d'un QCM de graphie : « ふる → 降る / 夏休み / 少し / 対策 » se coche sans lire un
+ * seul kanji, puisque seule une option finit par る. L'okurigana est écrit des deux côtés
+ * de la carte — dans la graphie ET dans la lecture —, il faut donc l'aligner dans les deux
+ * sens : quand on demande la GRAPHIE, les options doivent finir par le même kana ; quand on
+ * demande la LECTURE, elles doivent finir par l'okurigana de la graphie affichée.
+ * Sur une graphie sans okurigana (対策) la contrainte s'inverse : ce sont les options SANS
+ * queue en kana qui sont plausibles.
+ */
+function sharesOkurigana(text: string, tail: string, face: Face): boolean {
+  if (face === "kanji") return kanaTail(text) === tail;
+  return tail === "" || text.endsWith(tail);
+}
+
+/** Écart de longueur toléré avant qu'une option ne se repère à sa seule taille. */
+const LENGTH_SLACK = 1;
+
 /**
  * Distracteurs tirés sur LA MÊME face que la réponse : des graphies contre une graphie,
  * des lectures contre une lecture, des sens contre un sens. Un QCM qui mélange les
- * registres se résout sans connaître le mot. Les items du même niveau JLPT passent
- * d'abord : un distracteur trop éloigné du niveau s'élimine tout seul.
+ * registres se résout sans connaître le mot.
+ *
+ * Les candidats sont rangés du plus au moins CONFONDABLE, et l'on prend dans l'ordre :
+ * même okurigana d'abord (`sharesOkurigana` — le critère qui décide, cf. son commentaire),
+ * puis même niveau JLPT (un mot trop éloigné du niveau s'élimine tout seul), puis longueur
+ * comparable (une option deux fois plus longue que les autres se repère de loin). Un rangement,
+ * pas un filtre : quand le vivier est pauvre, les rangs du bas complètent plutôt que de
+ * rendre un QCM à deux options.
  * `excluded` écarte les mots dont la réponse serait AUSSI juste que la bonne (jumeaux de
  * sens, quand la question part de la face française).
  */
@@ -61,8 +93,13 @@ function faceDistractors(
   excluded: Set<string> = new Set(),
 ): string[] {
   const seen = new Set<string>([answer]);
-  const same: string[] = [];
-  const other: string[] = [];
+  // Le critère n'a de sens que sur les faces écrites en japonais, et pour un mot qui PORTE
+  // une graphie : sans face kanji, il n'y a pas d'okurigana dont parler (ni, sur la face
+  // française, de quoi le lire).
+  const surface = face === "fr" ? null : faceText(v, "kanji");
+  const tail = surface === null ? null : kanaTail(surface);
+  // Du rang 0 (le plus confondable) au rang 7 — trois critères, l'okurigana dominant.
+  const ranks: string[][] = Array.from({ length: 8 }, () => []);
   for (const p of pool) {
     if (p.id === v.id || excluded.has(p.id)) continue;
     // Un mot qu'on ne révisera jamais (nom d'un personnage d'histoire, mot kana sans sens)
@@ -71,9 +108,13 @@ function faceDistractors(
     const text = faceText(p, face);
     if (!text || seen.has(text)) continue;
     seen.add(text);
-    (p.jlpt !== undefined && p.jlpt === v.jlpt ? same : other).push(text);
+    const rank =
+      (tail !== null && !sharesOkurigana(text, tail, face) ? 4 : 0) +
+      (p.jlpt !== undefined && p.jlpt === v.jlpt ? 0 : 2) +
+      (Math.abs(text.length - answer.length) <= LENGTH_SLACK ? 0 : 1);
+    ranks[rank].push(text);
   }
-  return [...shuffle(same), ...shuffle(other)].slice(0, CHOICES);
+  return ranks.flatMap((r) => shuffle(r)).slice(0, CHOICES);
 }
 
 /**
@@ -512,9 +553,17 @@ const RULE_NEIGHBORS = 8;
  * thème/moment d'apprentissage sont confondables, une règle sans rapport rend le QCM
  * trivial par élimination. Renvoyé NON mélangé : l'appelant décide de son tirage (la
  * révision mélange librement, le contrôle mélange sous PRNG seedé — cf. lib/exam.ts).
+ *
+ * Les HOMONYMES sont exclus. La question montre la forme seule (`grammarForm` : « に », et
+ * non « に (destination) », qui dirait la réponse) — or le référentiel porte trois に, deux
+ * で, deux と… Servir la règle d'un homonyme comme leurre donnerait un QCM à deux réponses
+ * vraies, où seule celle qu'on avait en tête compte : un piège, pas une question.
  */
 export function neighborRules(excludeId: string): string[] {
-  const pool = allGrammarInv().filter((g) => g.id !== excludeId);
+  const form = grammarForm(grammarDetail(excludeId)?.name ?? "");
+  const pool = allGrammarInv().filter(
+    (g) => g.id !== excludeId && !(form && grammarForm(g.name) === form),
+  );
   const order = grammarLessonOrder();
   const target = order.get(excludeId);
   const candidates =
@@ -567,8 +616,10 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
     track: "grammar",
     id: g.id,
     // Le point de grammaire est la face avant (rendu en grand) ; la question passe en
-    // consigne, comme pour les cartes du triangle.
-    front: g.name,
+    // consigne, comme pour les cartes du triangle. Sa FORME SEULE : le nom du référentiel
+    // porte sa traduction (« ある (exister, inanimé) ») et cette glose est la réponse —
+    // la carte se cocherait sans rien savoir (cf. grammarForm, lib/inventory.ts).
+    front: grammarForm(detail?.name ?? g.name),
     prompt: "Que signifie ce point de grammaire ?",
     back: rule,
     choices,
