@@ -3,7 +3,7 @@
 // réécrivent qu'eux, sans toucher la donnée curée). Clés : caractère (kanji) /
 // `surface|lecture` (mot).
 //
-// Chargés en import DYNAMIQUE (≈ 660 Ko de JSON) : seuls WordSheet/KanjiSheet en ont
+// Chargés en import DYNAMIQUE (≈ 660 Ko de JSON) : seuls WordSheet/KanjiDetail en ont
 // besoin, et les garder hors du bundle principal le maintient sous la limite de
 // precache Workbox (2 Mio). Les chunks restent precachés → dispo hors-ligne.
 // `import()` est mémoïsé par le runtime : pas de cache manuel nécessaire.

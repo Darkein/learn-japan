@@ -11,7 +11,7 @@ import type { Mnemonic } from "../lib/genParsers";
 import type { KuromojiToken } from "../lib/tokenizer";
 import { BottomSheet } from "./BottomSheet";
 import { KanjiBreakdown } from "./KanjiBreakdown";
-import { KanjiDetail } from "./KanjiSheet";
+import { BackRow, refAria, refLabel, RefStackView, useRefStack } from "./RefSheet";
 import { Emphasis } from "./kit/Emphasis";
 import { IconSpeaker } from "./kit/Icon";
 
@@ -72,7 +72,8 @@ export function WordSheet({
   const content = isContent(token);
   const [mnemonic, setMnemonic] = useState<Mnemonic | undefined>(undefined);
   const [encounter, setEncounter] = useState<ReEncounter | null>(null);
-  const [kanjiOpen, setKanjiOpen] = useState<string | null>(null);
+  // Pile référentielle empilée sur la vue du token : kanji du mot → mot lié → kanji…
+  const nav = useRefStack();
 
   // Mnémo mot (corpus statique, chargé paresseusement — lib/mnemonics.ts) : l'id du token
   // (`basic_form|lecture`) coïncide avec l'id inventaire (`surface|lecture`) pour les mots
@@ -104,23 +105,26 @@ export function WordSheet({
     };
   }, [token, content]);
 
-  // La fiche kanji remplace la vue mot DANS la même feuille (rangée retour en tête) :
-  // plus d'empilement de modales.
+  // Les fiches kanji / mot liés remplacent la vue mot DANS la même feuille (rangée retour
+  // en tête) : plus d'empilement de modales.
   return (
     <BottomSheet
       onClose={onClose}
-      resetKey={kanjiOpen}
-      ariaLabel={kanjiOpen ? `Fiche du kanji ${kanjiOpen}` : `Fiche du mot ${token.surface_form}`}
+      resetKey={nav.key}
+      ariaLabel={nav.top ? refAria(nav.top) : `Fiche du mot ${token.surface_form}`}
     >
-      {kanjiOpen ? (
+      {nav.top ? (
         <>
-          <button
-            className="flex min-h-11 cursor-pointer items-center gap-2 self-start text-sm text-muted transition-colors hover:text-text"
-            onClick={() => setKanjiOpen(null)}
-          >
-            ← Retour à <span className="font-jp text-text">{token.surface_form}</span>
-          </button>
-          <KanjiDetail ch={kanjiOpen} excludeVocabId={itemIdFor(token)} />
+          <BackRow
+            label={nav.below ? refLabel(nav.below) : token.surface_form}
+            onClick={nav.back}
+          />
+          <RefStackView
+            view={nav.top}
+            below={nav.below}
+            rootVocabId={itemIdFor(token)}
+            onPush={nav.push}
+          />
         </>
       ) : (
         <>
@@ -178,7 +182,7 @@ export function WordSheet({
       <KanjiBreakdown
         surface={token.basic_form || token.surface_form}
         reading={reading}
-        onOpenKanji={setKanjiOpen}
+        onOpenKanji={(ch) => nav.push({ kind: "kanji", ch })}
       />
 
       {content ? (

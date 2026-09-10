@@ -16,10 +16,9 @@ import { LoadingScreen } from "./kit/LoadingScreen";
 import { SegmentedControl } from "./kit/SegmentedControl";
 import { InventoryRows } from "./CatalogueInventory";
 import { KanaChart } from "./KanaChart";
-import { KanjiSheet } from "./KanjiSheet";
 import { LessonList } from "./LessonList";
+import { RefSheet } from "./RefSheet";
 import { useGenJobs } from "./useGenJobs";
-import { VocabPeekSheet } from "./VocabPeekSheet";
 
 type Section = "lessons" | "kana" | "kanji" | "vocab" | "grammar";
 
@@ -154,11 +153,10 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
       )}
 
       {/* À la fermeture des fiches, refresh() : des mots ont pu être ajoutés « à revoir »
-          depuis la vue kanji (interne à VocabPeekSheet, ou ouverte depuis l'inventaire). */}
+          depuis une vue kanji (empilée sur un mot, ou ouverte depuis l'inventaire). */}
       {vocabOpen && (
-        <VocabPeekSheet
-          v={vocabOpen}
-          status={statusOf("vocab", vocabOpen.id)}
+        <RefSheet
+          root={{ kind: "vocab", v: vocabOpen, status: statusOf("vocab", vocabOpen.id) }}
           onClose={() => {
             setVocabOpen(null);
             void refresh();
@@ -166,8 +164,8 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
         />
       )}
       {kanjiOpen && (
-        <KanjiSheet
-          ch={kanjiOpen}
+        <RefSheet
+          root={{ kind: "kanji", ch: kanjiOpen }}
           onClose={() => {
             setKanjiOpen(null);
             void refresh();

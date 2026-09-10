@@ -27,7 +27,7 @@ interface RowsProps {
   onOpenVocab: (v: InvVocab) => void;
 }
 
-/** Pastille de statut (point coloré + libellé) — aussi réutilisée par KanjiSheet. */
+/** Pastille de statut (point coloré + libellé) — aussi réutilisée par KanjiDetail. */
 export function StatusTag({ status }: { status: ItemStatus }) {
   const dot =
     status === "unknown"
