@@ -32,7 +32,7 @@ export interface Env {
   // Modèle texte Together (ID complet, ex. "Qwen/Qwen2.5-72B-Instruct-Turbo"). Optionnel :
   // sans lui, un défaut codé en dur prend le relais (togetherModels()).
   TOGETHER_MODEL?: string;
-  // Modèle IMAGE Together (illustration d'histoire), ex. "black-forest-labs/FLUX.1-schnell".
+  // Modèle IMAGE Together (illustration d'histoire), ex. "black-forest-labs/FLUX.2-dev".
   // Optionnel : défaut codé en dur (imageModel()). Best-effort — sans image l'histoire passe quand même.
   TOGETHER_IMAGE_MODEL?: string;
   // Gemini reste supporté comme REPLI OPTIONNEL via MODEL_CHAIN (provider "gemini"). Ces
@@ -168,9 +168,14 @@ const MAX_TEXT_CALLS = 12;
  * faible produirait des textes hétérogènes mis en cache définitivement dans R2. Les 429
  * dynamiques sont absorbés par MODEL_RETRY ; un échec persistant remonte au client, qui
  * sait relancer (jobs). MODEL_CHAIN reste le moyen EXPLICITE de configurer un repli.
+ *
+ * L'ID porte le SUFFIXE DE DATE du catalogue serverless : Together ne sert que des
+ * instantanés datés, l'alias « deepseek-ai/DeepSeek-V4-Pro » n'est pas un endpoint et
+ * faisait échouer toute génération. Vérifier l'ID exact avant d'en changer :
+ * <https://docs.together.ai/docs/serverless-models>.
  */
 function togetherModels(env: Env): string[] {
-  return [(env.TOGETHER_MODEL ?? "").trim() || "deepseek-ai/DeepSeek-V4-Pro"];
+  return [(env.TOGETHER_MODEL ?? "").trim() || "deepseek-ai/DeepSeek-V4-Pro-0813"];
 }
 
 /**

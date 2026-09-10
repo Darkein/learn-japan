@@ -14,16 +14,22 @@ workers_dev = true
 # compte facturé → fini la jonglerie des 10 clés Gemini et le piège du free tier
 # supprimé dès qu'on active la facturation. La clé est un SECRET, pas une var :
 #   wrangler secret put TOGETHER_API_KEY
-# Modèle texte (ID Together complet). Défaut si absent : deepseek-ai/DeepSeek-V4-Pro
+# Modèle texte (ID Together complet). Défaut si absent : deepseek-ai/DeepSeek-V4-Pro-0813
 # (meilleur modèle ouvert du catalogue — le cache R2 rend son surcoût négligeable).
+# ⚠ Together sert des INSTANTANÉS DATÉS : l'alias sans date « deepseek-ai/DeepSeek-V4-Pro »
+# n'est pas un endpoint servi (sa page reste « launching soon ») et le Worker répondait en
+# erreur avec. Toujours reprendre l'ID exact du catalogue serverless, suffixe compris :
+# <https://docs.together.ai/docs/serverless-models>. Variante économique du même modèle :
+# "deepseek-ai/DeepSeek-V4-Flash-0731".
 # AUCUN repli par défaut : un seul modèle pour un style consistant (les 429 dynamiques
 # sont réessayés sur place ; un échec persistant remonte au client, relançable).
-TOGETHER_MODEL = "deepseek-ai/DeepSeek-V4-Pro"
+TOGETHER_MODEL = "deepseek-ai/DeepSeek-V4-Pro-0813"
 # Modèle IMAGE : illustration ukiyo-e des histoires, générée dans /generate (aucun endpoint
 # image dédié). FLUX.2-dev : ~0,012 $/image en 1024×768, nettement plus cohérent que le
 # distillé schnell (moins de branches parasites / architecture déformée) et accepte un
 # negative prompt. LICENCE NON COMMERCIALE (usage perso/éducatif). Best-effort : sans image,
-# l'histoire passe. Repli économique : "black-forest-labs/FLUX.1-schnell".
+# l'histoire passe. (FLUX.1-schnell, l'ancien repli économique, ne figure plus au catalogue
+# serverless — voir la liste des modèles image avant d'en changer.)
 TOGETHER_IMAGE_MODEL = "black-forest-labs/FLUX.2-dev"
 REQUIRE_ACCESS = "false"   # passer à "true" une fois Cloudflare Access configuré devant le Worker
 
@@ -40,7 +46,7 @@ TTS_RATE = "1.0"
 # utilisé (pas de dégradation : style consistant). Permet de MÉLANGER
 # les fournisseurs, ex. Together en primaire + Gemini Flash en secours (nécessite alors
 # wrangler secret put GEMINI_API_KEY) :
-# MODEL_CHAIN = '[{"provider":"together","model":"deepseek-ai/DeepSeek-V4-Pro","keyEnv":"TOGETHER_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"}]'
+# MODEL_CHAIN = '[{"provider":"together","model":"deepseek-ai/DeepSeek-V4-Pro-0813","keyEnv":"TOGETHER_API_KEY"},{"provider":"gemini","model":"gemini-2.5-flash","keyEnv":"GEMINI_API_KEY"}]'
 
 # Génération SYNCHRONE. Protection : placer Cloudflare Access (login email gratuit)
 # DEVANT ce Worker si besoin. Aucune clé n'est exposée au client : seul le Worker
