@@ -483,6 +483,8 @@ export function buildExamTextPrompt(r: GenerateRequest): string {
       `${level} ; aucune explication, aucun titre, aucun furigana, aucun romaji, aucune traduction.`,
     "",
     "Rédige ensuite exactement 3 questions de COMPRÉHENSION en FRANÇAIS sur le SENS du texte (qui fait quoi, où, quand, pourquoi) — jamais une traduction mot à mot, jamais une question sur la graphie.",
+    "Chaque question porte sur un fait DIFFÉRENT du texte : ne repose pas la même question sous des mots différents.",
+    "L'ÉNONCÉ NE DOIT JAMAIS CONTENIR LA RÉPONSE : ne reprends pas dans la question les mots de la bonne proposition.",
     "Chaque question a 4 propositions en français, dont une seule correcte.",
     grammar.length
       ? "Tague chaque question avec le point de grammaire qu'elle sollicite le plus ([G1], [G2]…), ou [G0] si aucun."
@@ -530,11 +532,14 @@ export function buildExamLessonQcmPrompt(r: GenerateRequest): string {
     "",
     `Rédige exactement 3 questions à choix multiple EN FRANÇAIS (série n°${attempt} : varie les angles d'une série à l'autre) qui vérifient la COMPRÉHENSION DU COURS, pas la mémoire du vocabulaire.`,
     "Chaque question porte sur un point de grammaire ci-dessus et teste l'un de ces angles :",
-    "- ce que la forme MARQUE ou À QUOI elle sert (« que marque を ? ») ;",
-    "- quand elle est OMISE ou remplacée, et pourquoi (« pourquoi は disparaît-il parfois ? ») ;",
+    "- quand la forme est OMISE ou remplacée, et pourquoi (« pourquoi は disparaît-il parfois ? ») ;",
     "- le PIÈGE fréquent ou la confusion avec un point voisin (は vs が, を vs に…) ;",
-    "- la conséquence d'un mauvais emploi sur le SENS de la phrase.",
+    "- la conséquence d'un mauvais emploi sur le SENS de la phrase ;",
+    "- ce qui CHANGE dans la phrase quand on remplace la forme par une autre.",
+    "Les 3 questions doivent tester 3 angles DIFFÉRENTS, et porter sur des points différents dès que la leçon en enseigne plusieurs. Ne pose jamais deux fois la même question sous des mots différents.",
+    "Un autre exercice du contrôle demande déjà « quel est le rôle de <point> ? » : ne repose donc PAS cette question, sous aucune formulation (« que marque… ? », « à quoi sert… ? », « que signifie… ? »), et ne fais pas d'une proposition la simple recopie de la règle ci-dessus.",
     "Interdits : questions de traduction, questions sur la graphie ou la lecture d'un mot, questions dont la réponse est juste le nom du point.",
+    "L'ÉNONCÉ NE DOIT JAMAIS CONTENIR LA RÉPONSE : n'y écris ni la bonne proposition ni ses mots-clés — une question qui se coche sans connaître la leçon ne vaut rien.",
     "Les quatre propositions doivent être plausibles et de longueur comparable ; une seule est correcte.",
     grammar.length
       ? "Tague chaque question avec le point concerné ([G1], [G2]…), ou [G0] si elle porte sur la leçon en général."
