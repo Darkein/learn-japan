@@ -43,10 +43,13 @@ describe("kanjiParts — composition d'un kanji", () => {
     expect(isSelfRadical("休")).toBe(false);
   });
 
-  it("résume la composition en une ligne, glyphe seul pour un composant non glosé", () => {
-    // 儿 n'est pas un kanji de l'inventaire : sa glose vient du corpus généré
-    // (kanji-parts-fr.json). Tant qu'elle manque, on montre le glyphe — pas d'invention.
-    expect(partsSummary("見")).toBe("目 œil + 儿");
+  it("résume la composition en une ligne « glyphe sens », parties jointes par +", () => {
+    // Le sens des parties qui SONT des kanji de l'inventaire est curé, donc stable : on
+    // peut l'attendre au mot près. Celui des autres (儿) vient du corpus généré, qui se
+    // remplit au fil des runs de data:parts-fr — le test vérifie donc la FORME du résumé
+    // et jamais le contenu d'une glose générée, sans quoi remplir le corpus casse la CI.
+    expect(partsSummary("見")).toMatch(/^目 œil \+ 儿( .+)?$/u);
+    expect(partsSummary("休")).toMatch(/^亻 personne \+ 木 arbre/u);
     expect(partsSummary("日")).toBe("");
   });
 });
