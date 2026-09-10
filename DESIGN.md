@@ -132,7 +132,9 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
   *Tracé* (`ui/KanjiStrokes.tsx`) où le caractère se dessine trait à trait (grille KanjiVG
   109×109, encre `--text` épaisse sur un fantôme `--stroke-ghost` plus fin — le trait posé
   doit trancher d'un coup d'œil ; ≈480 ms par trait et une levée de pinceau entre deux,
-  resserrés pour qu'un kanji chargé tienne sous ~9 s ; bouton « Rejouer ») ; puis
+  resserrés pour qu'un kanji chargé tienne sous ~9 s). Une carte : le tracé centré, et
+  « Rejouer » en pied pleine largeur sous un filet — sur un téléphone, un bouton posé à
+  côté du carré laisserait la moitié de la ligne vide ; puis
   *Composants*, une rangée par partie (glyphe, sens, mentions « radical » / « donne la
   lecture ») ; puis le mnémo. Le mouvement **est** le contenu : sous
   `prefers-reduced-motion` le tracé s'affiche entier, sans lecture automatique, et le bouton
