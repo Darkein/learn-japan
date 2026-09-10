@@ -81,9 +81,11 @@ npx wrangler secret put TOGETHER_API_KEY    # clé Together AI (texte + images)
 
 Le déploiement du Worker est ensuite **automatique** (workflow `deploy-worker.yml`).
 Aucune clé n'est exposée au client : seul le Worker détient `TOGETHER_API_KEY`.
-Modèle par défaut : `Qwen/Qwen2.5-72B-Instruct-Turbo` (excellent en japonais), repli Llama 3.3 70B ;
-images via `FLUX.1-schnell-Free`. Gemini reste utilisable en **repli** via `MODEL_CHAIN` (voir
-`wrangler.toml`). Option : placer **Cloudflare Access** devant le Worker puis `REQUIRE_ACCESS="true"`.
+Modèle texte par défaut : `deepseek-ai/DeepSeek-V4-Pro-0813`, **sans repli** (un seul modèle =
+un style consistant) ; images via `black-forest-labs/FLUX.2-dev`. Les ID Together portent un
+**suffixe de date** — l'alias sans date n'est pas un endpoint servi, et le Worker échoue si on
+l'utilise : reprendre l'ID exact du [catalogue serverless](https://docs.together.ai/docs/serverless-models).
+Gemini reste utilisable en **repli** via `MODEL_CHAIN` (voir `wrangler.toml`). Option : placer **Cloudflare Access** devant le Worker puis `REQUIRE_ACCESS="true"`.
 
 ### Cache R2 + pré-génération en lot (économiser les « tokens »)
 
