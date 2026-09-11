@@ -22,8 +22,10 @@ function labelEnv(): OmikujiEnv {
   return {
     dailyGoal: loadSettings().dailyGoal,
     reviewedToday: 0,
-    hasProductionCards: true,
-    hasOralCards: true,
+    // Généreux à dessein : cet env ne sert qu'à RÉSOUDRE le libellé d'un défi déjà tiré,
+    // jamais à décider de sa disponibilité (`drawFor` l'a fait avec les vrais compteurs).
+    productionDue: Number.MAX_SAFE_INTEGER,
+    oralDue: Number.MAX_SAFE_INTEGER,
     hasStories: true,
   };
 }

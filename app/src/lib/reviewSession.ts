@@ -99,10 +99,10 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
     const c = v.cards.written;
     if (c) { if (isDue(c, horizon)) dueCount++; }
     else if (promotableVocab.has(v.id)) newCount++;
-    // Compétences écoute et production : cartes dédiées, planifiées indépendamment.
-    // Une carte orale n'est servable qu'avec une phrase d'exemple (même filtre que
-    // buildSessionDue) — sinon le backlog affiché surestime la session réelle.
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) dueCount++;
+    // Compétences écoute et production : cartes dédiées, planifiées indépendamment. Toute
+    // carte due est servable — `oralExercise` a une variante qui tient sans phrase
+    // d'exemple —, le compteur les prend donc toutes.
+    if (v.cards.oral && isDue(v.cards.oral, horizon)) dueCount++;
     if (v.cards.production && isDue(v.cards.production, horizon)) dueCount++;
   }
   for (const g of grammar) {
@@ -244,9 +244,15 @@ export function pickOralVariant(card: Card): OralVariant {
 }
 
 /**
- * Exercice d'écoute d'une carte orale due : la variante choisie retombe sur la dictée
- * de mot (type) si elle n'est pas constructible (pas de sens exploitable, pas assez de
- * distracteurs, phrase trop longue pour l'oreille…).
+ * Exercice d'écoute d'une carte orale due : la variante choisie retombe sur une autre si
+ * elle n'est pas constructible (pas de sens exploitable, pas assez de distracteurs, phrase
+ * trop longue pour l'oreille…). Une carte due rend TOUJOURS un exercice — laisser tomber
+ * la laisserait due indéfiniment, comptée au badge et jamais servie.
+ *
+ * L'ordre des replis suit ce que l'exercice RÉVÈLE. La dictée de mot ne masque le mot que
+ * si la phrase d'exemple en porte une occurrence : sans phrase (ou sans occurrence
+ * masquable), sa face avant EST la réponse et l'exercice devient une recopie. On lui
+ * préfère donc le QCM de sens à l'aveugle, qui joue le mot seul sans rien montrer.
  */
 async function oralExercise(v: VocabItem, card: Card, pool: VocabItem[]): Promise<Exercise> {
   const due = card.due.getTime();
@@ -259,7 +265,9 @@ async function oralExercise(v: VocabItem, card: Card, pool: VocabItem[]): Promis
     const ex = await vocabDictationExercise(v, due).catch(() => null);
     if (ex) return ex;
   }
-  return vocabTypeExercise(v, due, { listen: true });
+  const typed = await vocabTypeExercise(v, due, { listen: true });
+  if (typed.audio?.sentence) return typed;
+  return vocabListenMeaningExercise(v, due, pool) ?? typed;
 }
 
 /**
@@ -356,7 +364,18 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le backlog,
   // lui, est mesuré plus bas sur les items dus de CETTE session). Voir lib/tuning.ts.
   const tuning = await loadTuning();
+  /** Dû principal : l'écrit et la grammaire — le gros du volume, et tout le retard. */
   const due: Exercise[] = [];
+  /**
+   * Dû des COMPÉTENCES DÉDIÉES (écoute, production). Liste séparée parce qu'elle ne peut
+   * pas concourir au même tri : ces cartes sont plafonnées par session (`listenMax`,
+   * `prodMax`) et leur échéance est presque toujours du JOUR, là où un retard écrit de
+   * quelques jours est plus « urgent ». Mélangées au dû principal puis coupées au plafond
+   * du bloc, elles tombaient en bloc — un retard de 40 cartes écrites servait ZÉRO exercice
+   * d'écoute, et le défi omikuji « réussis 5 exercices d'écoute » devenait injouable sans
+   * que rien, dans les réglages, ne l'explique.
+   */
+  const dueSkills: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
   // Un seul chargement de chaque store (réutilisé par les passes dues / écoute / nouveaux).
@@ -368,9 +387,17 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // Un mot ne passe qu'UNE fois par session, toutes compétences confondues : ses trois
   // cartes sont planifiées séparément, et les bases constituées avant `spaceSkillCards`
   // portent encore des échéances agglutinées. La carte écartée est repoussée en base
-  // (`deferSkill`) plutôt que simplement sautée — sinon le badge de révisions continuerait
-  // de la compter alors que la session ne la sert pas.
+  // (`deferSkill`, après la découpe du bloc — cf. `postponed`) plutôt que simplement
+  // sautée : sinon le badge de révisions continuerait de la compter alors que la session
+  // ne la sert pas.
   const served = new Set<string>();
+  /**
+   * Cartes de compétence écartées parce que leur mot passe déjà dans cette session. Le
+   * report en base (`deferSkill`) attend la DÉCOUPE du bloc : le mot peut très bien être
+   * coupé au plafond, et repousser sa carte d'écoute de trois jours pour un passage qui
+   * n'a pas eu lieu, c'est supprimer des exercices d'écoute qu'on n'a jamais servis.
+   */
+  const postponed: { v: VocabItem; skill: "oral" | "production" }[] = [];
 
   // Collecte items dus (avec carte FSRS)
   for (const v of vocabAll) {
@@ -394,20 +421,23 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   let listenCount = 0;
   for (const v of vocabAll) {
     if (listenCount >= SRS.listenMax) break;
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && served.has(v.id)) {
-      await deferSkill(v, "oral", now);
+    const oral = v.cards.oral;
+    if (!oral || !isDue(oral, horizon)) continue;
+    if (served.has(v.id)) {
+      postponed.push({ v, skill: "oral" });
       continue;
     }
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
-      // Mode sans le son : remplacement écrit, toujours noté sur la carte orale.
-      due.push(
-        silent
-          ? await vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true, silent: true, pool: vocabAll })
-          : await oralExercise(v, v.cards.oral, vocabAll),
-      );
-      listenCount++;
-      served.add(v.id);
-    }
+    // Une carte due est servie, phrase d'exemple ou non : `oralExercise` choisit une
+    // variante qui tient sans phrase (cf. son commentaire). Exiger la phrase ici laissait
+    // une carte orpheline — son mot ayant perdu son exemple d'un build du corpus à
+    // l'autre — due pour toujours, comptée au badge et jamais servie.
+    dueSkills.push(
+      silent
+        ? await vocabTypeExercise(v, oral.due.getTime(), { listen: true, silent: true, pool: vocabAll })
+        : await oralExercise(v, oral, vocabAll),
+    );
+    listenCount++;
+    served.add(v.id);
   }
 
   // Production en contexte — carte dédiée (`cards.production`), même logique que l'écoute :
@@ -418,10 +448,10 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
     const c = v.cards.production;
     if (!c || !isDue(c, horizon)) continue;
     if (served.has(v.id)) {
-      await deferSkill(v, "production", now);
+      postponed.push({ v, skill: "production" });
       continue;
     }
-    due.push(await vocabTypeExercise(v, c.due.getTime(), { produce: true, pool: vocabAll }));
+    dueSkills.push(await vocabTypeExercise(v, c.due.getTime(), { produce: true, pool: vocabAll }));
     prodCount++;
     served.add(v.id);
   }
@@ -444,11 +474,18 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // que le retard dépassait l'objectif — les objectifs de la leçon en cours n'obtenaient
   // jamais de carte, sa part d'items stabilisés ne montait plus, son contrôle ne s'ouvrait
   // pas, et la leçon suivante restait verrouillée. Le freinage, c'est `effectiveNewPerDay`.
-  const newCap = effectiveNewPerDay(s.newPerDay, tuning.measuredRetention, due.length);
+  const newCap = effectiveNewPerDay(
+    s.newPerDay,
+    tuning.measuredRetention,
+    due.length + dueSkills.length,
+  );
   const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
   // Réserve de nouveautés DANS le bloc : au plus la moitié tant qu'il reste du dû (le
   // retard doit avancer aussi), tout le bloc quand il n'y a rien à revoir.
-  const newSlots = Math.min(budget, due.length > 0 ? Math.floor(cap / 2) : cap);
+  const newSlots = Math.min(
+    budget,
+    due.length + dueSkills.length > 0 ? Math.floor(cap / 2) : cap,
+  );
 
   // Les nouveautés sont promues AVANT de découper le dû : une réserve non consommée
   // (plus rien à introduire aujourd'hui, aucune leçon commencée) revient au retard, elle
@@ -458,9 +495,20 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
       ? await promoteNew(newSlots, vocabAll, grammarAll, triangle, dateStr, now)
       : [];
 
-  // Items dus triés par urgence, coupés à la place qui reste dans le bloc.
-  due.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
-  const out: Exercise[] = due.slice(0, cap - newCards.length);
+  // Items dus triés par urgence, coupés à la place qui reste dans le bloc — mais les
+  // compétences dédiées ont leur PART RÉSERVÉE, jamais plus de la moitié du bloc. Sans
+  // cette réserve, elles perdaient tous les arbitrages : une carte d'écoute due ce matin
+  // passe après n'importe quelle carte écrite en retard de trois jours, et un bloc entier
+  // pouvait ne contenir que de l'écrit. La réserve est un PLANCHER, pas un plafond : la
+  // place que le dû principal ne consomme pas revient aux compétences (et l'inverse).
+  const roomForDue = cap - newCards.length;
+  const byUrgency = (a: Exercise, b: Exercise) => (a.due ?? 0) - (b.due ?? 0);
+  due.sort(byUrgency);
+  dueSkills.sort(byUrgency);
+  const reserved = Math.min(dueSkills.length, Math.floor(roomForDue / 2));
+  const main = due.slice(0, Math.max(0, roomForDue - reserved));
+  const skills = dueSkills.slice(0, Math.max(0, roomForDue - main.length));
+  const out: Exercise[] = [...main, ...skills];
   // Place libre : les amorces (écoute, production) prennent ce qui reste, sans manger
   // les nouveautés du jour.
   let room = cap - out.length - newCards.length;
@@ -468,6 +516,13 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // Les amorces raisonnent sur le deck RÉELLEMENT retenu : un mot coupé par le plafond
   // n'a pas été servi, il n'y a pas de raison de lui refuser une amorce.
   const inDeck = new Set(out.filter((ex) => ex.track === "vocab").map((ex) => ex.id));
+
+  // Report des cartes de compétence écartées — mais SEULEMENT pour les mots que le bloc
+  // sert vraiment. Un mot coupé au plafond n'a pas été vu : repousser son écoute de trois
+  // jours retirerait des exercices d'écoute des jours suivants sans qu'aucun n'ait eu lieu.
+  for (const { v, skill } of postponed) {
+    if (inDeck.has(v.id)) await deferSkill(v, skill, now);
+  }
 
   // Sans le son, on n'amorce pas de NOUVELLES cartes d'écoute (les dues, elles, passent
   // en remplacement écrit ci-dessus).

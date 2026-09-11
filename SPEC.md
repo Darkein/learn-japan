@@ -76,7 +76,25 @@ compétence repousse les autres cartes du mot à `now + skillGapDays`. Seule l'�
 stabilité, difficulté et historique FSRS restent intacts (une révision retardée est
 correctement prise en compte, l'écart étant mesuré depuis `last_review`). Même règle pour les
 **amorces** d'écoute et de production, qui sont dues sur-le-champ : jamais sur un mot déjà au
-programme du jour ni révisé dans la fenêtre.
+programme du jour ni révisé dans la fenêtre. Le report ne s'applique qu'aux mots que le bloc
+sert VRAIMENT : un mot collecté puis coupé au plafond n'a pas été vu — repousser sa carte
+d'écoute de trois jours retirerait des exercices d'écoute des jours suivants sans en avoir
+servi un seul.
+
+**Part réservée dans le bloc.** Les cartes d'écoute et de production ne concourent pas au
+même tri d'urgence que l'écrit : plafonnées par session (`listenMax`, `prodMax`), leur
+échéance est presque toujours celle du JOUR, quand un retard écrit traîne depuis des jours.
+Mélangées puis coupées au plafond du bloc, elles tombaient **en entier** — un retard de
+quarante cartes écrites servait zéro exercice d'écoute, et rien dans les réglages ne
+l'expliquait. Elles ont donc leur part : **au plus la moitié du bloc**, et c'est un plancher,
+pas un plafond — la place que le dû écrit ne consomme pas leur revient, et réciproquement.
+
+Une carte d'écoute due est **toujours servable**, phrase d'exemple ou non : la variante est
+choisie d'après ce qu'elle RÉVÈLE (`oralExercise`) — la dictée de mot ne masque le mot que si
+la phrase en porte une occurrence, sinon sa face avant EST la réponse, et c'est le QCM de sens
+à l'aveugle qui prend le relais, en jouant le mot seul. Exiger la phrase laissait une carte
+orpheline — son mot ayant perdu son exemple d'une régénération du corpus à l'autre — due pour
+toujours, comptée au badge et jamais servie.
 
 ### 2.2b Le triangle de révision (reconnaissance écrite)
 Un mot porte trois **faces** : **kanji** (sa graphie), **furigana** (sa lecture en kana) et
