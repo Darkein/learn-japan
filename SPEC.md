@@ -370,7 +370,11 @@ Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou
   prochaine échéance SRS.
 - **Kanji en référence** : liste consultable (sens, lectures, niveau JLPT) depuis l'inventaire —
   sans statut SRS ni cible d'apprentissage. Base pour un futur rattachement au vocabulaire.
-- **Filtres** : statut, niveau JLPT, **tag/thème**, piste, « marqués à revoir ».
+- **Filtres** : statut, niveau JLPT, **tag/thème**, piste, « marqués à revoir », et
+  **« difficiles »** — les éléments à échecs répétés (leeches, §5), badgés dans la liste et
+  **réinitialisables** depuis la fiche du mot (ou la rangée, en grammaire) : cartes FSRS
+  neuves et compteur d'échecs remis à zéro par un jalon dans le log de révisions, qui est
+  append-only. C'est là qu'ils se consultent — pas dans les Statistiques.
 - **Recherche**.
 - **Action** : lancer une **session de révision ciblée** depuis une sélection, ou **alimenter une
   génération d'histoire** ciblée (§4.1).

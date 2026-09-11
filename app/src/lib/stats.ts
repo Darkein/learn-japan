@@ -5,6 +5,7 @@
 import { SRS } from "./config";
 import {
   localDateString,
+  RESET_GRADE,
   type ComprehensionItem,
   type GrammarItem,
   type ReviewLog,
@@ -27,6 +28,7 @@ export function accuracyKey(track: ReviewLog["track"], itemId: string): string {
 export function perItemAccuracy(reviews: ReviewLog[]): Map<string, ItemAccuracy> {
   const out = new Map<string, ItemAccuracy>();
   for (const r of reviews) {
+    if (r.grade === RESET_GRADE) continue; // jalon, pas une révision
     const key = accuracyKey(r.track, r.itemId);
     const cur = out.get(key) ?? { total: 0, again: 0, lastAt: 0 };
     cur.total++;
@@ -57,6 +59,7 @@ export function retentionRate(reviews: ReviewLog[], windowDays: number, now: Dat
   let total = 0;
   let again = 0;
   for (const r of sorted) {
+    if (r.grade === RESET_GRADE) continue; // jalon, pas une révision
     const key = `${r.track}:${r.itemId}|${r.skill ?? ""}`;
     const first = !seen.has(key);
     seen.add(key);
@@ -109,14 +112,23 @@ export function reviewForecast(cards: Card[], now: Date, days = 7): ForecastDay[
   return out;
 }
 
-/** Éléments difficiles : ≥ SRS.leechLapses échecs cumulés dans le log. */
-export function leechIds(reviews: ReviewLog[]): Set<string> {
+/**
+ * Échecs cumulés par élément, DEPUIS sa dernière remise à zéro : un jalon `RESET_GRADE`
+ * remet le compteur à zéro (le log est append-only, cf. db.ts).
+ */
+export function lapseCounts(reviews: ReviewLog[]): Map<string, number> {
   const lapses = new Map<string, number>();
-  for (const r of reviews) {
-    if (r.grade === "again") lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
+  for (const r of [...reviews].sort((a, b) => a.at - b.at)) {
+    if (r.grade === RESET_GRADE) lapses.set(r.itemId, 0);
+    else if (r.grade === "again") lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
   }
+  return lapses;
+}
+
+/** Éléments difficiles : ≥ SRS.leechLapses échecs depuis la dernière remise à zéro. */
+export function leechIds(reviews: ReviewLog[]): Set<string> {
   const ids = new Set<string>();
-  for (const [id, count] of lapses) {
+  for (const [id, count] of lapseCounts(reviews)) {
     if (count >= SRS.leechLapses) ids.add(id);
   }
   return ids;

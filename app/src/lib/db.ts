@@ -45,11 +45,21 @@ export interface GrammarItem {
   card?: Card;
 }
 
+/**
+ * Note spéciale du log de révisions : marque une REMISE À ZÉRO de l'élément, pas une
+ * réponse. Le log est append-only — on ne peut pas effacer les échecs passés, donc les
+ * compteurs qui en dérivent (échecs cumulés d'un élément difficile, cf. lib/stats.ts)
+ * repartent de zéro à partir de ce jalon. Sans lui, un élément resté « difficile » le
+ * serait à vie.
+ */
+export const RESET_GRADE = "reset";
+
 export interface ReviewLog {
   id?: number;
   itemId: string;
   track: "vocab" | "grammar" | "comprehension";
   skill?: Skill;
+  /** Note FSRS (`SrsGrade`), ou `RESET_GRADE` pour un jalon de remise à zéro. */
   grade: string;
   at: number; // epoch ms
 }

@@ -6,14 +6,10 @@ import {
   allReviews,
   allVocab,
   localDateString,
-  putComprehensionItem,
-  putGrammar,
-  putVocab,
   recentSrsDaily,
   type ComprehensionItem,
   type GrammarItem,
   type ReviewLog,
-  type Skill,
   type ExamRecord,
   type SrsDailyRecord,
   type VocabItem,
@@ -22,20 +18,17 @@ import { getCurriculumEntry } from "../lib/curriculum";
 import { buildBulletin, type Bulletin } from "../lib/exam";
 import { EXAM } from "../lib/config";
 import { formatMinutes } from "../lib/time";
-import { newCard } from "../lib/srs";
 import { loadSettings } from "../lib/settings";
 import { effectiveNewPerDay, loadTuning, type FsrsTuning } from "../lib/tuning";
 import {
   accuracyKey,
   collectCards,
-  leechIds,
   perItemAccuracy,
   retentionRate,
   reviewForecast,
   type ForecastDay,
   type ItemAccuracy,
 } from "../lib/stats";
-import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
@@ -64,7 +57,7 @@ interface ResolvedItem {
   acc?: ItemAccuracy;
 }
 
-/** Résout un id de leech/précision en libellé lisible, toutes pistes confondues. */
+/** Résout un id d'élément en libellé lisible, toutes pistes confondues. */
 function resolveItems(data: Data, ids: Set<string>, acc: Map<string, ItemAccuracy>): ResolvedItem[] {
   const out: ResolvedItem[] = [];
   for (const id of ids) {
@@ -133,7 +126,7 @@ function forecastLabel(day: ForecastDay, index: number): string {
   });
 }
 
-/** Statistiques locales : rétention, charge à venir, éléments difficiles. Sans LLM ni réseau. */
+/** Statistiques locales : rétention, charge à venir, temps d'étude, bulletin. Sans LLM ni réseau. */
 export function Stats() {
   const [data, setData] = useState<Data | null>(null);
 
@@ -154,34 +147,6 @@ export function Stats() {
     void refresh();
   }, []);
 
-  /** Remet l'élément à zéro : cartes FSRS neuves, il repart en apprentissage. */
-  async function resetItem(item: ResolvedItem) {
-    if (!data) return;
-    const now = new Date();
-    const [track, id] = [item.key.slice(0, item.key.indexOf(":")), item.key.slice(item.key.indexOf(":") + 1)];
-    if (track === "vocab") {
-      const v = data.vocab.find((x) => x.id === id);
-      if (v) {
-        for (const skill of Object.keys(v.cards) as Skill[]) v.cards[skill] = newCard(now);
-        v.status = "review";
-        await putVocab(v);
-      }
-    } else if (track === "grammar") {
-      const g = data.grammar.find((x) => x.id === id);
-      if (g?.card) {
-        g.card = newCard(now);
-        await putGrammar(g);
-      }
-    } else {
-      const c = data.comprehension.find((x) => x.id === id);
-      if (c?.card) {
-        c.card = newCard(now);
-        await putComprehensionItem(c);
-      }
-    }
-    void refresh();
-  }
-
   if (!data) return <LoadingScreen />;
 
   const now = new Date();
@@ -190,7 +155,6 @@ export function Stats() {
   const forecast = reviewForecast(collectCards(data.vocab, data.grammar, data.comprehension), now);
   const maxLoad = Math.max(1, ...forecast.map((d) => d.count));
   const overdueToday = forecast[0]?.date === localDateString(now) ? forecast[0].count : 0;
-  const leeches = resolveItems(data, leechIds(data.reviews), acc);
   const worst = worstItems(data, acc);
   const newBase = loadSettings().newPerDay;
   const effNew = effectiveNewPerDay(newBase, data.tuning.measuredRetention, data.tuning.backlog);
@@ -276,31 +240,6 @@ export function Stats() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionLabel>Éléments difficiles (leeches)</SectionLabel>
-        {leeches.length === 0 ? (
-          <p className="text-sm text-muted">Aucun élément en difficulté — continue comme ça.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {leeches.map((item) => (
-              <Card key={item.key} className="flex items-center justify-between gap-4">
-                <div className="flex flex-col">
-                  <span className="font-jp text-lg text-text">{item.label}</span>
-                  <span className="text-xs text-muted">
-                    {item.detail ? `${item.detail} · ` : ""}
-                    {item.trackFr}
-                    {item.acc ? ` · ${item.acc.again} échec${item.acc.again > 1 ? "s" : ""} / ${item.acc.total}` : ""}
-                  </span>
-                </div>
-                <Button variant="ghost" className="shrink-0" onClick={() => void resetItem(item)}>
-                  Réinitialiser
-                </Button>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
         <SectionLabel>Précision la plus faible</SectionLabel>
         {worst.length === 0 ? (
           <p className="text-sm text-muted">Rien à signaler pour l'instant.</p>
@@ -319,6 +258,11 @@ export function Stats() {
             ))}
           </div>
         )}
+        {/* Les éléments difficiles ne sont plus listés ici : ils se filtrent (et se
+            réinitialisent) dans le Catalogue, au milieu des mots et des points de grammaire. */}
+        <p className="text-xs text-muted">
+          Les éléments difficiles se filtrent dans le Catalogue (filtre «&nbsp;Difficiles&nbsp;»).
+        </p>
       </section>
     </div>
   );

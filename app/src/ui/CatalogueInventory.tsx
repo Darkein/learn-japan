@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { ItemStatus } from "../lib/db";
 import type { allGrammarInv, allKanjiInv, allVocabInv, InvVocab } from "../lib/inventory";
 import { Badge } from "./kit/Badge";
+import { ResetProgressButton } from "./ResetProgressButton";
 
 const STATUS_LABEL: Record<ItemStatus, string> = {
   unknown: "pas vu",
@@ -23,8 +24,21 @@ interface RowsProps {
   };
   matches: (track: "kanji" | "vocab" | "grammar", id: string, lvl: number) => boolean;
   statusOf: (track: "vocab" | "grammar", id: string) => ItemStatus;
+  /** Élément difficile (échecs répétés, cf. lib/leech.ts) : badge, et remise à zéro. */
+  isLeech: (id: string) => boolean;
   onOpenKanji: (ch: string) => void;
   onOpenVocab: (v: InvVocab) => void;
+  /** Les données ont changé (remise à zéro) : l'hôte recharge statuts et éléments difficiles. */
+  onChanged: () => void;
+}
+
+/** Badge d'élément difficile — même notion que le badge de la session de révision. */
+function LeechTag() {
+  return (
+    <Badge variant="accent" title="Échecs répétés — repasse au QCM">
+      difficile
+    </Badge>
+  );
 }
 
 /** Pastille de statut (point coloré + libellé) — aussi réutilisée par KanjiDetail. */
@@ -47,7 +61,16 @@ function LevelTag({ level, className = "" }: { level: number; className?: string
   return <Badge className={className}>N{level}</Badge>;
 }
 
-export function InventoryRows({ section, inventory, matches, statusOf, onOpenKanji, onOpenVocab }: RowsProps) {
+export function InventoryRows({
+  section,
+  inventory,
+  matches,
+  statusOf,
+  isLeech,
+  onOpenKanji,
+  onOpenVocab,
+  onChanged,
+}: RowsProps) {
   if (section === "kanji") {
     const items = inventory.kanji.filter((k) => matches("kanji", k.id, k.level));
     return (
@@ -90,7 +113,12 @@ export function InventoryRows({ section, inventory, matches, statusOf, onOpenKan
               </span>
               <span className="font-jp text-sm text-muted">{v.yomi ?? ""}</span>
               <span className="font-sans text-sm text-text">{v.fr}</span>
-              <StatusTag status={statusOf("vocab", v.id)} />
+              {/* Rangée = un seul bouton (ouvre la fiche) : la remise à zéro se fait DANS la
+                  fiche, pas ici — un bouton n'en contient pas un autre. */}
+              <span className="flex items-center gap-2 min-[60rem]:justify-self-end">
+                {isLeech(v.id) && <LeechTag />}
+                <StatusTag status={statusOf("vocab", v.id)} />
+              </span>
             </button>
           </li>
         ))}
@@ -112,7 +140,13 @@ export function InventoryRows({ section, inventory, matches, statusOf, onOpenKan
           <span className="font-sans text-sm text-text">
             {g.ruleFr} <em className="text-muted">ex. {g.exampleJa}</em>
           </span>
-          <StatusTag status={statusOf("grammar", g.id)} />
+          <span className="flex flex-wrap items-center gap-2 min-[60rem]:justify-self-end">
+            {isLeech(g.id) && <LeechTag />}
+            <StatusTag status={statusOf("grammar", g.id)} />
+            {isLeech(g.id) && (
+              <ResetProgressButton track="grammar" id={g.id} onDone={onChanged} />
+            )}
+          </span>
         </li>
       ))}
     </List>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SRS } from "./config";
-import { localDateString, type ReviewLog, type VocabItem } from "./db";
+import { localDateString, RESET_GRADE, type ReviewLog, type VocabItem } from "./db";
 import { newCard } from "./srs";
 import {
   collectCards,
@@ -113,6 +113,52 @@ describe("leechIds", () => {
     const ids = leechIds(reviews);
     expect(ids.has("leech")).toBe(true);
     expect(ids.has("ok")).toBe(false);
+  });
+
+  it("une remise à zéro efface les échecs passés (le log reste append-only)", () => {
+    const reviews: ReviewLog[] = [];
+    for (let i = 0; i < SRS.leechLapses; i++) reviews.push(log({ itemId: "leech", at: i, grade: "again" }));
+    expect(leechIds(reviews).has("leech")).toBe(true);
+    reviews.push(log({ itemId: "leech", at: 100, grade: RESET_GRADE }));
+    expect(leechIds(reviews).has("leech")).toBe(false);
+  });
+
+  it("redevient difficile si les échecs recommencent après la remise à zéro", () => {
+    const reviews: ReviewLog[] = [log({ itemId: "leech", at: 0, grade: RESET_GRADE })];
+    for (let i = 0; i < SRS.leechLapses - 1; i++) {
+      reviews.push(log({ itemId: "leech", at: 10 + i, grade: "again" }));
+    }
+    expect(leechIds(reviews).has("leech")).toBe(false);
+    reviews.push(log({ itemId: "leech", at: 50, grade: "again" }));
+    expect(leechIds(reviews).has("leech")).toBe(true);
+  });
+
+  it("compte dans l'ordre chronologique, quel que soit l'ordre du log", () => {
+    // `allReviews()` rend les entrées par clé auto-incrémentée : on ne suppose pas l'ordre.
+    const reviews: ReviewLog[] = [log({ itemId: "leech", at: 100, grade: RESET_GRADE })];
+    for (let i = 0; i < SRS.leechLapses; i++) reviews.push(log({ itemId: "leech", at: i, grade: "again" }));
+    expect(leechIds(reviews.reverse()).has("leech")).toBe(false);
+  });
+});
+
+describe("jalon de remise à zéro", () => {
+  it("n'est ni une révision comptée, ni une réussite", () => {
+    const reviews = [
+      log({ itemId: "mot", at: 1, grade: "good" }),
+      log({ itemId: "mot", at: 2, grade: "again" }),
+      log({ itemId: "mot", at: 3, grade: RESET_GRADE }),
+    ];
+    const acc = perItemAccuracy(reviews).get("vocab:mot")!;
+    expect(acc.total).toBe(2);
+    expect(acc.again).toBe(1);
+    // Rétention : première exposition exclue → une seule révision comptable, ratée.
+    const at = (ms: number) => NOW.getTime() - DAY + ms;
+    const inWindow = [
+      log({ itemId: "mot", at: at(1), grade: "good" }),
+      log({ itemId: "mot", at: at(2), grade: "again" }),
+      log({ itemId: "mot", at: at(3), grade: RESET_GRADE }),
+    ];
+    expect(retentionRate(inWindow, 30, NOW)).toEqual({ total: 1, correct: 0, rate: 0 });
   });
 });
 
