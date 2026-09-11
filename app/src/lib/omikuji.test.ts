@@ -35,8 +35,8 @@ function fullEnv(over: Partial<OmikujiEnv> = {}): OmikujiEnv {
   return {
     dailyGoal: 20,
     reviewedToday: 0,
-    hasProductionCards: true,
-    hasOralCards: true,
+    productionDue: 10,
+    oralDue: 10,
     hasStories: true,
     ...over,
   };
@@ -59,8 +59,8 @@ describe("drawFor (pur)", () => {
     expect(draws.size).toBeGreaterThan(3);
   });
 
-  it("filtre par disponibilité : pas de prod-5 sans carte production", () => {
-    const env = fullEnv({ hasProductionCards: false, hasOralCards: false, hasStories: false });
+  it("filtre par disponibilité : pas de prod-5 sans carte production due", () => {
+    const env = fullEnv({ productionDue: 0, oralDue: 0, hasStories: false });
     for (let i = 1; i <= 28; i++) {
       const { challenge } = drawFor(`2026-02-${String(i).padStart(2, "0")}`, env);
       expect(["reviews-goal", "reviews-stretch", "accuracy-80", "accuracy-90"]).toContain(
@@ -69,11 +69,31 @@ describe("drawFor (pur)", () => {
     }
   });
 
+  it("un défi de compétence n'est tiré que si le jour a de quoi le servir", () => {
+    // Trois cartes d'écoute dues ne permettent pas d'en réussir cinq : une carte n'échoit
+    // qu'une fois par jour. Le défi « réussis 5 exercices d'écoute » serait perdu d'avance,
+    // et l'utilisateur chercherait l'erreur dans ses réglages.
+    const maigre = fullEnv({ oralDue: 3, productionDue: 3 });
+    for (let i = 1; i <= 28; i++) {
+      const { challenge } = drawFor(`2026-03-${String(i).padStart(2, "0")}`, maigre);
+      expect(["oral-5", "oral-10", "prod-5", "prod-10"]).not.toContain(challenge.id);
+    }
+    // Avec cinq cartes dues, le défi à cinq redevient tirable — celui à dix, non.
+    const cinq = fullEnv({ oralDue: 5, productionDue: 5 });
+    const ids = new Set(
+      Array.from({ length: 60 }, (_, i) =>
+        drawFor(`2026-0${(i % 9) + 1}-${String((i % 28) + 1).padStart(2, "0")}`, cinq),
+      ).map((d) => d.challenge.id),
+    );
+    expect(ids.has("oral-10")).toBe(false);
+    expect(ids.has("prod-10")).toBe(false);
+  });
+
   it("repli sur les défis de précision si rien d'autre n'est disponible", () => {
     const env = fullEnv({
       reviewedToday: 35, // objectif et objectif +10 déjà atteints → défis reviews indisponibles
-      hasProductionCards: false,
-      hasOralCards: false,
+      productionDue: 0,
+      oralDue: 0,
       hasStories: false,
     });
     const { challenge } = drawFor("2026-07-05", env);
@@ -121,16 +141,22 @@ describe("checkOmikuji", () => {
     // Fabrique un jour où le tirage donne un défi donné : on force l'environnement pour
     // que seuls certains défis soient disponibles, puis on cherche une date qui donne
     // le défi voulu (déterministe → stable dans le temps).
-    const vocab: VocabItem = {
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "known",
-      cards: { written: newCard(NOW), production: newCard(NOW), oral: newCard(NOW) },
-    };
-    await putVocab(vocab);
+    // Dix mots portant les trois cartes, DUES : les défis de compétence ne se tirent que
+    // si la journée a de quoi les servir (cf. `oralDue` / `productionDue`), et `fullEnv`
+    // annonce dix — l'environnement réel doit dire la même chose, sinon la date cherchée
+    // sur `fullEnv` ne donne pas le même tirage que `drawOmikuji`.
+    for (let i = 0; i < 10; i++) {
+      const vocab: VocabItem = {
+        id: `mot${i}|よみ${i}`,
+        surface: `漢${i}`,
+        reading: `よみ${i}`,
+        meaning: `sens ${i}`,
+        tags: [],
+        status: "known",
+        cards: { written: newCard(NOW), production: newCard(NOW), oral: newCard(NOW) },
+      };
+      await putVocab(vocab);
+    }
     await putStory({
       id: "s1",
       createdAt: NOW.getTime(),

@@ -271,7 +271,11 @@ function ExamCover({
             revenir sur ses réponses.
           </li>
           <li>· Aucune correction pendant l'épreuve : la copie est corrigée à la remise.</li>
-          <li>· Pas de furigana, pas de gloss, pas de traduction — {EXAM.listens} écoutes en dictée.</li>
+          {/* La lecture NOMME le mot qu'elle fait lire (« la lecture de « mer » ») : sans ça,
+              la faute comptée est une faute de vocabulaire. C'est la seule glose du sujet. */}
+          <li>
+            · Pas de furigana, pas de traduction — {EXAM.listens} écoutes en dictée.
+          </li>
           <li>· Une coquille vaut la moitié des points ; une réponse fausse ramène l'item en révision.</li>
           <li>
             · Note sur 20 : un exercice sans matière (hors-ligne, écoute en pause) est retiré du

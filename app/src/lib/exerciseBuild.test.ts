@@ -120,8 +120,9 @@ describe("grammarReviewExercise — QCM de repli", () => {
     if (ex.mode !== "choice") return;
     expect(ex.choices[ex.answerIndex]).toBe("Marque le complément d'objet direct.");
     expect(new Set(ex.choices).size).toBe(ex.choices.length);
-    // Le point lui-même est la face avant (rendue en grand), la question est la consigne.
-    expect(ex.front).toBe("を (objet)");
+    // Le point lui-même est la face avant (rendue en grand), la question est la consigne —
+    // mais sa FORME SEULE : « を (objet) » aurait donné la réponse à cocher.
+    expect(ex.front).toBe("を");
     expect(ex.prompt).toBeTruthy();
   });
 
@@ -165,6 +166,57 @@ const POOL = [
   vocabItem({ id: "水|みず", meaning: "eau" }),
   vocabItem({ id: "山|やま", meaning: "montagne" }),
 ];
+
+describe("faceDistractors — des options qu'on ne peut pas éliminer sans lire", () => {
+  // Le cas signalé : « ふる → 降る / 夏休み / 少し / 対策 ». Seule la bonne réponse finit par
+  // る, la carte se cochait sans lire un kanji. Le vivier contient ici de quoi bien faire.
+  const furu = () => vocabItem({ id: "降る|ふる", meaning: "tomber (pluie)", jlpt: 4 });
+  const okurigana = [
+    vocabItem({ id: "走る|はしる", meaning: "courir", jlpt: 4 }),
+    vocabItem({ id: "帰る|かえる", meaning: "rentrer", jlpt: 4 }),
+    vocabItem({ id: "作る|つくる", meaning: "fabriquer", jlpt: 4 }),
+  ];
+  const sansOkurigana = [
+    vocabItem({ id: "夏休み|なつやすみ", meaning: "vacances d'été", jlpt: 4 }),
+    vocabItem({ id: "少し|すこし", meaning: "un peu", jlpt: 4 }),
+    vocabItem({ id: "対策|たいさく", meaning: "mesure", jlpt: 4 }),
+  ];
+  const pool = [...okurigana, ...sansOkurigana];
+
+  /** Force la direction demandée en épuisant les tirages (la direction est aléatoire). */
+  function choicesFor(to: "kanji" | "kana"): string[] {
+    for (let i = 0; i < 200; i++) {
+      const v = furu();
+      // Streak nul ⇒ la cible kana reste en QCM, la cible kanji l'est toujours.
+      const ex = vocabTriangleExercise(v, 0, pool);
+      if (ex.mode !== "choice") continue;
+      const asked = v.lastDir!.split(">")[1];
+      if (asked === to) return ex.choices;
+    }
+    throw new Error(`direction vers ${to} jamais tirée`);
+  }
+
+  it("demander la GRAPHIE : toutes les options portent le même okurigana", () => {
+    const choices = choicesFor("kanji");
+    expect(choices).toContain("降る");
+    for (const c of choices) expect(c).toMatch(/る$/);
+  });
+
+  it("demander la LECTURE : toutes les options finissent par l'okurigana affiché", () => {
+    const choices = choicesFor("kana");
+    expect(choices).toContain("ふる");
+    for (const c of choices) expect(c).toMatch(/る$/);
+  });
+
+  it("vivier pauvre : on complète plutôt que de rendre un QCM à deux options", () => {
+    // Aucun mot en -る dans le pool : le rangement laisse alors passer les autres.
+    for (let i = 0; i < 200; i++) {
+      const v = furu();
+      const ex = vocabTriangleExercise(v, 0, sansOkurigana);
+      if (ex.mode === "choice") expect(ex.choices).toHaveLength(4);
+    }
+  });
+});
 
 describe("vocabTriangleExercise — directions", () => {
   const neko = () => vocabItem({ id: "猫|ねこ", meaning: "chat" });

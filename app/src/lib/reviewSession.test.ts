@@ -618,6 +618,116 @@ function stableCard(dueInDays: number): Card {
   };
 }
 
+describe("le retard écrit ne noie pas les compétences dédiées", () => {
+  /** Carte d'écoute due il y a une heure (échéance RÉCENTE, donc peu « urgente »). */
+  function oralDueNow(): Card {
+    return {
+      ...newCard(new Date("2026-06-01")),
+      due: new Date(NOW.getTime() - 3600e3),
+      state: State.Review,
+      scheduled_days: 3,
+      reps: 2,
+    };
+  }
+
+  async function seedBacklog(n: number) {
+    for (let i = 0; i < n; i++) {
+      await putVocab({
+        id: `w|${i}`,
+        surface: `漢${i}`,
+        reading: `よみ${i}`,
+        meaning: `sens ${i}`,
+        tags: [],
+        status: "review",
+        cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+      });
+    }
+  }
+
+  it("un retard de 40 cartes écrites laisse quand même passer les exercices d'écoute", async () => {
+    await seedBacklog(40);
+    for (let i = 0; i < 6; i++) {
+      await putVocab({
+        id: `o|${i}`,
+        surface: `音${i}`,
+        reading: `おと${i}`,
+        meaning: `son ${i}`,
+        tags: [],
+        status: "review",
+        example: { ja: `音${i}を聞く。`, fr: `Écouter le son ${i}.` },
+        cards: { written: stableCard(10), oral: oralDueNow() },
+      });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    // Le bloc reste dimensionné par l'objectif du jour…
+    expect(session.length).toBe(SRS.dailyGoal);
+    // …mais l'écoute y a sa part : elle passait entièrement à la trappe, son échéance du
+    // jour étant toujours moins « urgente » qu'un retard écrit de plusieurs années.
+    expect(session.filter((c) => c.skill === "oral").length).toBe(SRS.listenMax);
+  });
+
+  it("la part réservée ne dépasse pas la moitié du bloc", async () => {
+    const store = new Map<string, string>([["settings", JSON.stringify({ dailyGoal: 6 })]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      await seedBacklog(20);
+      for (let i = 0; i < 6; i++) {
+        await putVocab({
+          id: `o|${i}`,
+          surface: `音${i}`,
+          reading: `おと${i}`,
+          meaning: `son ${i}`,
+          tags: [],
+          status: "review",
+          example: { ja: `音${i}を聞く。`, fr: `Écouter le son ${i}.` },
+          cards: { written: stableCard(10), oral: oralDueNow() },
+        });
+      }
+      const session = await buildSession(NOW, { scope: "due" });
+      expect(session.length).toBe(6);
+      // Un bloc de six ne devient pas un bloc d'écoute : la réserve est une moitié.
+      expect(session.filter((c) => c.skill === "oral").length).toBe(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("aucune carte d'écoute due : le dû écrit prend tout le bloc", async () => {
+    await seedBacklog(40);
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.length).toBe(SRS.dailyGoal);
+    expect(session.every((c) => c.skill !== "oral")).toBe(true);
+  });
+
+  it("un mot COUPÉ par le plafond ne fait pas repousser sa carte d'écoute", async () => {
+    await seedBacklog(30);
+    // Écrit ET écoute dus, mais l'écrit est le moins urgent : il sera coupé.
+    await putVocab({
+      id: "遅|おそい",
+      surface: "遅",
+      reading: "おそい",
+      meaning: "tardif",
+      tags: [],
+      status: "review",
+      example: { ja: "遅を聞く。" },
+      cards: {
+        written: { ...oralDueNow() },
+        oral: oralDueNow(),
+      },
+    });
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.some((c) => c.id === "遅|おそい")).toBe(false);
+    // Le mot n'a pas été vu : son écoute reste due. Elle était repoussée de trois jours,
+    // ce qui retirait des exercices d'écoute des jours suivants sans en avoir servi un.
+    const after = await getVocab("遅|おそい");
+    expect(after!.cards.oral!.due.getTime()).toBeLessThanOrEqual(NOW.getTime());
+  });
+});
+
 describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
   it("carte écoute due → exercice d'écoute, même si l'écrit n'est pas dû", async () => {
     await putVocab({
@@ -636,6 +746,31 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     expect(listen!.skill).toBe("oral");
     // L'écrit n'est pas dû : pas d'exercice écrit en double.
     expect(session.find((c) => c.key === "vocab:水|みず")).toBeUndefined();
+  });
+
+  it("carte écoute due dont le mot n'a PLUS de phrase : servie à l'aveugle, jamais bloquée", async () => {
+    // Le corpus d'exemples se régénère (workflow build-examples) : un mot peut perdre la
+    // phrase qui a servi à amorcer sa carte d'écoute. Cette carte restait alors due pour
+    // toujours — ni servie, ni repoussée — et disparaissait silencieusement du compte.
+    await putVocab({
+      id: "水|みず",
+      surface: "水",
+      reading: "みず",
+      meaning: "eau",
+      tags: [],
+      status: "review",
+      cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
+    });
+    for (const [id, meaning] of [["猫|ねこ", "chat"], ["本|ほん", "livre"], ["山|やま", "montagne"]]) {
+      const [surface, reading] = id.split("|");
+      await putVocab({ id, surface, reading, meaning, tags: [], status: "review", cards: { written: stableCard(10) } });
+    }
+    const session = await buildSession(NOW, { scope: "due" });
+    const listen = session.find((c) => c.id === "水|みず" && c.skill === "oral");
+    expect(listen).toBeDefined();
+    // À l'aveugle : rien à recopier — la face avant ne montre pas le mot demandé.
+    expect(listen!.audioOnly).toBe(true);
+    expect(listen!.front).toBe("");
   });
 
   it("mode sans le son : la carte écoute due devient un exercice écrit noté oral, pas d'amorçage", async () => {

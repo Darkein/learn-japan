@@ -21,7 +21,9 @@ import {
   type OmikujiRecord,
 } from "./db";
 import { loadSettings } from "./settings";
+import { isDue } from "./srs";
 import { addTokaidoBonus } from "./tokaido";
+import type { Card } from "ts-fsrs";
 
 export interface Fortune {
   id: OmikujiFortune;
@@ -58,8 +60,14 @@ export function fortuneById(id: OmikujiFortune): Fortune {
 export interface OmikujiEnv {
   dailyGoal: number;
   reviewedToday: number;
-  hasProductionCards: boolean;
-  hasOralCards: boolean;
+  /**
+   * Cartes de la compétence RÉELLEMENT DUES aujourd'hui. Pas « en a-t-il une ? » mais
+   * « combien la journée peut-elle en servir ? » : une carte n'est due qu'une fois par
+   * jour, si bien qu'un défi « réussis 10 exercices d'écoute » lancé sur trois cartes
+   * dues est perdu d'avance — et l'utilisateur cherche l'erreur dans ses réglages.
+   */
+  oralDue: number;
+  productionDue: number;
   hasStories: boolean;
 }
 
@@ -104,28 +112,28 @@ export const CHALLENGES: OmikujiChallenge[] = [
     label: () => "Retrouve 5 mots en japonais à partir du français",
     metric: "prodOk",
     target: () => 5,
-    available: (env) => env.hasProductionCards,
+    available: (env) => env.productionDue >= 5,
   },
   {
     id: "prod-10",
     label: () => "Retrouve 10 mots en japonais à partir du français",
     metric: "prodOk",
     target: () => 10,
-    available: (env) => env.hasProductionCards,
+    available: (env) => env.productionDue >= 10,
   },
   {
     id: "oral-5",
     label: () => "Réussis 5 exercices d'écoute",
     metric: "oralOk",
     target: () => 5,
-    available: (env) => env.hasOralCards,
+    available: (env) => env.oralDue >= 5,
   },
   {
     id: "oral-10",
     label: () => "Réussis 10 exercices d'écoute",
     metric: "oralOk",
     target: () => 10,
-    available: (env) => env.hasOralCards,
+    available: (env) => env.oralDue >= 10,
   },
   {
     id: "story-1",
@@ -232,11 +240,19 @@ async function collectEnv(now: Date): Promise<OmikujiEnv> {
     allStories(),
     getSrsDaily(localDateString(now)),
   ]);
+  // Horizon = la fin de la journée locale : une carte qui échoit ce soir compte pour le
+  // défi du jour. Au-delà, ce serait promettre une matière que le jour n'aura pas.
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const dueCount = (pick: (v: (typeof vocab)[number]) => Card | undefined) =>
+    vocab.filter((v) => {
+      const card = pick(v);
+      return !!card && isDue(card, endOfDay);
+    }).length;
   return {
     dailyGoal: loadSettings().dailyGoal,
     reviewedToday: daily?.reviewed ?? 0,
-    hasProductionCards: vocab.some((v) => v.cards.production),
-    hasOralCards: vocab.some((v) => v.cards.oral),
+    productionDue: dueCount((v) => v.cards.production),
+    oralDue: dueCount((v) => v.cards.oral),
     hasStories: stories.length > 0,
   };
 }

@@ -14,6 +14,7 @@ import { ExamSession } from "./exam/ExamSession";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
 import { StationArrival } from "./StationArrival";
+import { LessonObjectives } from "./LessonObjectives";
 import { Markdown } from "./LessonMarkdown";
 import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
@@ -307,6 +308,10 @@ function LessonCourse({
         <SectionLabel>Leçon{lesson.level ? ` · N${lesson.level}` : ""}</SectionLabel>
         <p className="m-0 font-serif text-lg text-text">{lesson.title}</p>
       </div>
+      {/* La matière de la leçon AVANT son cadrage, comme sur sa page : sans elle, on
+          découvrait les mots dans les exercices sans les avoir jamais vus posés. Elle vient
+          de l'inventaire, donc elle tient même quand le cadrage manque (hors-ligne). */}
+      <LessonObjectives lesson={lesson} />
       {lesson.framing && <Markdown text={lesson.framing} reveal={furigana} />}
       {missing && busy && <GenProgress label={label} progress={progress} />}
       {missing && !busy && (

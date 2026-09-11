@@ -358,10 +358,16 @@ describe("buildExamLessonQcmPrompt (questions de cours)", () => {
   it("porte sur la COMPRÉHENSION du cours, pas sur le vocabulaire", () => {
     const prompt = buildExamLessonQcmPrompt(req);
     expect(prompt).toContain("COMPRÉHENSION DU COURS");
-    expect(prompt).toContain("que marque を");
     expect(prompt).toContain("OMISE");
     expect(prompt).toContain("PIÈGE");
     expect(prompt).toContain("Interdits");
+  });
+
+  it("interdit de redemander le rôle du point — un autre exercice le demande déjà", () => {
+    const prompt = buildExamLessonQcmPrompt(req);
+    expect(prompt).toContain("quel est le rôle de <point> ?");
+    expect(prompt).toContain("3 angles DIFFÉRENTS");
+    expect(prompt).toContain("L'ÉNONCÉ NE DOIT JAMAIS CONTENIR LA RÉPONSE");
   });
 
   it("transmet les règles enseignées, numérotées pour le tag [Gk]", () => {
