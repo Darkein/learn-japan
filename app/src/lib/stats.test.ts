@@ -15,6 +15,7 @@ import {
   dailyWindow,
   daysBetween,
   firstActiveDay,
+  lapseCounts,
   leechIds,
   perItemAccuracy,
   retentionRate,
@@ -119,6 +120,11 @@ describe("reviewForecast", () => {
 });
 
 describe("leechIds", () => {
+  /** `n` échecs d'affilée, puis `ok` réussites, en horodatage croissant depuis `from`. */
+  function run(itemId: string, pattern: ("again" | "good")[], from = 0): ReviewLog[] {
+    return pattern.map((grade, i) => log({ itemId, at: from + i, grade }));
+  }
+
   it("seuil = SRS.leechLapses échecs", () => {
     const reviews: ReviewLog[] = [];
     for (let i = 0; i < SRS.leechLapses; i++) reviews.push(log({ itemId: "leech", at: i, grade: "again" }));
@@ -152,6 +158,48 @@ describe("leechIds", () => {
     for (let i = 0; i < SRS.leechLapses; i++) reviews.push(log({ itemId: "leech", at: i, grade: "again" }));
     expect(leechIds(reviews.reverse()).has("leech")).toBe(false);
   });
+  it("des échecs isolés noyés dans les réussites ne rendent jamais difficile", () => {
+    // Le mot su par cœur : une coquille de temps en temps, des dizaines de bonnes réponses
+    // entre chaque. Le total de vie dépasse le seuil, le compteur courant non.
+    const reviews: ReviewLog[] = [];
+    for (let i = 0; i < SRS.leechLapses + 2; i++) {
+      reviews.push(...run("本|ほん", ["again", "good", "good", "good", "good"], i * 100));
+    }
+    expect(lapseCounts(reviews).get("本|ほん")).toBe(0);
+    expect(leechIds(reviews).has("本|ほん")).toBe(false);
+  });
+
+  it("un élément difficile en sort après SRS.leechRecoveryStreak réussites", () => {
+    const reviews = run("難", Array<"again">(SRS.leechLapses).fill("again"));
+    expect(leechIds(reviews).has("難")).toBe(true);
+
+    // Une réussite de moins que la série : toujours difficile.
+    const short = [...reviews, ...run("難", Array(SRS.leechRecoveryStreak - 1).fill("good"), 100)];
+    expect(leechIds(short).has("難")).toBe(true);
+
+    const recovered = [...reviews, ...run("難", Array(SRS.leechRecoveryStreak).fill("good"), 100)];
+    expect(lapseCounts(recovered).get("難")).toBe(0);
+    expect(leechIds(recovered).has("難")).toBe(false);
+  });
+
+  it("une rechute après récupération repart de zéro, pas du total de vie", () => {
+    const reviews = [
+      ...run("難", Array<"again">(SRS.leechLapses).fill("again")),
+      ...run("難", Array(SRS.leechRecoveryStreak).fill("good"), 100),
+      ...run("難", ["again"], 200),
+    ];
+    expect(lapseCounts(reviews).get("難")).toBe(1);
+    expect(leechIds(reviews).has("難")).toBe(false);
+  });
+
+  it("la série de réussites se lit elle aussi dans l'ordre chronologique", () => {
+    const chrono = [
+      ...run("難", Array<"again">(SRS.leechLapses).fill("again")),
+      ...run("難", Array(SRS.leechRecoveryStreak).fill("good"), 100),
+    ];
+    expect(leechIds([...chrono].reverse()).has("難")).toBe(false);
+  });
+
 });
 
 describe("jalon de remise à zéro", () => {
