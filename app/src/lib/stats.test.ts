@@ -7,12 +7,15 @@ import {
   type SrsDailyRecord,
   type VocabItem,
 } from "./db";
-import { newCard } from "./srs";
+import { newCard, review, State } from "./srs";
 import {
   activityTotals,
   bucketActivity,
+  cardMaturity,
   collectCards,
   dailyWindow,
+  daysBetween,
+  firstActiveDay,
   leechIds,
   pickGranularity,
   perItemAccuracy,
@@ -20,6 +23,7 @@ import {
   reviewForecast,
   reviewStreak,
   shiftDay,
+  statusCounts,
 } from "./stats";
 
 const DAY = 86_400_000;
@@ -273,6 +277,7 @@ describe("fenêtres d'activité", () => {
       flowMs: 90_000,
       reviewed: 10,
       introduced: 2,
+      storiesRead: 0,
       activeDays: 2,
       days: 3,
     });
@@ -289,5 +294,43 @@ describe("retentionRate — fenêtre « all »", () => {
     ];
     expect(retentionRate(reviews, 30, NOW)).toEqual({ total: 1, correct: 1, rate: 1 });
     expect(retentionRate(reviews, "all", NOW)).toEqual({ total: 2, correct: 1, rate: 0.5 });
+  });
+});
+
+
+describe("état courant (hors période)", () => {
+  it("statusCounts répartit les items suivis", () => {
+    const items = [{ status: "known" }, { status: "review" }, { status: "review" }] as const;
+    expect(statusCounts([...items])).toEqual({ total: 3, known: 1, review: 2, unknown: 0 });
+    expect(statusCounts([])).toEqual({ total: 0, known: 0, review: 0, unknown: 0 });
+  });
+
+  it("cardMaturity sépare neuves, apprentissage, jeunes et mûres", () => {
+    const fresh = newCard(NOW);
+    const learning = review(newCard(NOW), "good", NOW); // premier passage : Learning
+    const young = { ...learning, state: State.Review, scheduled_days: 5 };
+    const mature = { ...learning, state: State.Review, scheduled_days: SRS.masteredIntervalDays };
+    const relearning = { ...learning, state: State.Relearning, scheduled_days: 0 };
+    expect(cardMaturity([fresh, learning, young, mature, relearning])).toEqual({
+      total: 5,
+      fresh: 1,
+      learning: 2,
+      young: 1,
+      mature: 1,
+    });
+  });
+
+  it("daysBetween compte des jours calendaires", () => {
+    expect(daysBetween("2026-07-01", "2026-07-04")).toBe(3);
+    expect(daysBetween("2026-07-04", "2026-07-04")).toBe(0);
+    expect(daysBetween("2025-12-30", "2026-01-02")).toBe(3);
+  });
+
+  it("firstActiveDay prend le plus ancien des deux stores", () => {
+    const daily = [{ date: "2026-07-01", introduced: 0, reviewed: 0 }];
+    const early = new Date("2026-06-15T08:00:00").getTime();
+    expect(firstActiveDay(daily, [])).toBe("2026-07-01");
+    expect(firstActiveDay(daily, [log({ itemId: "mot", at: early })])).toBe("2026-06-15");
+    expect(firstActiveDay([], [])).toBeNull();
   });
 });

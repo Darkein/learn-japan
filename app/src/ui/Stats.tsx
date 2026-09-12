@@ -16,7 +16,7 @@ import {
 } from "../lib/db";
 import { getCurriculumEntry } from "../lib/curriculum";
 import { buildBulletin, type Bulletin } from "../lib/exam";
-import { EXAM } from "../lib/config";
+import { EXAM, SRS } from "../lib/config";
 import { formatMinutes } from "../lib/time";
 import { loadSettings } from "../lib/settings";
 import { effectiveNewPerDay, loadTuning, type FsrsTuning } from "../lib/tuning";
@@ -24,13 +24,18 @@ import {
   accuracyKey,
   activityTotals,
   bucketActivity,
+  cardMaturity,
   collectCards,
   dailyWindow,
+  daysBetween,
+  firstActiveDay,
   perItemAccuracy,
   pickGranularity,
   retentionRate,
   reviewForecast,
+  reviewStreak,
   shiftDay,
+  statusCounts,
   type ActivityBucket,
   type ForecastDay,
   type Granularity,
@@ -205,44 +210,72 @@ export function Stats() {
   const maxLoad = Math.max(1, ...forecast.map((d) => d.count));
   const overdueToday = forecast[0]?.date === today ? forecast[0].count : 0;
   const worst = worstItems(data, acc);
-  const newBase = loadSettings().newPerDay;
+  const settings = loadSettings();
+  const newBase = settings.newPerDay;
   const effNew = effectiveNewPerDay(newBase, data.tuning.measuredRetention, data.tuning.backlog);
   const bulletin = buildBulletin(data.exams, (id) => getCurriculumEntry(id)?.title);
 
+  // État courant : ce qui ne dépend d'aucune période — l'édifice, pas le chantier du moment.
+  const vocabCounts = statusCounts(data.vocab);
+  const grammarCounts = statusCounts(data.grammar);
+  const maturity = cardMaturity(collectCards(data.vocab, data.grammar, data.comprehension));
+  const maxMaturity = Math.max(1, maturity.fresh, maturity.learning, maturity.young, maturity.mature);
+  const streak = reviewStreak(data.daily, settings.dailyGoal, today);
+  const firstDay = firstActiveDay(data.daily, data.reviews);
+  // Ancienneté inclusive : le premier jour compte pour un.
+  const sinceDays = firstDay ? daysBetween(firstDay, today) + 1 : 0;
+
   return (
     <div className="flex flex-col gap-8">
-      {/* Une seule bascule pour toute la page : rétention, activité et précision regardent la
-          MÊME fenêtre — deux périodes affichées côte à côte ne se comparent pas. */}
-      <SegmentedControl
-        ariaLabel="Période"
-        options={PERIODS}
-        value={periodValue}
-        onChange={setPeriodValue}
-        className="self-start"
-      />
-
+      {/* --- État courant : aucune période ne s'y applique. --------------------------- */}
       <section className="flex flex-col gap-3">
-        <SectionLabel>Rétention ({periodLabel(period)})</SectionLabel>
-        {retention.rate === null ? (
-          <p className="text-sm text-muted">
-            Pas encore assez de révisions pour mesurer la rétention — reviens après quelques sessions.
-          </p>
-        ) : (
-          <Card className="flex items-baseline gap-4">
-            <span className="font-serif text-4xl text-text">{Math.round(retention.rate * 100)}%</span>
-            <span className="text-sm text-muted">
-              {retention.correct} / {retention.total} révisions réussies (premières expositions exclues)
-            </span>
-          </Card>
-        )}
-        {/* Auto-réglage : cible de rétention et débit de nouveautés ajustés selon les erreurs. */}
-        <p className="text-xs text-muted">
-          Réglage auto — cible de rétention&nbsp;: {Math.round(data.tuning.requestRetention * 100)}%
-          {" · "}nouveautés&nbsp;: {effNew}/j{effNew < newBase ? ` (au lieu de ${newBase}, retard/erreurs)` : ""}
-        </p>
+        <SectionLabel>Où j'en suis</SectionLabel>
+        <Card className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
+          <Figure value={`${vocabCounts.known} / ${vocabCounts.total}`} label="mots connus" />
+          <Figure
+            value={`${grammarCounts.known} / ${grammarCounts.total}`}
+            label="points de grammaire connus"
+          />
+          <Figure value={String(streak)} label={`jour${streak > 1 ? "s" : ""} de série`} />
+          {firstDay && (
+            <Figure value={String(sinceDays)} label={`jour${sinceDays > 1 ? "s" : ""} depuis le début`} />
+          )}
+        </Card>
       </section>
 
-      {bulletin.rows.length > 0 && <BulletinSection bulletin={bulletin} />}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Maturité des cartes</SectionLabel>
+        {maturity.total === 0 ? (
+          <p className="text-sm text-muted">
+            Aucune carte pour l'instant — elles apparaissent dès la première leçon travaillée.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <BarRow label="Neuves" value={String(maturity.fresh)} ratio={maturity.fresh / maxMaturity} labelClass="w-36" />
+              <BarRow label="Apprentissage" value={String(maturity.learning)} ratio={maturity.learning / maxMaturity} labelClass="w-36" />
+              <BarRow
+                label={`Jeunes (< ${SRS.masteredIntervalDays} j)`}
+                value={String(maturity.young)}
+                ratio={maturity.young / maxMaturity}
+                labelClass="w-36"
+              />
+              <BarRow
+                label={`Mûres (≥ ${SRS.masteredIntervalDays} j)`}
+                value={String(maturity.mature)}
+                ratio={maturity.mature / maxMaturity}
+                labelClass="w-36"
+              />
+            </div>
+            {/* Plus de cartes que de mots : un mot en porte une par compétence travaillée. */}
+            <p className="text-xs text-muted">
+              {maturity.total} carte{maturity.total > 1 ? "s" : ""} au total — un mot en porte une
+              par compétence (écrit, écoute, production){" · "}
+              {Math.round((maturity.mature / maturity.total) * 100)}% mûres
+            </p>
+          </>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         <SectionLabel>Charge des 7 prochains jours</SectionLabel>
@@ -253,81 +286,134 @@ export function Stats() {
         )}
         <div className="flex flex-col gap-1.5">
           {forecast.map((d, i) => (
-            <div key={d.date} className="flex items-center gap-3 text-sm">
-              <span className="w-24 shrink-0 text-muted">{forecastLabel(d, i)}</span>
-              <div className="h-3 grow rounded-sm bg-bg">
-                <div
-                  className="h-full rounded-sm bg-accent"
-                  style={{ width: `${(d.count / maxLoad) * 100}%` }}
-                />
-              </div>
-              <span className="w-8 shrink-0 text-right text-text">{d.count}</span>
-            </div>
+            <BarRow
+              key={d.date}
+              label={forecastLabel(d, i)}
+              value={String(d.count)}
+              ratio={d.count / maxLoad}
+            />
           ))}
         </div>
       </section>
 
-      <section className="flex flex-col gap-3">
-        <SectionLabel>Activité ({periodLabel(period)})</SectionLabel>
-        <Card className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
-          <Figure value={formatMinutes(totals.flowMs)} label="d'étude" />
-          <Figure value={String(totals.reviewed)} label={`révision${totals.reviewed > 1 ? "s" : ""}`} />
-          <Figure
-            value={String(totals.introduced)}
-            label={`nouveau${totals.introduced > 1 ? "x" : ""} mot${totals.introduced > 1 ? "s" : ""}`}
-          />
-          <Figure
-            value={`${totals.activeDays} / ${totals.days}`}
-            label={`jour${totals.activeDays > 1 ? "s" : ""} actif${totals.activeDays > 1 ? "s" : ""}`}
-          />
-        </Card>
-        {totals.flowMs === 0 ? (
-          <p className="text-sm text-muted">
-            Pas de temps mesuré sur cette période — le flux d'étude (bouton « Commencer » de
-            l'accueil) compte tes minutes.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {buckets.map((b) => (
-              <div key={b.start} className="flex items-center gap-3 text-sm">
-                <span className="w-28 shrink-0 truncate text-muted">
-                  {bucketLabel(b, granularity, today)}
-                </span>
-                <div className="h-3 grow rounded-sm bg-bg">
-                  <div
-                    className="h-full rounded-sm bg-accent"
-                    style={{ width: `${(b.flowMs / maxFlow) * 100}%` }}
-                  />
-                </div>
-                <span className="w-16 shrink-0 text-right text-text">
-                  {b.flowMs > 0 ? formatMinutes(b.flowMs) : "—"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {bulletin.rows.length > 0 && <BulletinSection bulletin={bulletin} />}
 
-      <section className="flex flex-col gap-3">
-        <SectionLabel>Précision la plus faible ({periodLabel(period)})</SectionLabel>
-        {worst.length === 0 ? (
-          <p className="text-sm text-muted">Rien à signaler pour l'instant.</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {worst.map((item) => (
-              <div key={item.key} className="flex items-baseline justify-between gap-4 text-sm">
-                <span className="min-w-0 truncate">
-                  <span className="font-jp text-text">{item.label}</span>
-                  {item.detail && <span className="text-muted"> — {item.detail}</span>}
-                </span>
-                <span className="shrink-0 text-muted">
-                  {Math.round((1 - item.errorRate) * 100)}% ({item.acc!.total} rév.)
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* --- Sur une période : une seule bascule commande tout ce qui suit — deux périodes
+              affichées côte à côte ne se compareraient pas. ------------------------------ */}
+      <div className="flex flex-col gap-8 border-t border-hairline pt-8">
+        <div className="flex flex-wrap items-center gap-3">
+          <SegmentedControl
+            ariaLabel="Période"
+            options={PERIODS}
+            value={periodValue}
+            onChange={setPeriodValue}
+          />
+          <span className="text-xs text-muted">s'applique aux sections ci-dessous</span>
+        </div>
+
+        <section className="flex flex-col gap-3">
+          <SectionLabel>Rétention ({periodLabel(period)})</SectionLabel>
+          {retention.rate === null ? (
+            <p className="text-sm text-muted">
+              Pas encore assez de révisions pour mesurer la rétention — reviens après quelques sessions.
+            </p>
+          ) : (
+            <Card className="flex items-baseline gap-4">
+              <span className="font-serif text-4xl text-text">{Math.round(retention.rate * 100)}%</span>
+              <span className="text-sm text-muted">
+                {retention.correct} / {retention.total} révisions réussies (premières expositions exclues)
+              </span>
+            </Card>
+          )}
+          {/* Auto-réglage : cible de rétention et débit de nouveautés ajustés selon les erreurs. */}
+          <p className="text-xs text-muted">
+            Réglage auto — cible de rétention&nbsp;: {Math.round(data.tuning.requestRetention * 100)}%
+            {" · "}nouveautés&nbsp;: {effNew}/j{effNew < newBase ? ` (au lieu de ${newBase}, retard/erreurs)` : ""}
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <SectionLabel>Activité ({periodLabel(period)})</SectionLabel>
+          <Card className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
+            <Figure value={formatMinutes(totals.flowMs)} label="d'étude" />
+            <Figure value={String(totals.reviewed)} label={`révision${totals.reviewed > 1 ? "s" : ""}`} />
+            <Figure
+              value={String(totals.introduced)}
+              label={`nouveau${totals.introduced > 1 ? "x" : ""} mot${totals.introduced > 1 ? "s" : ""}`}
+            />
+            <Figure
+              value={String(totals.storiesRead)}
+              label={`histoire${totals.storiesRead > 1 ? "s" : ""} lue${totals.storiesRead > 1 ? "s" : ""}`}
+            />
+            <Figure
+              value={`${totals.activeDays} / ${totals.days}`}
+              label={`jour${totals.activeDays > 1 ? "s" : ""} actif${totals.activeDays > 1 ? "s" : ""}`}
+            />
+          </Card>
+          {totals.flowMs === 0 ? (
+            <p className="text-sm text-muted">
+              Pas de temps mesuré sur cette période — le flux d'étude (bouton « Commencer » de
+              l'accueil) compte tes minutes.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {buckets.map((b) => (
+                <BarRow
+                  key={b.start}
+                  label={bucketLabel(b, granularity, today)}
+                  value={b.flowMs > 0 ? formatMinutes(b.flowMs) : "—"}
+                  ratio={b.flowMs / maxFlow}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <SectionLabel>Précision la plus faible ({periodLabel(period)})</SectionLabel>
+          {worst.length === 0 ? (
+            <p className="text-sm text-muted">Rien à signaler pour l'instant.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {worst.map((item) => (
+                <div key={item.key} className="flex items-baseline justify-between gap-4 text-sm">
+                  <span className="min-w-0 truncate">
+                    <span className="font-jp text-text">{item.label}</span>
+                    {item.detail && <span className="text-muted"> — {item.detail}</span>}
+                  </span>
+                  <span className="shrink-0 text-muted">
+                    {Math.round((1 - item.errorRate) * 100)}% ({item.acc!.total} rév.)
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** Rangée « libellé — barre — valeur », le motif commun des trois listes de la page. */
+function BarRow({
+  label,
+  value,
+  ratio,
+  labelClass = "w-24",
+}: {
+  label: string;
+  value: string;
+  /** Part de la plus grande valeur de la liste, entre 0 et 1. */
+  ratio: number;
+  labelClass?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className={`${labelClass} shrink-0 truncate text-muted`}>{label}</span>
+      <div className="h-3 grow rounded-sm bg-bg">
+        <div className="h-full rounded-sm bg-accent" style={{ width: `${ratio * 100}%` }} />
+      </div>
+      <span className="w-16 shrink-0 text-right text-text">{value}</span>
     </div>
   );
 }

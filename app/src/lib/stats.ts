@@ -8,11 +8,12 @@ import {
   RESET_GRADE,
   type ComprehensionItem,
   type GrammarItem,
+  type ItemStatus,
   type ReviewLog,
   type SrsDailyRecord,
   type VocabItem,
 } from "./db";
-import type { Card } from "./srs";
+import { isMastered, State, type Card } from "./srs";
 
 export interface ItemAccuracy {
   total: number;
@@ -219,20 +220,95 @@ export interface ActivityTotals {
   flowMs: number;
   reviewed: number;
   introduced: number;
+  storiesRead: number;
   /** Jours où quelque chose s'est passé — le dénominateur honnête d'une moyenne. */
   activeDays: number;
   days: number;
 }
 
 export function activityTotals(days: SrsDailyRecord[]): ActivityTotals {
-  const out: ActivityTotals = { flowMs: 0, reviewed: 0, introduced: 0, activeDays: 0, days: days.length };
+  const out: ActivityTotals = {
+    flowMs: 0,
+    reviewed: 0,
+    introduced: 0,
+    storiesRead: 0,
+    activeDays: 0,
+    days: days.length,
+  };
   for (const d of days) {
     out.flowMs += d.flowMs ?? 0;
     out.reviewed += d.reviewed;
     out.introduced += d.introduced;
+    out.storiesRead += d.storiesRead ?? 0;
     if ((d.flowMs ?? 0) > 0 || d.reviewed > 0 || d.introduced > 0) out.activeDays++;
   }
   return out;
+}
+
+// État courant : ce qui ne dépend PAS d'une période -------------------------------------
+
+export interface StatusCounts {
+  total: number;
+  known: number;
+  review: number;
+  unknown: number;
+}
+
+/** Répartition d'une piste par statut (une piste = les items SUIVIS, pas l'inventaire entier). */
+export function statusCounts(items: { status: ItemStatus }[]): StatusCounts {
+  const out: StatusCounts = { total: items.length, known: 0, review: 0, unknown: 0 };
+  for (const it of items) out[it.status]++;
+  return out;
+}
+
+export interface CardMaturity {
+  total: number;
+  /** Jamais révisée (FSRS `New`). */
+  fresh: number;
+  /** En apprentissage ou en réapprentissage après un échec. */
+  learning: number;
+  /** En révision, mais encore en dessous du seuil de maîtrise. */
+  young: number;
+  /** Maîtrisée : en révision avec un intervalle ≥ SRS.masteredIntervalDays. */
+  mature: number;
+}
+
+/**
+ * Répartition des cartes par maturité — la photo de l'édifice, indépendante de toute
+ * période : ce qui est acquis l'est, qu'on ait travaillé cette semaine ou pas.
+ */
+export function cardMaturity(cards: Card[]): CardMaturity {
+  const out: CardMaturity = { total: cards.length, fresh: 0, learning: 0, young: 0, mature: 0 };
+  for (const c of cards) {
+    if (c.state === State.New) out.fresh++;
+    else if (c.state === State.Learning || c.state === State.Relearning) out.learning++;
+    else if (isMastered(c)) out.mature++;
+    else out.young++;
+  }
+  return out;
+}
+
+/** Nombre de jours calendaires de `from` à `to` (négatif si `to` précède `from`). */
+export function daysBetween(from: string, to: string): number {
+  const ms = (date: string) => {
+    const [y, m, d] = date.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((ms(to) - ms(from)) / 86_400_000);
+}
+
+/**
+ * Premier jour d'activité connu, compteurs journaliers ET log de révisions confondus : les
+ * deux stores ont pu commencer à des dates différentes (une révision d'avant les compteurs).
+ */
+export function firstActiveDay(daily: SrsDailyRecord[], reviews: ReviewLog[]): string | null {
+  let first: string | null = null;
+  for (const d of daily) if (!first || d.date < first) first = d.date;
+  for (const r of reviews) {
+    const date = localDateString(new Date(r.at));
+    if (!first || date < first) first = date;
+  }
+  return first;
 }
 
 /** Éléments difficiles : ≥ SRS.leechLapses échecs depuis la dernière remise à zéro. */
