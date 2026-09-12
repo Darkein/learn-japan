@@ -620,6 +620,15 @@ export async function bumpSrsDaily(
     storiesRead: (existing.storiesRead ?? 0) + (delta.storiesRead ?? 0),
   });
 }
+/**
+ * Tout l'historique journalier, dans l'ordre chronologique (la clé du store EST la date
+ * « YYYY-MM-DD », donc l'ordre des clés est l'ordre du temps). Les jours sans activité
+ * n'ont pas d'entrée — c'est à l'appelant de combler les trous (`dailyWindow`, lib/stats.ts).
+ */
+export async function allSrsDaily(): Promise<SrsDailyRecord[]> {
+  return (await getDB()).getAll("srsDaily");
+}
+
 export async function recentSrsDaily(nDays: number): Promise<SrsDailyRecord[]> {
   const result: SrsDailyRecord[] = [];
   const today = new Date();

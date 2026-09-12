@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { SRS } from "./config";
-import { localDateString, RESET_GRADE, type ReviewLog, type VocabItem } from "./db";
+import {
+  localDateString,
+  RESET_GRADE,
+  type ReviewLog,
+  type SrsDailyRecord,
+  type VocabItem,
+} from "./db";
 import { newCard } from "./srs";
 import {
+  activityTotals,
+  bucketActivity,
   collectCards,
+  dailyWindow,
   leechIds,
+  pickGranularity,
   perItemAccuracy,
   retentionRate,
   reviewForecast,
   reviewStreak,
+  shiftDay,
 } from "./stats";
 
 const DAY = 86_400_000;
@@ -191,5 +202,92 @@ describe("reviewStreak", () => {
 
   it("ne boucle pas sur un objectif à zéro", () => {
     expect(reviewStreak([day("2026-08-09", 0)], 0, "2026-08-10")).toBe(2);
+  });
+});
+
+
+describe("fenêtres d'activité", () => {
+  const day = (date: string, p: Partial<SrsDailyRecord> = {}): SrsDailyRecord => ({
+    date,
+    introduced: 0,
+    reviewed: 0,
+    ...p,
+  });
+
+  it("shiftDay traverse les mois et les années", () => {
+    expect(shiftDay("2026-03-01", -1)).toBe("2026-02-28");
+    expect(shiftDay("2026-12-31", 1)).toBe("2027-01-01");
+    expect(shiftDay("2026-07-04", 0)).toBe("2026-07-04");
+  });
+
+  it("dailyWindow rend des jours contigus et comble les trous", () => {
+    const daily = [day("2026-07-01", { reviewed: 5 }), day("2026-07-04", { reviewed: 2 })];
+    const w = dailyWindow(daily, 7, "2026-07-04");
+    expect(w.map((d) => d.date)).toEqual([
+      "2026-06-28", "2026-06-29", "2026-06-30",
+      "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04",
+    ]);
+    expect(w.find((d) => d.date === "2026-07-02")!.reviewed).toBe(0);
+    expect(w.at(-1)!.reviewed).toBe(2);
+  });
+
+  it("dailyWindow « all » part du premier jour connu", () => {
+    const daily = [day("2026-07-01"), day("2026-07-03")];
+    expect(dailyWindow(daily, "all", "2026-07-04")).toHaveLength(4);
+    // Aucun historique : la fenêtre se réduit à aujourd'hui, jamais vide.
+    expect(dailyWindow([], "all", "2026-07-04").map((d) => d.date)).toEqual(["2026-07-04"]);
+  });
+
+  it("pickGranularity passe au seau plus large quand les barres deviennent illisibles", () => {
+    expect(pickGranularity(7)).toBe("day");
+    expect(pickGranularity(30)).toBe("day");
+    expect(pickGranularity(90)).toBe("week");
+    expect(pickGranularity(400)).toBe("month");
+  });
+
+  it("bucketActivity regroupe par semaine (lundi) puis par mois", () => {
+    // Du jeudi 2 juillet 2026 au lundi 6 : deux semaines, deux mois enjambés.
+    const days = dailyWindow(
+      [day("2026-06-30", { reviewed: 1, flowMs: 1000 }), day("2026-07-06", { reviewed: 4 })],
+      "all",
+      "2026-07-06",
+    );
+    const weeks = bucketActivity(days, "week");
+    expect(weeks.map((b) => b.start)).toEqual(["2026-06-29", "2026-07-06"]);
+    expect(weeks[0]).toMatchObject({ days: 6, reviewed: 1, flowMs: 1000 });
+    expect(weeks[1]).toMatchObject({ days: 1, reviewed: 4 });
+
+    const months = bucketActivity(days, "month");
+    expect(months.map((b) => b.start)).toEqual(["2026-06-01", "2026-07-01"]);
+    expect(months[0].days).toBe(1);
+    expect(months[1].days).toBe(6);
+  });
+
+  it("activityTotals ne compte actif qu'un jour où il s'est passé quelque chose", () => {
+    const days = [
+      day("2026-07-01", { reviewed: 10, introduced: 2, flowMs: 60_000 }),
+      day("2026-07-02"),
+      day("2026-07-03", { flowMs: 30_000 }),
+    ];
+    expect(activityTotals(days)).toEqual({
+      flowMs: 90_000,
+      reviewed: 10,
+      introduced: 2,
+      activeDays: 2,
+      days: 3,
+    });
+  });
+});
+
+describe("retentionRate — fenêtre « all »", () => {
+  it("prend tout l'historique, première exposition toujours exclue", () => {
+    const old = NOW.getTime() - 400 * DAY;
+    const reviews = [
+      log({ itemId: "mot", at: old, grade: "good" }),
+      log({ itemId: "mot", at: old + DAY, grade: "again" }),
+      log({ itemId: "mot", at: NOW.getTime() - DAY, grade: "good" }),
+    ];
+    expect(retentionRate(reviews, 30, NOW)).toEqual({ total: 1, correct: 1, rate: 1 });
+    expect(retentionRate(reviews, "all", NOW)).toEqual({ total: 2, correct: 1, rate: 0.5 });
   });
 });

@@ -4,9 +4,9 @@ import {
   allExams,
   allGrammar,
   allReviews,
+  allSrsDaily,
   allVocab,
   localDateString,
-  recentSrsDaily,
   type ComprehensionItem,
   type GrammarItem,
   type ReviewLog,
@@ -22,23 +22,52 @@ import { loadSettings } from "../lib/settings";
 import { effectiveNewPerDay, loadTuning, type FsrsTuning } from "../lib/tuning";
 import {
   accuracyKey,
+  activityTotals,
+  bucketActivity,
   collectCards,
+  dailyWindow,
   perItemAccuracy,
+  pickGranularity,
   retentionRate,
   reviewForecast,
+  shiftDay,
+  type ActivityBucket,
   type ForecastDay,
+  type Granularity,
   type ItemAccuracy,
+  type StatsPeriod,
 } from "../lib/stats";
 import { Card } from "./kit/Card";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
+import { SegmentedControl } from "./kit/SegmentedControl";
 
-const RETENTION_WINDOW_DAYS = 30;
 /** En dessous, la précision d'un élément n'est pas significative — exclu du top des difficultés. */
 const MIN_REVIEWS_FOR_ACCURACY = 4;
 const WORST_ITEMS = 10;
 
+/**
+ * Période d'observation, commune à toute la page (sauf la charge à venir, qui regarde le
+ * futur). Valeurs en chaîne : c'est ce que porte le groupe de bascules.
+ */
+const PERIODS: { value: string; label: string }[] = [
+  { value: "7", label: "7 jours" },
+  { value: "30", label: "30 jours" },
+  { value: "all", label: "Depuis le début" },
+];
+const DEFAULT_PERIOD = "30";
+
+function parsePeriod(value: string): StatsPeriod {
+  return value === "all" ? "all" : Number(value);
+}
+
+/** « 30 derniers jours » / « depuis le début » — pour compléter un titre de section. */
+function periodLabel(period: StatsPeriod): string {
+  return period === "all" ? "depuis le début" : `${period} derniers jours`;
+}
+
 interface Data {
+  /** TOUT l'historique journalier : la fenêtre choisie y est découpée sans relire la base. */
   daily: SrsDailyRecord[];
   vocab: VocabItem[];
   grammar: GrammarItem[];
@@ -108,13 +137,22 @@ function worstItems(data: Data, acc: Map<string, ItemAccuracy>): (ResolvedItem &
   return rows.sort((a, b) => b.errorRate - a.errorRate).slice(0, WORST_ITEMS);
 }
 
-function studyDayLabel(date: string, index: number, total: number): string {
-  if (index === total - 1) return "Aujourd'hui";
-  if (index === total - 2) return "Hier";
-  return new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR", {
-    weekday: "short",
-    day: "numeric",
-  });
+/** Date calendaire (YYYY-MM-DD) en Date locale de midi — jamais de glissement de fuseau. */
+function noon(date: string): Date {
+  return new Date(`${date}T12:00:00`);
+}
+
+/** Étiquette d'un seau d'activité : le jour, la semaine ou le mois qu'il couvre. */
+function bucketLabel(bucket: ActivityBucket, granularity: Granularity, today: string): string {
+  if (granularity === "month") {
+    return noon(bucket.start).toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
+  }
+  if (granularity === "week") {
+    return `sem. du ${noon(bucket.start).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
+  }
+  if (bucket.start === today) return "Aujourd'hui";
+  if (bucket.start === shiftDay(today, -1)) return "Hier";
+  return noon(bucket.start).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" });
 }
 
 function forecastLabel(day: ForecastDay, index: number): string {
@@ -129,6 +167,7 @@ function forecastLabel(day: ForecastDay, index: number): string {
 /** Statistiques locales : rétention, charge à venir, temps d'étude, bulletin. Sans LLM ni réseau. */
 export function Stats() {
   const [data, setData] = useState<Data | null>(null);
+  const [periodValue, setPeriodValue] = useState<string>(DEFAULT_PERIOD);
 
   async function refresh() {
     const [vocab, grammar, comprehension, reviews, daily, tuning, exams] = await Promise.all([
@@ -136,7 +175,7 @@ export function Stats() {
       allGrammar(),
       allComprehension(),
       allReviews(),
-      recentSrsDaily(7),
+      allSrsDaily(),
       loadTuning(),
       allExams(),
     ]);
@@ -150,11 +189,21 @@ export function Stats() {
   if (!data) return <LoadingScreen />;
 
   const now = new Date();
-  const acc = perItemAccuracy(data.reviews);
-  const retention = retentionRate(data.reviews, RETENTION_WINDOW_DAYS, now);
+  const today = localDateString(now);
+  const period = parsePeriod(periodValue);
+  // Précision : bornée à la fenêtre, pour refléter ce qui coince EN CE MOMENT. La rétention,
+  // elle, reçoit tout le log : elle a besoin du passé pour reconnaître une première exposition.
+  const since = period === "all" ? -Infinity : now.getTime() - period * 86_400_000;
+  const acc = perItemAccuracy(data.reviews.filter((r) => r.at >= since));
+  const retention = retentionRate(data.reviews, period, now);
+  const days = dailyWindow(data.daily, period, today);
+  const granularity = pickGranularity(days.length);
+  const buckets = bucketActivity(days, granularity);
+  const totals = activityTotals(days);
+  const maxFlow = Math.max(1, ...buckets.map((b) => b.flowMs));
   const forecast = reviewForecast(collectCards(data.vocab, data.grammar, data.comprehension), now);
   const maxLoad = Math.max(1, ...forecast.map((d) => d.count));
-  const overdueToday = forecast[0]?.date === localDateString(now) ? forecast[0].count : 0;
+  const overdueToday = forecast[0]?.date === today ? forecast[0].count : 0;
   const worst = worstItems(data, acc);
   const newBase = loadSettings().newPerDay;
   const effNew = effectiveNewPerDay(newBase, data.tuning.measuredRetention, data.tuning.backlog);
@@ -162,8 +211,18 @@ export function Stats() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Une seule bascule pour toute la page : rétention, activité et précision regardent la
+          MÊME fenêtre — deux périodes affichées côte à côte ne se comparent pas. */}
+      <SegmentedControl
+        ariaLabel="Période"
+        options={PERIODS}
+        value={periodValue}
+        onChange={setPeriodValue}
+        className="self-start"
+      />
+
       <section className="flex flex-col gap-3">
-        <SectionLabel>Rétention ({RETENTION_WINDOW_DAYS} derniers jours)</SectionLabel>
+        <SectionLabel>Rétention ({periodLabel(period)})</SectionLabel>
         {retention.rate === null ? (
           <p className="text-sm text-muted">
             Pas encore assez de révisions pour mesurer la rétention — reviens après quelques sessions.
@@ -209,38 +268,48 @@ export function Stats() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionLabel>Temps d'étude (7 derniers jours)</SectionLabel>
-        {data.daily.every((d) => !d.flowMs) ? (
+        <SectionLabel>Activité ({periodLabel(period)})</SectionLabel>
+        <Card className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
+          <Figure value={formatMinutes(totals.flowMs)} label="d'étude" />
+          <Figure value={String(totals.reviewed)} label={`révision${totals.reviewed > 1 ? "s" : ""}`} />
+          <Figure
+            value={String(totals.introduced)}
+            label={`nouveau${totals.introduced > 1 ? "x" : ""} mot${totals.introduced > 1 ? "s" : ""}`}
+          />
+          <Figure
+            value={`${totals.activeDays} / ${totals.days}`}
+            label={`jour${totals.activeDays > 1 ? "s" : ""} actif${totals.activeDays > 1 ? "s" : ""}`}
+          />
+        </Card>
+        {totals.flowMs === 0 ? (
           <p className="text-sm text-muted">
-            Pas encore de temps mesuré — le flux d'étude (bouton « Commencer » de l'accueil)
-            compte tes minutes.
+            Pas de temps mesuré sur cette période — le flux d'étude (bouton « Commencer » de
+            l'accueil) compte tes minutes.
           </p>
         ) : (
           <div className="flex flex-col gap-1.5">
-            {data.daily.map((d, i) => {
-              const maxMs = Math.max(1, ...data.daily.map((x) => x.flowMs ?? 0));
-              const ms = d.flowMs ?? 0;
-              return (
-                <div key={d.date} className="flex items-center gap-3 text-sm">
-                  <span className="w-24 shrink-0 text-muted">{studyDayLabel(d.date, i, data.daily.length)}</span>
-                  <div className="h-3 grow rounded-sm bg-bg">
-                    <div
-                      className="h-full rounded-sm bg-accent"
-                      style={{ width: `${(ms / maxMs) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-16 shrink-0 text-right text-text">
-                    {ms > 0 ? formatMinutes(ms) : "—"}
-                  </span>
+            {buckets.map((b) => (
+              <div key={b.start} className="flex items-center gap-3 text-sm">
+                <span className="w-28 shrink-0 truncate text-muted">
+                  {bucketLabel(b, granularity, today)}
+                </span>
+                <div className="h-3 grow rounded-sm bg-bg">
+                  <div
+                    className="h-full rounded-sm bg-accent"
+                    style={{ width: `${(b.flowMs / maxFlow) * 100}%` }}
+                  />
                 </div>
-              );
-            })}
+                <span className="w-16 shrink-0 text-right text-text">
+                  {b.flowMs > 0 ? formatMinutes(b.flowMs) : "—"}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionLabel>Précision la plus faible</SectionLabel>
+        <SectionLabel>Précision la plus faible ({periodLabel(period)})</SectionLabel>
         {worst.length === 0 ? (
           <p className="text-sm text-muted">Rien à signaler pour l'instant.</p>
         ) : (
@@ -258,13 +327,18 @@ export function Stats() {
             ))}
           </div>
         )}
-        {/* Les éléments difficiles ne sont plus listés ici : ils se filtrent (et se
-            réinitialisent) dans le Catalogue, au milieu des mots et des points de grammaire. */}
-        <p className="text-xs text-muted">
-          Les éléments difficiles se filtrent dans le Catalogue (filtre «&nbsp;Difficiles&nbsp;»).
-        </p>
       </section>
     </div>
+  );
+}
+
+/** Chiffre du résumé d'activité : la valeur en avant, son libellé en second. */
+function Figure({ value, label }: { value: string; label: string }) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="font-serif text-xl text-text">{value}</span>
+      <span className="text-muted">{label}</span>
+    </span>
   );
 }
 

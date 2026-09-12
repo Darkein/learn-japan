@@ -9,6 +9,7 @@ import {
   type ComprehensionItem,
   type GrammarItem,
   type ReviewLog,
+  type SrsDailyRecord,
   type VocabItem,
 } from "./db";
 import type { Card } from "./srs";
@@ -39,6 +40,9 @@ export function perItemAccuracy(reviews: ReviewLog[]): Map<string, ItemAccuracy>
   return out;
 }
 
+/** Période d'observation des statistiques : N derniers jours, ou tout l'historique. */
+export type StatsPeriod = number | "all";
+
 export interface Retention {
   total: number;
   correct: number;
@@ -52,10 +56,12 @@ export interface Retention {
  * première exposition n'est pas de la rétention. Approximation : le log ne porte pas
  * l'état FSRS de la carte au moment de la révision.
  */
-export function retentionRate(reviews: ReviewLog[], windowDays: number, now: Date): Retention {
+export function retentionRate(reviews: ReviewLog[], period: StatsPeriod, now: Date): Retention {
   const sorted = [...reviews].sort((a, b) => a.at - b.at);
   const seen = new Set<string>();
-  const cutoff = now.getTime() - windowDays * 86_400_000;
+  // La première exposition est repérée sur TOUT le log, pas seulement dans la fenêtre :
+  // une carte vue pour la première fois avant la fenêtre y est bien de la rétention.
+  const cutoff = period === "all" ? -Infinity : now.getTime() - period * 86_400_000;
   let total = 0;
   let again = 0;
   for (const r of sorted) {
@@ -125,6 +131,110 @@ export function lapseCounts(reviews: ReviewLog[]): Map<string, number> {
   return lapses;
 }
 
+// Activité journalière (store `srsDaily`) ------------------------------------------------
+
+/** Jour vide : un jour SANS activité n'a aucune entrée en base, il faut le fabriquer. */
+function emptyDay(date: string): SrsDailyRecord {
+  return { date, introduced: 0, reviewed: 0 };
+}
+
+/**
+ * Jours CONTIGUS de la fenêtre, de son premier jour à `today` inclus, trous comblés par des
+ * jours vides — sans quoi une absence se recollerait visuellement au jour suivant.
+ * `"all"` part du premier jour connu (fenêtre vide réduite à aujourd'hui).
+ */
+export function dailyWindow(
+  daily: SrsDailyRecord[],
+  period: StatsPeriod,
+  today: string,
+): SrsDailyRecord[] {
+  const byDate = new Map(daily.map((d) => [d.date, d]));
+  const known = [...byDate.keys()].sort();
+  const first = known.find((d) => d <= today);
+  const start =
+    period === "all" ? (first ?? today) : shiftDay(today, -(Math.max(1, Math.round(period)) - 1));
+  const out: SrsDailyRecord[] = [];
+  for (let date = start; date <= today; date = shiftDay(date, 1)) {
+    out.push(byDate.get(date) ?? emptyDay(date));
+  }
+  return out;
+}
+
+export type Granularity = "day" | "week" | "month";
+
+/**
+ * Granularité des barres d'activité : au-delà de ~5 semaines, une barre par jour devient
+ * une forêt illisible — on regroupe par semaine, puis par mois sur une longue histoire.
+ */
+export function pickGranularity(dayCount: number): Granularity {
+  if (dayCount <= 35) return "day";
+  if (dayCount <= 182) return "week";
+  return "month";
+}
+
+export interface ActivityBucket {
+  /** Premier jour du seau (« YYYY-MM-DD ») — c'est sa clé ET ce qui l'étiquette. */
+  start: string;
+  /** Jours de la fenêtre tombant dans ce seau (le premier et le dernier sont partiels). */
+  days: number;
+  flowMs: number;
+  reviewed: number;
+  introduced: number;
+}
+
+/** Lundi de la semaine d'une date calendaire (semaine ISO : la semaine commence lundi). */
+function weekStart(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = dimanche
+  return shiftDay(date, -((day + 6) % 7));
+}
+
+function bucketStart(date: string, granularity: Granularity): string {
+  if (granularity === "day") return date;
+  if (granularity === "week") return weekStart(date);
+  return `${date.slice(0, 7)}-01`;
+}
+
+/** Regroupe des jours contigus (cf. `dailyWindow`) en seaux jour / semaine / mois. */
+export function bucketActivity(days: SrsDailyRecord[], granularity: Granularity): ActivityBucket[] {
+  const out: ActivityBucket[] = [];
+  const index = new Map<string, ActivityBucket>();
+  for (const d of days) {
+    const start = bucketStart(d.date, granularity);
+    let bucket = index.get(start);
+    if (!bucket) {
+      bucket = { start, days: 0, flowMs: 0, reviewed: 0, introduced: 0 };
+      index.set(start, bucket);
+      out.push(bucket);
+    }
+    bucket.days++;
+    bucket.flowMs += d.flowMs ?? 0;
+    bucket.reviewed += d.reviewed;
+    bucket.introduced += d.introduced;
+  }
+  return out;
+}
+
+export interface ActivityTotals {
+  flowMs: number;
+  reviewed: number;
+  introduced: number;
+  /** Jours où quelque chose s'est passé — le dénominateur honnête d'une moyenne. */
+  activeDays: number;
+  days: number;
+}
+
+export function activityTotals(days: SrsDailyRecord[]): ActivityTotals {
+  const out: ActivityTotals = { flowMs: 0, reviewed: 0, introduced: 0, activeDays: 0, days: days.length };
+  for (const d of days) {
+    out.flowMs += d.flowMs ?? 0;
+    out.reviewed += d.reviewed;
+    out.introduced += d.introduced;
+    if ((d.flowMs ?? 0) > 0 || d.reviewed > 0 || d.introduced > 0) out.activeDays++;
+  }
+  return out;
+}
+
 /** Éléments difficiles : ≥ SRS.leechLapses échecs depuis la dernière remise à zéro. */
 export function leechIds(reviews: ReviewLog[]): Set<string> {
   const ids = new Set<string>();
@@ -134,11 +244,17 @@ export function leechIds(reviews: ReviewLog[]): Set<string> {
   return ids;
 }
 
-/** Veille d'une date calendaire (YYYY-MM-DD), sans fuseau : on ne compare que des chaînes. */
-function prevDay(date: string): string {
+/**
+ * Décale une date calendaire (YYYY-MM-DD) de `days` jours, sans fuseau : les chaînes sont
+ * manipulées en UTC et ne servent qu'à être comparées entre elles (l'ordre alphabétique
+ * d'une date ISO EST l'ordre chronologique).
+ */
+export function shiftDay(date: string, days: number): string {
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10);
+  return new Date(Date.UTC(y, m - 1, d) + days * 86_400_000).toISOString().slice(0, 10);
 }
+
+const prevDay = (date: string): string => shiftDay(date, -1);
 
 /**
  * Série de jours consécutifs à objectif atteint. Un aujourd'hui encore incomplet ne casse
