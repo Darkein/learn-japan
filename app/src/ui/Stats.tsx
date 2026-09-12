@@ -65,11 +65,6 @@ function parsePeriod(value: string): StatsPeriod {
   return value === "all" ? "all" : Number(value);
 }
 
-/** « 30 derniers jours » / « depuis le début » — pour compléter un titre de section. */
-function periodLabel(period: StatsPeriod): string {
-  return period === "all" ? "depuis le début" : `${period} derniers jours`;
-}
-
 interface Data {
   /** TOUT l'historique journalier : la fenêtre choisie y est découpée sans relire la base. */
   daily: SrsDailyRecord[];
@@ -325,11 +320,11 @@ export function Stats() {
             value={periodValue}
             onChange={setPeriodValue}
           />
-          <span className="text-xs text-muted">s'applique aux sections ci-dessous</span>
+          <span className="text-xs text-muted">période des trois sections ci-dessous</span>
         </div>
 
         <section className="flex flex-col gap-3">
-          <SectionLabel>Rétention ({periodLabel(period)})</SectionLabel>
+          <SectionLabel>Rétention</SectionLabel>
           {retention.rate === null ? (
             <p className="text-sm text-muted">
               Pas encore assez de révisions pour mesurer la rétention — reviens après quelques sessions.
@@ -350,7 +345,7 @@ export function Stats() {
         </section>
 
         <section className="flex flex-col gap-3">
-          <SectionLabel>Activité ({periodLabel(period)})</SectionLabel>
+          <SectionLabel>Activité</SectionLabel>
           <Card className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
             <Figure value={formatMinutes(totals.flowMs)} label="d'étude" />
             <Figure value={String(totals.reviewed)} label={`révision${totals.reviewed > 1 ? "s" : ""}`} />
@@ -376,7 +371,7 @@ export function Stats() {
         </section>
 
         <section className="flex flex-col gap-3">
-          <SectionLabel>Précision la plus faible ({periodLabel(period)})</SectionLabel>
+          <SectionLabel>Précision la plus faible</SectionLabel>
           {worst.length === 0 ? (
             <p className="text-sm text-muted">Rien à signaler pour l'instant.</p>
           ) : (
