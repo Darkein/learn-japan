@@ -1,14 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { SRS } from "./config";
-import { localDateString, type ReviewLog, type VocabItem } from "./db";
-import { newCard } from "./srs";
 import {
+  localDateString,
+  RESET_GRADE,
+  type ReviewLog,
+  type SrsDailyRecord,
+  type VocabItem,
+} from "./db";
+import { newCard, review, State } from "./srs";
+import {
+  activityTotals,
+  cardMaturity,
   collectCards,
+  dailyWindow,
+  daysBetween,
+  firstActiveDay,
   leechIds,
   perItemAccuracy,
   retentionRate,
   reviewForecast,
   reviewStreak,
+  shiftDay,
+  statusCounts,
 } from "./stats";
 
 const DAY = 86_400_000;
@@ -114,6 +127,52 @@ describe("leechIds", () => {
     expect(ids.has("leech")).toBe(true);
     expect(ids.has("ok")).toBe(false);
   });
+
+  it("une remise à zéro efface les échecs passés (le log reste append-only)", () => {
+    const reviews: ReviewLog[] = [];
+    for (let i = 0; i < SRS.leechLapses; i++) reviews.push(log({ itemId: "leech", at: i, grade: "again" }));
+    expect(leechIds(reviews).has("leech")).toBe(true);
+    reviews.push(log({ itemId: "leech", at: 100, grade: RESET_GRADE }));
+    expect(leechIds(reviews).has("leech")).toBe(false);
+  });
+
+  it("redevient difficile si les échecs recommencent après la remise à zéro", () => {
+    const reviews: ReviewLog[] = [log({ itemId: "leech", at: 0, grade: RESET_GRADE })];
+    for (let i = 0; i < SRS.leechLapses - 1; i++) {
+      reviews.push(log({ itemId: "leech", at: 10 + i, grade: "again" }));
+    }
+    expect(leechIds(reviews).has("leech")).toBe(false);
+    reviews.push(log({ itemId: "leech", at: 50, grade: "again" }));
+    expect(leechIds(reviews).has("leech")).toBe(true);
+  });
+
+  it("compte dans l'ordre chronologique, quel que soit l'ordre du log", () => {
+    // `allReviews()` rend les entrées par clé auto-incrémentée : on ne suppose pas l'ordre.
+    const reviews: ReviewLog[] = [log({ itemId: "leech", at: 100, grade: RESET_GRADE })];
+    for (let i = 0; i < SRS.leechLapses; i++) reviews.push(log({ itemId: "leech", at: i, grade: "again" }));
+    expect(leechIds(reviews.reverse()).has("leech")).toBe(false);
+  });
+});
+
+describe("jalon de remise à zéro", () => {
+  it("n'est ni une révision comptée, ni une réussite", () => {
+    const reviews = [
+      log({ itemId: "mot", at: 1, grade: "good" }),
+      log({ itemId: "mot", at: 2, grade: "again" }),
+      log({ itemId: "mot", at: 3, grade: RESET_GRADE }),
+    ];
+    const acc = perItemAccuracy(reviews).get("vocab:mot")!;
+    expect(acc.total).toBe(2);
+    expect(acc.again).toBe(1);
+    // Rétention : première exposition exclue → une seule révision comptable, ratée.
+    const at = (ms: number) => NOW.getTime() - DAY + ms;
+    const inWindow = [
+      log({ itemId: "mot", at: at(1), grade: "good" }),
+      log({ itemId: "mot", at: at(2), grade: "again" }),
+      log({ itemId: "mot", at: at(3), grade: RESET_GRADE }),
+    ];
+    expect(retentionRate(inWindow, 30, NOW)).toEqual({ total: 1, correct: 0, rate: 0 });
+  });
 });
 
 describe("reviewStreak", () => {
@@ -145,5 +204,106 @@ describe("reviewStreak", () => {
 
   it("ne boucle pas sur un objectif à zéro", () => {
     expect(reviewStreak([day("2026-08-09", 0)], 0, "2026-08-10")).toBe(2);
+  });
+});
+
+
+describe("fenêtres d'activité", () => {
+  const day = (date: string, p: Partial<SrsDailyRecord> = {}): SrsDailyRecord => ({
+    date,
+    introduced: 0,
+    reviewed: 0,
+    ...p,
+  });
+
+  it("shiftDay traverse les mois et les années", () => {
+    expect(shiftDay("2026-03-01", -1)).toBe("2026-02-28");
+    expect(shiftDay("2026-12-31", 1)).toBe("2027-01-01");
+    expect(shiftDay("2026-07-04", 0)).toBe("2026-07-04");
+  });
+
+  it("dailyWindow rend des jours contigus et comble les trous", () => {
+    const daily = [day("2026-07-01", { reviewed: 5 }), day("2026-07-04", { reviewed: 2 })];
+    const w = dailyWindow(daily, 7, "2026-07-04");
+    expect(w.map((d) => d.date)).toEqual([
+      "2026-06-28", "2026-06-29", "2026-06-30",
+      "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04",
+    ]);
+    expect(w.find((d) => d.date === "2026-07-02")!.reviewed).toBe(0);
+    expect(w.at(-1)!.reviewed).toBe(2);
+  });
+
+  it("dailyWindow « all » part du premier jour connu", () => {
+    const daily = [day("2026-07-01"), day("2026-07-03")];
+    expect(dailyWindow(daily, "all", "2026-07-04")).toHaveLength(4);
+    // Aucun historique : la fenêtre se réduit à aujourd'hui, jamais vide.
+    expect(dailyWindow([], "all", "2026-07-04").map((d) => d.date)).toEqual(["2026-07-04"]);
+  });
+
+  it("activityTotals ne compte actif qu'un jour où il s'est passé quelque chose", () => {
+    const days = [
+      day("2026-07-01", { reviewed: 10, introduced: 2, flowMs: 60_000 }),
+      day("2026-07-02"),
+      day("2026-07-03", { flowMs: 30_000 }),
+    ];
+    expect(activityTotals(days)).toEqual({
+      flowMs: 90_000,
+      reviewed: 10,
+      introduced: 2,
+      storiesRead: 0,
+      activeDays: 2,
+      days: 3,
+    });
+  });
+});
+
+describe("retentionRate — fenêtre « all »", () => {
+  it("prend tout l'historique, première exposition toujours exclue", () => {
+    const old = NOW.getTime() - 400 * DAY;
+    const reviews = [
+      log({ itemId: "mot", at: old, grade: "good" }),
+      log({ itemId: "mot", at: old + DAY, grade: "again" }),
+      log({ itemId: "mot", at: NOW.getTime() - DAY, grade: "good" }),
+    ];
+    expect(retentionRate(reviews, 30, NOW)).toEqual({ total: 1, correct: 1, rate: 1 });
+    expect(retentionRate(reviews, "all", NOW)).toEqual({ total: 2, correct: 1, rate: 0.5 });
+  });
+});
+
+
+describe("état courant (hors période)", () => {
+  it("statusCounts répartit les items suivis", () => {
+    const items = [{ status: "known" }, { status: "review" }, { status: "review" }] as const;
+    expect(statusCounts([...items])).toEqual({ total: 3, known: 1, review: 2, unknown: 0 });
+    expect(statusCounts([])).toEqual({ total: 0, known: 0, review: 0, unknown: 0 });
+  });
+
+  it("cardMaturity sépare neuves, apprentissage, jeunes et mûres", () => {
+    const fresh = newCard(NOW);
+    const learning = review(newCard(NOW), "good", NOW); // premier passage : Learning
+    const young = { ...learning, state: State.Review, scheduled_days: 5 };
+    const mature = { ...learning, state: State.Review, scheduled_days: SRS.masteredIntervalDays };
+    const relearning = { ...learning, state: State.Relearning, scheduled_days: 0 };
+    expect(cardMaturity([fresh, learning, young, mature, relearning])).toEqual({
+      total: 5,
+      fresh: 1,
+      learning: 2,
+      young: 1,
+      mature: 1,
+    });
+  });
+
+  it("daysBetween compte des jours calendaires", () => {
+    expect(daysBetween("2026-07-01", "2026-07-04")).toBe(3);
+    expect(daysBetween("2026-07-04", "2026-07-04")).toBe(0);
+    expect(daysBetween("2025-12-30", "2026-01-02")).toBe(3);
+  });
+
+  it("firstActiveDay prend le plus ancien des deux stores", () => {
+    const daily = [{ date: "2026-07-01", introduced: 0, reviewed: 0 }];
+    const early = new Date("2026-06-15T08:00:00").getTime();
+    expect(firstActiveDay(daily, [])).toBe("2026-07-01");
+    expect(firstActiveDay(daily, [log({ itemId: "mot", at: early })])).toBe("2026-06-15");
+    expect(firstActiveDay([], [])).toBeNull();
   });
 });

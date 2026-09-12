@@ -11,6 +11,7 @@ import {
   allVocabInv,
   type InvVocab,
 } from "../lib/inventory";
+import { loadLeechIds } from "../lib/leech";
 import { listLessons, type Lesson } from "../lib/lessons";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SegmentedControl } from "./kit/SegmentedControl";
@@ -30,11 +31,15 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "grammar", label: "Grammaire" },
 ];
 
-const STATUS_FILTERS: { value: ItemStatus | "all"; label: string }[] = [
+/** « Difficiles » (leeches) n'est pas un statut mais un compteur d'échecs — cf. lib/leech.ts. */
+type StatusFilter = ItemStatus | "all" | "leech";
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Tous" },
   { value: "known", label: "Connus" },
   { value: "review", label: "À revoir" },
   { value: "unknown", label: "Pas vus" },
+  { value: "leech", label: "Difficiles" },
 ];
 
 const LEVELS = [5, 4, 3, 2, 1];
@@ -52,7 +57,7 @@ interface Props {
 export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
   const [section, setSection] = useState<Section>("lessons");
   const [level, setLevel] = useState<number>(0); // 0 = tous
-  const [status, setStatus] = useState<ItemStatus | "all">("all");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const { dataVersion } = useGenJobs();
 
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
@@ -62,14 +67,22 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
     vocab: Map<string, ItemStatus>;
     grammar: Map<string, ItemStatus>;
   } | null>(null);
+  /** Éléments difficiles (ids toutes pistes confondues) : filtre « Difficiles » et badge. */
+  const [leeches, setLeeches] = useState<Set<string>>(new Set());
 
   async function refresh() {
-    const [ls, vs, gs] = await Promise.all([listLessons(), allVocab(), allGrammar()]);
+    const [ls, vs, gs, ids] = await Promise.all([
+      listLessons(),
+      allVocab(),
+      allGrammar(),
+      loadLeechIds(),
+    ]);
     setLessons(ls);
     setStatusMaps({
       vocab: new Map(vs.map((v) => [v.id, v.status])),
       grammar: new Map(gs.map((g) => [g.id, g.status])),
     });
+    setLeeches(ids);
   }
   // Se recharge au montage et dès qu'une génération aboutit (dataVersion change).
   useEffect(() => {
@@ -88,7 +101,9 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
 
   function matches(track: "kanji" | "vocab" | "grammar", id: string, lvl: number): boolean {
     if (level !== 0 && lvl !== level) return false;
-    if (track !== "kanji" && status !== "all" && statusOf(track as "vocab" | "grammar", id) !== status) return false;
+    if (track === "kanji") return true; // pas de suivi SRS sur les kanji : ils ignorent le filtre
+    if (status === "leech") return leeches.has(id);
+    if (status !== "all" && statusOf(track, id) !== status) return false;
     return true;
   }
 
@@ -129,12 +144,15 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
               value={level}
               onChange={setLevel}
             />
-            <SegmentedControl
-              ariaLabel="Statut"
-              options={STATUS_FILTERS}
-              value={status}
-              onChange={setStatus}
-            />
+            {/* Les kanji n'ont ni statut SRS ni compteur d'échecs : le filtre ne s'affiche pas. */}
+            {section !== "kanji" && (
+              <SegmentedControl
+                ariaLabel="Statut"
+                options={STATUS_FILTERS}
+                value={status}
+                onChange={setStatus}
+              />
+            )}
           </div>
 
           {statusMaps === null ? (
@@ -145,8 +163,10 @@ export function Catalogue({ onOpenStory, onOpenCourse }: Props) {
               inventory={inventory}
               matches={matches}
               statusOf={statusOf}
+              isLeech={(id) => leeches.has(id)}
               onOpenKanji={setKanjiOpen}
               onOpenVocab={setVocabOpen}
+              onChanged={() => void refresh()}
             />
           )}
         </>

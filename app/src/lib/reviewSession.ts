@@ -9,7 +9,6 @@ import {
   allVocab,
   bumpSrsDaily,
   deleteComprehensionItem,
-  getDB,
   getGrammar,
   getSrsDaily,
   getVocab,
@@ -32,7 +31,7 @@ import { SRS } from "./config";
 import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
-import { leechIds as leechIdsFromReviews } from "./stats";
+import { loadLeechIds } from "./leech";
 import { effectiveExample, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
 import { isTrainableVocab } from "./vocabFaces";
 
@@ -45,11 +44,6 @@ export interface SessionOpts {
   /** scope "story" : ids des mots (`itemIdFor`) et des points de grammaire du texte. */
   vocabIds?: string[];
   grammarIds?: string[];
-}
-
-async function leechIds(): Promise<Set<string>> {
-  const db = await getDB();
-  return leechIdsFromReviews(await db.getAll("reviews"));
 }
 
 // Défini avec les faces du triangle (lib/vocabFaces.ts) — c'est la même notion, et les
@@ -139,7 +133,7 @@ export async function buildSession(
 
   // Les éléments difficiles sont connus AVANT la construction : un leech repasse au QCM
   // même s'il avait atteint le seuil de saisie (cf. pickInputMode).
-  const leeches = await leechIds();
+  const leeches = await loadLeechIds();
 
   let exercises: Exercise[];
   if (scope === "all") {
