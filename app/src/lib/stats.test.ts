@@ -10,14 +10,12 @@ import {
 import { newCard, review, State } from "./srs";
 import {
   activityTotals,
-  bucketActivity,
   cardMaturity,
   collectCards,
   dailyWindow,
   daysBetween,
   firstActiveDay,
   leechIds,
-  pickGranularity,
   perItemAccuracy,
   retentionRate,
   reviewForecast,
@@ -240,31 +238,6 @@ describe("fenêtres d'activité", () => {
     expect(dailyWindow(daily, "all", "2026-07-04")).toHaveLength(4);
     // Aucun historique : la fenêtre se réduit à aujourd'hui, jamais vide.
     expect(dailyWindow([], "all", "2026-07-04").map((d) => d.date)).toEqual(["2026-07-04"]);
-  });
-
-  it("pickGranularity passe au seau plus large quand les barres deviennent illisibles", () => {
-    expect(pickGranularity(7)).toBe("day");
-    expect(pickGranularity(30)).toBe("day");
-    expect(pickGranularity(90)).toBe("week");
-    expect(pickGranularity(400)).toBe("month");
-  });
-
-  it("bucketActivity regroupe par semaine (lundi) puis par mois", () => {
-    // Du jeudi 2 juillet 2026 au lundi 6 : deux semaines, deux mois enjambés.
-    const days = dailyWindow(
-      [day("2026-06-30", { reviewed: 1, flowMs: 1000 }), day("2026-07-06", { reviewed: 4 })],
-      "all",
-      "2026-07-06",
-    );
-    const weeks = bucketActivity(days, "week");
-    expect(weeks.map((b) => b.start)).toEqual(["2026-06-29", "2026-07-06"]);
-    expect(weeks[0]).toMatchObject({ days: 6, reviewed: 1, flowMs: 1000 });
-    expect(weeks[1]).toMatchObject({ days: 1, reviewed: 4 });
-
-    const months = bucketActivity(days, "month");
-    expect(months.map((b) => b.start)).toEqual(["2026-06-01", "2026-07-01"]);
-    expect(months[0].days).toBe(1);
-    expect(months[1].days).toBe(6);
   });
 
   it("activityTotals ne compte actif qu'un jour où il s'est passé quelque chose", () => {

@@ -23,22 +23,18 @@ import { effectiveNewPerDay, loadTuning, type FsrsTuning } from "../lib/tuning";
 import {
   accuracyKey,
   activityTotals,
-  bucketActivity,
   cardMaturity,
   collectCards,
   dailyWindow,
   daysBetween,
   firstActiveDay,
   perItemAccuracy,
-  pickGranularity,
   retentionRate,
   reviewForecast,
   reviewStreak,
   shiftDay,
   statusCounts,
-  type ActivityBucket,
   type ForecastDay,
-  type Granularity,
   type ItemAccuracy,
   type StatsPeriod,
 } from "../lib/stats";
@@ -61,6 +57,9 @@ const PERIODS: { value: string; label: string }[] = [
   { value: "all", label: "Depuis le début" },
 ];
 const DEFAULT_PERIOD = "30";
+
+/** Jours du détail « temps d'étude » — fixe, hors période (cf. la charge à venir, même durée). */
+const RECENT_DAYS = 7;
 
 function parsePeriod(value: string): StatsPeriod {
   return value === "all" ? "all" : Number(value);
@@ -147,17 +146,11 @@ function noon(date: string): Date {
   return new Date(`${date}T12:00:00`);
 }
 
-/** Étiquette d'un seau d'activité : le jour, la semaine ou le mois qu'il couvre. */
-function bucketLabel(bucket: ActivityBucket, granularity: Granularity, today: string): string {
-  if (granularity === "month") {
-    return noon(bucket.start).toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
-  }
-  if (granularity === "week") {
-    return `sem. du ${noon(bucket.start).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
-  }
-  if (bucket.start === today) return "Aujourd'hui";
-  if (bucket.start === shiftDay(today, -1)) return "Hier";
-  return noon(bucket.start).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" });
+/** Étiquette d'un jour d'activité. */
+function dayLabel(date: string, today: string): string {
+  if (date === today) return "Aujourd'hui";
+  if (date === shiftDay(today, -1)) return "Hier";
+  return noon(date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" });
 }
 
 function forecastLabel(day: ForecastDay, index: number): string {
@@ -201,11 +194,14 @@ export function Stats() {
   const since = period === "all" ? -Infinity : now.getTime() - period * 86_400_000;
   const acc = perItemAccuracy(data.reviews.filter((r) => r.at >= since));
   const retention = retentionRate(data.reviews, period, now);
-  const days = dailyWindow(data.daily, period, today);
-  const granularity = pickGranularity(days.length);
-  const buckets = bucketActivity(days, granularity);
-  const totals = activityTotals(days);
-  const maxFlow = Math.max(1, ...buckets.map((b) => b.flowMs));
+  const totals = activityTotals(dailyWindow(data.daily, period, today));
+  // Moyenne par jour actif : le SEUL chiffre de temps comparable d'une période à l'autre —
+  // un total sur 400 jours ne se compare pas à un total sur 7.
+  const avgPerActiveDay = totals.activeDays > 0 ? totals.flowMs / totals.activeDays : 0;
+  // Le détail jour par jour ne suit PAS la période : au-delà d'une semaine il devient une
+  // forêt de barres. Sept jours suffisent à lire le rythme récent, quelle que soit la période.
+  const recentDays = dailyWindow(data.daily, RECENT_DAYS, today);
+  const maxFlow = Math.max(1, ...recentDays.map((d) => d.flowMs ?? 0));
   const forecast = reviewForecast(collectCards(data.vocab, data.grammar, data.comprehension), now);
   const maxLoad = Math.max(1, ...forecast.map((d) => d.count));
   const overdueToday = forecast[0]?.date === today ? forecast[0].count : 0;
@@ -274,6 +270,27 @@ export function Stats() {
               {Math.round((maturity.mature / maturity.total) * 100)}% mûres
             </p>
           </>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Temps d'étude ({RECENT_DAYS} derniers jours)</SectionLabel>
+        {recentDays.every((d) => !d.flowMs) ? (
+          <p className="text-sm text-muted">
+            Pas de temps mesuré ces jours-ci — le flux d'étude (bouton « Commencer » de
+            l'accueil) compte tes minutes.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {recentDays.map((d) => (
+              <BarRow
+                key={d.date}
+                label={dayLabel(d.date, today)}
+                value={d.flowMs ? formatMinutes(d.flowMs) : "—"}
+                ratio={(d.flowMs ?? 0) / maxFlow}
+              />
+            ))}
+          </div>
         )}
       </section>
 
@@ -350,23 +367,12 @@ export function Stats() {
               label={`jour${totals.activeDays > 1 ? "s" : ""} actif${totals.activeDays > 1 ? "s" : ""}`}
             />
           </Card>
-          {totals.flowMs === 0 ? (
-            <p className="text-sm text-muted">
-              Pas de temps mesuré sur cette période — le flux d'étude (bouton « Commencer » de
-              l'accueil) compte tes minutes.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {buckets.map((b) => (
-                <BarRow
-                  key={b.start}
-                  label={bucketLabel(b, granularity, today)}
-                  value={b.flowMs > 0 ? formatMinutes(b.flowMs) : "—"}
-                  ratio={b.flowMs / maxFlow}
-                />
-              ))}
-            </div>
-          )}
+          {/* La moyenne rend deux périodes comparables, ce qu'un total ne fait pas. */}
+          <p className="text-xs text-muted">
+            {totals.activeDays > 0
+              ? `Par jour actif : ${formatMinutes(avgPerActiveDay)} d'étude · ${Math.round(totals.reviewed / totals.activeDays)} révisions`
+              : "Aucun jour d'activité sur cette période."}
+          </p>
         </section>
 
         <section className="flex flex-col gap-3">

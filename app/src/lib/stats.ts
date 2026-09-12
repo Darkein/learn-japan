@@ -143,6 +143,7 @@ function emptyDay(date: string): SrsDailyRecord {
  * Jours CONTIGUS de la fenêtre, de son premier jour à `today` inclus, trous comblés par des
  * jours vides — sans quoi une absence se recollerait visuellement au jour suivant.
  * `"all"` part du premier jour connu (fenêtre vide réduite à aujourd'hui).
+ * Sert aussi bien à totaliser une période qu'à tracer les quelques derniers jours.
  */
 export function dailyWindow(
   daily: SrsDailyRecord[],
@@ -157,61 +158,6 @@ export function dailyWindow(
   const out: SrsDailyRecord[] = [];
   for (let date = start; date <= today; date = shiftDay(date, 1)) {
     out.push(byDate.get(date) ?? emptyDay(date));
-  }
-  return out;
-}
-
-export type Granularity = "day" | "week" | "month";
-
-/**
- * Granularité des barres d'activité : au-delà de ~5 semaines, une barre par jour devient
- * une forêt illisible — on regroupe par semaine, puis par mois sur une longue histoire.
- */
-export function pickGranularity(dayCount: number): Granularity {
-  if (dayCount <= 35) return "day";
-  if (dayCount <= 182) return "week";
-  return "month";
-}
-
-export interface ActivityBucket {
-  /** Premier jour du seau (« YYYY-MM-DD ») — c'est sa clé ET ce qui l'étiquette. */
-  start: string;
-  /** Jours de la fenêtre tombant dans ce seau (le premier et le dernier sont partiels). */
-  days: number;
-  flowMs: number;
-  reviewed: number;
-  introduced: number;
-}
-
-/** Lundi de la semaine d'une date calendaire (semaine ISO : la semaine commence lundi). */
-function weekStart(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = dimanche
-  return shiftDay(date, -((day + 6) % 7));
-}
-
-function bucketStart(date: string, granularity: Granularity): string {
-  if (granularity === "day") return date;
-  if (granularity === "week") return weekStart(date);
-  return `${date.slice(0, 7)}-01`;
-}
-
-/** Regroupe des jours contigus (cf. `dailyWindow`) en seaux jour / semaine / mois. */
-export function bucketActivity(days: SrsDailyRecord[], granularity: Granularity): ActivityBucket[] {
-  const out: ActivityBucket[] = [];
-  const index = new Map<string, ActivityBucket>();
-  for (const d of days) {
-    const start = bucketStart(d.date, granularity);
-    let bucket = index.get(start);
-    if (!bucket) {
-      bucket = { start, days: 0, flowMs: 0, reviewed: 0, introduced: 0 };
-      index.set(start, bucket);
-      out.push(bucket);
-    }
-    bucket.days++;
-    bucket.flowMs += d.flowMs ?? 0;
-    bucket.reviewed += d.reviewed;
-    bucket.introduced += d.introduced;
   }
   return out;
 }
