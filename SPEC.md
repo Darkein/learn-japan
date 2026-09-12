@@ -105,6 +105,11 @@ Le seuil est un **compteur de réussites consécutives** (`VocabItem.streak`, se
 pas un intervalle : lisible et affichable. Un échec ou un « Difficile » le remet à zéro, et un
 **élément difficile** (leech) repasse au QCM même au-dessus du seuil.
 
+Un élément est **difficile** à partir de `leechLapses` échecs **courants** — un compteur qui
+**repart à zéro** dès `leechRecoveryStreak` réussites d'affilée, et non un total de vie. Le statut
+se gagne et se perd : un mot su par cœur ne reste pas marqué difficile pour trois coquilles
+d'il y a six mois, et un mot réellement instable rechute avant d'avoir bouclé sa série.
+
 Les distracteurs d'un QCM sont tirés sur **la même face que la réponse** (des graphies contre une
 graphie, des sens contre un sens), en préférant le même niveau JLPT. Sans trois distracteurs
 plausibles, une cible « furigana » bascule en saisie plutôt que de servir un QCM devinable.
@@ -260,7 +265,9 @@ histoire déjà lue sert d'exercice d'écoute.
 ### Types de quiz
 - **Triangle** kanji ↔ furigana ↔ traduction (§2.2b) — le format de base du vocabulaire écrit
 - Grammaire (« que signifie てもいい ? », parmi des règles voisines du curriculum)
-- Reconstruction (remettre une phrase mélangée dans l'ordre)
+- Reconstruction (remettre une phrase mélangée dans l'ordre) — un ordre faux est une erreur de
+  **syntaxe** : les mots de la phrase valent « Difficile », jamais un échec, sans quoi le lexique
+  le plus fréquent serait rétrogradé (et marqué difficile) par des phrases ratées sur la structure
 - Écoute (audio joué, comprendre sans le texte)
 
 **Un seul assembleur** (`buildSession`, `lib/reviewSession.ts`) sert les trois entrées — révision

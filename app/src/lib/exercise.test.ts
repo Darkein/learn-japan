@@ -1,9 +1,9 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
+import { allReviews, getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
 import { gradeExercise, type BuildExercise, type ChoiceExercise, type TypeExercise } from "./exercise";
-import { newCard } from "./srs";
+import { newCard, review, State } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
 beforeEach(() => {
@@ -177,6 +177,46 @@ describe("gradeExercise", () => {
     expect(v?.status).toBe("review");
     const g = await getGrammar("build:0");
     expect(g).toBeUndefined();
+  });
+
+  it("build/vocab raté : les mots de la phrase prennent « Difficile », pas un échec", async () => {
+    // Un ordre faux est une erreur de syntaxe : le lexique posé dans la phrase ne doit ni
+    // perdre son intervalle ni récolter le lapse qui mène au statut « difficile ».
+    // Une carte déjà installée en état Review, comme un mot su de longue date.
+    let written = newCard(new Date("2020-01-01"));
+    for (const at of ["2020-01-02", "2020-01-10", "2020-02-01"]) {
+      written = review(written, "easy", new Date(at));
+    }
+    expect(written.state).toBe(State.Review);
+    await putVocab({
+      id: "本|ほん",
+      surface: "本",
+      reading: "ほん",
+      meaning: "livre",
+      tags: [],
+      status: "review",
+      cards: { written },
+    });
+    const tokens = [
+      tok({ surface_form: "本", pos: "名詞", reading: "ホン", basic_form: "本" }),
+      tok({ surface_form: "を", pos: "助詞" }),
+    ];
+    const ex: BuildExercise = {
+      mode: "build",
+      key: "build:0",
+      track: "vocab",
+      id: "build:0",
+      front: "Le livre",
+      back: "本 を",
+      target: ["本", "を"],
+      tokens,
+    };
+    await gradeExercise(ex, "again", new Date());
+    const v = await getVocab("本|ほん");
+    expect(v?.cards.written?.lapses).toBe(0);
+    expect(v?.cards.written?.state).toBe(State.Review);
+    const logged = await allReviews();
+    expect(logged.map((r) => r.grade)).toEqual(["hard"]);
   });
 
   it("build/vocab avec skill oral (dictée) : note cards.oral, pas les mots de la phrase", async () => {

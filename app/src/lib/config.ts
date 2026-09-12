@@ -68,7 +68,21 @@ export const SRS = {
    * pendant des semaines.
    */
   unlockIntervalDays: 4,
+  /**
+   * Seuil du statut « difficile » (leech) : nombre d'échecs COURANTS d'un élément, au sens
+   * de `lapseCounts` — un compteur qui se remet à zéro après `leechRecoveryStreak`
+   * réussites d'affilée. Le total de vie ne compte pas : quatre fautes de frappe étalées
+   * sur des centaines de passages ne sont pas une difficulté.
+   */
   leechLapses: 4,
+  /**
+   * Réussites CONSÉCUTIVES qui effacent le compteur d'échecs d'un élément — la sortie
+   * AUTOMATIQUE du statut « difficile », à côté de la remise à zéro manuelle (`RESET_GRADE`).
+   * Sans elle, les échecs s'accumulaient depuis toujours et un mot su par cœur restait marqué
+   * difficile à vie pour quelques ratés anciens. Volontairement court — un mot vraiment dur
+   * rechute avant d'avoir enchaîné trois bonnes réponses.
+   */
+  leechRecoveryStreak: 3,
   /** Exercices d'écoute max par session (cartes dues), et amorces de nouvelles cartes écoute. */
   listenMax: 5,
   listenSeeds: 2,
