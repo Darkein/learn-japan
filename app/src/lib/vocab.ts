@@ -300,19 +300,27 @@ export function effectiveExample(v: VocabItem): { ja: string; fr?: string } | nu
   return v.example ?? staticExample(v.id);
 }
 
-/** Action de l'utilisateur dans le panneau mot. */
-export type StatusAction = "known" | "review" | "forgot";
+/**
+ * Action appliquée à un mot. Les trois premières sont les boutons du panneau mot
+ * (Lecteur) ; `missed` n'a pas de bouton — c'est la note d'un mot EMPORTÉ par l'échec
+ * d'un exercice qui ne portait pas sur lui (reconstruction de phrase, cf. gradeExercise).
+ */
+export type StatusAction = "known" | "review" | "forgot" | "missed";
 
 const ACTION_TO_GRADE: Record<StatusAction, SrsGrade> = {
   known: "easy",
   review: "good",
   forgot: "again",
+  // « Difficile » et non « again » : l'utilisateur n'a pas déclaré oublier ce mot-là, on ne
+  // lui rase donc ni son intervalle ni son historique — la carte se resserre, sans lapse.
+  missed: "hard",
 };
 
 const ACTION_TO_STATUS: Record<StatusAction, ItemStatus> = {
   known: "known",
   review: "review",
   forgot: "review",
+  missed: "review",
 };
 
 /** Récupère un item existant ou en fabrique un neuf depuis le token. */

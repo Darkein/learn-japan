@@ -125,9 +125,15 @@ export async function gradeExercise(
   // phrase individuellement. Une dictée (skill "oral") passe par la voie normale et
   // replanifie la carte de sa compétence. Seuls les mots SUIVIS sont notés : la phrase
   // reconstruite contient aussi le nom du personnage, qui n'a rien à faire en base.
+  //
+  // Un ordre faux est une erreur de SYNTAXE, pas l'oubli de chacun des mots posés : les
+  // noter « again » remettait à zéro les cartes de tout le lexique de la phrase et leur
+  // collait un échec de plus. Les mots les plus fréquents (本, いい) traversent beaucoup de
+  // phrases : ils revenaient tous les jours et finissaient marqués difficiles sans avoir
+  // jamais été ratés pour eux-mêmes. L'échec vaut donc « Difficile » (cf. `missed`).
   if (ex.mode === "build" && ex.track === "vocab" && !ex.skill) {
     await Promise.all(
-      ex.tokens.filter(isTrackedWord).map((t) => applyStatus(t, grade === "again" ? "forgot" : "review", now)),
+      ex.tokens.filter(isTrackedWord).map((t) => applyStatus(t, grade === "again" ? "missed" : "review", now)),
     );
     return;
   }

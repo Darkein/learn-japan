@@ -120,14 +120,43 @@ export function reviewForecast(cards: Card[], now: Date, days = 7): ForecastDay[
 }
 
 /**
- * Échecs cumulés par élément, DEPUIS sa dernière remise à zéro : un jalon `RESET_GRADE`
- * remet le compteur à zéro (le log est append-only, cf. db.ts).
+ * Échecs COURANTS par élément — la mesure derrière le statut « difficile ».
+ *
+ * Ce n'est PAS un total de vie : celui-ci ne fait que croître, si bien qu'un mot su par cœur,
+ * revu des centaines de fois, finissait marqué difficile pour quelques fautes de frappe
+ * anciennes, sans plus jamais pouvoir en sortir. Deux choses remettent donc le compteur à
+ * zéro :
+ *
+ * - un jalon `RESET_GRADE`, posé par la remise à zéro manuelle (lib/leech.ts) — le log est
+ *   append-only, cf. db.ts ;
+ * - `SRS.leechRecoveryStreak` réussites d'affilée : le statut se perd comme il se gagne. Un
+ *   raté isolé noyé dans les bonnes réponses ne laisse aucune trace, tandis qu'un élément
+ *   réellement instable rechute avant d'avoir bouclé sa série et voit son compteur monter.
+ *
+ * Toutes compétences confondues (écrit / écoute / production), comme le statut qu'il alimente.
+ * Une note autre que « again » vaut réussite — « Difficile » compris, qui reste une réponse
+ * trouvée (c'est déjà la convention de `retentionRate` et de `perItemAccuracy`).
  */
 export function lapseCounts(reviews: ReviewLog[]): Map<string, number> {
   const lapses = new Map<string, number>();
+  // Réussites consécutives en cours, par élément. Ni le jalon ni un échec n'en font partie.
+  const streak = new Map<string, number>();
   for (const r of [...reviews].sort((a, b) => a.at - b.at)) {
-    if (r.grade === RESET_GRADE) lapses.set(r.itemId, 0);
-    else if (r.grade === "again") lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
+    if (r.grade === RESET_GRADE) {
+      lapses.set(r.itemId, 0);
+      streak.set(r.itemId, 0);
+    } else if (r.grade === "again") {
+      lapses.set(r.itemId, (lapses.get(r.itemId) ?? 0) + 1);
+      streak.set(r.itemId, 0);
+    } else {
+      const run = (streak.get(r.itemId) ?? 0) + 1;
+      if (run >= SRS.leechRecoveryStreak) {
+        lapses.set(r.itemId, 0);
+        streak.set(r.itemId, 0);
+      } else {
+        streak.set(r.itemId, run);
+      }
+    }
   }
   return lapses;
 }
@@ -257,7 +286,7 @@ export function firstActiveDay(daily: SrsDailyRecord[], reviews: ReviewLog[]): s
   return first;
 }
 
-/** Éléments difficiles : ≥ SRS.leechLapses échecs depuis la dernière remise à zéro. */
+/** Éléments difficiles : ≥ SRS.leechLapses échecs COURANTS (cf. `lapseCounts`). */
 export function leechIds(reviews: ReviewLog[]): Set<string> {
   const ids = new Set<string>();
   for (const [id, count] of lapseCounts(reviews)) {
