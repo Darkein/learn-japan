@@ -231,15 +231,38 @@ function applyExamState(lesson: Lesson, exams: ExamRecord[]): void {
   lesson.examEligible = lesson.unlockProgress >= SRS.examEligibility;
 }
 
+/**
+ * Une seule histoire par variante sous « Histoires liées ».
+ *
+ * Des générations concurrentes de la même variante (bug corrigé par le verrou de
+ * `addLessonStory`) ont pu laisser des doublons en base : deux histoires de la même leçon,
+ * même variante, même illustration, titres différents. On n'en affiche qu'une — la plus
+ * travaillée (traduction / QCM de compréhension déjà produits), à défaut la plus ancienne.
+ * Rien n'est supprimé : l'exemplaire écarté reste accessible (et supprimable) dans l'onglet
+ * Histoires. Les histoires sans variante (seed, import) ne sont jamais dédoublonnées.
+ */
+function dedupeStoryVariants(stories: StoryRecord[]): StoryRecord[] {
+  const richness = (s: StoryRecord) => (s.translation?.length ? 1 : 0) + (s.comprehension?.length ? 1 : 0);
+  const keep = new Map<number, StoryRecord>();
+  for (const s of stories) {
+    if (s.variant == null) continue;
+    const cur = keep.get(s.variant);
+    // Liste triée du plus ancien au plus récent → « > » strict garde le premier à égalité.
+    if (!cur || richness(s) > richness(cur)) keep.set(s.variant, s);
+  }
+  return stories.filter((s) => s.variant == null || keep.get(s.variant) === s);
+}
+
 async function hydrate(
   entry: CurriculumEntry,
   remoteIndex: GeneratedIndex,
 ): Promise<Lesson> {
-  const [generated, progress, stories] = await Promise.all([
+  const [generated, progress, allStories] = await Promise.all([
     getGeneratedLesson(entry.id),
     getLessonProgress(entry.id),
     storiesForLesson(entry.id),
   ]);
+  const stories = dedupeStoryVariants(allStories);
 
   const remote = remoteIndex[entry.id];
   // Un contenu généré pour une révision antérieure du curriculum (objectifs différents)
@@ -466,9 +489,50 @@ export function nextStoryVariant(lesson: Lesson): number {
 }
 
 /**
+ * Prochaine variante, calculée depuis la BASE (et non depuis l'instantané `lesson`, qui peut
+ * dater d'avant une génération terminée entre-temps).
+ */
+async function nextStoryVariantFresh(lesson: Lesson): Promise<number> {
+  const stored = await storiesForLesson(lesson.id);
+  const localMax = Math.max(0, ...stored.map((s) => s.variant ?? 0), ...lesson.stories.map((s) => s.variant ?? 0));
+  const remoteMax = Math.max(0, ...lesson.remoteStoryVariants);
+  return Math.max(localMax, remoteMax) + 1;
+}
+
+// Verrou par (leçon, variante) pour la génération d'histoire.
+//
+// Générer une histoire prend une minute. Entre le test « cette variante existe-t-elle déjà ? »
+// et l'écriture du `StoryRecord`, un SECOND appelant (file de génération, pack podcast,
+// téléchargement hors-ligne) passait le même test et écrivait une deuxième histoire pour la
+// MÊME variante : deux entrées sous « Histoires liées », de textes et titres différents mais
+// portant la même illustration (toutes deux rapatriées depuis la même clé R2 par
+// `backfillStoryImage`). On sérialise donc les appels par (leçon, variante) et on re-teste
+// l'existence DEPUIS LA BASE une fois le verrou pris : le second appelant ne génère rien et
+// reçoit l'histoire du premier.
+const storyLocks = new Map<string, Promise<unknown>>();
+
+function withStoryLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const prev = storyLocks.get(key) ?? Promise.resolve();
+  const next = prev.then(task);
+  // La chaîne d'attente ne doit jamais rester rejetée : un échec est propagé à l'appelant
+  // (via `next`), pas au suivant dans la file.
+  const guarded = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  storyLocks.set(key, guarded);
+  void guarded.then(() => {
+    if (storyLocks.get(key) === guarded) storyLocks.delete(key);
+  });
+  return next;
+}
+
+/**
  * Génère (et sauve) une nouvelle histoire pour la leçon.
  * `variant` : numéro de variante explicite (pour ouvrir une variante distante précise) ou
  * auto-calculé = prochaine variante non encore matérialisée.
+ * Idempotent : si la variante visée existe déjà en base, elle est renvoyée telle quelle
+ * (sauf régénération explicite, `refresh`) — aucun appel modèle, aucun doublon.
  */
 export async function addLessonStory(
   lesson: Lesson,
@@ -476,7 +540,24 @@ export async function addLessonStory(
   onState?: (s: GenState) => void,
   opts: { refresh?: boolean } = {},
 ): Promise<StoryRecord> {
-  const resolvedVariant = variant ?? nextStoryVariant(lesson);
+  const resolvedVariant = variant ?? (await nextStoryVariantFresh(lesson));
+  return withStoryLock(`${lesson.id}#${resolvedVariant}`, () =>
+    generateLessonStoryOnce(lesson, resolvedVariant, onState, opts),
+  );
+}
+
+async function generateLessonStoryOnce(
+  lesson: Lesson,
+  resolvedVariant: number,
+  onState: ((s: GenState) => void) | undefined,
+  opts: { refresh?: boolean },
+): Promise<StoryRecord> {
+  // Déjà matérialisée (par un appelant concurrent ou une session précédente) → on la rend.
+  const stored = await storiesForLesson(lesson.id);
+  if (!opts.refresh) {
+    const existing = stored.find((s) => s.variant === resolvedVariant);
+    if (existing) return existing;
+  }
 
   // Révision : union des acquis des leçons précédentes, moins les cibles de la leçon courante.
   const cumulative = getCumulativeObjectives(lesson.id);
@@ -487,7 +568,7 @@ export async function addLessonStory(
 
   const reviewVocab = sample(reviewVocabPool, REVIEW_VOCAB_COUNT);
   const reviewGrammar = sample(reviewGrammarPool, REVIEW_GRAMMAR_COUNT);
-  const avoidTitles = lesson.stories
+  const avoidTitles = stored
     .map((s) => (s.titleFr ? `${s.title} (${s.titleFr})` : s.title))
     .filter(Boolean)
     .slice(-AVOID_TITLES_MAX);

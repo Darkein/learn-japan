@@ -47,7 +47,7 @@ const {
 } = await import("./lessons");
 const { getCurriculum, lessonsForGrammar } = await import("./curriculum");
 const genClient = await import("./genClient");
-const { getGeneratedLesson, putGeneratedLesson } = await import("./db");
+const { getGeneratedLesson, putGeneratedLesson, putStory, storiesForLesson } = await import("./db");
 
 function masteredCard(): Card {
   return {
@@ -479,5 +479,87 @@ describe("objectivesHash / invalidation du cours (framingStale)", () => {
     const rec = await getGeneratedLesson(entry.id);
     expect(rec?.framing).toBe("ancien cours");
     expect(lesson.framing).toBe("ancien cours");
+  });
+});
+
+// ---- Pas de doublon d'histoire pour une même variante ------------------------
+
+describe("addLessonStory — une seule histoire par variante", () => {
+  it("deux appels concurrents sur la même variante ne génèrent qu'une histoire", async () => {
+    let n = 0;
+    (genClient.generateLessonStory as any).mockClear();
+    (genClient.generateLessonStory as any).mockImplementation(async () => {
+      const i = ++n;
+      await new Promise((r) => setTimeout(r, 5)); // la génération dure : fenêtre de course
+      return { text: `TITRE: 題${i} | Titre ${i}\nテキスト${i}。` };
+    });
+    const lessons = await listLessons();
+    const target = lessons[0];
+
+    const [a, b] = await Promise.all([addLessonStory(target, 1), addLessonStory(target, 1)]);
+
+    expect((genClient.generateLessonStory as any).mock.calls.length).toBe(1);
+    expect(a.id).toBe(b.id);
+    const stored = await storiesForLesson(target.id);
+    expect(stored.filter((s) => s.variant === 1).length).toBe(1);
+  });
+
+  it("variante déjà en base : renvoyée telle quelle, sans appel au modèle", async () => {
+    (genClient.generateLessonStory as any).mockReset();
+    (genClient.generateLessonStory as any).mockResolvedValue({ text: "TITRE: あ | A\nテキスト。" });
+    const lessons = await listLessons();
+    const target = lessons[0];
+
+    const first = await addLessonStory(target, 1);
+    (genClient.generateLessonStory as any).mockClear();
+
+    // `target` est un instantané d'AVANT la génération : c'est exactement le cas du pack
+    // podcast ou du téléchargement lancés pendant la file de génération.
+    const again = await addLessonStory(target, 1);
+    expect(again.id).toBe(first.id);
+    expect((genClient.generateLessonStory as any).mock.calls.length).toBe(0);
+  });
+
+  it("régénération (refresh) produit bien une nouvelle histoire", async () => {
+    (genClient.generateLessonStory as any).mockReset();
+    (genClient.generateLessonStory as any).mockResolvedValue({ text: "TITRE: あ | A\nテキスト。" });
+    const lessons = await listLessons();
+    const target = lessons[0];
+
+    const first = await addLessonStory(target, 1);
+    const second = await addLessonStory(target, 1, undefined, { refresh: true });
+    expect(second.id).not.toBe(first.id);
+  });
+});
+
+describe("getLesson — doublons de variante déjà en base", () => {
+  it("n'expose qu'une histoire par variante (la plus travaillée)", async () => {
+    const lessons = await listLessons();
+    const id = lessons[0].id;
+    await putStory({
+      id: "dup-a",
+      createdAt: 1,
+      title: "あ",
+      text: "テキストA。",
+      params: {},
+      lessonId: id,
+      variant: 1,
+    } as any);
+    await putStory({
+      id: "dup-b",
+      createdAt: 2,
+      title: "い",
+      text: "テキストB。",
+      params: {},
+      lessonId: id,
+      variant: 1,
+      translation: ["Texte B."],
+    } as any);
+
+    const lesson = await getLesson(id);
+    expect(lesson!.stories.length).toBe(1);
+    expect(lesson!.stories[0].id).toBe("dup-b"); // traduction déjà produite → gardée
+    // Rien n'est supprimé en base : l'exemplaire écarté reste dans l'onglet Histoires.
+    expect((await storiesForLesson(id)).length).toBe(2);
   });
 });
