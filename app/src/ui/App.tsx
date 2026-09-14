@@ -27,6 +27,7 @@ import { GenJobsProvider, useGenJobs } from "./useGenJobs";
 import { NotificationBanner, NotificationProvider } from "./useNotify";
 import {
   currentLocation,
+  initScrollRestoration,
   navigate,
   tabForRoute,
   useHashRoute,
@@ -82,6 +83,10 @@ export function App() {
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
+
+  // Défilement entre pages : en haut quand on ouvre une page, à sa place quand on revient
+  // (voir useHashRoute.ts). Le routage par hash ne repositionne rien de lui-même.
+  useEffect(() => initScrollRestoration(), []);
 
   // Sauvegarde cloud par code de session : fast-forward au lancement, push périodique,
   // push best-effort au passage en arrière-plan. No-op sans code configuré (voir lib/sync.ts).
@@ -273,7 +278,8 @@ function AppShell() {
     // Retour d'une session (révision, flux…) : le compte de cartes dues a pu changer, et la
     // journée vient peut-être d'être bouclée — c'est le moment de le dire au rappel.
     void refreshReminderState(settings.reminders);
-    navigate(from);
+    // Retour : la page d'origine (souvent une longue liste) se rouvre là où on l'avait laissée.
+    navigate(from, { restore: true });
   }
 
   const subpagePadding = { paddingBottom: shellPadding(false, podcast.active) };
