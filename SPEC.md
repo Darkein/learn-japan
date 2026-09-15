@@ -277,6 +277,34 @@ mots change (`scope: "due" | "all" | "story"`), jamais le format.
 L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
 le plafond de session, pas à décider de leur ordre de passage.
 
+### 5a. Dose du jour, débit de nouveautés et retard
+
+**L'objectif quotidien (en cartes) commande tout.** Il dimensionne le bloc de révision
+(`reviewBlockSize`) *et* plafonne le nombre de mots neufs introduits chaque jour.
+
+**Un mot neuf n'est pas une carte** : il en porte jusqu'à trois (écrit / écoute / production), et
+jeunes, elles reviennent souvent. Mesuré par simulation (`lib/backlog.test.ts`), **un mot neuf coûte
+environ cinq cartes de révision par jour** à l'équilibre : un objectif de 10 cartes/jour n'absorbe
+donc que **2 mots neufs/jour**. Le réglage « Nouveaux mots par jour » est un **plafond souhaité**,
+pas une promesse — la capacité de l'objectif a le dernier mot (`sustainableNewPerDay`). Sans cette
+borne, 10 mots neufs sur un objectif de 10 cartes faisaient croître le retard **indéfiniment** (+130
+cartes en trois mois de simulation) : l'utilisateur voyait « à consolider » monter chaque jour sans
+jamais pouvoir revenir à zéro.
+
+Par-dessus ce plafond, un **frein en boucle fermée** (`effectiveNewPerDay`) rabote le débit quand la
+rétention mesurée chute ou que le retard s'accumule. Ses paliers s'expriment en **jours d'objectif**,
+jamais en valeur absolue — 40 cartes dues, c'est deux jours de travail à 20/jour et quatre à 10/jour :
+on ralentit au-delà d'un jour, on divise au-delà de deux, on **coupe** au-delà de trois. La coupure
+est temporaire par construction : sans nouveautés, les révisions vident le retard, et le débit repart.
+Tant que le palier de coupure n'est pas atteint, le débit garde un **plancher d'un mot par jour** —
+une progression gelée verrouillerait le contrôle de la leçon en cours, donc tout le parcours.
+
+**Où se lit le retard.** Pas dans le flux : celui-ci n'annonce que **la dose du jour** (« 10 révisions
+pour l'objectif du jour », « Révisions (10 cartes) »). Le total dû ne commande aucune décision de
+l'utilisateur pendant sa session — le bloc est calé sur l'objectif, pas sur le retard — et l'afficher
+en vitrine ne faisait que décourager. Il a sa place dans les **Statistiques** (« Charge des 7 prochains
+jours »), énoncé dans la seule unité qui se décide : **en jours d'objectif quotidien**.
+
 ## 5b. Contrôle de fin de leçon — le 関所 *(nouveau)*
 
 Passer à la leçon suivante se **mérite à une épreuve**, pas à l'accumulation d'intervalles

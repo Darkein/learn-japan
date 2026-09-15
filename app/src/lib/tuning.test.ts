@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { SRS } from "./config";
 import {
+  BACKLOG_HALF_DAYS,
+  BACKLOG_SLOW_DAYS,
+  BACKLOG_STOP_DAYS,
   computeTunedRetention,
   effectiveNewPerDay,
   MIN_SAMPLE,
+  NEW_ITEM_LOAD,
   RETENTION_MAX,
   RETENTION_MIN,
+  sustainableNewPerDay,
   TARGET_RETENTION,
 } from "./tuning";
 
@@ -43,24 +47,67 @@ describe("computeTunedRetention", () => {
   });
 });
 
+describe("sustainableNewPerDay", () => {
+  it("un mot neuf pour NEW_ITEM_LOAD cartes d'objectif", () => {
+    expect(sustainableNewPerDay(10)).toBe(2);
+    expect(sustainableNewPerDay(20)).toBe(4);
+    expect(sustainableNewPerDay(50)).toBe(10);
+  });
+
+  it("jamais zéro : la progression ne se fige pas structurellement", () => {
+    expect(sustainableNewPerDay(1)).toBe(1);
+    expect(sustainableNewPerDay(3)).toBe(1);
+  });
+});
+
 describe("effectiveNewPerDay", () => {
   const base = 10;
+  // Objectif volontairement large : le plafond de capacité (base/NEW_ITEM_LOAD) ne doit pas
+  // masquer les paliers du frein qu'on teste ici.
+  const goal = base * NEW_ITEM_LOAD;
 
   it("plein régime quand tout va bien", () => {
-    expect(effectiveNewPerDay(base, 0.9, 5)).toBe(base);
-    expect(effectiveNewPerDay(base, null, 0)).toBe(base);
+    expect(effectiveNewPerDay(base, 0.9, 5, goal)).toBe(base);
+    expect(effectiveNewPerDay(base, null, 0, goal)).toBe(base);
   });
 
-  it("réduit à 75 % sur un backlog modéré", () => {
-    expect(effectiveNewPerDay(base, 0.9, SRS.sessionCap + 1)).toBe(Math.round(base * 0.75));
+  it("le réglage est un plafond SOUHAITÉ : la capacité de l'objectif a le dernier mot", () => {
+    // C'est le cœur du problème corrigé : 10 mots neufs par jour sur un objectif de 10
+    // cartes faisaient croître le retard sans fin. L'objectif n'en absorbe que deux.
+    expect(effectiveNewPerDay(10, null, 0, 10)).toBe(2);
+    expect(effectiveNewPerDay(10, null, 0, 20)).toBe(4);
+    // Un réglage sous la capacité, lui, est respecté tel quel.
+    expect(effectiveNewPerDay(1, null, 0, 50)).toBe(1);
   });
 
-  it("réduit de moitié quand l'utilisateur peine OU backlog lourd", () => {
-    expect(effectiveNewPerDay(base, 0.7, 0)).toBe(Math.round(base / 2)); // struggling
-    expect(effectiveNewPerDay(base, 0.95, 2 * SRS.sessionCap + 1)).toBe(Math.round(base / 2)); // heavy
+  it("réduit à 75 % au-delà d'un jour d'objectif de retard", () => {
+    expect(effectiveNewPerDay(base, 0.9, goal * BACKLOG_SLOW_DAYS + 1, goal)).toBe(
+      Math.floor(base * 0.75),
+    );
   });
 
-  it("coupe les nouveautés quand l'utilisateur peine ET accumule", () => {
-    expect(effectiveNewPerDay(base, 0.6, 2 * SRS.sessionCap + 1)).toBe(0);
+  it("réduit de moitié quand l'utilisateur peine OU accumule deux jours", () => {
+    expect(effectiveNewPerDay(base, 0.7, 0, goal)).toBe(Math.floor(base / 2)); // struggling
+    expect(effectiveNewPerDay(base, 0.95, goal * BACKLOG_HALF_DAYS + 1, goal)).toBe(
+      Math.floor(base / 2),
+    );
+  });
+
+  it("coupe les nouveautés au-delà de trois jours d'objectif de retard", () => {
+    expect(effectiveNewPerDay(base, 0.95, goal * BACKLOG_STOP_DAYS + 1, goal)).toBe(0);
+    // ... ou plus tôt si l'utilisateur peine en plus d'accumuler.
+    expect(effectiveNewPerDay(base, 0.6, goal * BACKLOG_HALF_DAYS + 1, goal)).toBe(0);
+  });
+
+  it("les seuils suivent l'OBJECTIF, pas une valeur absolue", () => {
+    // 25 cartes dues : deux jours et demi de retard à objectif 10 (on divise), à peine plus
+    // d'un demi-jour à objectif 40 (plein régime). L'ancien seuil absolu (sessionCap = 30)
+    // traitait les deux de la même façon.
+    expect(effectiveNewPerDay(base, 0.95, 25, 10)).toBe(1);
+    expect(effectiveNewPerDay(base, 0.95, 25, 40)).toBe(sustainableNewPerDay(40));
+  });
+
+  it("ralentir n'est pas couper : un plancher d'un mot avant le palier de coupure", () => {
+    expect(effectiveNewPerDay(10, 0.7, 0, 10)).toBe(1);
   });
 });

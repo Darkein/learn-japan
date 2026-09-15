@@ -3,6 +3,7 @@ import { pushAvailable, syncPushSubscription, type PushState } from "../lib/push
 import { ensurePeriodicSync, showReminderNow } from "../lib/reminders";
 import { playSfx } from "../lib/sfx";
 import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
+import { NEW_ITEM_LOAD, sustainableNewPerDay } from "../lib/tuning";
 import { useSettings, THEMES, READER_FONT_SCALES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
@@ -72,6 +73,7 @@ export function SettingsSections({ quick }: Props) {
               value={settings.newPerDay}
               min={1}
               onChange={(v) => update({ newPerDay: v })}
+              hint={`Plafonné par l'objectif : ${sustainableNewPerDay(settings.dailyGoal)}/jour au plus — un mot neuf porte jusqu'à trois cartes et coûte ~${NEW_ITEM_LOAD} révisions par jour. Au-delà, le retard grossirait sans fin.`}
             />
             <Toggle
               label="Romaji → kana dans les révisions"
@@ -349,15 +351,21 @@ function NumberRow({
   value,
   min,
   onChange,
+  hint,
 }: {
   label: string;
   value: number;
   min: number;
   onChange: (v: number) => void;
+  /** Précision sous le libellé — ce que le réglage ne dit pas à lui seul. */
+  hint?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-text">{label}</span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm text-text">{label}</span>
+        {hint && <span className="text-xs text-muted">{hint}</span>}
+      </span>
       <input
         type="number"
         value={value}

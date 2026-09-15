@@ -429,16 +429,28 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // quelques jours d'absence.
   const cap = reviewBlockSize(s.dailyGoal, daily?.reviewed ?? 0);
 
-  // Budget nouveaux items — débit auto-réglé : la rétention mesurée et le retard dû du jour
-  // (backlog = items dus de cette session) rabotent `newPerDay` quand l'utilisateur peine ou
-  // accumule, pour consolider plutôt qu'empiler du neuf. Voir lib/tuning.ts.
+  // Budget nouveaux items — débit auto-réglé (lib/tuning.ts) : `newPerDay` est un plafond
+  // SOUHAITÉ, plafonné à son tour par ce que l'objectif du jour peut absorber (un mot neuf
+  // coûte ~5 cartes/jour : il en porte jusqu'à trois, et jeunes elles reviennent souvent),
+  // puis raboté par la rétention mesurée et le retard dû du jour (backlog = items dus de
+  // cette session), exprimé en JOURS d'objectif.
   //
-  // Ce budget ne dépend QUE de son propre réglage : le brider en plus par l'objectif du
-  // jour (« pas de neuf tant que le dû remplit le bloc ») gelait toute la progression dès
-  // que le retard dépassait l'objectif — les objectifs de la leçon en cours n'obtenaient
-  // jamais de carte, sa part d'items stabilisés ne montait plus, son contrôle ne s'ouvrait
-  // pas, et la leçon suivante restait verrouillée. Le freinage, c'est `effectiveNewPerDay`.
-  const newCap = effectiveNewPerDay(s.newPerDay, tuning.measuredRetention, due.length);
+  // Sans le plafond de capacité, 10 mots neufs par jour sur un objectif de 10 cartes
+  // faisaient croître le retard indéfiniment : l'utilisateur voyait « à consolider » monter
+  // de plusieurs unités chaque jour sans jamais pouvoir revenir à zéro.
+  //
+  // Ce n'est PAS un gel par l'objectif du jour (« pas de neuf tant que le dû remplit le
+  // bloc ») : celui-là bloquait toute progression dès le moindre retard — les objectifs de
+  // la leçon en cours n'obtenaient jamais de carte, sa part d'items stabilisés ne montait
+  // plus, son contrôle ne s'ouvrait pas, et la leçon suivante restait verrouillée. Ici le
+  // débit garde un plancher d'un mot par jour tant que le retard reste sous le palier de
+  // coupure ; la coupure elle-même est temporaire, et se lève dès que le retard s'est vidé.
+  const newCap = effectiveNewPerDay(
+    s.newPerDay,
+    tuning.measuredRetention,
+    due.length,
+    s.dailyGoal,
+  );
   const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
   // Réserve de nouveautés DANS le bloc : au plus la moitié tant qu'il reste du dû (le
   // retard doit avancer aussi), tout le bloc quand il n'y a rien à revoir.

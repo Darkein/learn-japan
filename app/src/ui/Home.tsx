@@ -169,13 +169,21 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
           )}
           {dailyData.dueCount > 0 && (() => {
             const goalMet = dailyData.reviewed >= dailyData.goal;
+            // Ce que le flux propose AUJOURD'HUI, pas le retard accumulé : les blocs sont
+            // dimensionnés par l'objectif du jour (cf. `reviewBlockSize`), et annoncer
+            // « 47 éléments à consolider » mettait en vitrine un chiffre dont le flux ne
+            // fait rien — décourageant, et sans rapport avec la dose qui va être servie.
+            // Le retard, lui, se lit là où il veut dire quelque chose : les Statistiques
+            // (« Charge des 7 prochains jours »).
+            const planned = Math.min(dailyData.dueCount, dailyData.goal - dailyData.reviewed);
             return (
               <Card accentFlag className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
                   <SectionLabel>{goalMet ? "Renforcement" : "Flux d'étude"}</SectionLabel>
                   <span className="font-serif text-lg text-text">
-                    {dailyData.dueCount} élément{dailyData.dueCount > 1 ? "s" : ""}{" "}
-                    {goalMet ? "à consolider" : "à réviser"}
+                    {goalMet
+                      ? "Objectif du jour atteint"
+                      : `${planned} révision${planned > 1 ? "s" : ""} pour l'objectif du jour`}
                   </span>
                   <span className="text-sm text-muted">
                     {flowSteps?.length

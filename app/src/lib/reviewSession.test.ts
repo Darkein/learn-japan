@@ -354,8 +354,12 @@ describe("buildSession", () => {
 describe("promotion des nouveaux items", () => {
   it("budget serré : les objectifs d'une leçon commencée sont promus, pas l'incident", async () => {
     const { getCurriculum } = await import("./curriculum");
+    const { effectiveNewPerDay } = await import("./tuning");
     const first = getCurriculum()[0];
-    const lessonVocabIds = first.introduces.vocab.slice(0, 3);
+    // Débit EFFECTIF du jour : le réglage `newPerDay` est plafonné par ce que l'objectif
+    // quotidien peut absorber (cf. lib/tuning.ts) — c'est lui, le budget à saturer.
+    const newCap = effectiveNewPerDay(SRS.newPerDay, null, 0, SRS.dailyGoal);
+    const lessonVocabIds = first.introduces.vocab.slice(0, Math.min(3, newCap));
     if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester
     await putLessonProgress({ id: first.id, startedAt: Date.now() });
 
@@ -385,7 +389,7 @@ describe("promotion des nouveaux items", () => {
 
     // Budget du jour réduit au nombre exact de mots de la leçon : c'est le seul cadre où
     // la priorisation se voit (l'ordre du deck, lui, est désormais mélangé).
-    await bumpSrsDaily(TODAY, { introduced: SRS.newPerDay - lessonVocabIds.length });
+    await bumpSrsDaily(TODAY, { introduced: newCap - lessonVocabIds.length });
 
     const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
     for (const id of lessonVocabIds) expect(ids).toContain(id);

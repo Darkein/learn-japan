@@ -19,7 +19,7 @@ import { buildBulletin, type Bulletin } from "../lib/exam";
 import { EXAM, SRS } from "../lib/config";
 import { formatMinutes } from "../lib/time";
 import { loadSettings } from "../lib/settings";
-import { effectiveNewPerDay, loadTuning, type FsrsTuning } from "../lib/tuning";
+import { effectiveNewPerDay, loadTuning, sustainableNewPerDay, type FsrsTuning } from "../lib/tuning";
 import {
   accuracyKey,
   activityTotals,
@@ -197,19 +197,30 @@ export function Stats() {
   // forêt de barres. Sept jours suffisent à lire le rythme récent, quelle que soit la période.
   const recentDays = dailyWindow(data.daily, RECENT_DAYS, today);
   const maxFlow = Math.max(1, ...recentDays.map((d) => d.flowMs ?? 0));
-  const forecast = reviewForecast(collectCards(data.vocab, data.grammar, data.comprehension), now);
+  const allCards = collectCards(data.vocab, data.grammar, data.comprehension);
+  const forecast = reviewForecast(allCards, now);
   const maxLoad = Math.max(1, ...forecast.map((d) => d.count));
-  const overdueToday = forecast[0]?.date === today ? forecast[0].count : 0;
+  // Le RETARD au sens strict : les cartes échues avant aujourd'hui. C'est ici sa place —
+  // le flux d'étude, lui, n'annonce que la dose du jour (cf. lib/flow.ts, ui/Home.tsx).
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const overdue = allCards.filter((c) => c.due.getTime() < startOfToday.getTime()).length;
   const worst = worstItems(data, acc);
   const settings = loadSettings();
   const newBase = settings.newPerDay;
-  const effNew = effectiveNewPerDay(newBase, data.tuning.measuredRetention, data.tuning.backlog);
+  const effNew = effectiveNewPerDay(
+    newBase,
+    data.tuning.measuredRetention,
+    data.tuning.backlog,
+    settings.dailyGoal,
+  );
+  const newCeiling = sustainableNewPerDay(settings.dailyGoal);
   const bulletin = buildBulletin(data.exams, (id) => getCurriculumEntry(id)?.title);
 
   // État courant : ce qui ne dépend d'aucune période — l'édifice, pas le chantier du moment.
   const vocabCounts = statusCounts(data.vocab);
   const grammarCounts = statusCounts(data.grammar);
-  const maturity = cardMaturity(collectCards(data.vocab, data.grammar, data.comprehension));
+  const maturity = cardMaturity(allCards);
   const maxMaturity = Math.max(1, maturity.fresh, maturity.learning, maturity.young, maturity.mature);
   const streak = reviewStreak(data.daily, settings.dailyGoal, today);
   const firstDay = firstActiveDay(data.daily, data.reviews);
@@ -291,11 +302,17 @@ export function Stats() {
 
       <section className="flex flex-col gap-3">
         <SectionLabel>Charge des 7 prochains jours</SectionLabel>
-        {overdueToday > 0 && (
-          <p className="text-sm text-muted">
-            Le jour « Aujourd'hui » inclut les cartes en retard.
-          </p>
-        )}
+        {overdue > 0 && (() => {
+          // Le retard en JOURS d'objectif : « 47 cartes » ne dit rien, « cinq jours de
+          // travail » se décide. Arrondi à l'unité, plancher à 1 (un retard existe).
+          const days = Math.max(1, Math.round(overdue / Math.max(1, settings.dailyGoal)));
+          return (
+            <p className="text-sm text-muted">
+              Le jour « Aujourd'hui » inclut {overdue} carte{overdue > 1 ? "s" : ""} en retard,
+              soit {days} jour{days > 1 ? "s" : ""} à ton objectif de {settings.dailyGoal} par jour.
+            </p>
+          );
+        })()}
         <div className="flex flex-col gap-1.5">
           {forecast.map((d, i) => (
             <BarRow
@@ -340,7 +357,12 @@ export function Stats() {
           {/* Auto-réglage : cible de rétention et débit de nouveautés ajustés selon les erreurs. */}
           <p className="text-xs text-muted">
             Réglage auto — cible de rétention&nbsp;: {Math.round(data.tuning.requestRetention * 100)}%
-            {" · "}nouveautés&nbsp;: {effNew}/j{effNew < newBase ? ` (au lieu de ${newBase}, retard/erreurs)` : ""}
+            {" · "}nouveautés&nbsp;: {effNew}/j
+            {effNew < newBase
+              ? ` (au lieu de ${newBase} : ton objectif de ${settings.dailyGoal} cartes/jour en absorbe ${newCeiling}${
+                  effNew < newCeiling ? ", et le retard rabote encore" : ""
+                })`
+              : ""}
           </p>
         </section>
 

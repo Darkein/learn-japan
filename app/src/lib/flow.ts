@@ -176,14 +176,14 @@ function blockCards(s: FlowState): number {
 }
 
 /**
- * Libellé du bouton d'un bloc de révision. Annoncer le seul retard (« 42 dues ») donnait
- * un chiffre que le bloc ne demandait pas — décourageant, et incohérent avec l'objectif
- * réglé : on annonce la dose du bloc, et le retard derrière quand il en reste.
+ * Libellé du bouton d'un bloc de révision : la DOSE du bloc, et rien d'autre. Annoncer le
+ * retard derrière (« 10 sur 42 dues ») remettait en vitrine un chiffre dont le flux ne fait
+ * rien — le bloc sert la dose de l'objectif du jour, pas le retard, et l'utilisateur n'a
+ * aucune décision à prendre avec ce total. Il se lit dans les Statistiques.
  */
 function blockLabel(s: FlowState): string {
   const n = blockCards(s);
-  if (n < s.dueCount) return `${n} sur ${s.dueCount} dues`;
-  return `${n} due${n > 1 ? "s" : ""}`;
+  return `${n} carte${n > 1 ? "s" : ""}`;
 }
 
 // ---- Prévisualisation (carte d'accueil) ------------------------------------------
