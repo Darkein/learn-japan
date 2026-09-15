@@ -95,22 +95,26 @@ describe("retentionRate", () => {
 });
 
 describe("reviewForecast", () => {
-  function vocabWithDue(dues: Date[]): VocabItem {
-    const cards: VocabItem["cards"] = {};
-    const skills = ["written", "oral", "production"] as const;
-    dues.forEach((due, i) => {
-      cards[skills[i]] = { ...newCard(NOW), due };
-    });
-    return { id: "x|x", surface: "x", reading: "x", meaning: "x", tags: [], status: "review", cards };
+  // Un mot = une carte : plusieurs échéances, c'est plusieurs mots.
+  function vocabWithDue(dues: Date[]): VocabItem[] {
+    return dues.map((due, i) => ({
+      id: `x${i}|x${i}`,
+      surface: "x",
+      reading: "x",
+      meaning: "x",
+      tags: [],
+      status: "review" as const,
+      card: { ...newCard(NOW), due },
+    }));
   }
 
   it("bucketise par jour local et clampe les retards dans le jour 0", () => {
-    const v = vocabWithDue([
+    const words = vocabWithDue([
       new Date(NOW.getTime() - 10 * DAY), // en retard → jour 0
       new Date(NOW.getTime() + 2 * DAY),
       new Date(NOW.getTime() + 30 * DAY), // hors fenêtre → ignorée
     ]);
-    const days = reviewForecast(collectCards([v], [], []), NOW, 7);
+    const days = reviewForecast(collectCards(words, [], []), NOW, 7);
     expect(days).toHaveLength(7);
     expect(days[0].date).toBe(localDateString(NOW));
     expect(days[0].count).toBe(1);

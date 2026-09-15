@@ -20,7 +20,6 @@ function vocab(over: Partial<VocabItem> & { id: string }): VocabItem {
     meaning: "—",
     tags: [],
     status: "review",
-    cards: {},
     ...over,
   };
 }

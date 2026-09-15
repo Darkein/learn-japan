@@ -46,7 +46,6 @@ describe("migration v12", () => {
       meaning: "mémorisation",
       tags: [],
       status: "known",
-      cards: {},
     });
     await v11.put("srsDaily", { date: "2026-07-01", introduced: 3, reviewed: 12 });
     v11.close();

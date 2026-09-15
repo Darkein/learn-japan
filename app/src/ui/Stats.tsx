@@ -269,10 +269,11 @@ export function Stats() {
                 labelClass="w-36"
               />
             </div>
-            {/* Plus de cartes que de mots : un mot en porte une par compétence travaillée. */}
+            {/* Une carte par mot (et par point de grammaire) : la forme d'exercice varie,
+                la planification non. */}
             <p className="text-xs text-muted">
-              {maturity.total} carte{maturity.total > 1 ? "s" : ""} au total — un mot en porte une
-              par compétence (écrit, écoute, production){" · "}
+              {maturity.total} carte{maturity.total > 1 ? "s" : ""} au total — une par mot et par
+              point de grammaire{" · "}
               {Math.round((maturity.mature / maturity.total) * 100)}% mûres
             </p>
           </>

@@ -22,7 +22,8 @@ import {
   shouldOpenOmikuji,
   type OmikujiEnv,
 } from "./omikuji";
-import { newCard } from "./srs";
+import { newCard, State } from "./srs";
+import { SRS } from "./config";
 
 const NOW = new Date("2026-07-05T12:00:00");
 
@@ -121,6 +122,8 @@ describe("checkOmikuji", () => {
     // Fabrique un jour où le tirage donne un défi donné : on force l'environnement pour
     // que seuls certains défis soient disponibles, puis on cherche une date qui donne
     // le défi voulu (déterministe → stable dans le temps).
+    // Mot MÛR avec sa phrase : c'est ce qui ouvre les formes d'écoute et de production
+    // dans le tirage (lib/vocabDrills.ts), donc les défis qui les visent.
     const vocab: VocabItem = {
       id: "水|みず",
       surface: "水",
@@ -128,7 +131,12 @@ describe("checkOmikuji", () => {
       meaning: "eau",
       tags: [],
       status: "known",
-      cards: { written: newCard(NOW), production: newCard(NOW), oral: newCard(NOW) },
+      card: {
+        ...newCard(NOW),
+        state: State.Review,
+        scheduled_days: SRS.unlockIntervalDays,
+      },
+      example: { ja: "水を飲む。" },
     };
     await putVocab(vocab);
     await putStory({

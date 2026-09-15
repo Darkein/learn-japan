@@ -86,9 +86,7 @@ export function collectCards(
   comprehension: ComprehensionItem[],
 ): Card[] {
   const cards: Card[] = [];
-  for (const v of vocab) {
-    for (const c of Object.values(v.cards)) if (c) cards.push(c);
-  }
+  for (const v of vocab) if (v.card) cards.push(v.card);
   for (const g of grammar) if (g.card) cards.push(g.card);
   for (const c of comprehension) if (c.card) cards.push(c.card);
   return cards;

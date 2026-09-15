@@ -18,7 +18,7 @@ import {
 import { getCurriculum } from "./curriculum";
 import { resolveVocab, staticExample, vocabLevel, type InvVocab } from "./inventory";
 import { isTrainableVocab } from "./vocabFaces";
-import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
+import { newCard, review, type Card, type SrsGrade } from "./srs";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 
 const CONTENT_POS = new Set(["名詞", "動詞", "形容詞", "副詞", "連体詞"]);
@@ -135,7 +135,6 @@ export async function newVocabItemFromToken(token: KuromojiToken): Promise<Vocab
     meaning: meaningFor(token),
     tags: [],
     status: "unknown",
-    cards: {},
   };
 }
 
@@ -218,6 +217,39 @@ export async function purgeNameVocab(): Promise<number> {
 /** Drapeau `meta` de la sortie de rotation du vocabulaire incident : une seule passe. */
 const INCIDENTAL_PURGE_KEY = "purge.incidentalCards";
 
+const MERGE_CARDS_KEY = "merge.skillCards";
+
+/**
+ * Bases d'avant « un mot, une carte » : trois cartes FSRS par mot (écrit / écoute /
+ * production), planifiées séparément. Le même mot revenait alors jusqu'à trois fois par
+ * cycle, chaque carte prenant une place dans la session, pendant que d'autres mots
+ * attendaient leur tour.
+ *
+ * On garde la carte de l'ÉCRIT — la seule que tout mot porte, et la plus fournie en
+ * historique FSRS ; à défaut l'écoute, puis la production (l'ordre du repli n'a en pratique
+ * jamais à servir, mais une base ancienne n'est pas une preuve). Les deux autres échéances
+ * disparaissent : c'est précisément l'objet du changement — le mot revient UNE fois, sous
+ * une forme tirée au sort (cf. lib/vocabDrills.ts), au lieu de trois.
+ *
+ * Le même ordre de survie est appliqué à l'import d'une vieille sauvegarde (lib/sync.ts) et
+ * au comptage du badge par le service worker (lib/dueCount.ts) : les trois doivent désigner
+ * la même carte. Idempotent, gardé par un drapeau meta. Renvoie le nombre de mots fusionnés.
+ */
+export async function mergeSkillCards(): Promise<number> {
+  if (await getMeta<boolean>(MERGE_CARDS_KEY)) return 0;
+  const items = await allVocab();
+  let merged = 0;
+  for (const item of items) {
+    const { cards, ...rest } = item as VocabItem & { cards?: Partial<Record<string, Card>> };
+    if (!cards) continue;
+    const card = item.card ?? cards.written ?? cards.oral ?? cards.production;
+    await putVocab({ ...rest, ...(card ? { card } : {}) });
+    merged++;
+  }
+  await putMeta(MERGE_CARDS_KEY, true);
+  return merged;
+}
+
 /**
  * Sort de la planification SRS le vocabulaire INCIDENT déjà promu automatiquement.
  *
@@ -243,9 +275,9 @@ export async function purgeIncidentalCards(): Promise<number> {
   let demoted = 0;
   for (const item of items) {
     if (objectives.has(item.id)) continue;
-    if (!item.cards.written && !item.cards.oral && !item.cards.production) continue;
+    if (!item.card) continue;
     // `streak` pilote le passage du QCM à la saisie : il n'a plus de sens sans carte.
-    await putVocab({ ...item, cards: {}, streak: 0 });
+    await putVocab({ ...item, card: undefined, streak: 0 });
     demoted++;
   }
   await putMeta(INCIDENTAL_PURGE_KEY, true);
@@ -352,8 +384,9 @@ export async function ensureVocabItems(tokens: KuromojiToken[]): Promise<string[
 }
 
 /**
- * Applique une action au token : met à jour le statut, planifie la compétence
- * « reconnaissance écrite » via FSRS, persiste et journalise.
+ * Applique une action au token : met à jour le statut, replanifie la carte du mot via
+ * FSRS, persiste et journalise. Journalisé en compétence « écrite » — c'est bien une
+ * reconnaissance de la graphie (tap du Lecteur, reconstruction de phrase).
  */
 export async function applyStatus(
   token: KuromojiToken,
@@ -362,11 +395,7 @@ export async function applyStatus(
 ): Promise<VocabItem> {
   const item = await loadOrCreate(token);
   item.status = ACTION_TO_STATUS[action];
-  const base = item.cards.written ?? newCard(now);
-  item.cards.written = review(base, ACTION_TO_GRADE[action], now);
-  // Le mot vient d'être travaillé (tap du Lecteur, reconstruction de phrase) : ses cartes
-  // d'écoute et de production ne repassent pas dans la foulée (cf. spaceSkillCards).
-  spaceSkillCards(item.cards, "written", now);
+  item.card = review(item.card ?? newCard(now), ACTION_TO_GRADE[action], now);
   await putVocab(item);
   await logReview({
     itemId: item.id,
@@ -396,7 +425,7 @@ export async function addInventoryWordToReview(
     meaning: v.fr,
     tags: [],
     status: "review",
-    cards: { written: review(newCard(now), "good", now) },
+    card: review(newCard(now), "good", now),
   };
   await putVocab(item);
   await logReview({

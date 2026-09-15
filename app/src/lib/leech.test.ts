@@ -31,7 +31,7 @@ function vocabItem(id: string): VocabItem {
     meaning: "mémorisation",
     tags: [],
     status: "known",
-    cards: { written: review(newCard(NOW), "again", NOW) },
+    card: review(newCard(NOW), "again", NOW),
     streak: 3,
     lastDir: "kanji>kana",
   };
@@ -62,7 +62,7 @@ describe("resetItemProgress", () => {
     expect(v.status).toBe("review");
     expect(v.streak).toBe(0);
     expect(v.lastDir).toBeUndefined();
-    expect(v.cards.written!.reps).toBe(0);
+    expect(v.card!.reps).toBe(0);
   });
 
   it("journalise le jalon sans effacer le log (append-only)", async () => {

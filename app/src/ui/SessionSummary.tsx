@@ -56,7 +56,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
         let fsrsCard: import("ts-fsrs").Card | undefined;
         if (r.card.track === "vocab") {
           const item = await getVocab(r.card.id);
-          fsrsCard = item?.cards?.[r.card.skill ?? "written"];
+          fsrsCard = item?.card;
         } else {
           const item = await getGrammar(r.card.id);
           fsrsCard = item?.card;

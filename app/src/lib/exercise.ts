@@ -4,7 +4,7 @@
 
 import { getGrammar, getVocab, logReview, putGrammar, putVocab, type Skill } from "./db";
 import { generateStoryTranslation } from "./genClient";
-import { newCard, review, spaceSkillCards, type SrsGrade } from "./srs";
+import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 import { applyStatus, isTrackedWord } from "./vocab";
 
@@ -20,8 +20,9 @@ interface ExerciseBase {
   key: string;
   /** Piste SRS notée. */
   track: ExerciseTrack;
-  /** Compétence notée (piste vocab uniquement) : carte FSRS dédiée par compétence.
-   *  Absent = "written". "oral" = écoute, planifiée indépendamment de l'écrit. */
+  /** Compétence TRAVAILLÉE par l'exercice (piste vocab), pour le seul journal de
+   *  révisions — un mot ne porte qu'une carte, et c'est elle qui est notée quelle que soit
+   *  la forme servie (cf. lib/vocabDrills.ts). Absent = "written". */
   skill?: Skill;
   /** Id de l'item SRS (VocabItem.id | GrammarItem.id). */
   id: string;
@@ -141,20 +142,16 @@ export async function gradeExercise(
   if (ex.track === "vocab") {
     const v = await getVocab(ex.id);
     if (!v) return;
-    const skill = ex.skill ?? "written";
-    v.cards[skill] = review(v.cards[skill] ?? newCard(now), grade, now);
-    // Le mot vient de passer : ses AUTRES compétences ne doivent pas retomber dans la
-    // foulée (cf. spaceSkillCards). Un échec ne change rien à la règle — c'est FSRS qui
-    // ramène la carte ratée, et les autres n'ont pas à l'accompagner le même jour.
-    spaceSkillCards(v.cards, skill, now);
-    if (skill === "written") {
-      // Le statut affiché (soulignement du lecteur) reflète la reconnaissance écrite.
-      v.status = grade === "easy" ? "known" : "review";
-      // Suite de réussites : pilote le passage du QCM à la saisie. « Difficile » compte
-      // comme une remise à zéro — c'est aussi la note d'une réponse à une coquille près,
-      // et taper un mot qu'on écrit de travers n'est pas encore acquis.
-      v.streak = grade === "again" || grade === "hard" ? 0 : (v.streak ?? 0) + 1;
-    }
+    // UNE carte par mot, quelle que soit la forme d'exercice servie (`ex.skill` ne sert
+    // plus qu'au journal) : une réussite à l'oreille repousse le mot entier, un échec en
+    // production le ramène entier. C'est le sens du modèle — on planifie un MOT.
+    v.card = review(v.card ?? newCard(now), grade, now);
+    // Le statut affiché (soulignement du lecteur) dit ce qu'on sait du mot.
+    v.status = grade === "easy" ? "known" : "review";
+    // Suite de réussites : pilote le passage du QCM à la saisie. « Difficile » compte
+    // comme une remise à zéro — c'est aussi la note d'une réponse à une coquille près,
+    // et taper un mot qu'on écrit de travers n'est pas encore acquis.
+    v.streak = grade === "again" || grade === "hard" ? 0 : (v.streak ?? 0) + 1;
     await putVocab(v);
   } else {
     const g = (await getGrammar(ex.id)) ?? {
@@ -185,7 +182,7 @@ export async function gradeExercise(
 export async function daysBeforeGrade(ex: Exercise): Promise<number> {
   if (ex.track === "vocab") {
     const item = await getVocab(ex.id);
-    return item?.cards?.[ex.skill ?? "written"]?.scheduled_days ?? 0;
+    return item?.card?.scheduled_days ?? 0;
   } else {
     const item = await getGrammar(ex.id);
     return item?.card?.scheduled_days ?? 0;

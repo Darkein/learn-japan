@@ -78,14 +78,16 @@ export function computeTunedRetention(
 }
 
 /**
- * Coût d'un mot NEUF en cartes de révision par jour, à l'équilibre. Un mot n'est pas une
- * carte : il en porte jusqu'à trois (écrit / écoute / production, cf. `spaceSkillCards`),
- * chacune revenant d'autant plus souvent qu'elle est jeune.
+ * Ce qu'un mot NEUF coûte en révisions — pas par jour, mais AU TOTAL sur ses premiers mois.
+ * Un mot ne porte qu'une carte (cf. lib/vocabDrills.ts) et ne repasse donc jamais deux fois
+ * dans la même journée ; seulement, FSRS le ramène le jour même, puis à ~3 jours, ~8, ~20,
+ * ~45… — cinq passages avant qu'il ne s'éloigne vraiment. Introduire λ mots par jour finit
+ * donc par demander λ × 5 révisions quotidiennes : c'est ce produit que l'objectif borne.
  *
  * Valeur MESURÉE par simulation (90 jours, réponses « bien », objectif tenu chaque jour,
- * cf. `tuning.test.ts`) : à objectif 10 cartes/jour, 2 mots neufs/jour tiennent (retard
- * stable à ~0), 3 dérivent lentement, 5 font exploser le retard (+80 en trois mois). Le
- * rapport tenable est donc d'environ UN mot neuf pour cinq cartes d'objectif.
+ * frein neutralisé, cf. `backlog.test.ts`), et STABLE d'un objectif à l'autre : 10 cartes/j
+ * absorbent 2 mots neufs par jour (3 dérivent), 20 en absorbent 4 (6 dérivent), 30 en
+ * absorbent 6. Soit, dans tous les cas, un mot neuf pour cinq cartes d'objectif.
  */
 export const NEW_ITEM_LOAD = 5;
 

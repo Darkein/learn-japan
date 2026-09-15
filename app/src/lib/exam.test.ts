@@ -41,7 +41,6 @@ function word(surface: string, reading: string, meaning: string, over: Partial<V
     tags: [],
     jlpt: 5,
     status: "review",
-    cards: {},
     ...over,
   };
 }

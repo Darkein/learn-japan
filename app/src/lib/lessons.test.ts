@@ -79,7 +79,7 @@ function newCardObj(): Card {
 
 // Helpers pour construire les maps
 function vocabMap(items: Array<{ id: string; card?: Card }>): Map<string, any> {
-  return new Map(items.map(i => [i.id, { id: i.id, cards: { written: i.card } }]));
+  return new Map(items.map(i => [i.id, { id: i.id, card: i.card }]));
 }
 function grammarMap(items: Array<{ id: string; card?: Card }>): Map<string, any> {
   return new Map(items.map(i => [i.id, { id: i.id, card: i.card }]));
@@ -121,8 +121,8 @@ describe("computeMastery", () => {
   it("item auto-évalué « Facile » (status known) compte comme maîtrisé sans intervalle 21 j", () => {
     // Carte fraîche (0 j) mais status "known" : l'utilisateur a répondu « Facile ».
     const vm = new Map<string, any>([
-      ["v1", { id: "v1", status: "known", cards: { written: newCardObj() } }],
-      ["v2", { id: "v2", status: "known", cards: { written: newCardObj() } }],
+      ["v1", { id: "v1", status: "known", card: newCardObj() }],
+      ["v2", { id: "v2", status: "known", card: newCardObj() }],
     ]);
     const gm = new Map<string, any>([
       ["g1", { id: "g1", status: "known", card: newCardObj() }],
@@ -132,8 +132,8 @@ describe("computeMastery", () => {
 
   it("status « review » (pas Facile) ne compte pas si l'intervalle n'atteint pas 21 j", () => {
     const vm = new Map<string, any>([
-      ["v1", { id: "v1", status: "review", cards: { written: newCardObj() } }],
-      ["v2", { id: "v2", status: "review", cards: { written: masteredCard() } }],
+      ["v1", { id: "v1", status: "review", card: newCardObj() }],
+      ["v2", { id: "v2", status: "review", card: masteredCard() }],
     ]);
     const gm = new Map<string, any>([
       ["g1", { id: "g1", status: "review", card: newCardObj() }],
@@ -200,7 +200,7 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
         meaning: "",
         tags: [],
         status: "known",
-        cards: { written: masteredCard() },
+        card: masteredCard(),
       });
     }
     for (const id of prev.introduces.grammar) {
@@ -234,7 +234,7 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
     for (const id of prev.introduces.vocab) {
       await putVocab({
         id, surface: id, reading: "", meaning: "", tags: [],
-        status: "review", cards: { written: stableCard },
+        status: "review", card: stableCard,
       });
     }
     for (const id of prev.introduces.grammar) {

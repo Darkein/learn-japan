@@ -21,7 +21,7 @@ export interface PickCardLike {
 export interface PickVocabLike {
   /** Graphie de référence, kanji compris : c'est elle qu'on affiche. */
   surface: string;
-  cards: Partial<Record<string, PickCardLike | undefined>>;
+  card?: PickCardLike;
 }
 export interface PickGrammarLike {
   name: string;
@@ -52,8 +52,9 @@ export function reminderItemPool(
     !!c && c.reps > 0 && c.due.getTime() <= now.getTime();
   const candidates: { item: ReminderItem; due: number }[] = [];
   for (const v of vocab) {
-    // La compétence écrite seule : c'est la face qu'on peut nommer dans une notification.
-    const c = v.cards.written;
+    // La carte du mot, déjà vue au moins une fois : c'est elle qu'on peut nommer dans une
+    // notification (« tu te souviens de 「花火」 ? »).
+    const c = v.card;
     if (seen(c) && v.surface) {
       candidates.push({ item: { text: v.surface, kind: "vocab" }, due: c!.due.getTime() });
     }

@@ -73,7 +73,7 @@ export function SettingsSections({ quick }: Props) {
               value={settings.newPerDay}
               min={1}
               onChange={(v) => update({ newPerDay: v })}
-              hint={`Plafonné par l'objectif : ${sustainableNewPerDay(settings.dailyGoal)}/jour au plus — un mot neuf porte jusqu'à trois cartes et coûte ~${NEW_ITEM_LOAD} révisions par jour. Au-delà, le retard grossirait sans fin.`}
+              hint={`Plafonné par l'objectif : ${sustainableNewPerDay(settings.dailyGoal)}/jour au plus — un mot neuf demande ~${NEW_ITEM_LOAD} révisions avant de s'éloigner (le jour même, puis à 3 jours, 8, 20, 45…). Au-delà, le retard grossirait sans fin.`}
             />
             <Toggle
               label="Romaji → kana dans les révisions"

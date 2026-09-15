@@ -32,7 +32,6 @@ export async function enrollLesson(lessonId: string): Promise<void> {
         meaning: v.fr,
         tags: [],
         status: "unknown",
-        cards: {},
       };
       await putVocab(item);
     }),

@@ -10,6 +10,7 @@ import {
   isTrackedWord,
   itemIdFor,
   meaningFor,
+  mergeSkillCards,
   purgeIncidentalCards,
   purgeNameVocab,
   refreshStoredMeanings,
@@ -138,31 +139,31 @@ describe("purgeNameVocab", () => {
   it("supprime les noms déjà en base (propres et fantômes) et épargne le reste", async () => {
     await putVocab({
       id: "田中|たなか", surface: "田中", reading: "たなか", meaning: "—",
-      tags: [], status: "review", cards: {},
+      tags: [], status: "review",
     });
     await putVocab({
       id: "日本橋|にほんばし", surface: "日本橋", reading: "にほんばし", meaning: "—",
-      tags: [], status: "unknown", cards: {},
+      tags: [], status: "unknown",
     });
     // Mot du référentiel : jamais retokenisé, donc jamais purgé même étiqueté 固有名詞.
     await putVocab({
       id: "日本|にっぽん", surface: "日本", reading: "にっぽん", meaning: "Japon",
-      tags: [], status: "review", cards: {},
+      tags: [], status: "review",
     });
     // Nom de personnage : ni sens ni graphie à lire — aucune révision ne le servira jamais.
     await putVocab({
       id: "クロ|くろ", surface: "クロ", reading: "くろ", meaning: "—",
-      tags: [], status: "review", cards: {},
+      tags: [], status: "review",
     });
     // Fantôme marqué « connu » par l'utilisateur : respecté (il ne sert qu'au lecteur).
     await putVocab({
       id: "シロ|しろ", surface: "シロ", reading: "しろ", meaning: "—",
-      tags: [], status: "known", cards: {},
+      tags: [], status: "known",
     });
     // Mot ordinaire hors référentiel : analysé, gardé.
     await putVocab({
       id: "架空語|かくうご", surface: "架空語", reading: "かくうご", meaning: "mot fictif",
-      tags: [], status: "review", cards: {},
+      tags: [], status: "review",
     });
 
     expect(await purgeNameVocab()).toBe(3);
@@ -175,38 +176,75 @@ describe("purgeNameVocab", () => {
   });
 });
 
+describe("mergeSkillCards (bases d'avant « un mot, une carte »)", () => {
+  /** Enregistrement à l'ancienne : trois cartes par compétence, pas de champ `card`. */
+  async function putLegacy(id: string, cards: Record<string, unknown>) {
+    const [surface, reading] = id.split("|");
+    await putVocab({
+      id, surface, reading, meaning: `sens-${surface}`, tags: [], status: "review",
+      cards,
+    } as unknown as VocabItem);
+  }
+
+  // Une seule passe pour tout le describe : la fusion est gardée par un drapeau meta, et
+  // ce fichier partage sa base entre les tests. C'est aussi ce qu'on veut vérifier.
+  it("fusionne en une passe : l'écrit survit, les autres échéances tombent", async () => {
+    const written = { ...newCard(new Date("2020-01-01")), reps: 7 };
+    await putLegacy("水|みず", {
+      written,
+      oral: newCard(new Date("2021-01-01")),
+      production: newCard(new Date("2022-01-01")),
+    });
+    // À défaut d'écrit, l'écoute prend la suite — jamais de mot laissé sans planification.
+    await putLegacy("本|ほん", { oral: { ...newCard(new Date("2020-01-01")), reps: 2 } });
+    // Un mot jamais appris reste sans carte.
+    await putLegacy("空|そら", {});
+
+    expect(await mergeSkillCards()).toBe(3);
+
+    const eau = (await getVocab("水|みず"))!;
+    expect(eau.card?.reps).toBe(7);
+    expect((eau as unknown as { cards?: unknown }).cards).toBeUndefined();
+    expect((await getVocab("本|ほん"))!.card?.reps).toBe(2);
+    expect((await getVocab("空|そら"))!.card).toBeUndefined();
+
+    // Idempotent : la passe suivante ne retouche plus rien.
+    expect(await mergeSkillCards()).toBe(0);
+  });
+});
+
 describe("purgeIncidentalCards", () => {
   it("démonte les cartes des mots hors curriculum, garde l'item et les objectifs", async () => {
     // Objectif de leçon : sa carte est conservée.
     await putVocab({
       id: "山|やま", surface: "山", reading: "やま", meaning: "montagne",
-      tags: [], status: "review", cards: { written: newCard(new Date("2020-01-01")) },
+      tags: [], status: "review", card: newCard(new Date("2020-01-01")),
     });
     // Mot croisé dans une histoire, promu tout seul par une ancienne session.
     await putVocab({
       id: "夢語|ゆめご", surface: "夢語", reading: "ゆめご", meaning: "mot rêvé",
       tags: [], status: "review", streak: 2,
-      cards: { written: newCard(new Date("2020-01-01")), oral: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
 
     await purgeIncidentalCards();
 
     const incidental = await getVocab("夢語|ゆめご");
-    expect(incidental?.cards).toEqual({});
+    expect(incidental?.card).toBeUndefined();
     expect(incidental?.streak).toBe(0);
     // L'item reste lisible/glosable dans le lecteur, avec son statut.
     expect(incidental?.status).toBe("review");
-    expect((await getVocab("山|やま"))?.cards.written).toBeDefined();
+    expect((await getVocab("山|やま"))?.card).toBeDefined();
   });
 
   it("ne passe qu'une fois : un mot réajouté ensuite garde sa carte", async () => {
     await putVocab({
       id: "幻語|まぼろしご", surface: "幻語", reading: "まぼろしご", meaning: "mot illusoire",
-      tags: [], status: "review", cards: { written: newCard(new Date("2020-01-01")) },
+      tags: [], status: "review", card: newCard(new Date("2020-01-01")),
     });
 
     expect(await purgeIncidentalCards()).toBe(0); // drapeau déjà posé par le test précédent
-    expect((await getVocab("幻語|まぼろしご"))?.cards.written).toBeDefined();
+    expect((await getVocab("幻語|まぼろしご"))?.card).toBeDefined();
   });
 });
 
@@ -228,12 +266,12 @@ describe("vocab ↔ SRS (IndexedDB)", () => {
 
     const item = await applyStatus(neko, "review", new Date("2026-06-23T08:00:00Z"));
     expect(item.status).toBe("review");
-    expect(item.cards.written).toBeDefined();
+    expect(item.card).toBeDefined();
 
     const reloaded = await getVocab(id);
     expect(reloaded?.id).toBe(id);
     expect(reloaded?.status).toBe("review");
-    expect(reloaded?.cards.written?.due).toBeInstanceOf(Date);
+    expect(reloaded?.card?.due).toBeInstanceOf(Date);
   });
 
   it("« Je connais » marque l'item comme connu", async () => {
@@ -250,7 +288,7 @@ describe("addInventoryWordToReview", () => {
   it("crée l'item en « à revoir » avec la carte écrite planifiée et journalise", async () => {
     const item = await addInventoryWordToReview(inv, new Date("2026-06-23T08:00:00Z"));
     expect(item.status).toBe("review");
-    expect(item.cards.written?.due).toBeInstanceOf(Date);
+    expect(item.card?.due).toBeInstanceOf(Date);
 
     const reloaded = await getVocab(inv.id);
     expect(reloaded?.surface).toBe("毎日");
@@ -289,7 +327,7 @@ describe("forme de dictionnaire (création + réparation)", () => {
   it("répare un item existant stocké en forme conjuguée", async () => {
     await putVocab({
       id: "食べる|たべ", surface: "食べ", reading: "たべ", meaning: "manger",
-      tags: [], status: "review", cards: {},
+      tags: [], status: "review",
     });
     expect(await repairConjugatedVocab()).toBeGreaterThanOrEqual(1);
     const v = await getVocab("食べる|たべ");
@@ -357,7 +395,7 @@ describe("refreshStoredMeanings", () => {
 
 describe("effectiveExample", () => {
   function vocab(p: Partial<VocabItem> & { id: string }): VocabItem {
-    return { surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review", cards: {}, ...p };
+    return { surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review", ...p };
   }
 
   it("préfère l'exemple issu d'une histoire lue", () => {

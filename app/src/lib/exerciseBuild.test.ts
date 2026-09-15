@@ -152,7 +152,6 @@ function vocabItem(over: Partial<VocabItem> & { id: string }): VocabItem {
     meaning: "—",
     tags: [],
     status: "review",
-    cards: {},
     ...over,
   };
 }
@@ -344,7 +343,7 @@ describe("vocabTriangleExercise — entrées du dico annotées", () => {
 describe("vocabListenMeaningExercise", () => {
   function vocab(id: string, meaning: string, example?: { ja: string }) {
     const [surface, reading] = id.split("|");
-    return { id, surface, reading, meaning, tags: [], status: "review" as const, cards: {}, example };
+    return { id, surface, reading, meaning, tags: [], status: "review" as const, example };
   }
   const pool = [
     vocab("犬|いぬ", "chien"),
@@ -383,7 +382,6 @@ describe("vocabTypeExercise — production en contexte (produce)", () => {
       meaning: "chat",
       tags: [],
       status: "review" as const,
-      cards: {},
       example,
     };
   }
@@ -425,7 +423,6 @@ describe("vocabTypeExercise — le trou tombe sur un MOT ENTIER", () => {
     meaning: "Japon (lecture officielle, emphatique)",
     tags: [],
     status: "review" as const,
-    cards: {},
     example: { ja: "今日、私は日本語を勉強します。", fr: "Aujourd'hui, j'étudie le japonais." },
   };
 
@@ -473,7 +470,6 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
     meaning: "faire",
     tags: [],
     status: "review" as const,
-    cards: {},
     example: { ja: "宿題をします。", fr: "Je fais mes devoirs." },
   };
 
@@ -510,7 +506,7 @@ describe("vocabTypeExercise — forme rencontrée (item conjugué réparé)", ()
   it("item curé (lecture = partie lecture de l'id) : comportement inchangé", async () => {
     const neko = {
       id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat",
-      tags: [], status: "review" as const, cards: {},
+      tags: [], status: "review" as const,
       example: { ja: "猫が走る。" },
     };
     const ex = await vocabTypeExercise(neko, 0, { produce: true });
@@ -532,7 +528,6 @@ describe("vocabTypeExercise — contextFr", () => {
       meaning: "chat",
       tags: [],
       status: "review" as const,
-      cards: {},
       example,
     };
   }

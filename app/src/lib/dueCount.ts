@@ -8,7 +8,15 @@ export interface DueCardLike {
   due: Date;
 }
 export interface DueVocabLike {
-  cards: Partial<Record<string, DueCardLike>>;
+  /** Carte unique du mot (modèle courant). */
+  card?: DueCardLike;
+  /**
+   * Bases d'avant « un mot, une carte » : une carte par compétence. Le service worker lit
+   * la base TELLE QU'ELLE EST — la fusion n'a lieu qu'à la prochaine session de l'app (cf.
+   * `mergeSkillCards`, lib/vocab.ts) — donc il compte ici la carte qui SURVIVRA à la
+   * fusion, pas les trois : sinon le badge annoncerait un retard que l'app ne servira pas.
+   */
+  cards?: Partial<Record<string, DueCardLike>>;
 }
 export interface DueSingleCardLike {
   card?: DueCardLike;
@@ -28,7 +36,9 @@ export function countDueItems(
   const isDue = (c: DueCardLike | undefined) => !!c && c.due.getTime() <= horizon;
   let due = 0;
   for (const v of vocab) {
-    for (const card of Object.values(v.cards)) if (isDue(card)) due++;
+    // Même ordre de survie que `mergeSkillCards` (lib/vocab.ts) — les deux doivent
+    // désigner la même carte.
+    if (isDue(v.card ?? v.cards?.written ?? v.cards?.oral ?? v.cards?.production)) due++;
   }
   for (const g of grammar) if (isDue(g.card)) due++;
   for (const c of comprehension) if (isDue(c.card)) due++;

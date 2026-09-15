@@ -14,7 +14,6 @@ import {
   putVocab,
   RESET_GRADE,
   type ReviewLog,
-  type Skill,
 } from "./db";
 import { newCard } from "./srs";
 import { leechIds } from "./stats";
@@ -35,10 +34,11 @@ export async function resetItemProgress(track: Track, id: string, now: Date = ne
   if (track === "vocab") {
     const v = await getVocab(id);
     if (!v) return;
-    for (const skill of Object.keys(v.cards) as Skill[]) v.cards[skill] = newCard(now);
+    if (v.card) v.card = newCard(now);
     v.status = "review";
     v.streak = 0;
     delete v.lastDir;
+    delete v.lastDrill;
     await putVocab(v);
   } else if (track === "grammar") {
     const g = await getGrammar(id);

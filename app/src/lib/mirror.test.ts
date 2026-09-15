@@ -27,7 +27,7 @@ function vocab(id: string, tracked = true): VocabItem {
     meaning: "—",
     tags: [],
     status: "known",
-    cards: tracked ? { written: {} as never } : {},
+    ...(tracked ? { card: {} as never } : {}),
   };
 }
 

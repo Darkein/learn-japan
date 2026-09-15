@@ -65,7 +65,8 @@ export const SRS = {
    * Intervalle FSRS (jours) à partir duquel un item compte pour le DÉBLOCAGE de la leçon
    * suivante. Volontairement bien plus bas que `masteredIntervalDays` : la maîtrise (21 j)
    * reste l'objectif affiché, mais exiger 21 j pour avancer gèlerait la progression
-   * pendant des semaines.
+   * pendant des semaines. Ouvre aussi la PRODUCTION dans le tirage des formes d'exercice
+   * (lib/vocabDrills.ts) : on ne fait pas produire un mot qui n'est pas encore stable.
    */
   unlockIntervalDays: 4,
   /**
@@ -83,20 +84,6 @@ export const SRS = {
    * rechute avant d'avoir enchaîné trois bonnes réponses.
    */
   leechRecoveryStreak: 3,
-  /** Exercices d'écoute max par session (cartes dues), et amorces de nouvelles cartes écoute. */
-  listenMax: 5,
-  listenSeeds: 2,
-  /** Idem pour la production en contexte (cloze FR→JA sur la phrase d'exemple). */
-  prodMax: 4,
-  prodSeeds: 2,
-  /**
-   * Espacement minimal (jours) entre deux passages d'un MÊME mot, quelle que soit la
-   * compétence. Un mot porte trois cartes FSRS indépendantes (écrit / écoute / production) :
-   * rien n'empêchait leurs échéances de se suivre, et un mot appris tôt (私, 今日) revenait
-   * un jour sur deux alors que l'utilisateur répondait « facile » à chaque fois. FSRS reste
-   * seul maître des intervalles — on ne fait que décaler l'échéance d'une carte sœur.
-   */
-  skillGapDays: 3,
   /**
    * Part des items assez stables (`unlockProgress`) à partir de laquelle le CONTRÔLE de fin
    * de leçon s'ouvre : le droit de SE PRÉSENTER, pas le déblocage — celui-ci s'obtient à

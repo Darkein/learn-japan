@@ -163,7 +163,7 @@ function computeProgress(
   let ok = 0;
   for (const id of entry.introduces.vocab) {
     total++;
-    const card = vocabMap.get(id)?.cards.written;
+    const card = vocabMap.get(id)?.card;
     if (card && pred(card)) ok++;
   }
   for (const id of entry.introduces.grammar) {
@@ -198,7 +198,7 @@ export function computeMastery(
   for (const id of entry.introduces.vocab) {
     total++;
     const v = vocabMap.get(id);
-    if (v && itemMastered(v.status, v.cards.written)) ok++;
+    if (v && itemMastered(v.status, v.card)) ok++;
   }
   for (const id of entry.introduces.grammar) {
     total++;
