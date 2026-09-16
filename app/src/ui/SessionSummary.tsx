@@ -159,13 +159,6 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
                       className="absolute inset-y-0 left-0 rounded-l-full bg-accent transition-all"
                       style={{ width: `${afterPct}%` }}
                     />
-                    {/* Encoche du seuil de déblocage (bien avant la maîtrise à 21 j) : tracée
-                        APRÈS les remplissages, en couleur de fond, pour rester lisible qu'elle
-                        soit franchie ou non, en thème clair comme en sombre. */}
-                    <div
-                      className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-bg"
-                      style={{ left: `${Math.round((SRS.unlockIntervalDays / SRS.masteredIntervalDays) * 100)}%` }}
-                    />
                   </div>
                 </li>
               );
