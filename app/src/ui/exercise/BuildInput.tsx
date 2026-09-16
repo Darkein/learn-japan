@@ -16,7 +16,7 @@ interface Props {
 
 /**
  * Construction de phrase : l'utilisateur réordonne des tuiles, vérification explicite.
- * Un seul bouton de suite, comme partout : "easy" si l'ordre est bon, "again" sinon.
+ * Un seul bouton de suite, comme partout : "good" si l'ordre est bon, "again" sinon.
  */
 type BuildResult = "exact" | "alt" | "wrong";
 

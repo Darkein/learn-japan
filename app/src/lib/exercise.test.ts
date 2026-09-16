@@ -157,9 +157,10 @@ describe("gradeExercise", () => {
       back: "ねこ",
       answers: ["ねこ"],
     };
-    // Le bouton unique de la session note "easy" d'office : si le statut s'en déduisait,
-    // tout mot répondu juste une fois passerait « connu » — plus de soulignement au
-    // lecteur, et des leçons créditées d'une maîtrise jamais prouvée.
+    // Aucune note ne vaut déclaration : le bouton unique de la session ne dit rien de plus
+    // que « juste ». Même la note la plus haute laisse le mot « à revoir » — sinon un seul
+    // passage réussi le retirerait du soulignement au lecteur et créditerait la leçon
+    // d'une maîtrise jamais prouvée.
     await gradeExercise(ex, "easy", new Date());
     expect((await getVocab("猫|ねこ"))?.status).toBe("review");
   });
