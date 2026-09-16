@@ -34,6 +34,28 @@ interface Props {
   onReplayMissed?: (missed: Exercise[]) => void;
 }
 
+/**
+ * Étiquette d'état d'un élément au bilan. Priorité décroissante : la maîtrise prime sur le
+ * déblocage, et l'INTERVALLE RETOMBÉ À ZÉRO se lit différemment selon d'où l'on vient —
+ * « nouveau » pour un élément jamais stabilisé, « oublié » pour un élément qui tenait
+ * plusieurs jours et qu'on vient de rater (FSRS l'a renvoyé en réapprentissage). Les
+ * confondre donnait un « nouveau » sur des mots revus depuis des semaines.
+ * `null` = entre-deux (0 < intervalle < seuil de déblocage) : la barre suffit, pas de bruit.
+ */
+export function summaryBadge(entry: {
+  mastered: boolean;
+  unlockReady: boolean;
+  intervalDays: number;
+  intervalDaysBefore: number;
+}): { label: string; variant: "default" | "accent" } | null {
+  if (entry.mastered) return { label: "maîtrisé", variant: "accent" };
+  if (entry.unlockReady) return { label: "débloquant", variant: "accent" };
+  if (entry.intervalDays > 0) return null;
+  return entry.intervalDaysBefore > 0
+    ? { label: "oublié", variant: "default" }
+    : { label: "nouveau", variant: "default" };
+}
+
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
 export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed }: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
@@ -116,6 +138,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
                 100,
                 Math.round((entry.intervalDays / SRS.masteredIntervalDays) * 100),
               );
+              const badge = summaryBadge(entry);
               return (
                 <li key={entry.card.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
@@ -124,21 +147,10 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
                     </span>
                     <div className="flex items-center gap-1.5">
                       {entry.card.isLeech && <Badge>difficile</Badge>}
-                      {entry.mastered ? (
-                        <Badge variant="accent">maîtrisé</Badge>
-                      ) : entry.unlockReady ? (
-                        <Badge variant="accent">débloquant</Badge>
-                      ) : entry.intervalDays === 0 ? (
-                        <Badge>nouveau</Badge>
-                      ) : null}
+                      {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
                     </div>
                   </div>
                   <div className="relative h-1 w-full overflow-hidden rounded-full bg-hairline">
-                    {/* Repère du seuil de déblocage (léger, bien avant la maîtrise à 21 j). */}
-                    <div
-                      className="absolute inset-y-0 w-px bg-text/30"
-                      style={{ left: `${Math.round((SRS.unlockIntervalDays / SRS.masteredIntervalDays) * 100)}%` }}
-                    />
                     <div
                       className="absolute inset-y-0 left-0 rounded-l-full bg-accent/30 transition-all"
                       style={{ width: `${beforePct}%` }}
@@ -146,6 +158,13 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
                     <div
                       className="absolute inset-y-0 left-0 rounded-l-full bg-accent transition-all"
                       style={{ width: `${afterPct}%` }}
+                    />
+                    {/* Encoche du seuil de déblocage (bien avant la maîtrise à 21 j) : tracée
+                        APRÈS les remplissages, en couleur de fond, pour rester lisible qu'elle
+                        soit franchie ou non, en thème clair comme en sombre. */}
+                    <div
+                      className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-bg"
+                      style={{ left: `${Math.round((SRS.unlockIntervalDays / SRS.masteredIntervalDays) * 100)}%` }}
                     />
                   </div>
                 </li>
