@@ -60,28 +60,49 @@ choisi. Un mot **incident** entre en planification quand l'utilisateur le décid
 texte** — tap sur le mot dans le Lecteur (connu / à revoir / oublié), exercices de l'histoire,
 bouton de suggestion de la fiche kanji — et ces gestes créent la carte eux-mêmes.
 
-### 2.2 Trois compétences par élément (vocabulaire)
-S'activent **progressivement**, dans cet ordre :
-1. **Reconnaissance écrite** (voir 猫 → comprendre « chat »)
-2. **Reconnaissance orale** (entendre *neko* → comprendre)
-3. **Production active** (dire « chat » → produire *neko*) — activée en dernier.
+### 2.2 Un mot, une carte — cinq formes d'exercice
 
-L'état SRS est suivi **par compétence**.
+**Un mot de vocabulaire porte UNE carte FSRS** (`VocabItem.card`), donc **une échéance** et
+**un passage** par cycle. Ce qui varie, c'est la **forme** de l'exercice, **tirée à chaque
+passage** parmi cinq (`lib/vocabDrills.ts`) :
 
-**Espacement entre compétences** (`SRS.skillGapDays`, `spaceSkillCards`) : trois cartes
-planifiées séparément finissent par tomber les unes après les autres, et un mot appris tôt
-(私, 今日) revient un jour sur deux alors qu'il est noté « facile » à chaque passage. Un mot
-ne passe donc **qu'une fois par session**, toutes compétences confondues, et réviser une
-compétence repousse les autres cartes du mot à `now + skillGapDays`. Seule l'échéance bouge :
-stabilité, difficulté et historique FSRS restent intacts (une révision retardée est
-correctement prise en compte, l'écart étant mesuré depuis `last_review`). Même règle pour les
-**amorces** d'écoute et de production, qui sont dues sur-le-champ : jamais sur un mot déjà au
-programme du jour ni révisé dans la fenêtre.
+| Forme | Ce qu'elle travaille |
+|---|---|
+| `written` | le **triangle** kanji ↔ furigana ↔ traduction (§2.2b) |
+| `listen-word` | on entend, on écrit le mot (dans sa phrase quand elle le dit) |
+| `listen-meaning` | on entend la phrase, on choisit le sens du mot |
+| `dictation` | on entend la phrase, on la reconstruit par tuiles |
+| `production` | on complète la phrase en japonais à partir du français |
+
+Le mot portait auparavant **trois cartes** planifiées séparément (écrit / écoute /
+production) : le même mot revenait jusqu'à trois fois par cycle, occupant trois places de
+session pendant que d'autres attendaient leur tour — d'où l'impression de « toujours revoir
+les mêmes mots ». Il fallait en plus tout un appareillage pour contenir les dégâts (amorces
+plafonnées, espacement forcé des cartes sœurs, compétence écartée quand son mot passait
+déjà) ; une seule carte le rend inutile. Une base ancienne est **fusionnée en une passe**
+(`mergeSkillCards`) : la carte de l'écrit survit — la seule que tout mot porte, la plus
+fournie en historique.
+
+**Les compétences restent une progression**, mais comme **conditions de tirage** et non plus
+comme planifications : l'écoute ne s'ouvre qu'une fois le mot stabilisé (état `Review`), la
+production attend en plus l'intervalle de déblocage, et les formes qui exigent une phrase
+d'exemple ou du son s'effacent quand la matière ou le son manquent. L'**écrit** est toujours
+recevable — c'est le filet du tirage — et **pondéré** (`WRITTEN_WEIGHT`) : seule forme
+constructible pour n'importe quel mot, et seule à faire avancer la série qui ouvre la saisie.
+Enfin, la forme du passage précédent (`lastDrill`) est **reléguée en dernier**, sans jamais
+disparaître : une forme n'est pas toujours constructible, il faut un repli.
+
+La note replanifie **la carte du mot**, quelle que soit la forme servie : une réussite à
+l'oreille éloigne le mot, un échec en production le ramène. `ReviewLog.skill` garde trace de
+la compétence travaillée — c'est de là que viennent les statistiques et les défis omikuji,
+plus d'aucune planification.
 
 ### 2.2b Le triangle de révision (reconnaissance écrite)
 Un mot porte trois **faces** : **kanji** (sa graphie), **furigana** (sa lecture en kana) et
 **traduction** (son sens FR). La révision écrite part de l'une et en demande une autre — **six
 directions**, tirées au hasard, celle du passage précédent exclue (`lib/vocabFaces.ts`).
+C'est la forme `written` du tirage ci-dessus : une fois l'écrit tiré, la direction se tire à
+son tour.
 
 Une face n'existe que si elle apporte quelque chose : pas de face kanji pour un mot en kana (elle
 ferait doublon avec la lecture), pas de face française pour un mot sans sens connu. Un mot à deux
@@ -276,6 +297,36 @@ mots change (`scope: "due" | "all" | "story"`), jamais le format.
 
 L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
 le plafond de session, pas à décider de leur ordre de passage.
+
+### 5a. Dose du jour, débit de nouveautés et retard
+
+**L'objectif quotidien (en cartes) commande tout.** Il dimensionne le bloc de révision
+(`reviewBlockSize`) *et* plafonne le nombre de mots neufs introduits chaque jour.
+
+**Un mot neuf ne coûte pas une révision, mais cinq.** Il ne porte qu'une carte et ne repasse jamais
+deux fois dans la même journée ; seulement, FSRS le ramène le jour même, puis à ~3 jours, ~8, ~20,
+~45 — cinq passages avant qu'il ne s'éloigne vraiment. Introduire λ mots par jour finit donc par
+demander **λ × 5** révisions quotidiennes, et c'est ce produit que l'objectif borne. La valeur est
+**mesurée par simulation** (`lib/backlog.test.ts`) et stable d'un objectif à l'autre : 10 cartes/jour
+absorbent **2** mots neufs par jour, 20 en absorbent 4, 30 en absorbent 6. Le réglage « Nouveaux mots
+par jour » est donc un **plafond souhaité**, pas une promesse — la capacité de l'objectif a le
+dernier mot (`sustainableNewPerDay`). Sans cette borne, 10 mots neufs sur un objectif de 10 cartes
+faisaient croître le retard **indéfiniment** (+130 cartes en trois mois de simulation) :
+l'utilisateur voyait « à consolider » monter chaque jour sans jamais pouvoir revenir à zéro.
+
+Par-dessus ce plafond, un **frein en boucle fermée** (`effectiveNewPerDay`) rabote le débit quand la
+rétention mesurée chute ou que le retard s'accumule. Ses paliers s'expriment en **jours d'objectif**,
+jamais en valeur absolue — 40 cartes dues, c'est deux jours de travail à 20/jour et quatre à 10/jour :
+on ralentit au-delà d'un jour, on divise au-delà de deux, on **coupe** au-delà de trois. La coupure
+est temporaire par construction : sans nouveautés, les révisions vident le retard, et le débit repart.
+Tant que le palier de coupure n'est pas atteint, le débit garde un **plancher d'un mot par jour** —
+une progression gelée verrouillerait le contrôle de la leçon en cours, donc tout le parcours.
+
+**Où se lit le retard.** Pas dans le flux : celui-ci n'annonce que **la dose du jour** (« 10 révisions
+pour l'objectif du jour », « Révisions (10 cartes) »). Le total dû ne commande aucune décision de
+l'utilisateur pendant sa session — le bloc est calé sur l'objectif, pas sur le retard — et l'afficher
+en vitrine ne faisait que décourager. Il a sa place dans les **Statistiques** (« Charge des 7 prochains
+jours »), énoncé dans la seule unité qui se décide : **en jours d'objectif quotidien**.
 
 ## 5b. Contrôle de fin de leçon — le 関所 *(nouveau)*
 

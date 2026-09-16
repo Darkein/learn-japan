@@ -160,12 +160,14 @@ export async function importSnapshot(s: SyncSnapshot): Promise<void> {
   if (s.dbVersion > DB_VERSION) throw new Error("Sauvegarde plus récente que l'app — mets à jour l'app.");
 
   // Réhydratation AVANT la transaction (une tx idb auto-commit si on await hors d'elle).
-  const vocab = s.stores.vocab.map((v) => ({
-    ...v,
-    cards: Object.fromEntries(
-      Object.entries(v.cards).map(([k, c]) => [k, reviveCard(c as Card)]),
-    ) as VocabItem["cards"],
-  }));
+  const vocab = s.stores.vocab.map((v) => {
+    // Sauvegarde d'avant « un mot, une carte » : trois cartes par compétence. On importe
+    // celle qui survivrait à la fusion (même ordre que `mergeSkillCards`, lib/vocab.ts)
+    // plutôt que de perdre la planification du mot.
+    const { cards, ...rest } = v as VocabItem & { cards?: Partial<Record<string, Card>> };
+    const card = v.card ?? cards?.written ?? cards?.oral ?? cards?.production;
+    return { ...rest, card: reviveCard(card) };
+  });
   const grammar = s.stores.grammar.map((g) => ({ ...g, card: reviveCard(g.card) }));
   const comprehension = s.stores.comprehension.map((c) => ({ ...c, card: reviveCard(c.card) }));
 

@@ -31,11 +31,13 @@ describe("pickNext — barème", () => {
     expect(a.title).toContain("12");
   });
 
-  it("le bouton annonce la dose du bloc, et le retard derrière", () => {
-    // 42 dues, objectif 10 : le bloc en sert 10 — c'est ce chiffre qui doit s'afficher.
+  it("le bouton annonce la dose du bloc, et RIEN du retard", () => {
+    // 42 dues, objectif 10 : le bloc en sert 10 — seul ce chiffre s'affiche. Le retard
+    // derrière ne concerne pas le bloc en cours ; il se lit dans les Statistiques.
     const a = pickNext(state({ dueCount: 42, dailyGoal: 10 }));
     expect(a.kind).toBe("review");
-    expect(a.title).toBe("Révisions (10 sur 42 dues)");
+    expect(a.title).toBe("Révisions (10 cartes)");
+    expect(a.title).not.toContain("42");
   });
 
   it("le bloc atteint l'objectif → on passe à la suite le jour même", () => {

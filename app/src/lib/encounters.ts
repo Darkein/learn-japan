@@ -49,7 +49,7 @@ export async function recordEncounters(
 
   for (const id of unique) {
     const v = await getVocab(id);
-    if (!v?.cards.written) continue; // jamais appris → pas une retrouvaille
+    if (!v?.card) continue; // jamais appris → pas une retrouvaille
     let rec = await getEncounter(id);
     const replay = rec?.lastStoryId === storyId && nowMs - (rec?.lastAt ?? 0) < REPLAY_MS;
     if (storyId && !replay) {

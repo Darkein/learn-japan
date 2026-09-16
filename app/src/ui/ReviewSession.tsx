@@ -30,8 +30,9 @@ export function ReviewSession({ opts, onExit }: Props) {
       const due = (opts?.scope ?? "due") === "due" ? (await sessionStats()).dueCount : 0;
       const deck = await buildSession(new Date(), opts ?? {});
       setCards(deck);
-      // Bloc dimensionné par l'objectif du jour : indique combien d'éléments urgents
-      // attendront le bloc suivant.
+      // Bloc dimensionné par l'objectif du jour. On ne garde que le OUI/NON « il en reste
+      // derrière » : le nombre lui-même n'est pas affiché, il ne dit rien du bloc en cours
+      // (même raison que `blockLabel`, lib/flow.ts).
       setBacklog(Math.max(0, due - deck.length));
     })();
   }, []);
@@ -103,8 +104,8 @@ export function ReviewSession({ opts, onExit }: Props) {
       </span>
       {backlog > 0 && (
         <p className="m-0 text-xs text-muted">
-          Bloc calé sur ton objectif du jour, les plus urgents d'abord — {backlog} autre
-          {backlog > 1 ? "s" : ""} attendront le suivant.
+          Bloc calé sur ton objectif du jour, les plus urgents d'abord — le reste attendra le
+          bloc suivant.
         </p>
       )}
       {silentMinutes > 0 && (

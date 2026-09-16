@@ -32,7 +32,7 @@ describe("gradeExercise", () => {
       meaning: "chat",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     const ex: TypeExercise = {
       mode: "type",
@@ -46,7 +46,7 @@ describe("gradeExercise", () => {
     await gradeExercise(ex, "good", new Date());
     const v = await getVocab("猫|ねこ");
     expect(v?.status).toBe("review");
-    expect(v?.cards.written?.reps).toBe(1);
+    expect(v?.card?.reps).toBe(1);
   });
 
   it("streak : monte sur good/easy, remis à zéro sur again/hard", async () => {
@@ -74,13 +74,13 @@ describe("gradeExercise", () => {
       ["again", 3, 0],
       ["hard", 3, 0],
     ] as const) {
-      await putVocab({ ...base, cards: { written: newCard(new Date("2020-01-01")) }, streak: before });
+      await putVocab({ ...base, card: newCard(new Date("2020-01-01")), streak: before });
       await gradeExercise(ex, grade, new Date());
       expect((await getVocab("猫|ねこ"))?.streak, grade).toBe(after);
     }
   });
 
-  it("streak : les compétences orale et production ne le touchent pas", async () => {
+  it("streak : toute forme d'exercice le fait avancer, tout échec le remet à zéro", async () => {
     await putVocab({
       id: "猫|ねこ",
       surface: "猫",
@@ -88,7 +88,7 @@ describe("gradeExercise", () => {
       meaning: "chat",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")), oral: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
       streak: 2,
     });
     await gradeExercise(
@@ -105,10 +105,12 @@ describe("gradeExercise", () => {
       "again",
       new Date(),
     );
-    expect((await getVocab("猫|ねこ"))?.streak).toBe(2);
+    // Un mot, une carte : une écoute ratée dit que le mot n'est pas su — le compteur qui
+    // ouvre la saisie repart de zéro, comme pour un échec à l'écrit.
+    expect((await getVocab("猫|ねこ"))?.streak).toBe(0);
   });
 
-  it("type/vocab skill production : note cards.production, sans toucher written ni status", async () => {
+  it("type/vocab en production : replanifie LA carte du mot et met à jour son statut", async () => {
     const written = newCard(new Date("2020-01-01"));
     await putVocab({
       id: "猫|ねこ",
@@ -117,7 +119,7 @@ describe("gradeExercise", () => {
       meaning: "chat",
       tags: [],
       status: "known",
-      cards: { written, production: newCard(new Date("2020-01-01")) },
+      card: written,
     });
     const ex: TypeExercise = {
       mode: "type",
@@ -131,9 +133,9 @@ describe("gradeExercise", () => {
     };
     await gradeExercise(ex, "good", new Date());
     const v = await getVocab("猫|ねこ");
-    expect(v?.cards.production?.reps).toBe(1);
-    expect(v?.cards.written?.reps).toBe(0);
-    expect(v?.status).toBe("known");
+    expect(v?.card?.reps).toBe(1);
+    // « Bien » (et non « facile ») : le mot redescend de « connu » à « à revoir ».
+    expect(v?.status).toBe("review");
   });
 
   it("choice/grammar : crée l'item s'il n'existe pas, avec seedName/seedRule", async () => {
@@ -195,7 +197,7 @@ describe("gradeExercise", () => {
       meaning: "livre",
       tags: [],
       status: "review",
-      cards: { written },
+      card: written,
     });
     const tokens = [
       tok({ surface_form: "本", pos: "名詞", reading: "ホン", basic_form: "本" }),
@@ -213,13 +215,13 @@ describe("gradeExercise", () => {
     };
     await gradeExercise(ex, "again", new Date());
     const v = await getVocab("本|ほん");
-    expect(v?.cards.written?.lapses).toBe(0);
-    expect(v?.cards.written?.state).toBe(State.Review);
+    expect(v?.card?.lapses).toBe(0);
+    expect(v?.card?.state).toBe(State.Review);
     const logged = await allReviews();
     expect(logged.map((r) => r.grade)).toEqual(["hard"]);
   });
 
-  it("build/vocab avec skill oral (dictée) : note cards.oral, pas les mots de la phrase", async () => {
+  it("build/vocab avec skill oral (dictée) : note la carte du mot, pas ceux de la phrase", async () => {
     await putVocab({
       id: "水|みず",
       surface: "水",
@@ -227,7 +229,7 @@ describe("gradeExercise", () => {
       meaning: "eau",
       tags: [],
       status: "review",
-      cards: { oral: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     const tokens = [
       tok({ surface_form: "水", pos: "名詞", reading: "ミズ", basic_form: "水" }),
@@ -247,7 +249,7 @@ describe("gradeExercise", () => {
     };
     await gradeExercise(ex, "good", new Date());
     const v = await getVocab("水|みず");
-    expect(v?.cards.oral?.reps).toBe(1);
+    expect(v?.card?.reps).toBe(1);
     // Le token 飲む n'a PAS été noté individuellement (pas de per-token applyStatus).
     expect(await getVocab("飲む|のむ")).toBeUndefined();
   });

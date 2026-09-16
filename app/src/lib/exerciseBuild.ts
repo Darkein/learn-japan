@@ -2,6 +2,8 @@
 // du vocabulaire (kanji ↔ furigana ↔ traduction, cf. lib/vocabFaces.ts), servi aussi bien
 // en révision SRS que sur une leçon ou une histoire. À côté : les variantes d'écoute et de
 // production, la carte de grammaire et la reconstruction de phrase.
+// `buildDrill` (en fin de fichier) est le point d'entrée de la révision : il construit la
+// forme tirée pour un mot dû (cf. lib/vocabDrills.ts).
 // Pas de logique de notation ici (voir gradeExercise).
 
 import { blankRuleFor, type BlankRule } from "./blankRule";
@@ -15,6 +17,7 @@ import { shuffle } from "./random";
 import { wordSpeechText } from "./speech";
 import { tokenize, type KuromojiToken } from "./tokenizer";
 import { effectiveExample } from "./vocab";
+import type { DrillKind } from "./vocabDrills";
 import {
   dirKey,
   directionsFor,
@@ -579,3 +582,48 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
 }
 
 export { shuffleTiles };
+
+/**
+ * Construit la forme d'exercice demandée pour un mot dû, ou `null` si elle n'est pas
+ * constructible (pas d'occurrence masquable dans la phrase, pool de distracteurs trop
+ * pauvre, phrase trop longue pour l'oreille…). L'appelant descend alors la liste des formes
+ * candidates (`orderDrills`, lib/vocabDrills.ts) — l'écrit, lui, aboutit toujours.
+ *
+ * Effet de bord assumé, comme `vocabTriangleExercise` : la forme retenue est notée EN
+ * MÉMOIRE sur le mot (`lastDrill`, `lastDir`). La persistance est différée à l'appelant, qui
+ * n'écrit que les mots dont l'exercice a survécu au plafond de session — sinon un mot jamais
+ * montré consommerait quand même son tour de rotation.
+ */
+export async function buildDrill(
+  v: VocabItem,
+  kind: DrillKind,
+  due: number,
+  opts: { pool: VocabItem[]; isLeech?: boolean },
+): Promise<Exercise | null> {
+  const ex = await buildDrillExercise(v, kind, due, opts);
+  if (!ex) return null;
+  v.lastDrill = kind;
+  return opts.isLeech ? { ...ex, isLeech: true } : ex;
+}
+
+async function buildDrillExercise(
+  v: VocabItem,
+  kind: DrillKind,
+  due: number,
+  opts: { pool: VocabItem[]; isLeech?: boolean },
+): Promise<Exercise | null> {
+  switch (kind) {
+    case "written":
+      return vocabTriangleExercise(v, due, opts.pool, { isLeech: opts.isLeech });
+    case "listen-word":
+      return vocabTypeExercise(v, due, { listen: true, pool: opts.pool });
+    case "listen-meaning":
+      return vocabListenMeaningExercise(v, due, opts.pool);
+    case "dictation":
+      // Tokenisation ratée (dictionnaire kuromoji indisponible…) → forme suivante, jamais
+      // un échec de session.
+      return vocabDictationExercise(v, due).catch(() => null);
+    case "production":
+      return vocabTypeExercise(v, due, { produce: true, pool: opts.pool });
+  }
+}

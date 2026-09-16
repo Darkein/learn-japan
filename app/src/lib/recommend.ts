@@ -100,7 +100,7 @@ async function dueLearningIds(now: Date): Promise<Set<string>> {
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
   const ids = new Set<string>();
   for (const v of vocab) {
-    if (v.status === "review" || (v.cards.written && isDue(v.cards.written, horizon))) ids.add(v.id);
+    if (v.status === "review" || (v.card && isDue(v.card, horizon))) ids.add(v.id);
   }
   return ids;
 }

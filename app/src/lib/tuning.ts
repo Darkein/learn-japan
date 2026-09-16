@@ -4,12 +4,12 @@
 //     → intervalles plus courts → on revoit plus souvent ; peu d'erreurs → cible abaissée
 //     → intervalles étirés. `ts-fsrs` n'embarque pas d'optimiseur de poids ; ajuster la cible
 //     est l'équivalent robuste, offline et sans dépendance.
-//   - le DÉBIT de nouveautés (`newPerDay` effectif) : on ralentit quand la rétention chute
-//     ou que le retard s'accumule, pour éviter l'effet boule de neige.
+//   - le DÉBIT de nouveautés (`newPerDay` effectif) : plafonné par ce que l'objectif quotidien
+//     peut ABSORBER (`sustainableNewPerDay`), puis raboté quand la rétention chute ou que le
+//     retard s'accumule — les deux mesurés en jours d'objectif, jamais en valeur absolue.
 // Cœur pur (fonctions ci-dessous, testables sans IndexedDB) + wrapper IO qui persiste l'état
 // dans le KV `meta` (aucun bump de schéma).
 
-import { SRS } from "./config";
 import {
   allComprehension,
   allGrammar,
@@ -78,20 +78,75 @@ export function computeTunedRetention(
 }
 
 /**
- * Débit de nouveautés effectif. On coupe/ralentit quand la rétention est basse (l'utilisateur
- * peine) ou que le retard dû est important — mieux vaut consolider que d'empiler du neuf.
+ * Ce qu'un mot NEUF coûte en révisions — pas par jour, mais AU TOTAL sur ses premiers mois.
+ * Un mot ne porte qu'une carte (cf. lib/vocabDrills.ts) et ne repasse donc jamais deux fois
+ * dans la même journée ; seulement, FSRS le ramène le jour même, puis à ~3 jours, ~8, ~20,
+ * ~45… — cinq passages avant qu'il ne s'éloigne vraiment. Introduire λ mots par jour finit
+ * donc par demander λ × 5 révisions quotidiennes : c'est ce produit que l'objectif borne.
+ *
+ * Valeur MESURÉE par simulation (90 jours, réponses « bien », objectif tenu chaque jour,
+ * frein neutralisé, cf. `backlog.test.ts`), et STABLE d'un objectif à l'autre : 10 cartes/j
+ * absorbent 2 mots neufs par jour (3 dérivent), 20 en absorbent 4 (6 dérivent), 30 en
+ * absorbent 6. Soit, dans tous les cas, un mot neuf pour cinq cartes d'objectif.
+ */
+export const NEW_ITEM_LOAD = 5;
+
+/**
+ * Débit de nouveautés que l'objectif quotidien peut ABSORBER, en mots par jour. C'est de
+ * l'arithmétique, pas une préférence : introduire plus que ça garantit un retard qui croît
+ * sans fin, quel que soit le réglage « Nouveaux mots par jour ».
+ *
+ * Plancher à 1 : la progression ne doit jamais se figer structurellement (sans nouveaux
+ * items, la leçon en cours ne stabilise plus rien, son contrôle ne s'ouvre pas et la suite
+ * reste verrouillée). Le freinage jusqu'à zéro reste possible, mais seulement comme réponse
+ * TEMPORAIRE à un retard réel — voir `effectiveNewPerDay`.
+ */
+export function sustainableNewPerDay(dailyGoal: number): number {
+  return Math.max(1, Math.round(dailyGoal / NEW_ITEM_LOAD));
+}
+
+/**
+ * Retard exprimé en JOURS d'objectif quotidien — la seule unité qui veut dire quelque chose
+ * pour l'utilisateur. 40 cartes dues, c'est deux jours de travail à 20 par jour et quatre
+ * jours à 10 : un seuil en valeur absolue (l'ancien `SRS.sessionCap`) punissait le petit
+ * objectif et laissait filer le grand.
+ */
+export function backlogDays(backlog: number, dailyGoal: number): number {
+  return backlog / Math.max(1, dailyGoal);
+}
+
+/** Paliers du frein, en jours d'objectif : on ralentit, on divise, on coupe. */
+export const BACKLOG_SLOW_DAYS = 1;
+export const BACKLOG_HALF_DAYS = 2;
+export const BACKLOG_STOP_DAYS = 3;
+
+/**
+ * Débit de nouveautés effectif : le plafond de CAPACITÉ (`sustainableNewPerDay`), puis un
+ * frein qui le rabote quand la rétention est basse (l'utilisateur peine) ou que le retard
+ * s'accumule — mieux vaut consolider que d'empiler du neuf.
+ *
+ * Boucle fermée : le retard coupe les nouveautés, l'absence de nouveautés laisse les
+ * révisions vider le retard, et le débit repart. C'est ce qui BORNE le retard au lieu de le
+ * laisser croître de `newPerDay` chaque jour.
  */
 export function effectiveNewPerDay(
   base: number,
   measured: number | null,
   backlog: number,
+  dailyGoal: number,
 ): number {
+  // Le réglage de l'utilisateur est un PLAFOND SOUHAITÉ, pas une promesse : la capacité
+  // de son objectif quotidien a le dernier mot.
+  const ceiling = Math.min(base, sustainableNewPerDay(dailyGoal));
+  const days = backlogDays(backlog, dailyGoal);
   const struggling = measured !== null && measured < RETENTION_MIN;
-  const heavyBacklog = backlog > 2 * SRS.sessionCap;
-  if (struggling && heavyBacklog) return 0;
-  if (struggling || heavyBacklog) return Math.max(0, Math.round(base / 2));
-  if (backlog > SRS.sessionCap) return Math.max(0, Math.round(base * 0.75));
-  return base;
+  if (days > BACKLOG_STOP_DAYS) return 0;
+  if (struggling && days > BACKLOG_HALF_DAYS) return 0;
+  // Plancher à 1 tant qu'on n'a pas atteint le palier de coupure : ralentir ne doit pas
+  // équivaloir à couper (un plafond de 2 mots/jour divisé par deux tomberait à 1, puis 0).
+  if (struggling || days > BACKLOG_HALF_DAYS) return Math.max(1, Math.floor(ceiling / 2));
+  if (days > BACKLOG_SLOW_DAYS) return Math.max(1, Math.floor(ceiling * 0.75));
+  return ceiling;
 }
 
 // ---- Wrapper IO (persistance dans `meta`) -----------------------------------

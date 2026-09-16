@@ -6,7 +6,13 @@ import type { Card } from "ts-fsrs";
 import type { ComprehensionQuestion } from "./genClient";
 import type { PodcastSegment } from "./podcastScript";
 
-/** Compétences suivies pour le vocabulaire (SPEC §2.2). */
+/**
+ * Compétence TRAVAILLÉE par un exercice de vocabulaire (SPEC §2.2) — un libellé, pas une
+ * planification : un mot porte UNE carte FSRS, et le type d'exercice servi est tiré à
+ * chaque passage (cf. lib/vocabDrills.ts). Ce champ n'existe donc plus que pour le journal
+ * de révisions, d'où les statistiques et les défis omikuji tirent « écoutes réussies » ou
+ * « mots produits ».
+ */
 export type Skill = "written" | "oral" | "production";
 
 /** Statut affiché (SPEC §10). */
@@ -20,18 +26,27 @@ export interface VocabItem {
   tags: string[];
   jlpt?: number;
   status: ItemStatus;
-  /** Une carte FSRS par compétence. */
-  cards: Partial<Record<Skill, Card>>;
+  /**
+   * UNE carte FSRS par mot. Il en portait trois (écrit / écoute / production), planifiées
+   * séparément : un mot revenait alors jusqu'à trois fois pour une place dans la session,
+   * et l'utilisateur voyait toujours les mêmes mots pendant que les autres attendaient.
+   * Une carte, une échéance — et c'est le TYPE d'exercice qui varie d'un passage à l'autre
+   * (cf. lib/vocabDrills.ts).
+   */
+  card?: Card;
   example?: { ja: string; fr?: string };
   /**
-   * Réussites consécutives sur la compétence écrite. Pilote le passage du QCM à la saisie
-   * (`pickInputMode`, lib/vocabFaces.ts) : remis à zéro par un échec ou un « Difficile ».
-   * Absent = jamais révisé (lu avec `?? 0`, aucune migration nécessaire).
+   * Réussites consécutives sur le mot, tous types d'exercices confondus. Pilote le passage
+   * du QCM à la saisie (`pickInputMode`, lib/vocabFaces.ts) : remis à zéro par un échec ou
+   * un « Difficile ». Absent = jamais révisé (lu avec `?? 0`, aucune migration nécessaire).
    */
   streak?: number;
-  /** Direction servie au passage précédent (`dirKey`, ex. « kanji>kana ») : le tirage
-   *  suivant l'évite pour ne pas revoir le mot deux fois sous le même angle. */
+  /** Direction du triangle servie au passage précédent (`dirKey`, ex. « kanji>kana ») : le
+   *  tirage suivant l'évite pour ne pas revoir le mot deux fois sous le même angle. */
   lastDir?: string;
+  /** Type d'exercice servi au passage précédent (`DrillKind`) : même règle que `lastDir`,
+   *  d'un cran au-dessus — on ne redonne pas deux fois de suite la même forme d'exercice. */
+  lastDrill?: string;
 }
 
 export interface GrammarItem {

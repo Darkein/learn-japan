@@ -28,7 +28,7 @@ function vocab(id: string, learned: boolean): VocabItem {
     meaning: "—",
     tags: [],
     status: learned ? "known" : "unknown",
-    cards: learned ? { written: newCard(NOW) } : {},
+    ...(learned ? { card: newCard(NOW) } : {}),
   };
 }
 

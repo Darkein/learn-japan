@@ -8,9 +8,9 @@ const card = (daysFromNow: number, reps = 3) => ({
   reps,
 });
 
-const v = (surface: string, written?: ReturnType<typeof card>): PickVocabLike => ({
+const v = (surface: string, c?: ReturnType<typeof card>): PickVocabLike => ({
   surface,
-  cards: written ? { written } : {},
+  ...(c ? { card: c } : {}),
 });
 
 describe("reminderItemPool", () => {

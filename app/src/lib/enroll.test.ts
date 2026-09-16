@@ -103,7 +103,7 @@ describe("enrollLesson", () => {
 
     const vocab = await getVocab("水|みず");
     expect(vocab).toBeDefined();
-    expect(vocab!.cards).toEqual({});
+    expect(vocab!.card).toBeUndefined();
     expect(vocab!.status).toBe("unknown");
 
     const grammar = await getGrammar("n5-wa");
@@ -129,13 +129,13 @@ describe("enrollLesson", () => {
       meaning: "eau",
       tags: [],
       status: "review",
-      cards: { written: card },
+      card: card,
     });
 
     await enrollLesson("lesson-test");
 
     const vocab = await getVocab("水|みず");
-    expect(vocab!.cards.written).toBeDefined();
+    expect(vocab!.card).toBeDefined();
     expect(vocab!.status).toBe("review");
   });
 });
@@ -147,11 +147,11 @@ describe("enrollStory", () => {
 
     const neko = await getVocab("猫|ねこ");
     expect(neko).toBeDefined();
-    expect(neko!.cards).toEqual({});
+    expect(neko!.card).toBeUndefined();
 
     const hashiru = await getVocab("走る|はしる");
     expect(hashiru).toBeDefined();
-    expect(hashiru!.cards).toEqual({});
+    expect(hashiru!.card).toBeUndefined();
   });
 
   it("capture la phrase d'exemple contenant le token", async () => {

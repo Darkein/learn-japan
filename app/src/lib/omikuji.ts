@@ -21,6 +21,8 @@ import {
   type OmikujiRecord,
 } from "./db";
 import { loadSettings } from "./settings";
+import { effectiveExample } from "./vocab";
+import { drillEligible } from "./vocabDrills";
 import { addTokaidoBonus } from "./tokaido";
 
 export interface Fortune {
@@ -235,8 +237,15 @@ async function collectEnv(now: Date): Promise<OmikujiEnv> {
   return {
     dailyGoal: loadSettings().dailyGoal,
     reviewedToday: daily?.reviewed ?? 0,
-    hasProductionCards: vocab.some((v) => v.cards.production),
-    hasOralCards: vocab.some((v) => v.cards.oral),
+    // Un mot ne porte plus de carte par compétence : ce qui rend un défi atteignable,
+    // c'est qu'au moins un mot soit assez mûr pour que la forme puisse être TIRÉE
+    // (cf. lib/vocabDrills.ts) — sinon on proposerait « réussis 5 écoutes » sans écoute.
+    hasProductionCards: vocab.some((v) =>
+      drillEligible(v, "production", { hasExample: !!effectiveExample(v)?.ja }),
+    ),
+    hasOralCards: vocab.some((v) =>
+      drillEligible(v, "listen-word", { hasExample: !!effectiveExample(v)?.ja }),
+    ),
     hasStories: stories.length > 0,
   };
 }

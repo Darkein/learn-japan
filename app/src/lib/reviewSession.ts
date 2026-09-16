@@ -18,22 +18,17 @@ import {
 } from "./db";
 import type { GrammarItem, VocabItem } from "./db";
 import { gradeExercise, type Exercise } from "./exercise";
-import {
-  grammarReviewExercise,
-  vocabDictationExercise,
-  vocabListenMeaningExercise,
-  vocabTriangleExercise,
-  vocabTypeExercise,
-} from "./exerciseBuild";
+import { buildDrill, grammarReviewExercise, vocabTriangleExercise, vocabTypeExercise } from "./exerciseBuild";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
-import { isDue, newCard, SKILL_GAP_MS, State, type Card, type SrsGrade } from "./srs";
+import { isDue, newCard, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
 import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { loadLeechIds } from "./leech";
-import { effectiveExample, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
+import { effectiveExample, mergeSkillCards, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
 import { isTrainableVocab } from "./vocabFaces";
+import { orderDrills } from "./vocabDrills";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
@@ -90,14 +85,10 @@ export async function sessionStats(now: Date = new Date()): Promise<SessionStats
   let newCount = 0;
   for (const v of vocab) {
     if (!isTrainableVocab(v)) continue;
-    const c = v.cards.written;
-    if (c) { if (isDue(c, horizon)) dueCount++; }
+    // Une carte par mot : un mot dû, c'est un exercice — le type servi (écrit, écoute,
+    // production) est tiré à la construction et ne change pas le compte.
+    if (v.card) { if (isDue(v.card, horizon)) dueCount++; }
     else if (promotableVocab.has(v.id)) newCount++;
-    // Compétences écoute et production : cartes dédiées, planifiées indépendamment.
-    // Une carte orale n'est servable qu'avec une phrase d'exemple (même filtre que
-    // buildSessionDue) — sinon le backlog affiché surestime la session réelle.
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) dueCount++;
-    if (v.cards.production && isDue(v.cards.production, horizon)) dueCount++;
   }
   for (const g of grammar) {
     if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
@@ -122,10 +113,12 @@ export async function buildSession(
 ): Promise<Exercise[]> {
   const scope = opts.scope ?? "due";
 
-  // Hygiène des stores avant de construire : formes conjuguées stockées en surface
+  // Hygiène des stores avant de construire : trois cartes par mot fusionnées en une seule
+  // (bases d'avant le modèle « un mot, une carte »), formes conjuguées stockées en surface
   // (révisions FR → JA qui exigeaient « し » pour faire), noms croisés dans un article ou
   // inventés par une histoire (田中, クロ le chat), vocabulaire incident promu tout seul par
   // les anciennes sessions, et piste compréhension retirée.
+  await mergeSkillCards();
   await repairConjugatedVocab();
   await purgeNameVocab();
   await purgeIncidentalCards();
@@ -196,7 +189,7 @@ async function startedCurriculumEntries(): Promise<CurriculumEntry[]> {
  * l'histoire (`gradeExercise`), suggestion de la fiche kanji (`addInventoryWordToReview`).
  */
 function newVocabToPromote(vocabAll: VocabItem[], started: CurriculumEntry[]): VocabItem[] {
-  const byId = new Map(vocabAll.filter((v) => !v.cards.written).map((v) => [v.id, v]));
+  const byId = new Map(vocabAll.filter((v) => !v.card).map((v) => [v.id, v]));
   const ordered: VocabItem[] = [];
   for (const entry of started) {
     for (const id of entry.introduces.vocab) {
@@ -226,83 +219,44 @@ function newGrammarToPromote(grammarAll: GrammarItem[], started: CurriculumEntry
   return ordered;
 }
 
-export type OralVariant = "type" | "meaning" | "dictation";
-
 /**
- * Variante d'écoute pour une carte orale : rotation déterministe sur le nombre de
- * révisions déjà faites (dictée d'abord type, puis QCM de sens, puis dictée complète).
+ * Fabrique d'exercices de vocabulaire. Deux façons de servir un mot :
+ *
+ *  - `drill` (révision SRS) — la FORME est tirée parmi les cinq du répertoire
+ *    (lib/vocabDrills.ts), la première constructible gagne ;
+ *  - `triangle` (bilan de leçon, exercices d'histoire) — toujours l'écrit : ces entrées
+ *    servent des mots qui n'ont pas forcément de carte, et on y vérifie la reconnaissance.
+ *
+ * Les deux notent leur tirage (`lastDrill`, `lastDir`) EN MÉMOIRE sur le mot ; la
+ * persistance est différée à `flush`, qui n'écrit que les mots dont l'exercice a survécu au
+ * plafond de session — sinon un mot jamais montré consommerait quand même son tour de
+ * rotation, et le tirage suivant l'éviterait pour rien.
  */
-export function pickOralVariant(card: Card): OralVariant {
-  const variants: OralVariant[] = ["type", "meaning", "dictation"];
-  return variants[card.reps % variants.length];
-}
-
-/**
- * Exercice d'écoute d'une carte orale due : la variante choisie retombe sur la dictée
- * de mot (type) si elle n'est pas constructible (pas de sens exploitable, pas assez de
- * distracteurs, phrase trop longue pour l'oreille…).
- */
-async function oralExercise(v: VocabItem, card: Card, pool: VocabItem[]): Promise<Exercise> {
-  const due = card.due.getTime();
-  const variant = pickOralVariant(card);
-  if (variant === "meaning") {
-    const ex = vocabListenMeaningExercise(v, due, pool);
-    if (ex) return ex;
-  } else if (variant === "dictation") {
-    // Tokenisation ratée (dictionnaire kuromoji indisponible…) → repli, pas d'échec de session.
-    const ex = await vocabDictationExercise(v, due).catch(() => null);
-    if (ex) return ex;
-  }
-  return vocabTypeExercise(v, due, { listen: true });
-}
-
-/**
- * Fabrique de cartes du triangle. `vocabTriangleExercise` tire la direction et met à jour
- * `v.lastDir` EN MÉMOIRE ; la persistance est différée à `flush`, qui n'écrit que les mots
- * dont la carte a survécu au plafond de session — sinon un mot jamais montré consommerait
- * quand même sa direction, et le tirage suivant l'éviterait pour rien.
- */
-function triangleFactory(pool: VocabItem[], leeches: Set<string>) {
+function exerciseFactory(pool: VocabItem[], leeches: Set<string>, ctx: { silent?: boolean } = {}) {
   const pending = new Map<string, VocabItem>();
+  const remember = (ex: Exercise, v: VocabItem) => {
+    pending.set(ex.key, v);
+    return ex;
+  };
   return {
-    build(v: VocabItem, due: number): Exercise {
-      const ex = vocabTriangleExercise(v, due, pool, { isLeech: leeches.has(v.id) });
-      pending.set(ex.key, v);
-      return ex;
+    async drill(v: VocabItem, due: number): Promise<Exercise> {
+      const isLeech = leeches.has(v.id);
+      const hasExample = !!effectiveExample(v)?.ja;
+      for (const kind of orderDrills(v, { silent: ctx.silent, hasExample })) {
+        const ex = await buildDrill(v, kind, due, { pool, isLeech });
+        if (ex) return remember(ex, v);
+      }
+      // Filet : `orderDrills` porte toujours l'écrit, toujours constructible.
+      return remember(vocabTriangleExercise(v, due, pool, { isLeech }), v);
+    },
+    triangle(v: VocabItem, due: number): Exercise {
+      return remember(vocabTriangleExercise(v, due, pool, { isLeech: leeches.has(v.id) }), v);
     },
     async flush(kept: Exercise[]): Promise<void> {
       const items = kept.map((ex) => pending.get(ex.key)).filter((v): v is VocabItem => !!v);
       await Promise.all(items.map((v) => putVocab(v)));
     },
   };
-}
-
-/**
- * Repousse la carte d'une compétence secondaire écartée de la session parce que son mot y
- * passe déjà : l'échéance est décalée en BASE (`SKILL_GAP_MS`), pas seulement ignorée —
- * le badge de révisions compte les cartes dues du store, il resterait sinon bloqué sur une
- * carte que la session refuse de servir. Nettoie aussi les bases constituées avant
- * `spaceSkillCards`, dont les échéances par compétence sont encore agglutinées.
- */
-async function deferSkill(v: VocabItem, skill: "oral" | "production", now: Date): Promise<void> {
-  const card = v.cards[skill];
-  if (!card) return;
-  card.due = new Date(now.getTime() + SKILL_GAP_MS);
-  await putVocab(v);
-}
-
-/**
- * Le mot a-t-il été révisé (n'importe quelle compétence) dans la fenêtre d'espacement ?
- * Sert aux AMORCES : une carte neuve est due sur-le-champ, donc amorcer l'écoute d'un mot
- * révisé à l'écrit la veille le ramène dès le lendemain — le mot n'a rien fait pour ça.
- * L'amorce n'est pas urgente, elle attend simplement une session de plus.
- */
-function seenRecently(v: VocabItem, now: Date): boolean {
-  const last = Math.max(
-    0,
-    ...Object.values(v.cards).map((c) => c?.last_review?.getTime() ?? 0),
-  );
-  return now.getTime() - last < SKILL_GAP_MS;
 }
 
 /**
@@ -314,7 +268,7 @@ async function promoteNew(
   slots: number,
   vocabAll: VocabItem[],
   grammarAll: GrammarItem[],
-  triangle: ReturnType<typeof triangleFactory>,
+  make: ReturnType<typeof exerciseFactory>,
   dateStr: string,
   now: Date,
 ): Promise<Exercise[]> {
@@ -322,13 +276,15 @@ async function promoteNew(
   const started = await startedCurriculumEntries();
 
   // Vocab sans carte — objectifs des leçons commencées, à l'exclusion de l'incident.
+  // Première rencontre : toujours l'écrit (`orderDrills` n'ouvrirait de toute façon rien
+  // d'autre sur une carte neuve), on ne fait pas écouter un mot jamais vu.
   for (const v of newVocabToPromote(vocabAll, started)) {
     if (out.length >= slots) break;
     if (!isTrainableVocab(v)) continue;
     const card = newCard(now);
-    v.cards.written = card;
+    v.card = card;
     await bumpSrsDaily(dateStr, { introduced: 1 });
-    out.push(triangle.build(v, card.due.getTime()));
+    out.push(make.triangle(v, card.due.getTime()));
   }
 
   // Grammaire sans carte — même règle.
@@ -346,78 +302,32 @@ async function promoteNew(
 async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercise[]> {
   const s = loadSettings();
   // Sans le son : réglage permanent OU pause « je ne peux pas écouter » encore en cours.
+  // Le tirage de forme écarte alors l'écoute — inutile de la construire pour la remplacer.
   const silent = isSilentMode(s, now);
-  // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le backlog,
+  // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le retard,
   // lui, est mesuré plus bas sur les items dus de CETTE session). Voir lib/tuning.ts.
   const tuning = await loadTuning();
   const due: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
-  // Un seul chargement de chaque store (réutilisé par les passes dues / écoute / nouveaux).
+  // Un seul chargement de chaque store (réutilisé par les passes dues et nouveaux).
   const [vocabAll, grammarAll] = await Promise.all([allVocab(), allGrammar()]);
   // Le pool de distracteurs, c'est tout le vocabulaire connu : un QCM tire ses options
   // sur la même face que la réponse (cf. faceDistractors).
-  const triangle = triangleFactory(vocabAll, leeches);
+  const make = exerciseFactory(vocabAll, leeches, { silent });
 
-  // Un mot ne passe qu'UNE fois par session, toutes compétences confondues : ses trois
-  // cartes sont planifiées séparément, et les bases constituées avant `spaceSkillCards`
-  // portent encore des échéances agglutinées. La carte écartée est repoussée en base
-  // (`deferSkill`) plutôt que simplement sautée — sinon le badge de révisions continuerait
-  // de la compter alors que la session ne la sert pas.
-  const served = new Set<string>();
-
-  // Collecte items dus (avec carte FSRS)
+  // Items dus. Un mot = UNE carte = UN exercice : plus de passes séparées par compétence,
+  // plus de mot écarté parce qu'il passait déjà sous un autre angle. La forme (écrit,
+  // écoute, dictée, production) est tirée mot par mot — c'est ce qui donne la variété que
+  // les trois cartes obtenaient en multipliant les passages.
   for (const v of vocabAll) {
     if (!isTrainableVocab(v)) continue;
-    const c = v.cards.written;
-    if (c && isDue(c, horizon)) {
-      due.push(triangle.build(v, c.due.getTime()));
-      served.add(v.id);
-    }
+    if (v.card && isDue(v.card, horizon)) due.push(await make.drill(v, v.card.due.getTime()));
   }
   for (const g of grammarAll) {
     if (g.card && isDue(g.card, horizon)) {
       due.push(await grammarReviewExercise(g, g.card.due.getTime()));
     }
-  }
-
-  // Écoute — compétence dédiée (`cards.oral`), planifiée indépendamment de l'écrit :
-  // un mot n'est plus noté deux fois sur la même carte dans une session. Les cartes
-  // écoute DUES passent d'abord ; puis on amorce l'écoute de quelques mots déjà
-  // stabilisés à l'écrit (état Review) qui ont une phrase d'exemple.
-  let listenCount = 0;
-  for (const v of vocabAll) {
-    if (listenCount >= SRS.listenMax) break;
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && served.has(v.id)) {
-      await deferSkill(v, "oral", now);
-      continue;
-    }
-    if (v.cards.oral && isDue(v.cards.oral, horizon) && effectiveExample(v)?.ja) {
-      // Mode sans le son : remplacement écrit, toujours noté sur la carte orale.
-      due.push(
-        silent
-          ? await vocabTypeExercise(v, v.cards.oral.due.getTime(), { listen: true, silent: true, pool: vocabAll })
-          : await oralExercise(v, v.cards.oral, vocabAll),
-      );
-      listenCount++;
-      served.add(v.id);
-    }
-  }
-
-  // Production en contexte — carte dédiée (`cards.production`), même logique que l'écoute :
-  // les cartes dues d'abord, plafonnées par session.
-  let prodCount = 0;
-  for (const v of vocabAll) {
-    if (prodCount >= SRS.prodMax) break;
-    const c = v.cards.production;
-    if (!c || !isDue(c, horizon)) continue;
-    if (served.has(v.id)) {
-      await deferSkill(v, "production", now);
-      continue;
-    }
-    due.push(await vocabTypeExercise(v, c.due.getTime(), { produce: true, pool: vocabAll }));
-    prodCount++;
-    served.add(v.id);
   }
 
   const dateStr = localDateString(now);
@@ -429,16 +339,28 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // quelques jours d'absence.
   const cap = reviewBlockSize(s.dailyGoal, daily?.reviewed ?? 0);
 
-  // Budget nouveaux items — débit auto-réglé : la rétention mesurée et le retard dû du jour
-  // (backlog = items dus de cette session) rabotent `newPerDay` quand l'utilisateur peine ou
-  // accumule, pour consolider plutôt qu'empiler du neuf. Voir lib/tuning.ts.
+  // Budget nouveaux items — débit auto-réglé (lib/tuning.ts) : `newPerDay` est un plafond
+  // SOUHAITÉ, plafonné à son tour par ce que l'objectif du jour peut absorber (un mot neuf
+  // demande ~`NEW_ITEM_LOAD` révisions dans ses premiers mois), puis raboté par la rétention
+  // mesurée et le retard dû du jour (backlog = items dus de cette session), exprimé en
+  // JOURS d'objectif.
   //
-  // Ce budget ne dépend QUE de son propre réglage : le brider en plus par l'objectif du
-  // jour (« pas de neuf tant que le dû remplit le bloc ») gelait toute la progression dès
-  // que le retard dépassait l'objectif — les objectifs de la leçon en cours n'obtenaient
-  // jamais de carte, sa part d'items stabilisés ne montait plus, son contrôle ne s'ouvrait
-  // pas, et la leçon suivante restait verrouillée. Le freinage, c'est `effectiveNewPerDay`.
-  const newCap = effectiveNewPerDay(s.newPerDay, tuning.measuredRetention, due.length);
+  // Sans le plafond de capacité, 10 mots neufs par jour sur un objectif de 10 cartes
+  // faisaient croître le retard indéfiniment : l'utilisateur voyait « à consolider » monter
+  // de plusieurs unités chaque jour sans jamais pouvoir revenir à zéro.
+  //
+  // Ce n'est PAS un gel par l'objectif du jour (« pas de neuf tant que le dû remplit le
+  // bloc ») : celui-là bloquait toute progression dès le moindre retard — les objectifs de
+  // la leçon en cours n'obtenaient jamais de carte, sa part d'items stabilisés ne montait
+  // plus, son contrôle ne s'ouvrait pas, et la leçon suivante restait verrouillée. Ici le
+  // débit garde un plancher d'un mot par jour tant que le retard reste sous le palier de
+  // coupure ; la coupure elle-même est temporaire, et se lève dès que le retard s'est vidé.
+  const newCap = effectiveNewPerDay(
+    s.newPerDay,
+    tuning.measuredRetention,
+    due.length,
+    s.dailyGoal,
+  );
   const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
   // Réserve de nouveautés DANS le bloc : au plus la moitié tant qu'il reste du dû (le
   // retard doit avancer aussi), tout le bloc quand il n'y a rien à revoir.
@@ -448,75 +370,18 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   // (plus rien à introduire aujourd'hui, aucune leçon commencée) revient au retard, elle
   // ne laisse pas un bloc à moitié vide.
   const newCards =
-    newSlots > 0
-      ? await promoteNew(newSlots, vocabAll, grammarAll, triangle, dateStr, now)
-      : [];
+    newSlots > 0 ? await promoteNew(newSlots, vocabAll, grammarAll, make, dateStr, now) : [];
 
   // Items dus triés par urgence, coupés à la place qui reste dans le bloc.
   due.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
-  const out: Exercise[] = due.slice(0, cap - newCards.length);
-  // Place libre : les amorces (écoute, production) prennent ce qui reste, sans manger
-  // les nouveautés du jour.
-  let room = cap - out.length - newCards.length;
-
-  // Les amorces raisonnent sur le deck RÉELLEMENT retenu : un mot coupé par le plafond
-  // n'a pas été servi, il n'y a pas de raison de lui refuser une amorce.
-  const inDeck = new Set(out.filter((ex) => ex.track === "vocab").map((ex) => ex.id));
-
-  // Sans le son, on n'amorce pas de NOUVELLES cartes d'écoute (les dues, elles, passent
-  // en remplacement écrit ci-dessus).
-  let listenSeeds = 0;
-  for (const v of vocabAll) {
-    if (silent) break;
-    if (room <= 0 || listenCount >= SRS.listenMax || listenSeeds >= SRS.listenSeeds) break;
-    const example = effectiveExample(v);
-    // Jamais sur un mot déjà au programme du jour ni tout juste révisé : l'amorce ferait
-    // un doublon immédiat ou un retour le lendemain (cf. seenRecently).
-    if (inDeck.has(v.id) || seenRecently(v, now)) continue;
-    if (!v.cards.oral && example?.ja && v.cards.written?.state === State.Review) {
-      const card = newCard(now);
-      v.cards.oral = card;
-      await putVocab(v);
-      out.push(await vocabTypeExercise(v, card.due.getTime(), { listen: true }));
-      listenCount++;
-      listenSeeds++;
-      room--;
-      inDeck.add(v.id);
-    }
-  }
-
-  // Amorçage production : mots STABLES à l'écrit (Review + intervalle de déblocage, plus
-  // exigeant que l'amorçage écoute) avec une phrase d'exemple. Le gate d'intervalle
-  // décale la production derrière l'écoute — pas deux nouvelles cartes le même jour.
-  let prodSeeds = 0;
-  for (const v of vocabAll) {
-    if (room <= 0 || prodCount >= SRS.prodMax || prodSeeds >= SRS.prodSeeds) break;
-    if (inDeck.has(v.id) || seenRecently(v, now)) continue;
-    if (
-      !v.cards.production &&
-      effectiveExample(v)?.ja &&
-      v.cards.written?.state === State.Review &&
-      v.cards.written.scheduled_days >= SRS.unlockIntervalDays
-    ) {
-      const card = newCard(now);
-      v.cards.production = card;
-      await putVocab(v);
-      out.push(await vocabTypeExercise(v, card.due.getTime(), { produce: true, pool: vocabAll }));
-      prodCount++;
-      prodSeeds++;
-      room--;
-      inDeck.add(v.id);
-    }
-  }
-
-  out.push(...newCards);
+  const out: Exercise[] = [...due.slice(0, cap - newCards.length), ...newCards];
 
   // Le tri par urgence ci-dessus sert à CHOISIR les items qui tiennent dans la session ;
   // il ne doit pas dicter l'ordre de passage. Sans mélange, les échéances (identiques pour
   // toutes les cartes neuves) retombent sur l'ordre des clés IndexedDB : mêmes mots dans
   // la même séquence, session après session.
   const deck = shuffle(out);
-  await triangle.flush(deck);
+  await make.flush(deck);
   return deck;
 }
 
@@ -532,14 +397,14 @@ async function buildSessionAll(
   const { vocab: vocabIds, grammar: grammarIds } = entry.introduces;
   // Distracteurs tirés dans TOUT le vocabulaire connu, pas seulement la leçon : quatre
   // options venues des seuls mots du jour se devinent par élimination.
-  const triangle = triangleFactory(await allVocab(), leeches);
+  const make = exerciseFactory(await allVocab(), leeches);
 
   // Vocab
   for (const id of vocabIds) {
     const v = await getVocab(id);
     if (!v || !isTrainableVocab(v)) continue;
-    if (!v.cards.written) v.cards.written = newCard(now);
-    out.push(triangle.build(v, v.cards.written.due.getTime()));
+    if (!v.card) v.card = newCard(now);
+    out.push(make.triangle(v, v.card.due.getTime()));
   }
 
   for (const id of grammarIds) {
@@ -555,7 +420,7 @@ async function buildSessionAll(
   // Les plus urgents sont retenus, puis mélangés : le bilan reste plafonné pour rester
   // digeste, mais ne repasse pas les mêmes questions dans le même ordre.
   const deck = shuffle(out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0)).slice(0, SRS.sessionAllCap));
-  await triangle.flush(deck);
+  await make.flush(deck);
   return deck;
 }
 
@@ -573,14 +438,14 @@ async function buildSessionStory(
   leeches: Set<string>,
 ): Promise<Exercise[]> {
   const pool = await allVocab();
-  const triangle = triangleFactory(pool, leeches);
+  const make = exerciseFactory(pool, leeches);
   const byId = new Map(pool.map((v) => [v.id, v]));
 
   const out: Exercise[] = [];
   for (const id of vocabIds) {
     const v = byId.get(id);
     if (!v || !isTrainableVocab(v)) continue;
-    out.push(triangle.build(v, v.cards.written?.due.getTime() ?? now.getTime()));
+    out.push(make.triangle(v, v.card?.due.getTime() ?? now.getTime()));
   }
 
   for (const id of grammarIds) {
@@ -593,7 +458,7 @@ async function buildSessionStory(
   // sont dans presque tous les textes) alors qu'ils sont planifiés loin : ils occupaient la
   // place des mots réellement à revoir, et l'utilisateur les retrouvait à chaque lecture.
   const deck = shuffle(out.sort((a, b) => (a.due ?? 0) - (b.due ?? 0)).slice(0, SRS.sessionAllCap));
-  await triangle.flush(deck);
+  await make.flush(deck);
   return deck;
 }
 

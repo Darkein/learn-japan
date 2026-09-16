@@ -37,7 +37,7 @@ function vocabItem(id: string): VocabItem {
     meaning: "sens",
     tags: [],
     status: "review",
-    cards: { written: createEmptyCard(new Date("2026-07-01T10:00:00Z")) },
+    card: createEmptyCard(new Date("2026-07-01T10:00:00Z")),
   };
 }
 
@@ -76,8 +76,8 @@ describe("export / import", () => {
 
     const v = await getVocab("暗記|あんき");
     expect(v).toBeDefined();
-    expect(v!.cards.written!.due).toBeInstanceOf(Date);
-    expect(v!.cards.written!.due.getTime()).toBe(new Date("2026-07-01T10:00:00Z").getTime());
+    expect(v!.card!.due).toBeInstanceOf(Date);
+    expect(v!.card!.due.getTime()).toBe(new Date("2026-07-01T10:00:00Z").getTime());
     const stories = await (await getDB()).getAll("stories");
     expect(stories).toHaveLength(1);
     expect(stories[0].text).toBe("テキスト。");

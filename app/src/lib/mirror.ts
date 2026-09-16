@@ -82,7 +82,7 @@ export function computeMirrorDelta(
   const newSince: string[] = [];
   for (const id of unique) {
     const first = firstReview.get(id);
-    const trackedNow = !!vocabNow.get(id)?.cards.written;
+    const trackedNow = !!vocabNow.get(id)?.card;
     if (first != null && first <= storyCreatedAt) knownThen++;
     if (trackedNow) {
       knownNow++;

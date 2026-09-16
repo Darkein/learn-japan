@@ -5,7 +5,8 @@ import type { Card } from "ts-fsrs";
 import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, putMeta, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession, pickOralVariant, reviewBlockSize, silenceDeck } from "./reviewSession";
+import { gradeCard, buildSession, reviewBlockSize, silenceDeck } from "./reviewSession";
+import { vocabTypeExercise } from "./exerciseBuild";
 import { getCurriculumEntry } from "./curriculum";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -57,7 +58,7 @@ describe("échauffement SRS (existant)", () => {
       meaning: "eau",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
 
     const due = await buildSession(NOW, { scope: "due" });
@@ -81,7 +82,7 @@ describe("échauffement SRS (existant)", () => {
       meaning: "chat",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     // Seul mot en base : aucun distracteur plausible, donc pas de QCM à deux options.
     const card = (await buildSession(NOW, { scope: "due" })).find((c) => c.id === "猫|ねこ")!;
@@ -106,7 +107,7 @@ describe("échauffement SRS (existant)", () => {
         meaning,
         tags: [],
         status: "review",
-        cards: { written: newCard(new Date("2020-01-01")) },
+        card: newCard(new Date("2020-01-01")),
       });
     }
     const card = (await buildSession(NOW, { scope: "due" })).find((c) => c.id === "猫|ねこ")!;
@@ -128,7 +129,7 @@ describe("ordre du deck", () => {
         meaning: `sens${i}`,
         tags: [],
         status: "review",
-        cards: { written: newCard(new Date("2020-01-01")) },
+        card: newCard(new Date("2020-01-01")),
       });
     }
   }
@@ -166,7 +167,7 @@ describe("buildSession", () => {
       meaning: "eau",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     const result = await buildSession(NOW, { scope: "due" });
     expect(result.length).toBe(1);
@@ -182,7 +183,6 @@ describe("buildSession", () => {
         meaning: `meaning${i}`,
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
     const result = await buildSession(NOW, { scope: "due" });
@@ -199,7 +199,6 @@ describe("buildSession", () => {
         meaning: `meaning${i}`,
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
     const result = await buildSession(NOW, { scope: "due" });
@@ -223,7 +222,6 @@ describe("buildSession", () => {
         meaning: "test",
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
     for (let i = 0; i < 42; i++) {
@@ -234,7 +232,7 @@ describe("buildSession", () => {
         meaning: `m${i}`,
         tags: [],
         status: "review",
-        cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+        card: newCard(new Date(2020, 0, 1 + i)),
       });
     }
     const session = await buildSession(NOW, { scope: "due" });
@@ -259,7 +257,6 @@ describe("buildSession", () => {
         meaning: "test",
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
     await buildSession(NOW, { scope: "due" });
@@ -279,7 +276,6 @@ describe("buildSession", () => {
         meaning: "test",
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
     const result = await buildSession(NOW, { scope: "all", lessonId });
@@ -294,7 +290,7 @@ describe("buildSession", () => {
       meaning: "eau",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     const cards = await buildSession(NOW, { scope: "due" });
     const card = cards.find((c) => c.id === "水|みず")!;
@@ -311,7 +307,7 @@ describe("buildSession", () => {
       meaning: "eau",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
       example: { ja: "水を飲む", fr: "Boire de l'eau" },
     });
     const cards = await buildSession(NOW, { scope: "due" });
@@ -330,7 +326,7 @@ describe("buildSession", () => {
     expect(entry.introduces.vocab.length).toBeGreaterThan(SRS.sessionAllCap);
     for (const id of entry.introduces.vocab) {
       const [surface, reading] = id.split("|");
-      await putVocab({ id, surface, reading, meaning: "test", tags: [], status: "unknown", cards: {} });
+      await putVocab({ id, surface, reading, meaning: "test", tags: [], status: "unknown" });
     }
     const result = await buildSession(NOW, { scope: "all", lessonId });
     expect(result.length).toBe(SRS.sessionAllCap);
@@ -344,7 +340,7 @@ describe("buildSession", () => {
       meaning: "—",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     const result = await buildSession(NOW, { scope: "due" });
     expect(result.find((c) => c.id === "ねこ|ねこ")).toBeUndefined();
@@ -354,8 +350,12 @@ describe("buildSession", () => {
 describe("promotion des nouveaux items", () => {
   it("budget serré : les objectifs d'une leçon commencée sont promus, pas l'incident", async () => {
     const { getCurriculum } = await import("./curriculum");
+    const { effectiveNewPerDay } = await import("./tuning");
     const first = getCurriculum()[0];
-    const lessonVocabIds = first.introduces.vocab.slice(0, 3);
+    // Débit EFFECTIF du jour : le réglage `newPerDay` est plafonné par ce que l'objectif
+    // quotidien peut absorber (cf. lib/tuning.ts) — c'est lui, le budget à saturer.
+    const newCap = effectiveNewPerDay(SRS.newPerDay, null, 0, SRS.dailyGoal);
+    const lessonVocabIds = first.introduces.vocab.slice(0, Math.min(3, newCap));
     if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester
     await putLessonProgress({ id: first.id, startedAt: Date.now() });
 
@@ -368,7 +368,6 @@ describe("promotion des nouveaux items", () => {
       meaning: "ah",
       tags: [],
       status: "unknown",
-      cards: {},
     });
     for (const id of lessonVocabIds) {
       const [surface, reading] = id.split("|");
@@ -379,13 +378,12 @@ describe("promotion des nouveaux items", () => {
         meaning: "test",
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
 
     // Budget du jour réduit au nombre exact de mots de la leçon : c'est le seul cadre où
     // la priorisation se voit (l'ordre du deck, lui, est désormais mélangé).
-    await bumpSrsDaily(TODAY, { introduced: SRS.newPerDay - lessonVocabIds.length });
+    await bumpSrsDaily(TODAY, { introduced: newCap - lessonVocabIds.length });
 
     const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
     for (const id of lessonVocabIds) expect(ids).toContain(id);
@@ -405,7 +403,6 @@ describe("promotion des nouveaux items", () => {
       meaning: "bonbon",
       tags: [],
       status: "unknown",
-      cards: {},
     });
     await putVocab({
       id: "山|やま",
@@ -414,13 +411,12 @@ describe("promotion des nouveaux items", () => {
       meaning: "montagne",
       tags: [],
       status: "unknown",
-      cards: {},
     });
 
     const deck = await buildSession(NOW, { scope: "due" });
     expect(deck).toHaveLength(0);
-    expect((await getVocab("山|やま"))?.cards.written).toBeUndefined();
-    expect((await getVocab("あめ|あめ"))?.cards.written).toBeUndefined();
+    expect((await getVocab("山|やま"))?.card).toBeUndefined();
+    expect((await getVocab("あめ|あめ"))?.card).toBeUndefined();
   });
 
   it("un mot incident ajouté à la main garde sa carte et revient en révision", async () => {
@@ -433,7 +429,7 @@ describe("promotion des nouveaux items", () => {
       meaning: "bonbon",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
     expect(ids).toContain("あめ|あめ");
@@ -457,7 +453,7 @@ describe("purge du vocabulaire incident déjà promu", () => {
       meaning: "test",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
       streak: 2,
     });
     await putVocab({
@@ -467,18 +463,18 @@ describe("purge du vocabulaire incident déjà promu", () => {
       meaning: "bonbon",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")), oral: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
       streak: 2,
     });
 
     await buildSession(NOW, { scope: "due" });
 
     const incidental = await getVocab("あめ|あめ");
-    expect(incidental?.cards.written).toBeUndefined();
-    expect(incidental?.cards.oral).toBeUndefined();
+    expect(incidental?.card).toBeUndefined();
+    expect(incidental?.card).toBeUndefined();
     // L'item reste en base (lecteur, glossaire, distracteurs) avec son statut.
     expect(incidental?.status).toBe("review");
-    expect((await getVocab(lessonVocabId))?.cards.written).toBeDefined();
+    expect((await getVocab(lessonVocabId))?.card).toBeDefined();
   });
 
   it("passe une seule fois : un mot réajouté ensuite garde sa carte", async () => {
@@ -491,17 +487,17 @@ describe("purge du vocabulaire incident déjà promu", () => {
       meaning: "bonbon",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
     await buildSession(NOW, { scope: "due" });
-    expect((await getVocab("あめ|あめ"))?.cards.written).toBeDefined();
+    expect((await getVocab("あめ|あめ"))?.card).toBeDefined();
   });
 });
 
 describe("scope story (exercices du Lecteur)", () => {
   async function seedWord(id: string, meaning: string) {
     const [surface, reading] = id.split("|");
-    await putVocab({ id, surface, reading, meaning, tags: [], status: "unknown", cards: {} });
+    await putVocab({ id, surface, reading, meaning, tags: [], status: "unknown" });
   }
 
   it("ne sert que les mots demandés, et n'amorce aucune carte FSRS", async () => {
@@ -512,7 +508,7 @@ describe("scope story (exercices du Lecteur)", () => {
     const session = await buildSession(NOW, { scope: "story", vocabIds: ["猫|ねこ", "犬|いぬ"] });
     expect(session.map((c) => c.id).sort()).toEqual(["猫|ねこ", "犬|いぬ"].sort());
     // Lire une histoire n'introduit pas d'items dans la planification.
-    expect((await getVocab("猫|ねこ"))?.cards.written).toBeUndefined();
+    expect((await getVocab("猫|ねこ"))?.card).toBeUndefined();
     expect((await getSrsDaily(TODAY))?.introduced ?? 0).toBe(0);
   });
 
@@ -556,7 +552,7 @@ describe("taille d'un bloc de révision (objectif du jour, plafond dur)", () => 
           meaning: `m${i}`,
           tags: [],
           status: "review",
-          cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+          card: newCard(new Date(2020, 0, 1 + i)),
         });
       }
       const session = await buildSession(NOW, { scope: "due" });
@@ -578,7 +574,7 @@ describe("taille d'un bloc de révision (objectif du jour, plafond dur)", () => 
         meaning: `m${i}`,
         tags: [],
         status: "review",
-        cards: { written: newCard(new Date(2020, 0, 1 + i)) },
+        card: newCard(new Date(2020, 0, 1 + i)),
       });
     }
     // Et des candidats nouveaux qui ne doivent PAS être promus (plus de place)
@@ -590,7 +586,6 @@ describe("taille d'un bloc de révision (objectif du jour, plafond dur)", () => 
         meaning: `f${i}`,
         tags: [],
         status: "unknown",
-        cards: {},
       });
     }
     const session = await buildSession(NOW, { scope: "due" });
@@ -618,27 +613,89 @@ function stableCard(dueInDays: number): Card {
   };
 }
 
-describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
-  it("carte écoute due → exercice d'écoute, même si l'écrit n'est pas dû", async () => {
+describe("tirage de la forme d'exercice (un mot, une carte)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  /** Préfixe de clé = la FORME servie (cf. lib/exerciseBuild.ts). */
+  const WRITTEN = "vocab";
+  const ALL_KINDS = ["vocab", "vocab-listen", "vocab-listen-meaning", "vocab-dictation", "vocab-produce"];
+
+  /** Mot MÛR (Review, au-dessus du seuil de déblocage) et DÛ, avec sa phrase d'exemple. */
+  async function seedMature(
+    id: string,
+    opts: { example?: boolean; scheduledDays?: number; state?: State } = {},
+  ) {
+    const [surface, reading] = id.split("|");
     await putVocab({
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
+      id,
+      surface,
+      reading,
+      meaning: `sens-${surface}`,
       tags: [],
       status: "review",
-      cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
-      example: { ja: "水を飲む" },
+      card: {
+        ...stableCard(-1), // échue hier
+        state: opts.state ?? State.Review,
+        scheduled_days: opts.scheduledDays ?? 7,
+      },
+      ...(opts.example === false ? {} : { example: { ja: `${surface}をのむ。`, fr: `On boit ${surface}.` } }),
     });
+  }
+
+  /** Pool de distracteurs : le QCM de sens à l'écoute en exige trois. */
+  async function seedPool() {
+    for (let i = 0; i < 6; i++) await seedMature(`autre${i}|autre${i}`);
+  }
+
+  /** Formes servies à `id` sur `n` sessions — le tirage est aléatoire, on l'observe. */
+  async function kindsOver(n: number, id: string): Promise<string[]> {
+    const seen = new Set<string>();
+    for (let i = 0; i < n; i++) {
+      const session = await buildSession(NOW, { scope: "due" });
+      for (const ex of session.filter((c) => c.id === id)) seen.add(ex.key.split(":")[1] ? ex.key.split(":")[0] : ex.key);
+    }
+    return [...seen];
+  }
+
+  it("un mot dû ne donne QU'UN exercice, quelle que soit la forme tirée", async () => {
+    await seedMature("水|みず");
     const session = await buildSession(NOW, { scope: "due" });
-    const listen = session.find((c) => c.key === "vocab-listen:水|みず");
-    expect(listen).toBeDefined();
-    expect(listen!.skill).toBe("oral");
-    // L'écrit n'est pas dû : pas d'exercice écrit en double.
-    expect(session.find((c) => c.key === "vocab:水|みず")).toBeUndefined();
+    expect(session.filter((c) => c.id === "水|みず")).toHaveLength(1);
   });
 
-  it("mode sans le son : la carte écoute due devient un exercice écrit noté oral, pas d'amorçage", async () => {
+  it("les cinq formes sortent au fil des sessions", async () => {
+    await seedMature("水|みず");
+    await seedPool();
+    const kinds = await kindsOver(60, "水|みず");
+    for (const k of ALL_KINDS) expect(kinds).toContain(k);
+  });
+
+  it("jamais deux fois de suite la même forme", async () => {
+    // Sans phrase d'exemple, seules deux formes sont recevables : l'écrit et la dictée du
+    // mot. La précédente étant l'écrit, le tirage est donc déterminé.
+    await seedMature("水|みず", { example: false });
+    const v = (await getVocab("水|みず"))!;
+    await putVocab({ ...v, lastDrill: "written" });
+    const session = await buildSession(NOW, { scope: "due" });
+    expect(session.find((c) => c.id === "水|みず")!.key).toBe("vocab-listen:水|みず");
+    // Et le tirage retenu est mémorisé pour la fois suivante.
+    expect((await getVocab("水|みず"))?.lastDrill).toBe("listen-word");
+  });
+
+  it("un mot encore en apprentissage ne sort qu'à l'écrit", async () => {
+    // On ne fait pas écouter — ni produire — un mot qu'on vient de rencontrer.
+    await seedMature("犬|いぬ", { state: State.Learning });
+    await seedPool();
+    expect(await kindsOver(15, "犬|いぬ")).toEqual([WRITTEN]);
+  });
+
+  it("production fermée tant que le mot n'est pas stable", async () => {
+    await seedMature("本|ほん", { scheduledDays: SRS.unlockIntervalDays - 1 });
+    await seedPool();
+    expect(await kindsOver(30, "本|ほん")).not.toContain("vocab-produce");
+  });
+
+  it("sans le son, aucune forme d'écoute n'est tirée", async () => {
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => store.get(k) ?? null,
@@ -647,40 +704,19 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     });
     localStorage.setItem("settings", JSON.stringify({ silentReviews: true }));
     try {
-      await putVocab({
-        id: "水|みず",
-        surface: "水",
-        reading: "みず",
-        meaning: "eau",
-        tags: [],
-        status: "review",
-        cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
-        example: { ja: "水を飲む" },
-      });
-      await putVocab({
-        id: "猫|ねこ",
-        surface: "猫",
-        reading: "ねこ",
-        meaning: "chat",
-        tags: [],
-        status: "review",
-        cards: { written: stableCard(10) },
-        example: { ja: "猫がいる" },
-      });
-      const session = await buildSession(NOW, { scope: "due" });
-      const silent = session.find((c) => c.key === "vocab-listen-silent:水|みず");
-      expect(silent).toBeDefined();
-      expect(silent!.skill).toBe("oral");
-      expect(silent!.audio).toBeUndefined();
-      // Pas de nouvelle carte écoute amorcée tant que le son est coupé.
-      expect(session.find((c) => c.key === "vocab-listen:猫|ねこ")).toBeUndefined();
-      expect((await getVocab("猫|ねこ"))?.cards.oral).toBeUndefined();
+      await seedMature("水|みず");
+      await seedPool();
+      const kinds = await kindsOver(25, "水|みず");
+      expect(kinds).not.toContain("vocab-listen");
+      expect(kinds).not.toContain("vocab-listen-meaning");
+      expect(kinds).not.toContain("vocab-dictation");
+      expect(kinds.sort()).toEqual([WRITTEN, "vocab-produce"].sort());
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it("pause « je ne peux pas écouter » : écrit tant qu'elle court, écoute de nouveau après", async () => {
+  it("pause « je ne peux pas écouter » : plus d'écoute tant qu'elle court, de nouveau après", async () => {
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => store.get(k) ?? null,
@@ -688,29 +724,18 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
       removeItem: (k: string) => void store.delete(k),
     });
     try {
-      await putVocab({
-        id: "水|みず",
-        surface: "水",
-        reading: "みず",
-        meaning: "eau",
-        tags: [],
-        status: "review",
-        cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
-        example: { ja: "水を飲む" },
-      });
+      // Sans exemple : écrit et dictée du mot pour seules formes — l'écoute se voit donc
+      // à coup sûr dès qu'elle est autorisée (la précédente est l'écrit).
+      await seedMature("水|みず", { example: false });
+      const v = (await getVocab("水|みず"))!;
+      await putVocab({ ...v, lastDrill: "written" });
 
-      localStorage.setItem(
-        "settings",
-        JSON.stringify({ silentUntil: NOW.getTime() + 10 * 60 * 1000 }),
-      );
+      localStorage.setItem("settings", JSON.stringify({ silentUntil: NOW.getTime() + 10 * 60 * 1000 }));
       const paused = await buildSession(NOW, { scope: "due" });
-      expect(paused.find((c) => c.key === "vocab-listen-silent:水|みず")).toBeDefined();
+      expect(paused.find((c) => c.id === "水|みず")!.audio).toBeUndefined();
 
       // Pause expirée : le son revient tout seul, sans réglage à retoucher.
-      localStorage.setItem(
-        "settings",
-        JSON.stringify({ silentUntil: NOW.getTime() - 60 * 1000 }),
-      );
+      localStorage.setItem("settings", JSON.stringify({ silentUntil: NOW.getTime() - 60 * 1000 }));
       const after = await buildSession(NOW, { scope: "due" });
       expect(after.find((c) => c.key === "vocab-listen:水|みず")).toBeDefined();
     } finally {
@@ -718,17 +743,8 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
     }
   });
 
-  it("silenceDeck : les exercices d'écoute restants passent à l'écrit, les autres ne bougent pas", async () => {
-    await putVocab({
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "review",
-      cards: { written: stableCard(10), oral: newCard(new Date("2020-01-01")) },
-      example: { ja: "水を飲む" },
-    });
+  it("silenceDeck : les exercices d'écoute d'un deck déjà construit passent à l'écrit", async () => {
+    await seedMature("水|みず");
     await putVocab({
       id: "猫|ねこ",
       surface: "猫",
@@ -736,293 +752,52 @@ describe("compétence écoute (cards.oral, séparée de l'écrit)", () => {
       meaning: "chat",
       tags: [],
       status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) },
+      card: newCard(new Date("2020-01-01")),
     });
+    const water = (await getVocab("水|みず"))!;
+    // Deck monté à la main : le tirage est aléatoire, ce test porte sur silenceDeck seul.
+    const listen = await vocabTypeExercise(water, NOW.getTime(), { listen: true, pool: [water] });
+    const written = await buildSession(NOW, { scope: "due" }).then(
+      (deck) => deck.find((c) => c.id === "猫|ねこ")!,
+    );
+    const silenced = await silenceDeck([listen, written]);
 
-    const deck = await buildSession(NOW, { scope: "due" });
-    const listen = deck.find((c) => c.audio);
-    expect(listen).toBeDefined();
-
-    const silenced = await silenceDeck(deck);
-    // Même nombre de cartes, aucune ne demande plus le son.
-    expect(silenced).toHaveLength(deck.length);
+    expect(silenced).toHaveLength(2);
     expect(silenced.every((c) => !c.audio)).toBe(true);
-    const replacement = silenced.find((c) => c.key === "vocab-listen-silent:水|みず");
-    expect(replacement?.skill).toBe("oral");
-    // Les cartes écrites traversent inchangées (même objet).
-    const written = deck.find((c) => c.key.startsWith("vocab:猫"));
+    expect(silenced[0].key).toBe("vocab-listen-silent:水|みず");
+    expect(silenced[0].skill).toBe("oral");
+    // Les exercices sans son traversent inchangés (même objet).
     expect(silenced).toContain(written);
   });
 
-  it("amorçage : un mot stable à l'écrit (Review) avec exemple gagne une carte écoute", async () => {
-    await putVocab({
-      id: "猫|ねこ",
-      surface: "猫",
-      reading: "ねこ",
-      meaning: "chat",
-      tags: [],
-      status: "review",
-      cards: { written: stableCard(10) },
-      example: { ja: "猫がいる" },
-    });
+  it("noter n'importe quelle forme replanifie LA carte du mot", async () => {
+    await seedMature("水|みず");
+    await seedPool();
     const session = await buildSession(NOW, { scope: "due" });
-    expect(session.find((c) => c.key === "vocab-listen:猫|ねこ")).toBeDefined();
-    const item = await getVocab("猫|ねこ");
-    expect(item?.cards.oral).toBeDefined();
+    const ex = session.find((c) => c.id === "水|みず")!;
+    await gradeCard(ex, "good", NOW);
+
+    const item = (await getVocab("水|みず"))!;
+    // La carte semée porte déjà 3 révisions : la note en ajoute une, sur CETTE carte —
+    // il n'y en a pas d'autre à toucher.
+    expect(item.card!.reps).toBe(4);
+    expect(item.card!.due.getTime()).toBeGreaterThan(NOW.getTime());
   });
 
-  it("pas d'amorçage pour un mot encore en apprentissage à l'écrit", async () => {
-    await putVocab({
-      id: "犬|いぬ",
-      surface: "犬",
-      reading: "いぬ",
-      meaning: "chien",
-      tags: [],
-      status: "review",
-      cards: { written: newCard(new Date("2020-01-01")) }, // état New, dû
-      example: { ja: "犬が走る" },
-    });
-    const session = await buildSession(NOW, { scope: "due" });
-    expect(session.find((c) => c.key === "vocab-listen:犬|いぬ")).toBeUndefined();
-  });
-
-  it("rotation des variantes d'écoute selon le nombre de révisions de la carte", () => {
-    const base = newCard(new Date("2020-01-01"));
-    expect(pickOralVariant({ ...base, reps: 0 })).toBe("type");
-    expect(pickOralVariant({ ...base, reps: 1 })).toBe("meaning");
-    expect(pickOralVariant({ ...base, reps: 2 })).toBe("dictation");
-    expect(pickOralVariant({ ...base, reps: 3 })).toBe("type");
-  });
-
-  it("variante sens : QCM audio-only quand le pool fournit 3 distracteurs", async () => {
-    for (let i = 0; i < 3; i++) {
-      await putVocab({
-        id: `pool|${i}`,
-        surface: `pool${i}`,
-        reading: `pool${i}`,
-        meaning: `sens${i}`,
-        tags: [],
-        status: "review",
-        cards: { written: stableCard(10) },
-      });
-    }
-    await putVocab({
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "review",
-      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 1 } },
-      example: { ja: "水を飲む。" },
-    });
-    const session = await buildSession(NOW, { scope: "due" });
-    const listen = session.find((c) => c.key === "vocab-listen-meaning:水|みず");
-    expect(listen).toBeDefined();
-    expect(listen!.audioOnly).toBe(true);
-    expect(listen!.skill).toBe("oral");
-    if (listen!.mode !== "choice") throw new Error("expected choice exercise");
-    expect(listen!.choices).toContain("eau");
-    expect(listen!.choices).toHaveLength(4);
-  });
-
-  it("variante dictée : reconstruction audio-only pour une phrase courte", async () => {
-    await putVocab({
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "review",
-      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 2 } },
-      example: { ja: "水を飲む。" }, // 4 tuiles avec le tokenizer simulé
-    });
-    const session = await buildSession(NOW, { scope: "due" });
-    const dictation = session.find((c) => c.key === "vocab-dictation:水|みず");
-    expect(dictation).toBeDefined();
-    expect(dictation!.mode).toBe("build");
-    expect(dictation!.audioOnly).toBe(true);
-  });
-
-  it("variante dictée retombe sur la saisie quand la phrase est trop longue", async () => {
-    await putVocab({
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "review",
-      cards: { written: stableCard(10), oral: { ...newCard(new Date("2020-01-01")), reps: 2 } },
-      example: { ja: "とてもながいぶんしょうをきいてかきとるのはむずかしい。" },
-    });
-    const session = await buildSession(NOW, { scope: "due" });
-    expect(session.find((c) => c.key === "vocab-dictation:水|みず")).toBeUndefined();
-    expect(session.find((c) => c.key === "vocab-listen:水|みず")).toBeDefined();
-  });
-
-  it("noter un exercice d'écoute met à jour cards.oral, pas cards.written", async () => {
-    const written = stableCard(10);
-    await putVocab({
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "review",
-      cards: { written, oral: newCard(new Date("2020-01-01")) },
-      example: { ja: "水を飲む" },
-    });
-    const session = await buildSession(NOW, { scope: "due" });
-    const listen = session.find((c) => c.key === "vocab-listen:水|みず")!;
-    await gradeCard(listen, "good", NOW);
-    const item = await getVocab("水|みず");
-    expect(item!.cards.oral!.due.getTime()).toBeGreaterThan(NOW.getTime());
-    expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
-  });
-});
-
-describe("compétence production (cards.production, cloze en contexte)", () => {
-  function vocabProd(id: string, cards: VocabCards, example = true) {
-    const [surface, reading] = id.split("|");
-    return putVocab({
-      id,
-      surface,
-      reading,
-      meaning: `sens-${surface}`,
-      tags: [],
-      status: "review",
-      cards,
-      ...(example ? { example: { ja: `${surface}がある。`, fr: `Il y a ${surface}.` } } : {}),
-    });
-  }
-  type VocabCards = Parameters<typeof putVocab>[0]["cards"];
-
-  it("carte production due → exercice cloze, plafonné à prodMax", async () => {
-    for (let i = 0; i < SRS.prodMax + 2; i++) {
-      await vocabProd(`prod${i}|prod${i}`, {
-        written: stableCard(10),
-        production: newCard(new Date("2020-01-01")),
-      });
-    }
-    const session = await buildSession(NOW, { scope: "due" });
-    const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
-    expect(prods.length).toBe(SRS.prodMax);
-    expect(prods[0].skill).toBe("production");
-  });
-
-  it("amorçage : écrit stable (Review + intervalle de déblocage) avec exemple, plafonné à prodSeeds", async () => {
-    // Écoute déjà amorcée (carte non due) : l'amorçage écoute laisse donc ces mots à
-    // l'amorçage production, qui refuse de doubler une amorce du même jour.
-    for (let i = 0; i < SRS.prodSeeds + 1; i++) {
-      await vocabProd(`seed${i}|seed${i}`, { written: stableCard(10), oral: stableCard(10) });
-    }
-    const session = await buildSession(NOW, { scope: "due" });
-    const prods = session.filter((c) => c.key.startsWith("vocab-produce:"));
-    expect(prods.length).toBe(SRS.prodSeeds);
-    const seeded = await getVocab("seed0|seed0");
-    expect(seeded?.cards.production).toBeDefined();
-  });
-
-  it("un mot ne reçoit pas l'amorce écoute ET l'amorce production le même jour", async () => {
-    await vocabProd("双|そう", { written: stableCard(10) });
-    const session = await buildSession(NOW, { scope: "due" });
-    const mine = session.filter((c) => c.id === "双|そう");
-    expect(mine).toHaveLength(1);
-    expect(mine[0].skill).toBe("oral");
-    // La production reste à amorcer : une session ultérieure s'en chargera.
-    expect((await getVocab("双|そう"))?.cards.production).toBeUndefined();
-  });
-
-  it("pas d'amorçage sous l'intervalle de déblocage, ni sans exemple", async () => {
-    const fresh = { ...stableCard(10), scheduled_days: SRS.unlockIntervalDays - 1 };
-    await vocabProd("jeune|jeune", { written: fresh });
-    await vocabProd("nu|nu", { written: stableCard(10) }, false);
-    const session = await buildSession(NOW, { scope: "due" });
-    expect(session.some((c) => c.key.startsWith("vocab-produce:"))).toBe(false);
-    expect((await getVocab("jeune|jeune"))?.cards.production).toBeUndefined();
-    expect((await getVocab("nu|nu"))?.cards.production).toBeUndefined();
-  });
-
-  it("sessionStats compte les cartes production dues", async () => {
-    await vocabProd("水|みず", {
-      written: stableCard(10),
-      oral: stableCard(10),
-      production: newCard(new Date("2020-01-01")),
-    });
+  it("sessionStats compte un mot dû UNE fois", async () => {
+    await seedMature("水|みず");
     const { sessionStats } = await import("./reviewSession");
-    const stats = await sessionStats(NOW);
-    expect(stats.dueCount).toBe(1);
-  });
-
-  it("noter une production met à jour cards.production uniquement", async () => {
-    const written = stableCard(10);
-    await vocabProd("本|ほん", { written, production: newCard(new Date("2020-01-01")) });
-    const session = await buildSession(NOW, { scope: "due" });
-    const prod = session.find((c) => c.key === "vocab-produce:本|ほん")!;
-    await gradeCard(prod, "good", NOW);
-    const item = await getVocab("本|ほん");
-    expect(item!.cards.production!.reps).toBe(1);
-    expect(item!.cards.written!.due.getTime()).toBe(written.due.getTime());
-  });
-});
-
-describe("espacement des compétences d'un même mot", () => {
-  const DAY = 24 * 60 * 60 * 1000;
-
-  function overdue(): Card {
-    return { ...newCard(new Date("2020-01-01")), state: State.Review, scheduled_days: 7, reps: 3 };
-  }
-
-  it("un mot dû sur plusieurs compétences ne passe qu'une fois, l'autre carte est repoussée EN BASE", async () => {
-    await putVocab({
-      id: "私|わたし",
-      surface: "私",
-      reading: "わたし",
-      meaning: "je, moi",
-      tags: [],
-      status: "review",
-      cards: { written: overdue(), oral: overdue(), production: overdue() },
-      example: { ja: "私は学生です。", fr: "Je suis étudiant." },
-    });
-
-    const session = await buildSession(NOW, { scope: "due" });
-    expect(session.filter((c) => c.id === "私|わたし")).toHaveLength(1);
-
-    // Repoussées en base, pas seulement sautées : le badge de révisions lit le store.
-    const item = (await getVocab("私|わたし"))!;
-    const floor = NOW.getTime() + SRS.skillGapDays * DAY;
-    expect(item.cards.oral!.due.getTime()).toBe(floor);
-    expect(item.cards.production!.due.getTime()).toBe(floor);
-    // La compétence servie garde son échéance : c'est la note qui la replanifiera.
-    expect(item.cards.written!.due.getTime()).toBe(overdue().due.getTime());
-  });
-
-  it("noter une compétence repousse les autres cartes du mot", async () => {
-    const soon = { ...overdue(), due: new Date(NOW.getTime() + DAY) };
-    await putVocab({
-      id: "今日|きょう",
-      surface: "今日",
-      reading: "きょう",
-      meaning: "aujourd'hui",
-      tags: [],
-      status: "review",
-      cards: { written: overdue(), oral: soon, production: soon },
-      example: { ja: "今日は暑い。", fr: "Il fait chaud aujourd'hui." },
-    });
-
-    const session = await buildSession(NOW, { scope: "due" });
-    const card = session.find((c) => c.id === "今日|きょう")!;
-    await gradeCard(card, "easy", NOW);
-
-    const item = (await getVocab("今日|きょう"))!;
-    const floor = NOW.getTime() + SRS.skillGapDays * DAY;
-    for (const skill of ["written", "oral", "production"] as const) {
-      expect(item.cards[skill]!.due.getTime()).toBeGreaterThanOrEqual(floor);
-    }
+    expect((await sessionStats(NOW)).dueCount).toBe(1);
   });
 
   it("les exercices d'une histoire passent les mots les plus urgents d'abord", async () => {
     // Un mot planifié loin (déjà su) ne doit pas prendre la place d'un mot dû.
+    const overdue = (): Card => ({
+      ...newCard(new Date("2020-01-01")),
+      state: State.Review,
+      scheduled_days: 7,
+      reps: 3,
+    });
     const far = { ...overdue(), due: new Date(NOW.getTime() + 90 * DAY) };
     const ids: string[] = [];
     for (let i = 0; i < SRS.sessionAllCap + 2; i++) {
@@ -1035,7 +810,7 @@ describe("espacement des compétences d'un même mot", () => {
         meaning: `sens-${i}`,
         tags: [],
         status: "review",
-        cards: { written: i < 2 ? far : overdue() },
+        card: i < 2 ? far : overdue(),
       });
     }
 
