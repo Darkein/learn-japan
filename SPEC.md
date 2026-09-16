@@ -337,8 +337,8 @@ du Tōkaidō — Hakone, Arai, Fukushima —, où l'on ne passait qu'après cont
 **Ce n'est PAS une session de révision de plus.** Quatre différences dures avec `buildSession` :
 
 1. **Aucune correction pendant l'épreuve** — on répond à tout, puis on rend la copie.
-2. **Aucune auto-notation** — les boutons *Difficile / Bien / Facile* disparaissent : c'est
-   l'app qui note, pas l'élève.
+2. **Aucune note rendue en séance** — la révision, elle, enchaîne d'un bouton « Continuer »
+   qui note la réussite d'office ; ici on ne sait rien avant la copie corrigée.
 3. **Béquilles coupées** — la saisie remplace le QCM partout où c'est possible, pas de
    furigana ni de gloss, pas de traduction à la demande, écoutes comptées (2 en dictée),
    pas d'échappatoire « Afficher le texte ».

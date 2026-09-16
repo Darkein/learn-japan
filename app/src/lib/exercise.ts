@@ -146,8 +146,13 @@ export async function gradeExercise(
     // plus qu'au journal) : une réussite à l'oreille repousse le mot entier, un échec en
     // production le ramène entier. C'est le sens du modèle — on planifie un MOT.
     v.card = review(v.card ?? newCard(now), grade, now);
-    // Le statut affiché (soulignement du lecteur) dit ce qu'on sait du mot.
-    v.status = grade === "easy" ? "known" : "review";
+    // Le statut affiché (soulignement du lecteur) dit ce qu'on sait du mot. Il ne se déduit
+    // PLUS de la note : la session n'a qu'un bouton de suite (cf. ContinueButton), donc plus
+    // personne n'y déclare « je connais ». Le déduire d'une réussite marquerait connu tout
+    // mot répondu juste une fois, vidant le soulignement du lecteur et créditant les leçons
+    // d'une maîtrise jamais prouvée. « Connu » reste une DÉCLARATION explicite, depuis la
+    // fiche du mot (« Je connais », cf. applyStatus) ; la maîtrise se lit sur l'intervalle.
+    v.status = "review";
     // Suite de réussites : pilote le passage du QCM à la saisie. « Difficile » compte
     // comme une remise à zéro — c'est aussi la note d'une réponse à une coquille près,
     // et taper un mot qu'on écrit de travers n'est pas encore acquis.
@@ -164,9 +169,9 @@ export async function gradeExercise(
       card: undefined,
     };
     g.card = review(g.card ?? newCard(now), grade, now);
-    // « Facile » = l'utilisateur déclare maîtriser (compté dans la maîtrise de la leçon),
-    // comme pour le vocab écrit ci-dessus.
-    g.status = grade === "easy" ? "known" : "review";
+    // Même règle que le vocab ci-dessus : réviser, c'est être « à revoir ». La maîtrise
+    // d'un point de grammaire se prouve par l'intervalle atteint, pas par un clic.
+    g.status = "review";
     await putGrammar(g);
   }
   await logReview({

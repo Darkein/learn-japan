@@ -6,7 +6,7 @@ import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { isNearMiss } from "../../lib/typo";
 import { Button } from "../kit/Button";
-import { GradeButtons } from "./GradeButtons";
+import { ContinueButton } from "./ContinueButton";
 import { JpFront } from "./JpFront";
 import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 import { WordFeedback } from "./WordFeedback";
@@ -22,7 +22,7 @@ interface Props {
 
 type TypeResult = "correct" | "almost" | "wrong";
 
-/** Saisie texte : l'utilisateur tape la réponse, s'auto-évalue si correcte. Une réponse
+/** Saisie texte : l'utilisateur tape la réponse, un seul bouton pour la suite. Une réponse
  *  à une coquille près (voir lib/typo.ts) est acceptée mais notée "hard" d'office. */
 export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChange }: Props) {
   const [entry, setEntry] = useState("");
@@ -153,7 +153,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
             />
           )}
           {result === "correct" ? (
-            <GradeButtons onGraded={onGraded} onNext={onNext} />
+            <ContinueButton onGraded={onGraded} onNext={onNext} />
           ) : result === "almost" ? (
             <Button
               variant="primary"
@@ -162,7 +162,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
                 onNext();
               }}
             >
-              Difficile
+              Continuer
             </Button>
           ) : (
             <Button

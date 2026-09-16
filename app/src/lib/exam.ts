@@ -2,7 +2,8 @@
 // à la leçon suivante qu'en franchissant la barrière. C'est une ÉPREUVE, pas une session
 // de révision de plus (SPEC §5b). Quatre différences dures avec `buildSession` :
 //   - AUCUNE correction pendant l'épreuve : on répond à tout, puis on rend la copie ;
-//   - AUCUNE auto-notation (Difficile/Bien/Facile) : c'est l'app qui note, pas l'élève ;
+//   - AUCUNE note rendue en séance : la révision enchaîne d'un « Continuer » qui note la
+//     réussite d'office, ici on ne sait rien avant la copie corrigée ;
 //   - béquilles coupées : pas de QCM là où la saisie est possible, écoutes comptées,
 //     pas d'échappatoire « Afficher le texte », pas de traduction à la demande ;
 //   - un barème par exercice, une note /20, une mention, une copie corrigée.
