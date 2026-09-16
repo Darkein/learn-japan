@@ -176,10 +176,11 @@ function computeProgress(
 
 /**
  * Un item compte comme maîtrisé s'il est :
- * - auto-évalué « Facile » (status "known") : l'utilisateur déclare le connaître — crédité
- *   d'emblée, sans attendre l'intervalle long terme. « Facile » n'accélère PAS le déblocage
- *   au-delà de ce que l'intervalle FSRS fait déjà (voir computeUnlockProgress) : on borne
- *   ainsi l'incitation à cliquer « Facile » juste pour avancer.
+ * - déclaré connu (status "known") : l'utilisateur l'a marqué « Je connais » depuis la fiche
+ *   du mot (Lecteur) — crédité d'emblée, sans attendre l'intervalle long terme. Cette
+ *   déclaration n'accélère PAS le déblocage au-delà de ce que l'intervalle FSRS fait déjà
+ *   (voir computeUnlockProgress) : on borne ainsi ce qu'un clic peut acheter. La session de
+ *   révision, elle, ne déclare plus rien — elle n'a qu'un bouton de suite.
  * - OU maîtrisé « naturellement » : sa carte a atteint l'intervalle cible (isMastered, ≥ 21 j).
  */
 function itemMastered(status: string | undefined, card: Card | undefined): boolean {

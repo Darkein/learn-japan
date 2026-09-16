@@ -138,6 +138,32 @@ describe("gradeExercise", () => {
     expect(v?.status).toBe("review");
   });
 
+  it("une réussite ne déclare pas le mot « connu » — même notée « easy »", async () => {
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review",
+      card: newCard(new Date("2020-01-01")),
+    });
+    const ex: TypeExercise = {
+      mode: "type",
+      key: "vocab:猫|ねこ",
+      track: "vocab",
+      id: "猫|ねこ",
+      front: "猫",
+      back: "ねこ",
+      answers: ["ねこ"],
+    };
+    // Le bouton unique de la session note "easy" d'office : si le statut s'en déduisait,
+    // tout mot répondu juste une fois passerait « connu » — plus de soulignement au
+    // lecteur, et des leçons créditées d'une maîtrise jamais prouvée.
+    await gradeExercise(ex, "easy", new Date());
+    expect((await getVocab("猫|ねこ"))?.status).toBe("review");
+  });
+
   it("choice/grammar : crée l'item s'il n'existe pas, avec seedName/seedRule", async () => {
     const ex: ChoiceExercise = {
       mode: "choice",
