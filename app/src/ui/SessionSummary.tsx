@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getGrammar, getVocab } from "../lib/db";
 import type { Exercise } from "../lib/exercise";
 import { playSfx } from "../lib/sfx";
-import { isMastered, isUnlockReady, type SrsGrade } from "../lib/srs";
+import { isMastered, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
 import { ClozeText } from "./exercise/ClozeText";
 import { Badge } from "./kit/Badge";
@@ -14,8 +14,6 @@ interface SummaryEntry {
   card: Exercise;
   grade: SrsGrade;
   mastered: boolean;
-  /** Assez stable pour compter dans le déblocage de la leçon suivante (seuil léger, voir SRS.unlockIntervalDays). */
-  unlockReady: boolean;
   intervalDaysBefore: number;
   intervalDays: number;
 }
@@ -35,21 +33,24 @@ interface Props {
 }
 
 /**
- * Étiquette d'état d'un élément au bilan. Priorité décroissante : la maîtrise prime sur le
- * déblocage, et l'INTERVALLE RETOMBÉ À ZÉRO se lit différemment selon d'où l'on vient —
- * « nouveau » pour un élément jamais stabilisé, « oublié » pour un élément qui tenait
- * plusieurs jours et qu'on vient de rater (FSRS l'a renvoyé en réapprentissage). Les
- * confondre donnait un « nouveau » sur des mots revus depuis des semaines.
- * `null` = entre-deux (0 < intervalle < seuil de déblocage) : la barre suffit, pas de bruit.
+ * Étiquette d'ÉTAT d'un élément au bilan : ce que vaut le mot dans ta tête, jamais un
+ * rouage du parcours. Le seuil de déblocage de la leçon suivante (SRS.unlockIntervalDays)
+ * n'a donc pas de badge : il ne dit rien de ce que tu sais, seulement ce que l'app
+ * autorise ensuite.
+ *
+ * L'INTERVALLE RETOMBÉ À ZÉRO se lit différemment selon d'où l'on vient — « nouveau »
+ * pour un élément jamais stabilisé, « oublié » pour un élément qui tenait plusieurs jours
+ * et qu'on vient de rater (FSRS l'a renvoyé en réapprentissage). Les confondre donnait un
+ * « nouveau » sur des mots revus depuis des semaines.
+ *
+ * `null` = en route, sans plus : la barre raconte la progression mieux qu'un mot.
  */
 export function summaryBadge(entry: {
   mastered: boolean;
-  unlockReady: boolean;
   intervalDays: number;
   intervalDaysBefore: number;
 }): { label: string; variant: "default" | "accent" } | null {
   if (entry.mastered) return { label: "maîtrisé", variant: "accent" };
-  if (entry.unlockReady) return { label: "débloquant", variant: "accent" };
   if (entry.intervalDays > 0) return null;
   return entry.intervalDaysBefore > 0
     ? { label: "oublié", variant: "default" }
@@ -87,7 +88,6 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
           card: r.card,
           grade: r.grade,
           mastered: fsrsCard ? isMastered(fsrsCard) : false,
-          unlockReady: fsrsCard ? isUnlockReady(fsrsCard) : false,
           intervalDaysBefore: r.daysBefore,
           intervalDays: fsrsCard?.scheduled_days ?? 0,
         });

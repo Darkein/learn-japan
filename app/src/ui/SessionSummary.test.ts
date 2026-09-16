@@ -4,7 +4,7 @@ import { summaryBadge } from "./SessionSummary";
 
 /** Entrée de bilan minimale : seuls les champs lus par `summaryBadge`. */
 function entry(over: Partial<Parameters<typeof summaryBadge>[0]> = {}) {
-  return { mastered: false, unlockReady: false, intervalDays: 0, intervalDaysBefore: 0, ...over };
+  return { mastered: false, intervalDays: 0, intervalDaysBefore: 0, ...over };
 }
 
 describe("summaryBadge", () => {
@@ -19,19 +19,17 @@ describe("summaryBadge", () => {
     });
   });
 
-  it("au-delà du seuil de déblocage, l'élément est « débloquant »", () => {
-    expect(summaryBadge(entry({ unlockReady: true, intervalDays: SRS.unlockIntervalDays }))).toEqual({
-      label: "débloquant",
-      variant: "accent",
-    });
-  });
-
-  it("la maîtrise prime sur le déblocage", () => {
-    const e = entry({ mastered: true, unlockReady: true, intervalDays: SRS.masteredIntervalDays });
+  it("l'élément maîtrisé est le seul palier haut qui porte un badge", () => {
+    const e = entry({ mastered: true, intervalDays: SRS.masteredIntervalDays });
     expect(summaryBadge(e)).toEqual({ label: "maîtrisé", variant: "accent" });
   });
 
-  it("entre zéro et le seuil de déblocage, pas de badge : la barre suffit", () => {
+  it("le seuil de déblocage ne porte AUCUN badge : il sert la leçon, pas l'apprenant", () => {
+    expect(summaryBadge(entry({ intervalDays: SRS.unlockIntervalDays }))).toBeNull();
+  });
+
+  it("tout l'entre-deux reste sans badge : la barre raconte la progression", () => {
     expect(summaryBadge(entry({ intervalDays: 2, intervalDaysBefore: 1 }))).toBeNull();
+    expect(summaryBadge(entry({ intervalDays: SRS.masteredIntervalDays - 1 }))).toBeNull();
   });
 });
