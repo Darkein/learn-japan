@@ -29,7 +29,7 @@ function isTileGrid(choices: string[]): boolean {
 }
 
 /**
- * QCM tap. Un seul bouton de suite, quelle que soit l'issue : « Continuer » note "easy"
+ * QCM tap. Un seul bouton de suite, quelle que soit l'issue : « Continuer » note "good"
  * après une réponse juste (cf. ContinueButton), "again" après une ratée.
  */
 export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
