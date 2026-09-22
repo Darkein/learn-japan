@@ -6,6 +6,7 @@ import {
   drawOmikuji,
   FORTUNES,
   markOmikujiSeen,
+  shouldOpenOmikuji,
   type OmikujiEnv,
 } from "../lib/omikuji";
 import { loadSettings } from "../lib/settings";
@@ -15,6 +16,26 @@ import { Sheet } from "./kit/Sheet";
 
 interface Props {
   onClose: () => void;
+}
+
+// Une seule ouverture automatique par session d'app. Le drapeau persistant (meta
+// `omikuji.seenDate`) couvre la journée d'un lancement à l'autre ; celui-ci couvre les
+// remontages dans la même page (retour d'une sous-page, changement d'onglet, passage du
+// flux à l'accueil), avant même que l'écriture IndexedDB ne soit relue.
+let openedThisAppSession = false;
+
+/**
+ * La bandelette doit-elle s'ouvrir d'elle-même ICI ? Réserve l'ouverture pour la session
+ * d'app : un seul appelant obtient `true`. Partagé par l'accueil et le flux — ouvrir l'app
+ * depuis la notification mène droit au flux, qui doit alors tirer l'omikuji AVANT le
+ * premier exercice (sinon ces exercices tombent dans la ligne de base du défi).
+ */
+export async function claimOmikujiAutoOpen(): Promise<boolean> {
+  if (openedThisAppSession) return false;
+  const open = await shouldOpenOmikuji();
+  if (!open || openedThisAppSession) return false;
+  openedThisAppSession = true;
+  return true;
 }
 
 // Env minimal pour résoudre le libellé du défi (le tirage a déjà filtré la disponibilité).

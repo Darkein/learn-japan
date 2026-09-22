@@ -6,6 +6,7 @@ import { getLesson, markLessonCourseRead, type Lesson } from "../lib/lessons";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival } from "../lib/tokaido";
 import { MirrorDeltaView } from "./MirrorDelta";
+import { claimOmikujiAutoOpen, OmikujiSheet } from "./OmikujiSheet";
 import { formatMinutes } from "../lib/time";
 import { FlowCheckpoint, type FlowBlockResult } from "./FlowCheckpoint";
 import { incomingFromStory, Reader, type IncomingStory } from "./Reader";
@@ -24,6 +25,9 @@ import { useSettings } from "./useSettings";
 
 type Phase =
   | { name: "loading" }
+  // Bandelette du jour pas encore vue (entrée directe par la notification) : on la
+  // présente avant tout, et le premier bloc n'est choisi qu'une fois refermée.
+  | { name: "omikuji" }
   | { name: "activity"; activity: FlowActivity }
   | { name: "checkpoint"; result: FlowBlockResult | null; next: FlowActivity };
 
@@ -48,7 +52,21 @@ export function FlowSession({ onExit, forced }: Props) {
   // Contexte de la session de flux : borne le renforcement. État de session UI, jamais persisté.
   const flowCtx = useRef({ reinforceCountThisFlow: 0 });
 
+  // Réservation de l'ouverture auto mémorisée : un effet rejoué (StrictMode) doit relire la
+  // même réponse, pas re-réserver — il obtiendrait `false` et lancerait le flux par-dessus.
+  const omikujiClaim = useRef<Promise<boolean> | null>(null);
+
   useEffect(() => {
+    omikujiClaim.current ??= claimOmikujiAutoOpen();
+    void omikujiClaim.current.then((open) => {
+      if (open) setPhase({ name: "omikuji" });
+      else start();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function start() {
+    setPhase({ name: "loading" });
     void (async () => {
       const { state } = await gatherFlowState();
       reviewedAtBlockStart.current = state.reviewedToday;
@@ -68,8 +86,7 @@ export function FlowSession({ onExit, forced }: Props) {
           : { name: "activity", activity: first },
       );
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   async function toCheckpoint(finished: FlowActivity) {
     setPhase({ name: "loading" });
@@ -127,6 +144,8 @@ export function FlowSession({ onExit, forced }: Props) {
       </header>
 
       {phase.name === "loading" && <p className="text-muted">Un instant…</p>}
+
+      {phase.name === "omikuji" && <OmikujiSheet onClose={start} />}
 
       {phase.name === "activity" && (
         <ActivityBlock
