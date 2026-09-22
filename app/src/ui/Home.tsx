@@ -3,7 +3,6 @@ import type { StoryRecord } from "../lib/db";
 import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { gatherFlowState, previewFlow, type FlowPreviewStep } from "../lib/flow";
 import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
-import { shouldOpenOmikuji } from "../lib/omikuji";
 import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
@@ -12,7 +11,7 @@ import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoSt
 import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
 import { OmikujiCard } from "./OmikujiCard";
-import { OmikujiSheet } from "./OmikujiSheet";
+import { claimOmikujiAutoOpen, OmikujiSheet } from "./OmikujiSheet";
 import { StationArrival } from "./StationArrival";
 import { TokaidoStrip } from "./TokaidoStrip";
 import { Button } from "./kit/Button";
@@ -46,12 +45,6 @@ function flowPhrase(steps: FlowPreviewStep[]): string {
   }
   return `Au programme : ${labels.join(", puis ")}.`;
 }
-
-// Une seule ouverture automatique par session d'app. Le drapeau persistant (meta
-// `omikuji.seenDate`) couvre la journée d'un lancement à l'autre ; celui-ci couvre les
-// remontages de l'accueil dans la même page (retour d'une sous-page, changement d'onglet),
-// avant même que l'écriture IndexedDB ne soit relue.
-let omikujiOpenedThisAppSession = false;
 
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
   const todayStr = localDateString();
@@ -109,11 +102,8 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   // elle-même au lancement de l'app tant qu'elle n'a pas été vue aujourd'hui. Pas vue =
   // ni tirée, ni simplement présentée (voir `shouldOpenOmikuji`).
   useEffect(() => {
-    if (omikujiOpenedThisAppSession) return;
-    void shouldOpenOmikuji().then((open) => {
-      if (!open || omikujiOpenedThisAppSession) return;
-      omikujiOpenedThisAppSession = true;
-      setOmikujiOpen(true);
+    void claimOmikujiAutoOpen().then((open) => {
+      if (open) setOmikujiOpen(true);
     });
   }, []);
 
