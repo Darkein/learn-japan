@@ -106,6 +106,27 @@ describe("orderDrills", () => {
     // ... sans jamais écraser les autres : chacune sort.
     for (const k of DRILL_KINDS) expect(counts.get(k) ?? 0).toBeGreaterThan(0);
   });
+
+  it("prefer : les formes de la compétence visée passent devant, sans rien retirer", () => {
+    const ORAL: DrillKind[] = ["listen-word", "listen-meaning", "dictation"];
+    for (let i = 0; i < 50; i++) {
+      const order = orderDrills(word(), { ...WITH_EXAMPLE, prefer: "oral" });
+      expect(order.slice(0, 3).sort()).toEqual([...ORAL].sort());
+      expect([...order].sort()).toEqual([...DRILL_KINDS].sort());
+    }
+  });
+
+  it("prefer l'emporte sur la relégation de la forme précédente", () => {
+    // Le jour d'un défi de production, la production reste la première servie même si
+    // elle vient de l'être : c'est la seule forme de la compétence.
+    for (let i = 0; i < 20; i++) {
+      const order = orderDrills(word({ lastDrill: "production" }), {
+        ...WITH_EXAMPLE,
+        prefer: "production",
+      });
+      expect(order[0]).toBe("production");
+    }
+  });
 });
 
 describe("skillOf", () => {

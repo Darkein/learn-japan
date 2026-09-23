@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Card } from "ts-fsrs";
-import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, putMeta, _resetDbForTests } from "./db";
+import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, putMeta, putOmikuji, logReview, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
 import { gradeCard, buildSession, reviewBlockSize, silenceDeck } from "./reviewSession";
@@ -693,6 +693,40 @@ describe("tirage de la forme d'exercice (un mot, une carte)", () => {
     await seedMature("本|ほん", { scheduledDays: SRS.unlockIntervalDays - 1 });
     await seedPool();
     expect(await kindsOver(30, "本|ほん")).not.toContain("vocab-produce");
+  });
+
+  it("défi omikuji d'écoute en cours : le mot mûr sort à l'oreille, puis plus après réussite", async () => {
+    const ORAL = ["vocab-listen", "vocab-listen-meaning", "vocab-dictation"];
+    await putOmikuji({
+      date: TODAY,
+      challengeId: "oral-5",
+      fortune: "kichi",
+      drawnAt: NOW.getTime() - 60e3,
+      baseline: { reviewed: 0, prodOk: 0, oralOk: 0, storiesRead: 0 },
+    });
+    await seedMature("水|みず");
+    await seedPool();
+    // Laissé au hasard, l'écrit sortirait une fois sur trois : ici jamais.
+    for (const k of await kindsOver(20, "水|みず")) expect(ORAL).toContain(k);
+
+    // Défi accompli : le tirage redevient libre, l'écrit revient.
+    for (let i = 0; i < 5; i++) {
+      await logReview({ itemId: `w${i}`, track: "vocab", skill: "oral", grade: "good", at: NOW.getTime() - 30e3 + i });
+    }
+    expect(await kindsOver(40, "水|みず")).toContain(WRITTEN);
+  });
+
+  it("défi omikuji de production : la production passe devant", async () => {
+    await putOmikuji({
+      date: TODAY,
+      challengeId: "prod-5",
+      fortune: "kichi",
+      drawnAt: NOW.getTime() - 60e3,
+      baseline: { reviewed: 0, prodOk: 0, oralOk: 0, storiesRead: 0 },
+    });
+    await seedMature("水|みず");
+    await seedPool();
+    expect(await kindsOver(15, "水|みず")).toEqual(["vocab-produce"]);
   });
 
   it("sans le son, aucune forme d'écoute n'est tirée", async () => {

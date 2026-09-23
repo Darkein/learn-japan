@@ -97,6 +97,17 @@ l'oreille éloigne le mot, un échec en production le ramène. `ReviewLog.skill`
 la compétence travaillée — c'est de là que viennent les statistiques et les défis omikuji,
 plus d'aucune planification.
 
+**Défis omikuji de compétence** (« réussis N exercices d'écoute », « retrouve N mots en
+japonais »). Deux conditions pour qu'un tel défi ne soit pas perdu d'avance :
+- **la matière** — il ne se tire que si la journée compte au moins N mots **dus d'ici
+  minuit** dont la forme est recevable (`drillEligible`, sans le son compris : pas de défi
+  d'écoute en mode silencieux). Un mot n'est dû qu'une fois par jour ; qu'un mot mûr existe
+  ne suffit pas ;
+- **le tirage** — tant que le défi n'est pas accompli, la session due sert en priorité les
+  formes de sa compétence (`omikujiFocus` → `orderDrills({ prefer })`). Laissé au hasard,
+  le tirage ne donne l'écoute qu'à un mot mûr sur deux environ : dix mots dus ne feraient
+  pas dix écoutes. Une fois le défi réussi, le tirage redevient libre.
+
 ### 2.2b Le triangle de révision (reconnaissance écrite)
 Un mot porte trois **faces** : **kanji** (sa graphie), **furigana** (sa lecture en kana) et
 **traduction** (son sens FR). La révision écrite part de l'une et en demande une autre — **six

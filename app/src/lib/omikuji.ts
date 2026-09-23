@@ -19,10 +19,14 @@ import {
   putOmikuji,
   type OmikujiFortune,
   type OmikujiRecord,
+  type Skill,
+  type VocabItem,
 } from "./db";
-import { loadSettings } from "./settings";
+import { isSilentMode, loadSettings } from "./settings";
+import { isDue } from "./srs";
 import { effectiveExample } from "./vocab";
-import { drillEligible } from "./vocabDrills";
+import { isTrainableVocab } from "./vocabFaces";
+import { drillEligible, type DrillKind } from "./vocabDrills";
 import { addTokaidoBonus } from "./tokaido";
 
 export interface Fortune {
@@ -60,8 +64,14 @@ export function fortuneById(id: OmikujiFortune): Fortune {
 export interface OmikujiEnv {
   dailyGoal: number;
   reviewedToday: number;
-  hasProductionCards: boolean;
-  hasOralCards: boolean;
+  /**
+   * Mots DUS aujourd'hui qui peuvent être servis dans la compétence — pas « en existe-t-il
+   * un ? » mais « combien la journée peut-elle en donner ? ». Un mot n'est dû qu'une fois
+   * par jour : « réussis 10 exercices d'écoute » lancé sur trois mots dus est perdu
+   * d'avance, et l'utilisateur cherche l'erreur dans ses réglages.
+   */
+  oralReady: number;
+  productionReady: number;
   hasStories: boolean;
 }
 
@@ -106,28 +116,28 @@ export const CHALLENGES: OmikujiChallenge[] = [
     label: () => "Retrouve 5 mots en japonais à partir du français",
     metric: "prodOk",
     target: () => 5,
-    available: (env) => env.hasProductionCards,
+    available: (env) => env.productionReady >= 5,
   },
   {
     id: "prod-10",
     label: () => "Retrouve 10 mots en japonais à partir du français",
     metric: "prodOk",
     target: () => 10,
-    available: (env) => env.hasProductionCards,
+    available: (env) => env.productionReady >= 10,
   },
   {
     id: "oral-5",
     label: () => "Réussis 5 exercices d'écoute",
     metric: "oralOk",
     target: () => 5,
-    available: (env) => env.hasOralCards,
+    available: (env) => env.oralReady >= 5,
   },
   {
     id: "oral-10",
     label: () => "Réussis 10 exercices d'écoute",
     metric: "oralOk",
     target: () => 10,
-    available: (env) => env.hasOralCards,
+    available: (env) => env.oralReady >= 10,
   },
   {
     id: "story-1",
@@ -228,24 +238,39 @@ async function collectDayCounts(now: Date): Promise<DayCounts> {
   };
 }
 
+/**
+ * Mots dus d'ici la fin de la journée locale qui peuvent être servis sous la forme `kind`.
+ * Horizon = minuit : un mot qui échoit ce soir compte pour le défi du jour ; au-delà, ce
+ * serait promettre une matière que le jour n'aura pas. Sans le son, aucune forme d'écoute
+ * n'est recevable (`drillEligible`) : le défi d'écoute ne se tire plus du tout.
+ */
+function readyCount(vocab: VocabItem[], kind: DrillKind, now: Date, silent: boolean): number {
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return vocab.filter(
+    (v) =>
+      isTrainableVocab(v) &&
+      !!v.card &&
+      isDue(v.card, endOfDay) &&
+      drillEligible(v, kind, { silent, hasExample: !!effectiveExample(v)?.ja }),
+  ).length;
+}
+
 async function collectEnv(now: Date): Promise<OmikujiEnv> {
   const [vocab, stories, daily] = await Promise.all([
     allVocab(),
     allStories(),
     getSrsDaily(localDateString(now)),
   ]);
+  const settings = loadSettings();
+  const silent = isSilentMode(settings, now);
   return {
-    dailyGoal: loadSettings().dailyGoal,
+    dailyGoal: settings.dailyGoal,
     reviewedToday: daily?.reviewed ?? 0,
     // Un mot ne porte plus de carte par compétence : ce qui rend un défi atteignable,
-    // c'est qu'au moins un mot soit assez mûr pour que la forme puisse être TIRÉE
-    // (cf. lib/vocabDrills.ts) — sinon on proposerait « réussis 5 écoutes » sans écoute.
-    hasProductionCards: vocab.some((v) =>
-      drillEligible(v, "production", { hasExample: !!effectiveExample(v)?.ja }),
-    ),
-    hasOralCards: vocab.some((v) =>
-      drillEligible(v, "listen-word", { hasExample: !!effectiveExample(v)?.ja }),
-    ),
+    // c'est assez de mots DUS dont la forme peut être tirée (cf. lib/vocabDrills.ts). La
+    // dictée du mot est la forme d'écoute la moins exigeante (pas besoin de phrase).
+    oralReady: readyCount(vocab, "listen-word", now, silent),
+    productionReady: readyCount(vocab, "production", now, silent),
     hasStories: stories.length > 0,
   };
 }
@@ -332,6 +357,24 @@ function isMet(rec: OmikujiRecord, counts: DayCounts, env: OmikujiEnv): boolean 
   const { done, target } = omikujiProgress(rec, counts, env);
   if (challenge.metric === "accuracy") return counts.dayReviews >= 10 && done >= target;
   return done >= target;
+}
+
+/**
+ * Compétence que la révision doit servir en priorité aujourd'hui : celle du défi omikuji
+ * tiré, tant qu'il n'est pas accompli. La disponibilité garantit la MATIÈRE (assez de mots
+ * dus) ; encore faut-il que le tirage de forme la serve — laissé au hasard, il donne
+ * l'écoute à un mot mûr sur deux environ. Null hors défi de compétence, ou défi réussi.
+ * Lecture seule : ne crédite rien (c'est le rôle de `checkOmikuji`).
+ */
+export async function omikujiFocus(now: Date = new Date()): Promise<Skill | null> {
+  const rec = await getOmikuji(localDateString(now));
+  if (!rec || rec.completedAt) return null;
+  const metric = challengeById(rec.challengeId)?.metric;
+  const skill: Skill | null =
+    metric === "oralOk" ? "oral" : metric === "prodOk" ? "production" : null;
+  if (!skill) return null;
+  const [counts, env] = await Promise.all([collectDayCounts(now), collectEnv(now)]);
+  return isMet(rec, counts, env) ? null : skill;
 }
 
 export interface OmikujiCheck {
