@@ -3,7 +3,6 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { EXAM, SRS } from "../lib/config";
 import { mentionFor } from "../lib/exam";
-import { grammarDetail } from "../lib/inventory";
 import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
 import { markLessonCourseRead, markLessonStarted, type Lesson } from "../lib/lessons";
 import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
@@ -13,6 +12,7 @@ import { usePodcastPlayer } from "./usePodcastPlayer";
 import { ReaderBarSlot } from "./ReaderPage";
 import { useLessonGen } from "./useLessonGen";
 import { useSettings } from "./useSettings";
+import { LessonObjectives } from "./LessonObjectives";
 import { Markdown } from "./LessonMarkdown";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
@@ -364,7 +364,6 @@ function Cours({
   follow: boolean;
 }) {
   const { settings } = useSettings();
-  const grammar = lesson.introduces.grammar.map(grammarDetail).filter((g) => g !== null);
 
   // Bloc affiché correspondant au segment parlé. La lecture est linéaire : on repart du
   // dernier bloc trouvé (biais monotone) pour lever l'ambiguïté des fragments courts.
@@ -387,43 +386,7 @@ function Cours({
   }, [blocks, activeSegment]);
   return (
     <div>
-      {(grammar.length > 0 || lesson.objectives.vocab.length > 0) && (
-        <Card className="flex flex-col gap-4">
-          {grammar.length > 0 && (
-            <div>
-              <SectionLabel as="p" className="mb-2">Grammaire</SectionLabel>
-              <ul className="flex list-none flex-col gap-1">
-                {grammar.map((g) => (
-                  <li key={g.id} className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[6rem_1fr] sm:items-baseline sm:gap-3">
-                    <span className="font-jp text-sm text-text">{g.name}</span>
-                    <span className="font-sans text-sm text-text">
-                      {g.ruleFr} <em>ex. {g.exampleJa}</em>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {lesson.objectives.vocab.length > 0 && (
-            <div>
-              <SectionLabel as="p" className="mb-2">Vocabulaire</SectionLabel>
-              <ul className="flex list-none flex-col gap-1">
-                {lesson.objectives.vocab.map((v) => (
-                  <li key={v.ja} className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1">
-                    <span className="font-jp text-sm text-text">
-                      {v.ja}
-                      {v.yomi && v.yomi !== v.ja && (
-                        <span className="ml-2 font-jp text-sm italic text-muted">{v.yomi}</span>
-                      )}
-                    </span>
-                    <span className="font-sans text-sm text-text">{v.fr}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
-      )}
+      <LessonObjectives lesson={lesson} />
 
       {lesson.framing && (
         <div className="mt-6">

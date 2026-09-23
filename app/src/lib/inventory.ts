@@ -8,7 +8,7 @@ import grammarInv from "../data/inventory/grammar.json";
 import kanjiFrOverlay from "../data/inventory/kanji-fr.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import examplesInv from "../data/inventory/examples.json";
-import { kataToHira, splitEntryForms } from "./kana";
+import { hasJapanese, kataToHira, splitEntryForms } from "./kana";
 import type { VocabEntry } from "./curriculum";
 
 interface KanjiInvEntry {
@@ -229,6 +229,31 @@ export function kanjiDetail(ch: string): KanjiDetail | null {
 export function resolveGrammar(id: string): string {
   const g = grammarById.get(id);
   return g ? `${g.name} — ${g.ruleFr}` : id;
+}
+
+/** Parenthèse FINALE d'un nom de point de grammaire — sa glose ou sa forme. */
+const GRAMMAR_PAREN = /\s*[（(]([^）)]*)[）)]\s*$/;
+
+/**
+ * La FORME seule d'un point de grammaire, sans sa glose française. Les noms du référentiel
+ * portent leur traduction entre parenthèses — « ある (exister, inanimé) », « で (moyen) » —
+ * et cette glose EST la réponse quand on demande le rôle du point : la question se coche
+ * sans rien savoir. On n'affiche donc que la forme dans un énoncé qui interroge la règle
+ * (`ある`, `で`), la glose restant partout ailleurs (cours, catalogue, correction).
+ *
+ * Trois cas, dans cet ordre :
+ *   - parenthèse CONTENANT du japonais : c'est la forme, pas une glose — « forme
+ *     potentielle (〜られる/〜える) » → « 〜られる/〜える » (le reste du nom est français,
+ *     et dirait la réponse) ;
+ *   - parenthèse française : elle tombe — « ある (exister, inanimé) » → « ある » ;
+ *   - pas de parenthèse : le nom est déjà la forme — « て-forme », « これ/それ/あれ ».
+ */
+export function grammarForm(name: string): string {
+  const m = name.match(GRAMMAR_PAREN);
+  if (!m) return name.trim();
+  const inner = m[1].trim();
+  if (hasJapanese(inner)) return inner;
+  return name.slice(0, m.index).trim() || name.trim();
 }
 
 // ---- Détails structurés pour assembler le cours d'une leçon (UI) ----

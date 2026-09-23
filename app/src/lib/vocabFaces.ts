@@ -9,7 +9,7 @@
 // construction de l'exercice lui-même.
 
 import type { VocabItem } from "./db";
-import { hasKanji, normalizeReading } from "./kana";
+import { hasKanji, normalizeReading, primaryForm } from "./kana";
 import { weightedShuffle } from "./random";
 
 export type Face = "kanji" | "kana" | "fr";
@@ -33,7 +33,9 @@ const ALL_FACES: Face[] = ["kanji", "kana", "fr"];
 export function faceText(v: VocabItem, face: Face): string | null {
   if (face === "kanji") {
     const distinct = normalizeReading(v.surface) !== normalizeReading(v.reading);
-    return hasKanji(v.surface) && distinct ? v.surface : null;
+    // La graphie PRINCIPALE : « 川; 河 » est une entrée de dictionnaire, pas une face de
+    // carte — posée en question ou servie comme option, elle se lit comme une coquille.
+    return hasKanji(v.surface) && distinct ? primaryForm(v.surface) : null;
   }
   if (face === "kana") return v.reading || null;
   return v.meaning && v.meaning !== "—" ? v.meaning : null;
