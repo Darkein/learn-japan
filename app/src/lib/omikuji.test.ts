@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   _resetDbForTests,
   bumpSrsDaily,
@@ -19,6 +19,7 @@ import {
   FORTUNES,
   fortuneById,
   markOmikujiSeen,
+  omikujiFocus,
   shouldOpenOmikuji,
   type OmikujiEnv,
 } from "./omikuji";
@@ -36,8 +37,8 @@ function fullEnv(over: Partial<OmikujiEnv> = {}): OmikujiEnv {
   return {
     dailyGoal: 20,
     reviewedToday: 0,
-    hasProductionCards: true,
-    hasOralCards: true,
+    oralReady: 10,
+    productionReady: 10,
     hasStories: true,
     ...over,
   };
@@ -61,7 +62,7 @@ describe("drawFor (pur)", () => {
   });
 
   it("filtre par disponibilité : pas de prod-5 sans carte production", () => {
-    const env = fullEnv({ hasProductionCards: false, hasOralCards: false, hasStories: false });
+    const env = fullEnv({ productionReady: 0, oralReady: 0, hasStories: false });
     for (let i = 1; i <= 28; i++) {
       const { challenge } = drawFor(`2026-02-${String(i).padStart(2, "0")}`, env);
       expect(["reviews-goal", "reviews-stretch", "accuracy-80", "accuracy-90"]).toContain(
@@ -73,12 +74,90 @@ describe("drawFor (pur)", () => {
   it("repli sur les défis de précision si rien d'autre n'est disponible", () => {
     const env = fullEnv({
       reviewedToday: 35, // objectif et objectif +10 déjà atteints → défis reviews indisponibles
-      hasProductionCards: false,
-      hasOralCards: false,
+      productionReady: 0,
+      oralReady: 0,
       hasStories: false,
     });
     const { challenge } = drawFor("2026-07-05", env);
     expect(["accuracy-80", "accuracy-90"]).toContain(challenge.id);
+  });
+
+  it("un défi de compétence exige autant de mots dus que sa cible", () => {
+    // Cinq mots prêts : « réussis 5 écoutes » se tire, « réussis 10 écoutes » jamais — la
+    // journée ne peut pas en servir dix.
+    const env = fullEnv({ oralReady: 5, productionReady: 4 });
+    const ids = new Set(
+      Array.from({ length: 365 }, (_, i) =>
+        drawFor(new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10), env).challenge.id,
+      ),
+    );
+    expect(ids).toContain("oral-5");
+    expect(ids).not.toContain("oral-10");
+    expect(ids).not.toContain("prod-5");
+    expect(ids).not.toContain("prod-10");
+  });
+});
+
+/** Mot MÛR (état Review, déblocage atteint), avec sa phrase, échéant à `due`. */
+function matureWord(i: number, due: Date = NOW): VocabItem {
+  return {
+    id: `mot${i}|よみ${i}`,
+    surface: `漢${i}`,
+    reading: `よみ${i}`,
+    meaning: `sens ${i}`,
+    tags: [],
+    status: "known",
+    card: {
+      ...newCard(due),
+      state: State.Review,
+      scheduled_days: SRS.unlockIntervalDays,
+    },
+    example: { ja: `漢${i}を見る。` },
+  };
+}
+
+/** Défis tirés sur `n` jours consécutifs à partir de NOW (un tirage réel par jour). */
+async function drawnOver(n: number): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    ids.add((await drawOmikuji(new Date(NOW.getTime() + i * 24 * 3600e3))).challengeId);
+  }
+  return ids;
+}
+
+describe("disponibilité des défis de compétence (env réel)", () => {
+  it("dix mots mûrs dus : écoute et production se tirent", async () => {
+    for (let i = 0; i < 10; i++) await putVocab(matureWord(i));
+    const ids = await drawnOver(60);
+    expect(ids).toContain("oral-10");
+    expect(ids).toContain("prod-10");
+  });
+
+  it("des mots mûrs mais pas dus ne promettent rien", async () => {
+    // Le défi du jour se joue sur le dû du jour : des mots planifiés dans deux mois
+    // n'ouvriront aucune écoute aujourd'hui, si mûrs soient-ils.
+    const later = new Date(NOW.getTime() + 60 * 24 * 3600e3);
+    for (let i = 0; i < 10; i++) await putVocab(matureWord(i, later));
+    const ids = await drawnOver(30);
+    for (const id of ["oral-5", "oral-10", "prod-5", "prod-10"]) expect(ids).not.toContain(id);
+  });
+
+  it("sans le son, jamais de défi d'écoute — la production, elle, reste", async () => {
+    const store = new Map<string, string>([["settings", JSON.stringify({ silentReviews: true })]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      for (let i = 0; i < 10; i++) await putVocab(matureWord(i));
+      const ids = await drawnOver(60);
+      expect(ids).not.toContain("oral-5");
+      expect(ids).not.toContain("oral-10");
+      expect(ids).toContain("prod-10");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -122,23 +201,11 @@ describe("checkOmikuji", () => {
     // Fabrique un jour où le tirage donne un défi donné : on force l'environnement pour
     // que seuls certains défis soient disponibles, puis on cherche une date qui donne
     // le défi voulu (déterministe → stable dans le temps).
-    // Mot MÛR avec sa phrase : c'est ce qui ouvre les formes d'écoute et de production
-    // dans le tirage (lib/vocabDrills.ts), donc les défis qui les visent.
-    const vocab: VocabItem = {
-      id: "水|みず",
-      surface: "水",
-      reading: "みず",
-      meaning: "eau",
-      tags: [],
-      status: "known",
-      card: {
-        ...newCard(NOW),
-        state: State.Review,
-        scheduled_days: SRS.unlockIntervalDays,
-      },
-      example: { ja: "水を飲む。" },
-    };
-    await putVocab(vocab);
+    // Dix mots MÛRS, DUS, avec leur phrase : c'est ce qui ouvre les défis d'écoute et de
+    // production (assez de matière dans la journée), et `fullEnv` en annonce dix — l'env
+    // réel doit dire la même chose, sinon la date cherchée sur `fullEnv` ne donne pas le
+    // même tirage que `drawOmikuji`.
+    for (let i = 0; i < 10; i++) await putVocab(matureWord(i));
     await putStory({
       id: "s1",
       createdAt: NOW.getTime(),
@@ -198,6 +265,43 @@ describe("checkOmikuji", () => {
     }
     const check = await checkOmikuji(date);
     expect(check?.completedNow).toBe(false);
+  });
+});
+
+describe("omikujiFocus", () => {
+  async function drawChallenge(id: string): Promise<Date> {
+    for (let i = 0; i < 10; i++) await putVocab(matureWord(i));
+    await putStory({ id: "s1", createdAt: NOW.getTime(), title: "t", text: "t", params: {} });
+    let date = new Date(NOW);
+    for (let i = 0; i < 400; i++) {
+      if (drawFor(localDateString(date), fullEnv()).challenge.id === id) break;
+      date = new Date(date.getTime() + 24 * 3600e3);
+    }
+    expect((await drawOmikuji(date)).challengeId).toBe(id);
+    return date;
+  }
+
+  it("rien sans tirage du jour", async () => {
+    expect(await omikujiFocus(NOW)).toBeNull();
+  });
+
+  it("défi d'écoute en cours → l'écoute ; accompli → plus rien", async () => {
+    const date = await drawChallenge("oral-5");
+    expect(await omikujiFocus(date)).toBe("oral");
+    for (let i = 0; i < 5; i++) {
+      await logReview({ itemId: `w${i}`, track: "vocab", skill: "oral", grade: "good", at: date.getTime() + i });
+    }
+    expect(await omikujiFocus(date)).toBeNull();
+  });
+
+  it("défi de production → la production", async () => {
+    const date = await drawChallenge("prod-10");
+    expect(await omikujiFocus(date)).toBe("production");
+  });
+
+  it("défi sans compétence (histoire) → rien", async () => {
+    const date = await drawChallenge("story-1");
+    expect(await omikujiFocus(date)).toBeNull();
   });
 });
 

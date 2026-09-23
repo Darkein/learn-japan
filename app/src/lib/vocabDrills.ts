@@ -72,6 +72,13 @@ export interface DrillContext {
   silent?: boolean;
   /** Le mot porte une phrase d'exemple exploitable (`effectiveExample(v)?.ja`). */
   hasExample?: boolean;
+  /**
+   * Compétence à servir en priorité : celle du défi omikuji du jour tant qu'il n'est pas
+   * accompli (`omikujiFocus`). Sans elle, le tirage laisse l'écoute à une chance sur deux
+   * environ — dix mots mûrs dus ne donnent pas dix écoutes, et « réussis 10 exercices
+   * d'écoute » se perd au hasard des tirages.
+   */
+  prefer?: Skill;
 }
 
 /**
@@ -103,6 +110,10 @@ export function drillEligible(v: VocabItem, kind: DrillKind, ctx: DrillContext =
  * passage précédent reléguée en dernier (elle reste en repli — une forme n'est pas toujours
  * constructible). L'écrit ferme toujours la marche : quoi qu'il arrive, un mot dû a un
  * exercice.
+ *
+ * Avec `prefer`, les formes de cette compétence passent devant les autres — y compris
+ * celle du passage précédent : le jour d'un défi, on ressert la production plutôt que de
+ * la laisser au repli. L'ordre reste celui du tirage à l'intérieur de chaque groupe.
  */
 export function orderDrills(v: VocabItem, ctx: DrillContext = {}): DrillKind[] {
   const eligible = DRILL_KINDS.filter((k) => drillEligible(v, k, ctx));
@@ -111,5 +122,10 @@ export function orderDrills(v: VocabItem, ctx: DrillContext = {}): DrillKind[] {
     (k) => (k === "written" ? WRITTEN_WEIGHT : 1),
   );
   const stale = eligible.filter((k) => k === v.lastDrill);
-  return [...fresh, ...stale];
+  const ordered = [...fresh, ...stale];
+  if (!ctx.prefer) return ordered;
+  return [
+    ...ordered.filter((k) => KIND_SKILL[k] === ctx.prefer),
+    ...ordered.filter((k) => KIND_SKILL[k] !== ctx.prefer),
+  ];
 }

@@ -16,7 +16,7 @@ import {
   putGrammar,
   putVocab,
 } from "./db";
-import type { GrammarItem, VocabItem } from "./db";
+import type { GrammarItem, Skill, VocabItem } from "./db";
 import { gradeExercise, type Exercise } from "./exercise";
 import { buildDrill, grammarReviewExercise, vocabTriangleExercise, vocabTypeExercise } from "./exerciseBuild";
 import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
@@ -29,6 +29,7 @@ import { loadLeechIds } from "./leech";
 import { effectiveExample, mergeSkillCards, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
 import { isTrainableVocab } from "./vocabFaces";
 import { orderDrills } from "./vocabDrills";
+import { omikujiFocus } from "./omikuji";
 
 export interface SessionOpts {
   /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
@@ -232,7 +233,11 @@ function newGrammarToPromote(grammarAll: GrammarItem[], started: CurriculumEntry
  * plafond de session — sinon un mot jamais montré consommerait quand même son tour de
  * rotation, et le tirage suivant l'éviterait pour rien.
  */
-function exerciseFactory(pool: VocabItem[], leeches: Set<string>, ctx: { silent?: boolean } = {}) {
+function exerciseFactory(
+  pool: VocabItem[],
+  leeches: Set<string>,
+  ctx: { silent?: boolean; prefer?: Skill } = {},
+) {
   const pending = new Map<string, VocabItem>();
   const remember = (ex: Exercise, v: VocabItem) => {
     pending.set(ex.key, v);
@@ -242,7 +247,7 @@ function exerciseFactory(pool: VocabItem[], leeches: Set<string>, ctx: { silent?
     async drill(v: VocabItem, due: number): Promise<Exercise> {
       const isLeech = leeches.has(v.id);
       const hasExample = !!effectiveExample(v)?.ja;
-      for (const kind of orderDrills(v, { silent: ctx.silent, hasExample })) {
+      for (const kind of orderDrills(v, { silent: ctx.silent, prefer: ctx.prefer, hasExample })) {
         const ex = await buildDrill(v, kind, due, { pool, isLeech });
         if (ex) return remember(ex, v);
       }
@@ -314,7 +319,11 @@ async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercis
   const [vocabAll, grammarAll] = await Promise.all([allVocab(), allGrammar()]);
   // Le pool de distracteurs, c'est tout le vocabulaire connu : un QCM tire ses options
   // sur la même face que la réponse (cf. faceDistractors).
-  const make = exerciseFactory(vocabAll, leeches, { silent });
+  // Défi omikuji d'écoute ou de production en cours : sa compétence passe en tête du
+  // tirage de forme, sinon le hasard n'en sert qu'une partie et le défi reste hors
+  // d'atteinte malgré la matière (cf. `omikujiFocus`).
+  const prefer = (await omikujiFocus(now)) ?? undefined;
+  const make = exerciseFactory(vocabAll, leeches, { silent, prefer });
 
   // Items dus. Un mot = UNE carte = UN exercice : plus de passes séparées par compétence,
   // plus de mot écarté parce qu'il passait déjà sous un autre angle. La forme (écrit,

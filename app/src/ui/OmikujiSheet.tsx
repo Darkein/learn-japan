@@ -43,8 +43,8 @@ function labelEnv(): OmikujiEnv {
   return {
     dailyGoal: loadSettings().dailyGoal,
     reviewedToday: 0,
-    hasProductionCards: true,
-    hasOralCards: true,
+    oralReady: Number.MAX_SAFE_INTEGER,
+    productionReady: Number.MAX_SAFE_INTEGER,
     hasStories: true,
   };
 }
