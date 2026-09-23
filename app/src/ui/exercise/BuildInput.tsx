@@ -5,7 +5,7 @@ import { translateExampleFr, type BuildExercise } from "../../lib/exercise";
 import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
-import { GradeButtons } from "./GradeButtons";
+import { ContinueButton } from "./ContinueButton";
 import { SentenceFeedback } from "./SentenceFeedback";
 
 interface Props {
@@ -15,9 +15,8 @@ interface Props {
 }
 
 /**
- * Construction de phrase : l'utilisateur réordonne des tuiles, vérification explicite. La
- * note est différée au choix Bien/Facile (réponse correcte) ou Continuer (ratée) — comme
- * TypeInput — au lieu de toujours noter "good" : voir le commentaire de ChoiceInput.
+ * Construction de phrase : l'utilisateur réordonne des tuiles, vérification explicite.
+ * Un seul bouton de suite, comme partout : "good" si l'ordre est bon, "again" sinon.
  */
 type BuildResult = "exact" | "alt" | "wrong";
 
@@ -96,7 +95,7 @@ export function BuildInput({ exercise: ex, onGraded, onNext }: Props) {
             fr={ex.contextFr}
             onTranslate={() => translateExampleFr(ex.target.join(""), ex)}
           />
-          <GradeButtons onGraded={onGraded} onNext={onNext} />
+          <ContinueButton onGraded={onGraded} onNext={onNext} />
         </>
       ) : (
         <>

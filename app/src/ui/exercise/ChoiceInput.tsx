@@ -4,7 +4,7 @@ import { hasJapanese } from "../../lib/kana";
 import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { Button } from "../kit/Button";
-import { GradeButtons } from "./GradeButtons";
+import { ContinueButton } from "./ContinueButton";
 import { JpFront } from "./JpFront";
 import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 import { WordFeedback } from "./WordFeedback";
@@ -29,10 +29,8 @@ function isTileGrid(choices: string[]): boolean {
 }
 
 /**
- * QCM tap. La note est différée au choix Bien/Facile (réponse correcte) ou Continuer
- * (ratée) — comme TypeInput — au lieu de toujours noter "good" : FSRS n'atteint l'état
- * Review (compté pour le déblocage/la maîtrise) qu'après deux révisions "good" espacées de
- * 10 min, quand un "easy" y bascule immédiatement.
+ * QCM tap. Un seul bouton de suite, quelle que soit l'issue : « Continuer » note "good"
+ * après une réponse juste (cf. ContinueButton), "again" après une ratée.
  */
 export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
   const [picked, setPicked] = useState<number | null>(null);
@@ -110,7 +108,7 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
           {picked === ex.answerIndex ? (
             <>
               <span className="text-sm text-accent-2">Correct.</span>
-              <GradeButtons onGraded={onGraded} onNext={onNext} />
+              <ContinueButton onGraded={onGraded} onNext={onNext} />
             </>
           ) : (
             <Button

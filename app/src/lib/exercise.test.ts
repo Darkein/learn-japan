@@ -138,6 +138,33 @@ describe("gradeExercise", () => {
     expect(v?.status).toBe("review");
   });
 
+  it("une réussite ne déclare pas le mot « connu » — même notée « easy »", async () => {
+    await putVocab({
+      id: "猫|ねこ",
+      surface: "猫",
+      reading: "ねこ",
+      meaning: "chat",
+      tags: [],
+      status: "review",
+      card: newCard(new Date("2020-01-01")),
+    });
+    const ex: TypeExercise = {
+      mode: "type",
+      key: "vocab:猫|ねこ",
+      track: "vocab",
+      id: "猫|ねこ",
+      front: "猫",
+      back: "ねこ",
+      answers: ["ねこ"],
+    };
+    // Aucune note ne vaut déclaration : le bouton unique de la session ne dit rien de plus
+    // que « juste ». Même la note la plus haute laisse le mot « à revoir » — sinon un seul
+    // passage réussi le retirerait du soulignement au lecteur et créditerait la leçon
+    // d'une maîtrise jamais prouvée.
+    await gradeExercise(ex, "easy", new Date());
+    expect((await getVocab("猫|ねこ"))?.status).toBe("review");
+  });
+
   it("choice/grammar : crée l'item s'il n'existe pas, avec seedName/seedRule", async () => {
     const ex: ChoiceExercise = {
       mode: "choice",
