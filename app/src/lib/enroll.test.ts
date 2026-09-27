@@ -9,6 +9,30 @@ import type { KuromojiToken } from "./tokenizer";
 vi.mock("./tokenizer", () => ({
   tokenize: vi.fn(async (text: string): Promise<KuromojiToken[]> => {
     // Retourne des tokens fictifs selon le texte passé dans les tests
+    const noun = (surface: string, reading: string): KuromojiToken => ({
+      surface_form: surface,
+      pos: "名詞",
+      pos_detail_1: "一般",
+      pos_detail_2: "*",
+      pos_detail_3: "*",
+      conjugated_type: "*",
+      conjugated_form: "*",
+      basic_form: surface,
+      reading,
+    });
+    const particle = (surface: string): KuromojiToken => ({
+      ...noun(surface, ""),
+      pos: "助詞",
+      pos_detail_1: "*",
+      reading: undefined,
+    });
+    const HITO: Record<string, KuromojiToken[]> = {
+      "人気の店。": [noun("人気", "ニンキ"), particle("の"), noun("店", "ミセ"), particle("。")],
+      "人が来た。": [noun("人", "ヒト"), particle("が"), particle("来た"), particle("。")],
+    };
+    if (text.includes("人")) {
+      return Object.entries(HITO).flatMap(([s, toks]) => (text.includes(s) ? toks : []));
+    }
     if (text.includes("猫")) {
       return [
         {
@@ -161,6 +185,15 @@ describe("enrollStory", () => {
     const neko = await getVocab("猫|ねこ");
     expect(neko!.example).toBeDefined();
     expect(neko!.example!.ja).toContain("猫");
+  });
+
+  it("la phrase d'exemple contient le mot comme MOT, pas au milieu d'un autre (人 ≠ 人気)", async () => {
+    await enrollStory(makeStory("人気の店。人が来た。", ["Un magasin populaire.", "Quelqu'un est venu."]));
+
+    const hito = await getVocab("人|ひと");
+    expect(hito!.example).toEqual({ ja: "人が来た。", fr: "Quelqu'un est venu." });
+    const ninki = await getVocab("人気|にんき");
+    expect(ninki!.example!.ja).toBe("人気の店。");
   });
 
   it("capture la traduction FR alignée quand l'histoire est déjà traduite", async () => {
