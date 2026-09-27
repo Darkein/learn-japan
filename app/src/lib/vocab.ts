@@ -3,7 +3,8 @@
 
 import { contentDictSnapshot, hasContentDict } from "./data";
 import type { ContentDict } from "./gloss";
-import { hasJapanese, kataToHira, normalizeReading } from "./kana";
+import { hasJapanese, isKanji, kataToHira, normalizeReading } from "./kana";
+import { unfusedIndexes } from "./wordSpan";
 import {
   allVocab,
   deleteVocab,
@@ -324,12 +325,32 @@ export async function refreshStoredMeanings(dict: ContentDict): Promise<number> 
 }
 
 /**
+ * L'exemple d'histoire stocké montre-t-il bien CE mot ? Les items enrôlés avant que
+ * enrollStory ne retokenise ses phrases ont reçu la première phrase CONTENANT la graphie :
+ * 人 (ひと) y a gagné une phrase où ne figurait que 人気 (にんき), 日本 une phrase en 日本語.
+ * Contrôle synchrone (pas de tokenizer ici) : le premier bloc de kanji de la graphie doit
+ * paraître au moins une fois NON soudé à un kanji voisin (cf. unfusedIndexes) — la
+ * conjugaison n'y touche pas (食 dans 食べた, 勉強 dans 勉強した). Bloc absent de la phrase
+ * (mot rencontré écrit en kana) : bénéfice du doute.
+ */
+function storyExampleShowsWord(surface: string, ja: string): boolean {
+  let run = "";
+  for (const ch of surface) {
+    if (isKanji(ch)) run += ch;
+    else if (run) break;
+  }
+  if (!run || !ja.includes(run)) return true;
+  return unfusedIndexes(ja, run).length > 0;
+}
+
+/**
  * Phrase d'exemple effective d'un item : celle issue d'une histoire lue (contexte vécu,
  * prioritaire), sinon celle du corpus statique. Null si aucune — l'item ne peut alors
  * porter ni exercice d'écoute ni production en contexte.
  */
 export function effectiveExample(v: VocabItem): { ja: string; fr?: string } | null {
-  return v.example ?? staticExample(v.id);
+  if (v.example && storyExampleShowsWord(v.surface, v.example.ja)) return v.example;
+  return staticExample(v.id);
 }
 
 /**

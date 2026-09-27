@@ -408,6 +408,21 @@ describe("effectiveExample", () => {
     expect(effectiveExample(v)).toEqual({ ja: "猫は水を飲みます。", fr: "Le chat boit de l'eau." });
   });
 
+  it("écarte un exemple d'histoire où la graphie n'est qu'un morceau d'un autre mot", () => {
+    // Enrôlement d'avant le correctif : 人 avait reçu une phrase où ne figurait que 人気.
+    const neko = vocab({ id: "猫|ねこ", example: { ja: "猫舌の人です。" } });
+    expect(effectiveExample(neko)).toEqual({ ja: "猫は水を飲みます。", fr: "Le chat boit de l'eau." });
+    const hito = vocab({ id: "人|ひと", surface: "人", reading: "ひと", example: { ja: "ローグライトの人気作だ。" } });
+    expect(effectiveExample(hito)).toBeNull();
+  });
+
+  it("garde un exemple d'histoire au mot conjugué ou écrit en kana", () => {
+    const eat = vocab({ id: "食べる|たべる", surface: "食べる", reading: "たべる", example: { ja: "パンを食べた。" } });
+    expect(effectiveExample(eat)?.ja).toBe("パンを食べた。");
+    const kana = vocab({ id: "人|ひと", surface: "人", reading: "ひと", example: { ja: "あのひとが来た。" } });
+    expect(effectiveExample(kana)?.ja).toBe("あのひとが来た。");
+  });
+
   it("null quand ni exemple d'histoire ni corpus", () => {
     expect(effectiveExample(vocab({ id: "犬|いぬ" }))).toBeNull();
   });

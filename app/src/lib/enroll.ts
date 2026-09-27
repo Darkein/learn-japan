@@ -53,11 +53,31 @@ export async function enrollLesson(lessonId: string): Promise<void> {
   ]);
 }
 
+/**
+ * Index de la première phrase où figure chaque mot, par id d'item. La phrase est
+ * retokenisée : un mot n'y « figure » que s'il en est un TOKEN — un `includes` sur la
+ * surface prenait n'importe quelle phrase où la graphie traîne au milieu d'un mot plus
+ * long, et 人 (ひと) héritait d'une phrase où ne figurait que 人気 (にんき). La forme
+ * rencontrée peut être conjuguée : l'id (forme de base + lecture) s'en affranchit.
+ */
+async function firstSentenceById(sentences: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const perSentence = await Promise.all(sentences.map((s) => tokenize(s)));
+  perSentence.forEach((tokens, idx) => {
+    for (const t of tokens) {
+      const id = itemIdFor(t);
+      if (!out.has(id)) out.set(id, idx);
+    }
+  });
+  return out;
+}
+
 export async function enrollStory(story: StoryRecord): Promise<void> {
   const tokens = await tokenize(story.text);
   // Même découpage que la traduction alignée (splitJaSentences) : l'index de la phrase
   // d'exemple donne directement sa traduction FR quand elle existe déjà.
   const sentences = splitJaSentences(story.text);
+  const sentenceOf = await firstSentenceById(sentences);
 
   await Promise.all(
     tokens
@@ -67,9 +87,10 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
         const existing = await getVocab(id);
         if (existing) return;
 
-        // La phrase d'exemple se cherche avec la forme RENCONTRÉE (conjuguée), même si
-        // l'item stocke la forme de dictionnaire (voir newVocabItemFromToken).
-        const idx = sentences.findIndex((s) => s.includes(token.surface_form));
+        // Introuvable (découpage divergent entre texte entier et phrase isolée) : pas
+        // d'exemple d'histoire plutôt qu'une phrase douteuse — le corpus statique prend
+        // le relais (effectiveExample).
+        const idx = sentenceOf.get(id) ?? -1;
         const fr = idx >= 0 ? story.translation?.[idx] : undefined;
 
         const item: VocabItem = {
