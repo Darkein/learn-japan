@@ -118,6 +118,9 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const inProgress = lessons.filter((l) => l.startedAt && !l.completedAt);
   const next = lessons.find((l) => !l.startedAt && !l.completedAt);
   const todo = [...inProgress, ...(next ? [next] : [])];
+  // Le flux annonce-t-il une leçon (cours à lire, leçon à découvrir) ? Elle justifie la
+  // carte du flux même sans carte due.
+  const lessonStep = flowSteps?.find((s) => s.kind === "lesson");
 
   async function closeArrival(arrival: RouteArrival) {
     await markStationCelebrated(arrival.route.level, arrival.station.index);
@@ -139,7 +142,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
         />
       )}
 
-      {dailyData && (dailyData.reviewed > 0 || dailyData.dueCount > 0) && (
+      {dailyData && (dailyData.reviewed > 0 || dailyData.dueCount > 0 || lessonStep) && (
         <section className="flex flex-col gap-3">
           <div className="flex gap-4 text-sm">
             <span className="text-muted">
@@ -157,7 +160,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
               {formatMinutes(dailyData.flowMs)} d'étude aujourd'hui
             </span>
           )}
-          {dailyData.dueCount > 0 && (() => {
+          {(dailyData.dueCount > 0 || lessonStep) && (() => {
             const goalMet = dailyData.reviewed >= dailyData.goal;
             // Ce que le flux propose AUJOURD'HUI, pas le retard accumulé : les blocs sont
             // dimensionnés par l'objectif du jour (cf. `reviewBlockSize`), et annoncer
@@ -165,16 +168,22 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
             // fait rien — décourageant, et sans rapport avec la dose qui va être servie.
             // Le retard, lui, se lit là où il veut dire quelque chose : les Statistiques
             // (« Charge des 7 prochains jours »).
-            const planned = Math.min(dailyData.dueCount, dailyData.goal - dailyData.reviewed);
+            const planned = Math.max(0, Math.min(dailyData.dueCount, dailyData.goal - dailyData.reviewed));
+            // Une leçon à lire porte la carte quand rien n'est dû : le flux ouvre sur
+            // elle (cf. pickNext ①), et c'est le seul chemin qui fasse avancer le parcours.
+            const headline =
+              planned > 0
+                ? `${planned} révision${planned > 1 ? "s" : ""} pour l'objectif du jour`
+                : lessonStep
+                  ? lessonStep.label === "une leçon"
+                    ? "Une nouvelle leçon t'attend"
+                    : "Le cours de ta leçon t'attend"
+                  : "Objectif du jour atteint";
             return (
               <Card accentFlag className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <SectionLabel>{goalMet ? "Renforcement" : "Flux d'étude"}</SectionLabel>
-                  <span className="font-serif text-lg text-text">
-                    {goalMet
-                      ? "Objectif du jour atteint"
-                      : `${planned} révision${planned > 1 ? "s" : ""} pour l'objectif du jour`}
-                  </span>
+                  <SectionLabel>{goalMet && !lessonStep ? "Renforcement" : "Flux d'étude"}</SectionLabel>
+                  <span className="font-serif text-lg text-text">{headline}</span>
                   <span className="text-sm text-muted">
                     {flowSteps?.length
                       ? flowPhrase(flowSteps)
@@ -185,9 +194,11 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
                   <Button variant="primary" onClick={onStartFlow}>
                     {goalMet ? "Continuer le flux" : "Démarrer le flux"}
                   </Button>
-                  <Button variant="ghost" onClick={onStartReview}>
-                    Réviser seulement
-                  </Button>
+                  {dailyData.dueCount > 0 && (
+                    <Button variant="ghost" onClick={onStartReview}>
+                      Réviser seulement
+                    </Button>
+                  )}
                 </div>
               </Card>
             );

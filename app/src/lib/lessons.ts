@@ -62,7 +62,7 @@ export interface Lesson extends CurriculumEntry {
    * l'étudier (cf. lib/download.ts, lib/genJobs.ts).
    */
   startedAt?: number;
-  /** Le cours a été mis sous les yeux de l'utilisateur (voir LessonProgressRecord). */
+  /** Le cours a été lu et VALIDÉ par l'utilisateur (voir LessonProgressRecord). */
   courseReadAt?: number;
   /** Date d'admission au contrôle (progression locale) — fait foi pour le déblocage. */
   examPassedAt?: number;
@@ -421,10 +421,13 @@ export async function markLessonStarted(id: string): Promise<void> {
 }
 
 /**
- * Le cours de la leçon vient d'être LU (bloc « Leçon » du flux validé, page de la leçon
- * ouverte). Marque aussi la leçon commencée : on ne lit pas un cours sans commencer sa
- * leçon. C'est ce jalon — et non `startedAt`, que de simples effets de bord posent — qui
- * autorise le flux à proposer le contrôle de fin de leçon.
+ * Le cours de la leçon vient d'être LU — un geste EXPLICITE : bloc « Leçon » du flux validé,
+ * ou « J'ai lu le cours » sur la page de la leçon. Ouvrir la page ne suffit pas (elle
+ * commence la leçon, voir `markLessonStarted`) : quand ouvrir valait lire, le flux ne
+ * présentait jamais le cours et le contrôle tombait sur un cours survolé. Marque aussi la
+ * leçon commencée : on ne lit pas un cours sans commencer sa leçon. C'est ce jalon — et
+ * non `startedAt`, que de simples effets de bord posent — qui autorise le flux à proposer
+ * le contrôle de fin de leçon.
  */
 export async function markLessonCourseRead(id: string): Promise<void> {
   const prev = (await getLessonProgress(id)) ?? { id };

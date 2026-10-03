@@ -304,6 +304,15 @@ de noms propres** (JMnedict + entrées manuelles).
 **Relecture** proposée **en option** (jamais forcée) si score faible ou histoire dense. L'audio d'une
 histoire déjà lue sert d'exercice d'écoute.
 
+**Le cours d'abord** (`pickNext`, `lib/flow.ts`). Quand la leçon en cours n'a pas encore été lue
+— ou qu'aucune leçon n'est en cours et que la suivante est prête — le **flux d'étude ouvre la
+session sur son cours**, AVANT les révisions : on apprend avant de s'exercer, et avant de lire
+l'histoire. Placé derrière l'objectif du jour, ce bloc n'était jamais atteint — une session
+courte s'arrête au premier checkpoint — et le flux ne faisait jamais avancer les leçons : on
+révisait, on lisait, puis un contrôle tombait sur un cours jamais donné. Le bloc se **valide**
+(« Leçon lue — continuer ») et ne revient pas : lire le cours est un geste explicite, le même que
+« J'ai lu le cours » sur la page de la leçon (§5b).
+
 ### Types de quiz
 - **Triangle** kanji ↔ furigana ↔ traduction (§2.2b) — le format de base du vocabulaire écrit
 - Grammaire (« que signifie てもいい ? », parmi des règles voisines du curriculum)
@@ -435,11 +444,13 @@ rejouent une tentative à l'identique.
   stables, même mesure que `unlockProgress`) : on ne s'évalue pas sans avoir travaillé.
   Le **flux d'étude**, lui, ne PROPOSE le contrôle que si la leçon a en plus été
   réellement **enseignée** : son cours lu (`courseReadAt` — bloc « Leçon » du flux validé
-  ou page de la leçon ouverte) et au moins une de ses histoires lue. Un seuil de stabilité
-  peut être atteint sans avoir jamais vu la leçon (mots communs croisés ailleurs, objectifs
-  partagés entre leçons) : la barrière ne se dresse pas devant un cours jamais donné. Si le
-  cours n'a pas été lu, le flux donne le cours **avant** le contrôle. Depuis la page de la
-  leçon, le droit de se présenter reste le seul seuil : on peut toujours tenter la barrière.
+  ou « J'ai lu le cours » sur la page de la leçon ; **ouvrir la page ne suffit pas**, elle
+  commence la leçon sans l'enseigner) et au moins une de ses histoires lue. Un seuil de
+  stabilité peut être atteint sans avoir jamais vu la leçon (mots communs croisés ailleurs,
+  objectifs partagés entre leçons) : la barrière ne se dresse pas devant un cours jamais
+  donné. Si le cours n'a pas été lu, le flux donne le cours **avant** le contrôle. Depuis la
+  page de la leçon, le droit de se présenter reste le seul seuil : on peut toujours tenter
+  la barrière.
 - **Déblocage** — l'**admission** (≥ `EXAM.passMark`, 12/20) ouvre la leçon suivante et
   marque la leçon terminée. Une leçon déjà commencée (« Commencer quand même ») ne se
   referme jamais.

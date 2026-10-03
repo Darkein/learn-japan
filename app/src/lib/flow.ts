@@ -1,4 +1,4 @@
-// Flux d'étude continu : l'app enchaîne les activités (révisions → lecture → leçon →
+// Flux d'étude continu : l'app enchaîne les activités (leçon → révisions → lecture →
 // miroir) avec un point de sortie à chaque checkpoint — on reste 5 minutes ou 2 heures,
 // tout compte. L'omikuji du jour n'en fait PAS partie : la bandelette s'ouvre d'elle-même
 // au lancement de l'app (voir lib/omikuji.ts, ui/Home.tsx).
@@ -77,17 +77,22 @@ export const MAX_REINFORCE_PER_FLOW = 2;
 
 /**
  * Choisit LA meilleure activité suivante. Barème, dans l'ordre :
- * ① lecture d'une histoire de la leçon en cours juste après un bloc d'effort
+ * ① LE COURS D'ABORD — le cours de la leçon en cours s'il n'a jamais été lu, ou, quand
+ *    aucune leçon n'est en cours, la prochaine leçon prête et débloquée. AVANT les
+ *    révisions : on apprend avant de s'exercer, et avant de lire l'histoire (la leçon
+ *    enseigne « juste avant l'exposition en contexte »). Placé derrière l'objectif du
+ *    jour, ce bloc n'était jamais atteint — une session courte s'arrête au premier
+ *    checkpoint — et le flux ne faisait jamais avancer les leçons : on révisait, on lisait,
+ *    puis un contrôle tombait sur un cours jamais donné. Un seul bloc par leçon : une fois
+ *    validé, la leçon est courante et son cours lu ;
+ * ② lecture d'une histoire de la leçon en cours juste après un bloc d'effort
  *    (révision OU renforcement — alternance travail/plaisir) ;
- * ② révisions si des cartes sont dues et l'objectif du jour pas atteint ;
- * ③ COURS de la leçon en cours s'il n'a jamais été lu : une leçon peut être devenue
- *    « courante » sans que le flux ne l'ait jamais enseignée (histoire lue depuis le
- *    catalogue, podcast, « commencer quand même ») — on la présente avant tout le reste
- *    de la leçon, et surtout avant son contrôle ;
+ * ③ révisions si des cartes sont dues et l'objectif du jour pas atteint ;
  * ④ contrôle de la leçon en cours dès qu'il est ouvert ET que la leçon a été travaillée
- *    (cours lu + au moins une histoire lue) : c'est lui qui débloque la suite, il passe
- *    donc AVANT la découverte d'une nouvelle leçon ;
- * ⑤ prochaine leçon si elle est prête et débloquée ;
+ *    (cours lu + au moins une histoire lue) : c'est lui qui débloque la suite ;
+ * ⑤ prochaine leçon prête alors qu'une leçon est encore en cours (cas rare : « commencer
+ *    quand même » a laissé une leçon ouverte derrière une barrière franchie) — elle attend
+ *    le contrôle de la leçon en cours ;
  * ⑥ relecture-miroir si un candidat existe ;
  * ⑦ histoire non lue de la leçon en cours (même sans révision préalable) ;
  * ⑧ renforcement si backlog dû restant, plafonné à MAX_REINFORCE_PER_FLOW blocs ;
@@ -95,8 +100,24 @@ export const MAX_REINFORCE_PER_FLOW = 2;
  */
 export function pickNext(state: FlowState): FlowActivity {
   const s = state;
-  const unread = s.currentLesson?.unreadStoryId;
+  const cur = s.currentLesson;
+  const unread = cur?.unreadStoryId;
 
+  // ① Le cours d'abord. La garde `lastActivity` est un filet : le bloc validé pose
+  // `courseReadAt` (ou commence la leçon), l'état re-collecté ne repasse donc pas ici.
+  if (s.lastActivity !== "lesson") {
+    if (cur && !cur.courseRead && cur.courseReady) {
+      return {
+        kind: "lesson",
+        refId: cur.id,
+        title: `Leçon — ${cur.title}`,
+        reason: "Le cours de ta leçon n'a pas encore été lu — on apprend avant de s'exercer.",
+      };
+    }
+    if (!cur && s.nextLesson?.ready) {
+      return nextLesson(s);
+    }
+  }
   if ((s.lastActivity === "review" || s.lastActivity === "reinforce") && unread) {
     return readStory(s);
   }
@@ -109,15 +130,6 @@ export function pickNext(state: FlowState): FlowActivity {
       kind: "review",
       title: `Révisions (${blockLabel(s)})`,
       reason: "L'objectif du jour n'est pas encore atteint.",
-    };
-  }
-  const cur = s.currentLesson;
-  if (cur && !cur.courseRead && cur.courseReady && s.lastActivity !== "lesson") {
-    return {
-      kind: "lesson",
-      refId: cur.id,
-      title: `Leçon — ${cur.title}`,
-      reason: "Tu as commencé cette leçon sans jamais lire son cours — le voici.",
     };
   }
   // Le 関所 ne s'ouvre que sur une leçon RÉELLEMENT travaillée : assez d'items stabilisés
@@ -133,14 +145,7 @@ export function pickNext(state: FlowState): FlowActivity {
       reason: "Le poste de contrôle est ouvert : franchis la barrière pour ouvrir la suite.",
     };
   }
-  if (s.nextLesson?.ready && s.lastActivity !== "lesson") {
-    return {
-      kind: "lesson",
-      refId: s.nextLesson.id,
-      title: `Leçon — ${s.nextLesson.title}`,
-      reason: "La leçon suivante est prête.",
-    };
-  }
+  if (s.nextLesson?.ready && s.lastActivity !== "lesson") return nextLesson(s);
   if (s.mirrorCandidate && s.lastActivity !== "mirror") {
     return {
       kind: "mirror",
@@ -234,12 +239,19 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
         break;
       case "lesson":
         // Deux leçons possibles derrière le même `kind` : le cours jamais lu de la leçon
-        // courante (règle ③) ou la découverte de la suivante (règle ⑤).
+        // courante ou la découverte de la suivante (règles ① et ⑤). La découverte en fait
+        // la leçon courante, cours lu : la simulation fait de même.
         if (sim.currentLesson && a.refId === sim.currentLesson.id) {
           steps.push({ kind: a.kind, label: "le cours de ta leçon" });
           sim.currentLesson.courseRead = true;
         } else {
           steps.push({ kind: a.kind, label: "une leçon" });
+          sim.currentLesson = {
+            id: sim.nextLesson!.id,
+            title: sim.nextLesson!.title,
+            courseRead: true,
+            courseReady: true,
+          };
           sim.nextLesson = undefined;
         }
         break;
@@ -255,6 +267,15 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
     sim.lastActivity = a.kind;
   }
   return steps;
+}
+
+function nextLesson(s: FlowState): FlowActivity {
+  return {
+    kind: "lesson",
+    refId: s.nextLesson!.id,
+    title: `Leçon — ${s.nextLesson!.title}`,
+    reason: "La leçon suivante est prête — on la découvre avant de s'exercer.",
+  };
 }
 
 function readStory(s: FlowState): FlowActivity {

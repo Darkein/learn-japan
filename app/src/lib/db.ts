@@ -175,11 +175,12 @@ export interface LessonProgressRecord {
   /** v14 — admission au contrôle de fin de leçon : c'est ELLE qui débloque la suivante. */
   examPassedAt?: number;
   /**
-   * Le COURS a été mis sous les yeux de l'utilisateur : bloc « Leçon » du flux validé, ou
-   * page de la leçon ouverte. À ne pas confondre avec `startedAt`, qui marque seulement
-   * qu'on a touché à la leçon (podcast, histoire lue, « commencer quand même »). C'est
-   * `courseReadAt` qui atteste que la leçon a été ENSEIGNÉE, condition pour que le flux
-   * propose son contrôle (voir lib/flow.ts).
+   * Le COURS a été lu et VALIDÉ : bloc « Leçon » du flux validé, ou « J'ai lu le cours »
+   * sur la page de la leçon — ouvrir la page ne suffit pas. À ne pas confondre avec
+   * `startedAt`, qui marque seulement qu'on a touché à la leçon (page ouverte, podcast,
+   * histoire lue, « commencer quand même »). C'est `courseReadAt` qui atteste que la leçon
+   * a été ENSEIGNÉE : le flux ouvre la session sur le cours tant qu'il manque, et ne
+   * propose le contrôle qu'une fois posé (voir lib/flow.ts).
    */
   courseReadAt?: number;
 }

@@ -66,14 +66,27 @@ export function CourseDetail({
 
   const lessonId = lesson.id;
 
-  // Ouvrir la page d'une leçon, c'est en lire le cours : la leçon est commencée et son
-  // cours compte comme enseigné (le flux n'a plus à le présenter, et le contrôle peut
-  // s'ouvrir). Marqué ICI et non dans la génération : préparer la matière n'est pas
-  // l'étudier, et le cours reste lisible même sans génération (il s'assemble depuis
-  // l'inventaire). En aperçu, rien — le geste de navigation n'est pas validé.
+  // Ouvrir la page d'une leçon la COMMENCE (geste d'étude : ses objectifs entrent en
+  // rotation, elle devient la leçon courante du flux) — mais n'en fait PAS un cours lu.
+  // Ouvrir, c'était « lire » : toute leçon commencée depuis sa page avait son cours réputé
+  // lu, le bloc « Leçon » du flux ne venait jamais, et le contrôle tombait sur un cours
+  // survolé. Lire le cours est un geste explicite : « J'ai lu le cours » ci-dessous, ou le
+  // bloc « Leçon » du flux. Marqué ICI et non dans la génération : préparer la matière n'est
+  // pas l'étudier. En aperçu, rien — le geste de navigation n'est pas validé.
   useEffect(() => {
-    if (!preview) void markLessonCourseRead(lessonId);
+    if (!preview) void markLessonStarted(lessonId);
   }, [lessonId, preview]);
+
+  // Cours lu : l'état de la leçon reçue, puis le geste de l'utilisateur sur cette page (la
+  // leçon n'est pas rechargée après `markLessonCourseRead`).
+  const [courseRead, setCourseRead] = useState(!!lesson.courseReadAt);
+  useEffect(() => {
+    setCourseRead(!!lesson.courseReadAt);
+  }, [lessonId, lesson.courseReadAt]);
+  async function validateCourse() {
+    await markLessonCourseRead(lessonId);
+    setCourseRead(true);
+  }
 
   useEffect(() => {
     // Cours absent OU périmé (curriculum changé sous cet id) : (re)génération auto.
@@ -172,6 +185,27 @@ export function CourseDetail({
           activeSegment={curSeg?.chapter === "cours" ? curSeg : null}
           follow={podcast.playing && podcast.autoNavigate}
         />
+
+        {/* Lire le cours se VALIDE : c'est ce jalon (`courseReadAt`) qui dit au flux de ne
+            plus le présenter et qui autorise le contrôle. Rendu inerte en aperçu (couche
+            voisine du carrousel), comme les actions de la barre. */}
+        {!courseRead && (
+          <div
+            className={`flex flex-col items-center gap-1 py-2 ${preview ? "pointer-events-none" : ""}`}
+            aria-hidden={preview || undefined}
+          >
+            <Button
+              onClick={preview ? undefined : () => void validateCourse()}
+              tabIndex={preview ? -1 : undefined}
+              title="Le flux d'étude ne te représentera plus ce cours, et le contrôle pourra s'ouvrir une fois une histoire lue"
+            >
+              J'ai lu le cours
+            </Button>
+            <span className="text-xs text-muted">
+              Sinon, le flux d'étude te le présentera en ouverture de ta prochaine session.
+            </span>
+          </div>
+        )}
 
         {/* Deux gestes distincts, et il ne faut pas les confondre : l'ENTRAÎNEMENT (corrigé
             au fil de l'eau, auto-noté, à volonté) et le CONTRÔLE (une épreuve notée, qui
