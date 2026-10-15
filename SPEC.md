@@ -323,6 +323,12 @@ deck déjà joué (« Rejouer les ratés », « Recommencer » du Lecteur) n'éc
 (rater deux fois le même mot dans la même session ne compte pas deux oublis), et une réussite
 répétée à volonté ne la gonfle pas.
 
+**Seconde chance.** Seule exception : à la relance, un raté **réussi** retrouve l'état qu'il avait
+avant son erreur (carte FSRS et série de saisie, photographiées au moment du raté) — ni plus, une
+réussite à quelques secondes de la correction ne prouvant pas la rétention, ni moins. L'erreur
+reste au journal. Pas de seconde chance pour un élément qui n'avait pas de carte avant l'erreur,
+ni pour la reconstruction de phrase du Lecteur (elle note tous les mots de la phrase à la fois).
+
 L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
 le plafond de session, pas à décider de leur ordre de passage.
 

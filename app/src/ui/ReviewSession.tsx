@@ -1,9 +1,19 @@
-import { useEffect, useState } from "react";
-import { daysBeforeGrade, TRACK_FR, type Exercise } from "../lib/exercise";
+import { useEffect, useRef, useState } from "react";
+import {
+  daysBeforeGrade,
+  isMiss,
+  itemKey,
+  secondChance,
+  snapshotBeforeGrade,
+  TRACK_FR,
+  type Exercise,
+  type GradeSnapshot,
+} from "../lib/exercise";
 import type { SrsGrade } from "../lib/srs";
 import { buildSession, gradeCard, sessionStats, silenceDeck, type SessionOpts } from "../lib/reviewSession";
 import { ExerciseCard } from "./exercise/ExerciseCard";
 import { SessionSummary } from "./SessionSummary";
+import { PRACTICE_HINT, PRACTICE_SUMMARY, SECOND_CHANCE_HINT, SECOND_CHANCE_SUMMARY } from "./practiceNotes";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { useSettings } from "./useSettings";
 
@@ -20,8 +30,11 @@ export function ReviewSession({ opts, onExit }: Props) {
   const sessionName = checkup ? "Question" : "Révision";
   // Relance des ratés : ces cartes viennent d'être notées dans CETTE session. Les noter une
   // seconde fois comptait deux fois le même oubli (FSRS rabotait encore la stabilité, et
-  // la maîtrise baissait de nouveau). C'est donc un entraînement, comme le bilan de leçon.
+  // la maîtrise baissait de nouveau). C'est donc un entraînement, comme le bilan de leçon —
+  // avec une SECONDE CHANCE : un raté réussi cette fois retrouve son état d'avant l'erreur.
   const [replaying, setReplaying] = useState(false);
+  // État des éléments ratés, photographié avant que la note ne les replanifie.
+  const beforeMiss = useRef(new Map<string, GradeSnapshot>());
   // Entraînement = aucune écriture SRS : ni la carte, ni le journal, ni le compteur du jour.
   // Le bilan de leçon (scope "all") en fait toujours partie — il se lance à volonté, hors
   // planification ; ni une erreur ne doit faire baisser la maîtrise, ni une réussite
@@ -74,7 +87,7 @@ export function ReviewSession({ opts, onExit }: Props) {
       <SessionSummary
         results={results}
         title={checkup ? "Acquis vérifiés" : "Révision terminée"}
-        practice={practice}
+        note={checkup ? PRACTICE_SUMMARY : replaying ? SECOND_CHANCE_SUMMARY : undefined}
         onRestart={() => restart()}
         onReplayMissed={(missed) => restart(missed)}
         onClose={onExit}
@@ -100,7 +113,13 @@ export function ReviewSession({ opts, onExit }: Props) {
   async function persistGrade(g: SrsGrade) {
     const graded = card!;
     const daysBefore = await daysBeforeGrade(graded);
-    if (!practice) await gradeCard(graded, g);
+    if (!practice) {
+      const snap = isMiss(g) ? await snapshotBeforeGrade(graded) : undefined;
+      if (snap) beforeMiss.current.set(itemKey(graded), snap);
+      await gradeCard(graded, g);
+    } else if (replaying && !isMiss(g)) {
+      await secondChance(beforeMiss.current, graded);
+    }
     setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
   }
 
@@ -114,9 +133,7 @@ export function ReviewSession({ opts, onExit }: Props) {
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
       {practice && (
-        <p className="m-0 text-xs text-muted">
-          Entraînement : tes réponses ne changent pas la planification des révisions.
-        </p>
+        <p className="m-0 text-xs text-muted">{checkup ? PRACTICE_HINT : SECOND_CHANCE_HINT}</p>
       )}
       {backlog > 0 && !practice && (
         <p className="m-0 text-xs text-muted">
