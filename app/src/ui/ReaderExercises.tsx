@@ -67,6 +67,10 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
   const [error, setError] = useState<string | null>(null);
   const [i, setI] = useState(0);
   const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
+  // Deuxième passage (« Recommencer », « Rejouer les ratés ») : ces cartes viennent d'être
+  // notées. Les renoter comptait deux fois le même oubli — c'est un entraînement, sans
+  // écriture SRS.
+  const [practice, setPractice] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +132,7 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
     function restart(replay?: Exercise[]) {
       setResults([]);
       setI(0);
+      setPractice(true);
       setDeck(replay ?? shuffle(fullDeck ?? []));
     }
 
@@ -135,6 +140,7 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
       <SessionSummary
         results={results}
         title="Exercices terminés"
+        practice={practice}
         onRestart={() => restart()}
         onReplayMissed={(missed) => restart(missed)}
         onClose={onClose}
@@ -149,7 +155,7 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
   async function persistGrade(g: SrsGrade) {
     const graded = card!;
     const daysBefore = await daysBeforeGrade(graded);
-    await gradeExercise(graded, g);
+    if (!practice) await gradeExercise(graded, g);
     setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
   }
 
@@ -159,6 +165,11 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
         Exercices {i + 1} / {deck.length} ·{" "}
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
+      {practice && (
+        <p className="m-0 text-xs text-muted">
+          Entraînement : tes réponses ne changent pas la planification des révisions.
+        </p>
+      )}
       <ExerciseCard key={card.key} exercise={card} onGraded={(g) => void persistGrade(g)} onNext={nextCard} />
     </div>,
   );

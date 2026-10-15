@@ -18,6 +18,15 @@ export function ReviewSession({ opts, onExit }: Props) {
   // "Vérification des acquis" (toute la leçon, scope "all") — cohérent avec le bouton d'entrée.
   const checkup = (opts?.scope ?? "due") === "all";
   const sessionName = checkup ? "Question" : "Révision";
+  // Relance des ratés : ces cartes viennent d'être notées dans CETTE session. Les noter une
+  // seconde fois comptait deux fois le même oubli (FSRS rabotait encore la stabilité, et
+  // la maîtrise baissait de nouveau). C'est donc un entraînement, comme le bilan de leçon.
+  const [replaying, setReplaying] = useState(false);
+  // Entraînement = aucune écriture SRS : ni la carte, ni le journal, ni le compteur du jour.
+  // Le bilan de leçon (scope "all") en fait toujours partie — il se lance à volonté, hors
+  // planification ; ni une erreur ne doit faire baisser la maîtrise, ni une réussite
+  // répétée la gonfler.
+  const practice = checkup || replaying;
   const [cards, setCards] = useState<Exercise[] | null>(null);
   const [i, setI] = useState(0);
   const [backlog, setBacklog] = useState(0);
@@ -52,6 +61,7 @@ export function ReviewSession({ opts, onExit }: Props) {
     function restart(deck?: Exercise[]) {
       setResults([]);
       setI(0);
+      setReplaying(!!deck);
       if (deck) {
         setCards(deck);
       } else {
@@ -64,6 +74,7 @@ export function ReviewSession({ opts, onExit }: Props) {
       <SessionSummary
         results={results}
         title={checkup ? "Acquis vérifiés" : "Révision terminée"}
+        practice={practice}
         onRestart={() => restart()}
         onReplayMissed={(missed) => restart(missed)}
         onClose={onExit}
@@ -89,7 +100,7 @@ export function ReviewSession({ opts, onExit }: Props) {
   async function persistGrade(g: SrsGrade) {
     const graded = card!;
     const daysBefore = await daysBeforeGrade(graded);
-    await gradeCard(graded, g);
+    if (!practice) await gradeCard(graded, g);
     setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
   }
 
@@ -102,7 +113,12 @@ export function ReviewSession({ opts, onExit }: Props) {
         {sessionName} {i + 1} / {cards.length} ·{" "}
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
-      {backlog > 0 && (
+      {practice && (
+        <p className="m-0 text-xs text-muted">
+          Entraînement : tes réponses ne changent pas la planification des révisions.
+        </p>
+      )}
+      {backlog > 0 && !practice && (
         <p className="m-0 text-xs text-muted">
           Bloc calé sur ton objectif du jour, les plus urgents d'abord — le reste attendra le
           bloc suivant.

@@ -30,6 +30,8 @@ interface Props {
   onClose?: () => void;
   onRestart?: () => void;
   onReplayMissed?: (missed: Exercise[]) => void;
+  /** Session d'entraînement : les réponses n'ont pas touché la planification. */
+  practice?: boolean;
 }
 
 /**
@@ -58,7 +60,7 @@ export function summaryBadge(entry: {
 }
 
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
-export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed }: Props) {
+export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed, practice }: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
   const chimed = useRef(false);
 
@@ -108,6 +110,11 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
           {title} — {results.length} élément{results.length > 1 ? "s" : ""} revu
           {results.length > 1 ? "s" : ""}
         </p>
+        {practice && (
+          <p className="m-0 text-xs text-muted">
+            Entraînement : la maîtrise n'a pas bougé, ni en cas d'erreur ni en cas de réussite.
+          </p>
+        )}
       </div>
 
       {leeches.length > 0 && (

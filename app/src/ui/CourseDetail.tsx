@@ -183,7 +183,7 @@ export function CourseDetail({
           {onStartReview && ready && !busy && (
             <Button
               onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}
-              title="Questions sur tout le vocabulaire et la grammaire de la leçon — les réponses alimentent la répétition espacée"
+              title="Questions sur tout le vocabulaire et la grammaire de la leçon — entraînement libre, les réponses ne changent pas la répétition espacée"
             >
               S'entraîner sur la leçon
             </Button>

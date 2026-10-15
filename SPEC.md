@@ -316,6 +316,13 @@ histoire déjà lue sert d'exercice d'écoute.
 SRS du jour, vérification des acquis d'une leçon, exercices d'une histoire. Seule la **source** des
 mots change (`scope: "due" | "all" | "story"`), jamais le format.
 
+**Entraînement ≠ révision.** Seules la révision du jour et le premier passage des exercices d'une
+histoire notent les cartes. L'entraînement sur une leçon (`scope: "all"`) et toute relance d'un
+deck déjà joué (« Rejouer les ratés », « Recommencer » du Lecteur) n'écrivent **rien** dans le SRS
+— ni la carte, ni le journal, ni le compteur du jour : une erreur ne fait pas baisser la maîtrise
+(rater deux fois le même mot dans la même session ne compte pas deux oublis), et une réussite
+répétée à volonté ne la gonfle pas.
+
 L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
 le plafond de session, pas à décider de leur ordre de passage.
 
