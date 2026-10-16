@@ -8,15 +8,25 @@
 
 ## 1. Vision
 
-Un **lecteur de japonais extensif et adaptatif**, à usage personnel, **mobile d'abord**, centré sur
-des sessions de lecture plaisante d'environ 30 minutes. La lecture est l'activité centrale ; la
-révision espacée travaille en arrière-plan plutôt que de dicter chaque écran.
+Un **lecteur de japonais extensif et adaptatif**, à usage personnel, **mobile d'abord**, organisé
+en un **parcours** de leçons aux étapes prévisibles (§5) : cours, vocabulaire, grammaire, révision,
+histoire, production, contrôle — puis la leçon suivante. La séance n'a pas de fin imposée : on
+travaille quand on veut, aussi longtemps qu'on veut. La lecture reste une étape de chaque leçon et
+une activité libre à tout moment ; la révision espacée travaille **dans** le parcours, sans jamais
+le bloquer.
 
 Premier et seul utilisateur visé : le concepteur lui-même. Conséquence : pas de multi-utilisateurs,
 pas de comptes applicatifs, pas de synchro cloud au départ. **Les données d'apprentissage sont
 locales** (sur l'appareil).
 
-Principe directeur en cas de conflit : **la qualité narrative prime, le SRS s'adapte autour.**
+Principes directeurs :
+- **On avance en faisant.** Ce qui fait passer à l'étape suivante, c'est le travail fait, jamais
+  l'écoulement du temps ni la charge de révision. Une leçon prend un nombre d'étapes connu
+  d'avance.
+- **La mémoire se consolide dans le parcours.** Les révisions sont des étapes du parcours, visibles
+  et prévues ; elles peuvent ralentir l'arrivée du neuf, jamais la geler.
+- **Pour le contenu généré, la qualité narrative prime** : les histoires s'écrivent pour être lues,
+  pas pour cocher des mots.
 
 Deux usages se nourrissent l'un l'autre : **lire une histoire le soir**, la **réécouter en
 conduisant le lendemain**.
@@ -57,8 +67,16 @@ texte), mais **sans carte SRS**. Seuls les **objectifs des leçons commencées**
 automatiquement en révision, dans l'ordre curé du curriculum : une histoire de leçon charrie des
 dizaines de mots hors objectifs, et les promouvoir noyait les mots-cibles sous du vocabulaire jamais
 choisi. Un mot **incident** entre en planification quand l'utilisateur le décide **depuis le
-texte** — tap sur le mot dans le Lecteur (connu / à revoir / oublié), exercices de l'histoire,
-bouton de suggestion de la fiche kanji — et ces gestes créent la carte eux-mêmes.
+texte** — tap sur le mot dans le Lecteur (connu / à revoir / oublié), bouton de suggestion de la
+fiche kanji — et ces gestes créent la carte eux-mêmes.
+
+**Les exercices d'une histoire ne créent plus de carte pour un mot incident.** Ils notent les
+objectifs de leçon qui ont déjà une carte ; un mot incident y est travaillé **sans écriture SRS**.
+Constat qui a motivé la règle : 89 histoires lues avaient mis en rotation des mots jamais choisis
+(宝物, « objet précieux », 20 révisions à 40 % de réussite) qui encombraient les révisions et
+tiraient la rétention mesurée vers le bas. Une passe unique sort de la rotation le vocabulaire
+incident déjà promu (même règle que `purgeIncidentalCards`) ; les rares ajouts manuels se
+réajoutent d'un tap.
 
 ### 2.2 Un mot, une carte — cinq formes d'exercice
 
@@ -84,13 +102,23 @@ déjà) ; une seule carte le rend inutile. Une base ancienne est **fusionnée en
 fournie en historique.
 
 **Les compétences restent une progression**, mais comme **conditions de tirage** et non plus
-comme planifications : l'écoute ne s'ouvre qu'une fois le mot stabilisé (état `Review`), la
-production attend en plus l'intervalle de déblocage, et les formes qui exigent une phrase
+comme planifications : une forme n'est tirée que si le mot a atteint son **niveau** dans le
+parcours (ci-dessous) — ce critère remplace l'ancien, qui ouvrait l'écoute à l'état `Review` et
+la production à l'intervalle de déblocage de 4 jours —, et les formes qui exigent une phrase
 d'exemple ou du son s'effacent quand la matière ou le son manquent. L'**écrit** est toujours
 recevable — c'est le filet du tirage — et **pondéré** (`WRITTEN_WEIGHT`) : seule forme
 constructible pour n'importe quel mot, et seule à faire avancer la série qui ouvre la saisie.
 Enfin, la forme du passage précédent (`lastDrill`) est **reléguée en dernier**, sans jamais
 disparaître : une forme n'est pas toujours constructible, il faut un repli.
+
+**Les formes suivent le parcours.** Le parcours range ces formes en trois **niveaux** de
+difficulté (§5.3) — reconnaître (`written` en QCM), rappeler (`written` en saisie,
+`listen-meaning`, `listen-word`), produire (`dictation`, `production`) — et chaque élément
+mémorise le **plus haut niveau atteint** dans sa leçon. En révision, la forme tirée ne dépasse
+jamais ce niveau : un mot vu seulement en reconnaissance n'est pas servi en production. Un échec
+sur une forme qu'on n'a jamais travaillée comptait comme un oubli — FSRS suppose pourtant un
+test de difficulté constante, et la rétention mesurée en était faussée. Une fois la leçon
+terminée, tous les niveaux sont ouverts.
 
 La note replanifie **la carte du mot**, quelle que soit la forme servie : une réussite à
 l'oreille éloigne le mot, un échec en production le ramène. `ReviewLog.skill` garde trace de
@@ -158,6 +186,13 @@ vraies dont une seule compte.
 une date de prochaine révision qui s'éloigne après une bonne réponse, se rapproche après une erreur.
 Les résultats des quiz alimentent directement le SRS.
 
+**Cible de rétention fixe : 90 %** (défaut FSRS). L'auto-réglage qui relevait la cible quand on se
+trompait est **supprimé** : il aggravait ce qu'il devait corriger. Cas réel : rétention mesurée
+76 %, cible montée au plafond de 97 % — des intervalles environ quatre fois plus courts, donc plus
+de cartes dues, donc plus de retard, sans que la rétention remonte. Les erreurs venaient en partie
+des formes d'exercice (§2.2), pas de l'espacement. La rétention mesurée reste affichée dans les
+Statistiques, à titre d'information.
+
 ### 2.4 Progression et calibrage
 - Progression **partant de zéro**.
 - Marquage manuel d'un élément comme **« connu »** (ne plus le réviser).
@@ -176,7 +211,9 @@ au service de la lecture.
 **Commencer une leçon est un geste d'ÉTUDE**, jamais un effet de bord : ouvrir son cours, lire
 une de ses histoires, l'écouter en podcast, « commencer quand même ». **Préparer la matière
 n'est pas l'étudier** — générer ou télécharger le contenu d'une leçon ne la commence pas, ne
-met pas ses éléments en rotation SRS et n'en fait pas la leçon courante du flux.
+met pas ses éléments en rotation SRS et n'en fait pas la leçon courante du flux. Dans le parcours
+(§5), commencer une leçon, c'est ouvrir sa première étape ; ses éléments reçoivent leur carte à
+leur première rencontre en exercice (étapes Vocabulaire et Grammaire), tous en même temps.
 
 ### 3.1 Curriculum — porte d'entrée du débutant
 
@@ -296,13 +333,158 @@ navigateur)**. Dictionnaire **épinglé (UniDic)** pour la reproductibilité.
 nombres, 行った, noms propres). Prévoir une **correction manuelle** (override mémorisé) et un **dico
 de noms propres** (JMnedict + entrées manuelles).
 
-## 5. Structure d'une session (~30 min)
-1. **Échauffement de révision** (~5 min) — éléments SRS les plus urgents, quiz rapides.
-2. **Lecture d'une nouvelle histoire** (~15 min) — audio, furigana au tap, gloss littéral.
-3. **Quiz de compréhension / lecture** (~10 min) — nourrit le SRS.
+## 5. Le parcours — des étapes prévisibles, une séance sans fin
 
-**Relecture** proposée **en option** (jamais forcée) si score faible ou histoire dense. L'audio d'une
-histoire déjà lue sert d'exercice d'écoute.
+**Constat qui a motivé le parcours.** Le flux précédent choisissait l'activité suivante d'après une
+liste de priorités, et la progression d'une leçon à l'autre dépendait de la **stabilité FSRS** de
+ses éléments (60 % avec un intervalle ≥ 4 jours pour ouvrir le contrôle). Ces éléments n'entraient
+en révision qu'au compte-gouttes, par un débit de nouveautés freiné dès que le retard montait. Cas
+réel : objectif de 10 cartes par jour, rétention mesurée de 76 %, cible de rétention montée à
+97 % — le frein coupait toute nouveauté, et la leçon 12 est restée **plusieurs jours à 0 %** malgré
+un travail quotidien. L'utilisateur ne savait ni ce qui venait ensuite, ni combien il en restait,
+ni pourquoi rien n'avançait.
+
+Le parcours remplace ce modèle : **chaque leçon est une suite fixe d'étapes**, toujours la même,
+qu'on enchaîne dans l'ordre. On sait à tout moment où on en est (« étape 3 sur 7 ») et ce qui vient
+ensuite.
+
+### 5.1 Une séance sans fin
+
+- **Le flux ne se termine pas de lui-même.** Après chaque étape, il y en a toujours une suivante :
+  l'étape suivante de la leçon, ou la première de la leçon d'après. Il n'y a plus de « Terminer
+  pour aujourd'hui » imposé, ni de plafond de blocs de renforcement.
+- **Chaque fin d'étape est un point de sortie** (le checkpoint actuel) : on s'arrête quand on veut,
+  et on reprend exactement là où on s'était arrêté, au début de l'étape interrompue.
+- **L'objectif du jour devient un repère**, compté en **étapes** (défaut : 3, soit environ
+  15 minutes). Il nourrit la série de jours, les rappels et l'omikuji ; une fois atteint, on le
+  signale et le parcours continue.
+- **Le contenu se prépare à l'avance.** Dès qu'une leçon est commencée, la génération du contenu
+  de la suivante (cours, première histoire) part en arrière-plan : enchaîner deux leçons dans la
+  soirée ne doit jamais faire attendre.
+
+### 5.2 Les étapes d'une leçon
+
+| # | Étape | Contenu | Exercices | Durée (leçon de 8 mots, 2 points) |
+|---|---|---|---|---|
+| 1 | **Cours** | le cours de la leçon (§3.1) | — | ~4 min |
+| 2 | **Vocabulaire** | niveaux 1 et 2 des mots de la leçon | 2 par mot | ~5 min |
+| 3 | **Grammaire** | niveaux 1 et 2 des points de la leçon | 4 par point | ~3 min 30 |
+| 4 | **Révision** | cartes dues, rappels des leçons précédentes (§5.4) | 10, fixe | ~3 min |
+| 5 | **Histoire** | lecture d'une histoire de la leçon, puis ses exercices | lecture + 6 à 10 | ~7 min |
+| 6 | **Produire** | niveau 3 des mots et des points de la leçon | 1 par mot, 2 par point | ~5 min |
+| 7 | **Contrôle** (関所) | l'épreuve notée (§5b) | ~15 questions | ~8 min |
+
+- **Durée cible : environ 35 minutes** pour une leçon de 10 éléments, de moins de 30 minutes
+  (leçon 1 : 4 mots, 2 points) à près de 40 minutes (leçon 9 : 14 mots). Les durées par
+  exercice sont celles observées dans l'app (15 à 20 s en moyenne, lecture comprise) et seront
+  recalées par la mesure (§5.7).
+- **Les étapes 2, 3 et 6 se dimensionnent d'après la leçon** ; les autres sont fixes. Une leçon
+  sans grammaire saute l'étape 3, et l'étape 6 n'y porte que sur les mots.
+- **L'ordre est fixe et les étapes ne se sautent pas** : c'est ce qui rend le parcours prévisible.
+  Une étape terminée peut toujours être refaite, sans effet sur la répétition espacée (§5.5).
+  La page d'une leçon donne en plus un accès libre à son cours, à ses histoires et à
+  l'entraînement.
+- **Une jauge par étapes.** La carte de leçon affiche les étapes faites (« 3 / 7 ») au lieu de la
+  part d'éléments stabilisés. La **maîtrise** (intervalle ≥ 21 jours) reste affichée à part, comme
+  objectif à long terme.
+
+### 5.3 Trois réussites par élément
+
+Chaque élément nouveau (mot ou point de grammaire) est **réussi trois fois** pendant sa leçon, à
+**trois niveaux de difficulté croissante** : les deux premiers dans l'étape Vocabulaire (ou
+Grammaire), séparés par les autres éléments de la leçon, le troisième à l'étape Produire, après la
+révision et l'histoire. Environ trois
+rappels réussis à la première rencontre suffisent ; au-delà le gain est faible et il vaut mieux
+revoir l'élément plus tard, ce qui est le rôle de la révision espacée (§5.4). Les espacer, même de
+quelques minutes, retient mieux que trois réussites d'affilée. Le contrôle fait office de
+quatrième rappel.
+
+| Niveau | Vocabulaire | Grammaire (2 exercices par niveau) | Étape |
+|---|---|---|---|
+| 1 · **Reconnaître** | triangle en QCM | règle en QCM, emploi en QCM | 2 et 3 |
+| 2 · **Rappeler** | triangle en saisie, sens à l'écoute, mot à l'écoute | construction par tuiles, correction | 2 et 3 |
+| 3 · **Produire** | dictée, production en contexte | dictée d'une phrase du point, thème court | 6 |
+
+- Dans une étape, **tous les exercices de niveau 1 passent avant ceux de niveau 2**, dans un ordre
+  mélangé : chaque mot est revu après quelques autres, jamais deux fois de suite.
+- **La grammaire s'appuie sur les générateurs du contrôle** (`lib/exam.ts` : règle, emploi,
+  correction), utilisés ici en mode corrigé au fil de l'eau. Chaque point de grammaire n'a
+  aujourd'hui qu'une phrase d'exemple dans l'inventaire : les niveaux 2 et 3 puisent en plus dans
+  le corpus d'exemples (`examples.json`), puis dans des phrases générées par le Worker. C'est le
+  principal chantier de contenu du parcours.
+- Le niveau atteint par chaque élément est **mémorisé** : c'est lui qui borne les formes servies en
+  révision (§2.2).
+
+### 5.4 Réviser dans le temps
+
+Deux mécanismes complémentaires. Une séance pouvant durer aussi longtemps qu'on veut, la révision
+ne peut pas dépendre de la seule date : si l'on fait trois leçons dans la soirée, un rappel
+« à J+1 » n'a pas lieu avant le lendemain.
+
+**1. L'étape Révision, alimentée par FSRS.** La planification FSRS est conservée ; au lieu de
+freiner le neuf, elle remplit les étapes Révision.
+- Une étape Révision sert **10 cartes**. Les **3 premières places** vont aux rappels portés par
+  le parcours (ci-dessous) ; les autres aux cartes dues, toutes leçons confondues, les plus
+  urgentes d'abord.
+- **S'il n'y a pas assez de cartes dues**, elle complète avec les éléments **les plus fragiles**
+  (plus faible récupérabilité FSRS). FSRS traite une révision anticipée : elle est notée
+  normalement, et fait moins progresser la stabilité qu'une révision à l'échéance.
+- **Révision insérée.** Quand plus de 20 cartes sont dues (plus de deux étapes de retard), le
+  parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6),
+  et l'affiche comme telle (« Révision · 34 cartes en attente »). **Au plus une insertion par étape
+  de contenu** : un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais.
+
+**2. Les rappels portés par les leçons suivantes.** Comme les unités d'un parcours de type
+Duolingo font revenir les mots des précédentes, la leçon N rappelle les éléments de la leçon N−1
+(au niveau 2) et de la leçon N−3 (au niveau 3) dans les places réservées de son étape Révision.
+Les mots reviennent ainsi au rythme où l'on avance, quel que soit le calendrier. Les histoires
+continuent de mêler du vocabulaire des leçons précédentes (§4).
+
+**Station de repos, toutes les 5 leçons.** Une étape de révision plus longue (20 exercices, niveaux
+2 et 3) porte sur les éléments des cinq dernières leçons, les plus fragiles d'abord. Elle fait
+partie du parcours, entre le contrôle d'une leçon et le cours de la suivante, et n'a pas de note.
+Le rythme fixe (et non la fin d'unité) vient de l'inégalité des unités : de 2 à 6 leçons, soit
+d'environ 1 h 30 à plus de 4 heures de parcours.
+
+### 5.5 Erreurs et validation d'une étape
+
+- **La première réponse compte.** Une erreur est notée « à revoir » en FSRS, comme aujourd'hui :
+  le mot repasse en réapprentissage et revient vite en révision. On peut donc **perdre** de la
+  maîtrise, pas seulement en gagner. Réussir un mot trente secondes après l'avoir raté relève de
+  la mémoire immédiate : ça ne prouve pas qu'on le saura dans une semaine.
+- **Pas de pénalité de parcours.** Pas de cœurs, pas d'étape « ratée » : les exercices ratés sont
+  **rejoués à la fin de l'étape** jusqu'à être réussis, et l'étape est validée quand tous ses
+  exercices l'ont été. Ces relances servent à apprendre et n'écrivent rien dans le SRS.
+- **Plus de seconde chance.** La règle qui rendait à un raté réussi en relance l'état de sa carte
+  d'avant l'erreur est **supprimée** : appliquée à un parcours qui rejoue tous ses ratés, elle
+  aurait fait de la maîtrise une mesure qui ne peut que monter.
+- Une étape **refaite** après sa validation est un entraînement : aucune écriture SRS.
+
+### 5.6 Ce que le parcours remplace
+
+- **Le débit de nouveautés et son frein** (`newPerDay`, `sustainableNewPerDay`,
+  `effectiveNewPerDay`, le réglage « Nouveaux mots par jour ») : les cartes naissent dans les
+  étapes Vocabulaire et Grammaire. La charge que l'ancien plafond protégeait reste du même ordre :
+  à 10 minutes par jour, une leçon de 10 éléments tous les 3 à 4 jours, soit environ 3 éléments
+  nouveaux par jour ; et la révision insérée (§5.4) ralentit le neuf quand le retard monte.
+- **La dose du jour calée sur l'objectif en cartes** (`reviewBlockSize`) et le renforcement
+  plafonné (`MAX_REINFORCE_PER_FLOW`) : la révision a ses étapes, de taille fixe.
+- **L'ouverture du contrôle à 60 % d'éléments stabilisés** (`SRS.examEligibility`) : le contrôle
+  s'ouvre à la fin du parcours de la leçon (§5b).
+- **L'auto-réglage de la cible de rétention** (§2.3).
+
+**Reprise d'une base existante.** Les leçons terminées le restent. Pour la leçon en cours,
+l'étape 1 est créditée si le cours a été lu (`courseReadAt`), l'étape 5 si une de ses histoires a
+été lue, et les étapes 2 et 3 ne servent que les éléments qui n'ont pas encore de carte en état
+`Review` (les autres sont crédités des niveaux 1 et 2). L'étape 6 et le contrôle restent à faire.
+
+### 5.7 Mesurer pour calibrer
+
+Le journal de révisions (`ReviewLog`) enregistre l'heure de chaque réponse et la compétence, mais
+ni la forme d'exercice ni sa durée. Il enregistre désormais **la forme servie, le niveau et la
+durée de réponse** de chaque exercice. Ces mesures recalent les coefficients d'exercices par
+élément (§5.2) et la durée annoncée de chaque étape, affichée avant de la commencer
+(« Vocabulaire · 16 exercices · ~5 min »).
 
 ### Types de quiz
 - **Triangle** kanji ↔ furigana ↔ traduction (§2.2b) — le format de base du vocabulaire écrit
@@ -312,55 +494,18 @@ histoire déjà lue sert d'exercice d'écoute.
   le plus fréquent serait rétrogradé (et marqué difficile) par des phrases ratées sur la structure
 - Écoute (audio joué, comprendre sans le texte)
 
-**Un seul assembleur** (`buildSession`, `lib/reviewSession.ts`) sert les trois entrées — révision
-SRS du jour, vérification des acquis d'une leçon, exercices d'une histoire. Seule la **source** des
-mots change (`scope: "due" | "all" | "story"`), jamais le format.
+**Un seul assembleur** (`buildSession`, `lib/reviewSession.ts`) sert toutes les entrées — étapes
+du parcours, entraînement libre d'une leçon, exercices d'une histoire. Seule la **source** des
+éléments change (`scope`), jamais le format.
 
-**Entraînement ≠ révision.** Seules la révision du jour et le premier passage des exercices d'une
-histoire notent les cartes. L'entraînement sur une leçon (`scope: "all"`) et toute relance d'un
-deck déjà joué (« Rejouer les ratés », « Recommencer » du Lecteur) n'écrivent **rien** dans le SRS
-— ni la carte, ni le journal, ni le compteur du jour : une erreur ne fait pas baisser la maîtrise
-(rater deux fois le même mot dans la même session ne compte pas deux oublis), et une réussite
-répétée à volonté ne la gonfle pas.
+**Entraînement ≠ parcours.** Seules les étapes du parcours (première réponse de chaque exercice)
+et le premier passage des exercices d'une histoire notent les cartes. L'entraînement libre sur
+une leçon (`scope: "all"`), une étape refaite et toute relance d'un deck déjà joué (ratés rejoués,
+« Recommencer » du Lecteur) n'écrivent **rien** dans le SRS — ni la carte, ni le journal, ni le
+compteur du jour.
 
-**Seconde chance.** Seule exception : à la relance, un raté **réussi** retrouve l'état qu'il avait
-avant son erreur (carte FSRS et série de saisie, photographiées au moment du raté) — ni plus, une
-réussite à quelques secondes de la correction ne prouvant pas la rétention, ni moins. L'erreur
-reste au journal. Pas de seconde chance pour un élément qui n'avait pas de carte avant l'erreur,
-ni pour la reconstruction de phrase du Lecteur (elle note tous les mots de la phrase à la fois).
-
-L'ordre des cartes est **mélangé** : le tri par échéance sert à choisir les items qui tiennent dans
-le plafond de session, pas à décider de leur ordre de passage.
-
-### 5a. Dose du jour, débit de nouveautés et retard
-
-**L'objectif quotidien (en cartes) commande tout.** Il dimensionne le bloc de révision
-(`reviewBlockSize`) *et* plafonne le nombre de mots neufs introduits chaque jour.
-
-**Un mot neuf ne coûte pas une révision, mais cinq.** Il ne porte qu'une carte et ne repasse jamais
-deux fois dans la même journée ; seulement, FSRS le ramène le jour même, puis à ~3 jours, ~8, ~20,
-~45 — cinq passages avant qu'il ne s'éloigne vraiment. Introduire λ mots par jour finit donc par
-demander **λ × 5** révisions quotidiennes, et c'est ce produit que l'objectif borne. La valeur est
-**mesurée par simulation** (`lib/backlog.test.ts`) et stable d'un objectif à l'autre : 10 cartes/jour
-absorbent **2** mots neufs par jour, 20 en absorbent 4, 30 en absorbent 6. Le réglage « Nouveaux mots
-par jour » est donc un **plafond souhaité**, pas une promesse — la capacité de l'objectif a le
-dernier mot (`sustainableNewPerDay`). Sans cette borne, 10 mots neufs sur un objectif de 10 cartes
-faisaient croître le retard **indéfiniment** (+130 cartes en trois mois de simulation) :
-l'utilisateur voyait « à consolider » monter chaque jour sans jamais pouvoir revenir à zéro.
-
-Par-dessus ce plafond, un **frein en boucle fermée** (`effectiveNewPerDay`) rabote le débit quand la
-rétention mesurée chute ou que le retard s'accumule. Ses paliers s'expriment en **jours d'objectif**,
-jamais en valeur absolue — 40 cartes dues, c'est deux jours de travail à 20/jour et quatre à 10/jour :
-on ralentit au-delà d'un jour, on divise au-delà de deux, on **coupe** au-delà de trois. La coupure
-est temporaire par construction : sans nouveautés, les révisions vident le retard, et le débit repart.
-Tant que le palier de coupure n'est pas atteint, le débit garde un **plancher d'un mot par jour** —
-une progression gelée verrouillerait le contrôle de la leçon en cours, donc tout le parcours.
-
-**Où se lit le retard.** Pas dans le flux : celui-ci n'annonce que **la dose du jour** (« 10 révisions
-pour l'objectif du jour », « Révisions (10 cartes) »). Le total dû ne commande aucune décision de
-l'utilisateur pendant sa session — le bloc est calé sur l'objectif, pas sur le retard — et l'afficher
-en vitrine ne faisait que décourager. Il a sa place dans les **Statistiques** (« Charge des 7 prochains
-jours »), énoncé dans la seule unité qui se décide : **en jours d'objectif quotidien**.
+L'ordre des exercices est **mélangé** à l'intérieur d'un niveau : le tri par échéance sert à
+choisir les cartes qui tiennent dans une étape Révision, pas à décider de leur ordre de passage.
 
 ## 5b. Contrôle de fin de leçon — le 関所 *(nouveau)*
 
@@ -443,16 +588,14 @@ fois.
 épreuve interrompue redonne le même sujet, un rattrapage en donne un autre, les tests
 rejouent une tentative à l'identique.
 
-**Double clé du parcours** :
-- **Droit de se présenter** — `SRS.examEligibility` (60 % des éléments de la leçon assez
-  stables, même mesure que `unlockProgress`) : on ne s'évalue pas sans avoir travaillé.
-  Le **flux d'étude**, lui, ne PROPOSE le contrôle que si la leçon a en plus été
-  réellement **enseignée** : son cours lu (`courseReadAt` — bloc « Leçon » du flux validé
-  ou page de la leçon ouverte) et au moins une de ses histoires lue. Un seuil de stabilité
-  peut être atteint sans avoir jamais vu la leçon (mots communs croisés ailleurs, objectifs
-  partagés entre leçons) : la barrière ne se dresse pas devant un cours jamais donné. Si le
-  cours n'a pas été lu, le flux donne le cours **avant** le contrôle. Depuis la page de la
-  leçon, le droit de se présenter reste le seul seuil : on peut toujours tenter la barrière.
+**Une seule clé** (le parcours, §5, remplace l'ancienne double clé) :
+- **Ouverture** — le contrôle est la **septième étape** du parcours de la leçon : il s'ouvre quand
+  les six premières sont faites. La leçon a alors été enseignée (cours), travaillée aux trois
+  niveaux (vocabulaire, grammaire, production) et lue (histoire). L'ancien droit de se présenter,
+  60 % des éléments stabilisés en FSRS (`SRS.examEligibility`), est **supprimé** : il faisait
+  dépendre l'épreuve du temps écoulé et de la charge de révision, pas du travail fait. Depuis la
+  page de la leçon, on peut tenter le contrôle avant la fin du parcours : c'est un choix assumé,
+  jamais une proposition du flux.
 - **Déblocage** — l'**admission** (≥ `EXAM.passMark`, 12/20) ouvre la leçon suivante et
   marque la leçon terminée. Une leçon déjà commencée (« Commencer quand même ») ne se
   referme jamais.
@@ -461,8 +604,9 @@ rejouent une tentative à l'identique.
 blanc ou faux = 0. Chaque réponse est ensuite replanifiée en FSRS (`good` / `hard` / `again`) —
 une épreuve ratée n'est pas du travail perdu, c'est la révision du lendemain.
 
-**Rattrapage** : après un échec, il s'ouvre quand **les éléments ratés ont été repassés en
-révision** (pas de minuterie, pas d'acharnement sur le même sujet), avec un **nouveau tirage**.
+**Rattrapage** : après un échec, le parcours insère une étape **Révision ciblée** sur les éléments
+ratés (niveaux 2 et 3), puis rouvre le contrôle avec un **nouveau tirage** — pas de minuterie,
+pas d'acharnement sur le même sujet.
 Chaque copie est conservée (store `exams`, synchronisée) et relisible depuis la leçon ;
 franchir la barrière fait gagner du chemin sur la route en cours.
 
@@ -472,8 +616,8 @@ referme jamais la leçon suivante.
 
 **Où la note se lit** :
 - sur la **carte de leçon** — badge `16/20`, et sous la jauge « contrôle 16/20 — Très bien » ;
-  une fois la barrière franchie, la jauge d'ouverture cède la place à la **maîtrise** (objectif
-  long terme, intervalle ≥ 21 j) ;
+  une fois la barrière franchie, la jauge des étapes (§5.2) cède la place à la **maîtrise**
+  (objectif long terme, intervalle ≥ 21 j) ;
 - dans les **Statistiques**, un **bulletin** : une ligne par leçon présentée (meilleure note,
   mention, nombre de tentatives) et la **moyenne générale**, chaque leçon comptant pour une.
 
