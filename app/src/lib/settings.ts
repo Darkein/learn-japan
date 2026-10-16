@@ -16,7 +16,6 @@ export interface AppSettings {
   /** Estompage : masque gloss et furigana des mots marqués « connus » dans le lecteur. */
   glossHideKnown: boolean;
   dailyGoal: number;
-  newPerDay: number;
   theme: Theme;
   warmupRomaji: boolean;
   /** Révisions sans le son : les exercices d'écoute sont remplacés par de l'écrit
@@ -43,7 +42,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   glossDefault: true,
   glossHideKnown: true,
   dailyGoal: SRS.dailyGoal,
-  newPerDay: SRS.newPerDay,
   theme: "system",
   warmupRomaji: true,
   silentReviews: false,

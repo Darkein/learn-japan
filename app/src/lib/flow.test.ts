@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { pickNext, previewFlow, type FlowState } from "./flow";
+import { PATH_STEPS, type PathStep } from "./path";
 
-/** État de base : rien à faire nulle part. */
+/** État de base : aucune leçon ouverte, aucune carte. */
 function state(over: Partial<FlowState> = {}): FlowState {
   return {
     dueCount: 0,
-    newCount: 0,
+    hasCards: false,
     reviewedToday: 0,
     dailyGoal: 20,
     flowMsToday: 0,
@@ -13,222 +14,172 @@ function state(over: Partial<FlowState> = {}): FlowState {
   };
 }
 
-/** Leçon en cours normalement travaillée : cours lu, une histoire lue, une autre en attente. */
-const lessonInProgress = {
-  id: "n5-01",
-  title: "Se présenter",
-  unreadStoryId: "s1",
-  unreadStoryTitle: "Au café",
-  courseRead: true,
-  courseReady: true,
-  storyRead: true,
-};
+/** Leçon en cours, avec ses sept étapes ; `done` = celles déjà faites. */
+function lesson(done: PathStep[] = [], over: Partial<NonNullable<FlowState["currentLesson"]>> = {}) {
+  return {
+    id: "n5-10",
+    title: "Les gens autour de moi",
+    steps: [...PATH_STEPS],
+    stepsDone: done,
+    unreadStoryId: "s1",
+    unreadStoryTitle: "Au parc",
+    ...over,
+  };
+}
 
-describe("pickNext — barème", () => {
-  it("priorité aux révisions quand l'objectif n'est pas atteint", () => {
-    const a = pickNext(state({ dueCount: 12, reviewedToday: 5 }));
-    expect(a.kind).toBe("review");
-    expect(a.title).toContain("12");
+describe("pickNext — le parcours d'une leçon", () => {
+  it("enchaîne les étapes dans l'ordre : la première pas encore faite", () => {
+    expect(pickNext(state({ currentLesson: lesson() })).step).toBe("course");
+    expect(pickNext(state({ currentLesson: lesson(["course"]) })).step).toBe("vocab");
+    expect(pickNext(state({ currentLesson: lesson(["course", "vocab"]) })).step).toBe("grammar");
   });
 
-  it("le bouton annonce la dose du bloc, et RIEN du retard", () => {
-    // 42 dues, objectif 10 : le bloc en sert 10 — seul ce chiffre s'affiche. Le retard
-    // derrière ne concerne pas le bloc en cours ; il se lit dans les Statistiques.
-    const a = pickNext(state({ dueCount: 42, dailyGoal: 10 }));
-    expect(a.kind).toBe("review");
-    expect(a.title).toBe("Révisions (10 cartes)");
-    expect(a.title).not.toContain("42");
+  it("annonce le rang de l'étape dans le parcours", () => {
+    const a = pickNext(state({ currentLesson: lesson(["course", "vocab"]) }));
+    expect(a.kind).toBe("grammar");
+    expect(a.title).toBe("Étape 3/7 · Grammaire — Les gens autour de moi");
+    expect(a.lessonId).toBe("n5-10");
   });
 
-  it("le bloc atteint l'objectif → on passe à la suite le jour même", () => {
+  it("une étape créditée hors ordre est sautée, pas refaite", () => {
+    // L'histoire a été lue depuis le Catalogue avant les exercices.
+    const a = pickNext(state({ currentLesson: lesson(["course", "vocab", "grammar", "review", "story"]) }));
+    expect(a.step).toBe("produce");
+  });
+
+  it("l'étape Histoire vise la première histoire non lue, à défaut une histoire de la leçon", () => {
+    const done: PathStep[] = ["course", "vocab", "grammar", "review"];
+    expect(pickNext(state({ currentLesson: lesson(done) })).refId).toBe("s1");
+    const allRead = lesson(done, { unreadStoryId: undefined, anyStoryId: "s0" });
+    expect(pickNext(state({ currentLesson: allRead })).refId).toBe("s0");
+    // Aucune histoire : la leçon elle-même — l'étape en générera une.
+    const none = lesson(done, { unreadStoryId: undefined });
+    expect(pickNext(state({ currentLesson: none })).refId).toBe("n5-10");
+  });
+
+  it("le contrôle est la dernière étape", () => {
+    const a = pickNext(state({ currentLesson: lesson(PATH_STEPS.filter((s) => s !== "exam")) }));
+    expect(a.kind).toBe("exam");
+    expect(a.refId).toBe("n5-10");
+  });
+
+  it("une leçon sans grammaire saute l'étape Grammaire", () => {
+    const steps = PATH_STEPS.filter((s) => s !== "grammar");
+    const a = pickNext(state({ currentLesson: lesson(["course", "vocab"], { steps }) }));
+    expect(a.step).toBe("review");
+    expect(a.title).toContain("Étape 3/6");
+  });
+
+  it("la leçon en cours passe avant la découverte de la suivante", () => {
     const a = pickNext(
       state({
-        dueCount: 32,
-        dailyGoal: 10,
-        reviewedToday: 10,
-        nextLesson: { id: "n5-02", title: "Compter", ready: true },
+        currentLesson: lesson(["course"]),
+        nextLesson: { id: "n5-25", title: "Aller et venir", ready: true },
       }),
     );
+    expect(a.lessonId).toBe("n5-10");
+  });
+
+  it("sans leçon en cours, le cours de la prochaine leçon débloquée — même à générer", () => {
+    const a = pickNext(state({ nextLesson: { id: "n5-25", title: "Aller et venir", ready: false } }));
     expect(a.kind).toBe("lesson");
+    expect(a.step).toBe("course");
+    expect(a.refId).toBe("n5-25");
   });
+});
 
-  it("alternance : lecture d'une histoire de la leçon juste après un bloc de révision", () => {
-    const a = pickNext(
-      state({ dueCount: 12, reviewedToday: 5, lastActivity: "review", currentLesson: lessonInProgress }),
-    );
-    expect(a.kind).toBe("read-story");
-    expect(a.refId).toBe("s1");
-  });
-
-  it("enchaîne les blocs de révision s'il n'y a rien à alterner", () => {
-    const a = pickNext(state({ dueCount: 40, reviewedToday: 10, dailyGoal: 50, lastActivity: "review" }));
+describe("pickNext — révision insérée (le retard ralentit le neuf, il ne le gèle jamais)", () => {
+  it("plus de deux étapes Révision de retard : une révision devant l'étape nouvelle", () => {
+    const a = pickNext(state({ dueCount: 34, currentLesson: lesson(["course"]) }));
     expect(a.kind).toBe("review");
+    expect(a.step).toBeUndefined();
+    expect(a.title).toContain("34 cartes en attente");
   });
 
-  it("leçon suivante quand elle est prête et l'objectif atteint", () => {
-    const a = pickNext(
-      state({ reviewedToday: 20, nextLesson: { id: "n5-02", title: "Compter", ready: true } }),
-    );
-    expect(a.kind).toBe("lesson");
-    expect(a.refId).toBe("n5-02");
+  it("au plus une insertion par étape : juste après une révision, l'étape suit", () => {
+    const a = pickNext(state({ dueCount: 90, currentLesson: lesson(["course"]), lastActivity: "review" }));
+    expect(a.step).toBe("vocab");
   });
 
-  it("pas de leçon si elle n'est pas prête (à générer)", () => {
-    const a = pickNext(
-      state({ reviewedToday: 20, nextLesson: { id: "n5-02", title: "Compter", ready: false } }),
-    );
-    expect(a.kind).toBe("done");
+  it("sous le seuil, aucune insertion", () => {
+    expect(pickNext(state({ dueCount: 20, currentLesson: lesson(["course"]) })).step).toBe("vocab");
   });
 
-  it("relecture-miroir quand un candidat existe", () => {
-    const a = pickNext(
-      state({ mirrorCandidate: { storyId: "old", title: "Premier jour", ageDays: 45 } }),
-    );
+  it("le cours et le contrôle ne sont pas précédés d'une révision insérée", () => {
+    expect(pickNext(state({ dueCount: 90, currentLesson: lesson() })).step).toBe("course");
+    const beforeExam = lesson(PATH_STEPS.filter((s) => s !== "exam"));
+    expect(pickNext(state({ dueCount: 90, currentLesson: beforeExam })).kind).toBe("exam");
+  });
+});
+
+describe("pickNext — rattrapage après un contrôle échoué", () => {
+  const beforeExam = PATH_STEPS.filter((s) => s !== "exam");
+
+  it("révision ciblée des ratés d'abord, puis le contrôle", () => {
+    const cur = lesson(beforeExam, { retakePending: ["人|ひと", "n5-iru"] });
+    const a = pickNext(state({ currentLesson: cur }));
+    expect(a.kind).toBe("review");
+    expect(a.itemIds).toEqual(["人|ひと", "n5-iru"]);
+    expect(pickNext(state({ currentLesson: cur, lastActivity: "review" })).kind).toBe("exam");
+  });
+});
+
+describe("pickNext — une séance sans fin", () => {
+  it("rien de dû mais des cartes : une étape Révision plutôt qu'une fin", () => {
+    const a = pickNext(state({ hasCards: true }));
+    expect(a.kind).toBe("review");
+    expect(a.reason).toContain("Rien n'est dû");
+  });
+
+  it("done seulement quand il n'y a vraiment rien", () => {
+    expect(pickNext(state()).kind).toBe("done");
+  });
+
+  it("relecture-miroir entre deux étapes, au plus une fois par séance", () => {
+    const mirrorCandidate = { storyId: "old", title: "Premier jour", ageDays: 45 };
+    const base = { currentLesson: lesson(["course"]), mirrorCandidate };
+    // Pas en ouverture de séance : la séance commence par le parcours.
+    expect(pickNext(state(base)).step).toBe("vocab");
+    const a = pickNext(state({ ...base, lastActivity: "vocab" }));
     expect(a.kind).toBe("mirror");
     expect(a.reason).toContain("45");
-  });
-
-  it("lecture plaisir même sans révision préalable s'il ne reste que ça", () => {
-    const a = pickNext(state({ currentLesson: lessonInProgress }));
-    expect(a.kind).toBe("read-story");
-  });
-
-  it("renforcement quand l'objectif est atteint mais du dû reste", () => {
-    const a = pickNext(state({ dueCount: 8, reviewedToday: 25, lastActivity: "review" }));
-    expect(a.kind).toBe("reinforce");
-  });
-
-  it("alternance : lecture aussi après un bloc de renforcement", () => {
-    const a = pickNext(
-      state({ dueCount: 8, reviewedToday: 25, lastActivity: "reinforce", currentLesson: lessonInProgress }),
-    );
-    expect(a.kind).toBe("read-story");
-  });
-
-  it("renforcement plafonné : encore un bloc à 1, done à 2 même avec du dû", () => {
-    const base = { dueCount: 8, reviewedToday: 25 };
-    expect(pickNext(state({ ...base, reinforceCountThisFlow: 1 })).kind).toBe("reinforce");
-    expect(pickNext(state({ ...base, reinforceCountThisFlow: 2 })).kind).toBe("done");
-  });
-
-  it("done — sortie élégante quand tout est épuisé", () => {
-    const a = pickNext(state({ reviewedToday: 25, lastActivity: "review" }));
-    expect(a.kind).toBe("done");
-    expect(a.reason).toContain("La route t'attend demain");
+    expect(pickNext(state({ ...base, lastActivity: "vocab", mirrorDoneThisFlow: true })).kind).toBe("vocab");
   });
 
   it("déterminisme : même état → même sortie", () => {
-    const s = state({ dueCount: 3, currentLesson: lessonInProgress, lastActivity: "review" });
+    const s = state({ dueCount: 3, currentLesson: lesson(["course"]), lastActivity: "review" });
     const runs = Array.from({ length: 20 }, () => pickNext({ ...s }));
     expect(new Set(runs.map((a) => `${a.kind}:${a.refId}`)).size).toBe(1);
   });
 });
 
-describe("pickNext — le contrôle exige une leçon réellement travaillée", () => {
-  const examOpen = { ...lessonInProgress, unreadStoryId: undefined, unreadStoryTitle: undefined, examDue: true };
-
-  it("propose le contrôle quand le cours a été lu et une histoire lue", () => {
-    const a = pickNext(state({ reviewedToday: 20, currentLesson: examOpen }));
-    expect(a.kind).toBe("exam");
-    expect(a.refId).toBe("n5-01");
-  });
-
-  it("pas de contrôle sur une leçon dont le cours n'a jamais été lu : on donne le cours", () => {
-    const a = pickNext(
-      state({ reviewedToday: 20, currentLesson: { ...examOpen, courseRead: false } }),
-    );
-    expect(a.kind).toBe("lesson");
-    expect(a.refId).toBe("n5-01");
-    expect(a.reason).toContain("sans jamais lire son cours");
-  });
-
-  it("le cours de la leçon en cours passe AVANT la découverte de la suivante", () => {
-    const a = pickNext(
-      state({
-        reviewedToday: 20,
-        currentLesson: { ...examOpen, courseRead: false },
-        nextLesson: { id: "n5-02", title: "Compter", ready: true },
-      }),
-    );
-    expect(a.refId).toBe("n5-01");
-  });
-
-  it("cours indisponible (leçon à générer) : ni cours ni contrôle proposés", () => {
-    const a = pickNext(
-      state({
-        reviewedToday: 20,
-        currentLesson: { ...examOpen, courseRead: false, courseReady: false },
-      }),
-    );
-    expect(a.kind).toBe("done");
-  });
-
-  it("pas de contrôle tant qu'aucune histoire de la leçon n'a été lue", () => {
-    const a = pickNext(
-      state({
-        reviewedToday: 20,
-        currentLesson: { ...examOpen, storyRead: false, unreadStoryId: "s1", unreadStoryTitle: "Au café" },
-      }),
-    );
-    expect(a.kind).toBe("read-story");
-  });
-
-  it("cours relu une seule fois : après le bloc leçon, on n'y revient pas", () => {
-    const a = pickNext(
-      state({
-        reviewedToday: 20,
-        currentLesson: { ...examOpen, courseRead: false },
-        lastActivity: "lesson",
-      }),
-    );
-    expect(a.kind).not.toBe("lesson");
-  });
-});
-
 describe("previewFlow — prévisualisation de la carte d'accueil", () => {
-  it("annonce les révisions jusqu'à l'objectif du jour, puis une lecture", () => {
-    // 34 dues mais un objectif de 20 : la phase de révision en demande 20, pas 34 —
-    // annoncer tout le retard promettait une session que le flux ne sert pas.
-    const steps = previewFlow(state({ dueCount: 34, currentLesson: lessonInProgress }));
-    // Les 14 dues restantes partent en renforcement, facultatif — pas dans la phase de
-    // révision, qui s'arrête à l'objectif.
-    expect(steps.map((s) => s.label)).toEqual([
-      "20 révisions",
-      "une lecture",
-      "un bloc de renforcement",
-    ]);
+  it("annonce les prochaines étapes de la leçon", () => {
+    const steps = previewFlow(state({ currentLesson: lesson(["course"]) }));
+    expect(steps.map((s) => s.label)).toEqual(["le vocabulaire", "la grammaire", "une révision"]);
   });
 
-  it("petit objectif : le retard ne gonfle pas l'annonce", () => {
-    const steps = previewFlow(
-      state({ dueCount: 42, dailyGoal: 10, currentLesson: lessonInProgress }),
-      2,
-    );
-    expect(steps.map((s) => s.label)).toEqual(["10 révisions", "une lecture"]);
+  it("annonce la révision insérée quand le retard monte", () => {
+    const steps = previewFlow(state({ dueCount: 34, currentLesson: lesson(["course"]) }));
+    expect(steps.map((s) => s.label)).toEqual(["une révision", "le vocabulaire", "une révision"]);
   });
 
-  it("objectif atteint : au plus 2 blocs de renforcement puis fin", () => {
-    const steps = previewFlow(state({ dueCount: 90, reviewedToday: 25 }), 5);
-    expect(steps.map((s) => s.kind)).toEqual(["reinforce", "reinforce"]);
+  it("s'arrête au contrôle : son issue n'est pas connue d'avance", () => {
+    const steps = previewFlow(state({ currentLesson: lesson(["course", "vocab", "grammar", "review", "story"]) }), 5);
+    expect(steps.map((s) => s.label)).toEqual(["la production", "le contrôle"]);
   });
 
-  it("annonce le cours de la leçon avant son contrôle", () => {
-    const steps = previewFlow(
-      state({
-        reviewedToday: 25,
-        currentLesson: { ...lessonInProgress, unreadStoryId: undefined, courseRead: false, examDue: true },
-      }),
-      3,
-    );
-    expect(steps.map((s) => s.label)).toEqual(["le cours de ta leçon", "le contrôle de la leçon"]);
+  it("annonce une nouvelle leçon sans en deviner les étapes", () => {
+    const steps = previewFlow(state({ nextLesson: { id: "n5-25", title: "Aller et venir", ready: true } }));
+    expect(steps.map((s) => s.label)).toEqual(["une nouvelle leçon"]);
   });
 
   it("rien à faire → aucune étape", () => {
-    expect(previewFlow(state({ reviewedToday: 25 }))).toEqual([]);
+    expect(previewFlow(state())).toEqual([]);
   });
 
   it("pureté : l'état passé n'est pas muté", () => {
-    const s = state({ dueCount: 34, currentLesson: { ...lessonInProgress } });
+    const s = state({ dueCount: 34, currentLesson: lesson(["course"]) });
     const snapshot = structuredClone(s);
     previewFlow(s);
     expect(s).toEqual(snapshot);

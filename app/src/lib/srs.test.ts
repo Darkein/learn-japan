@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDue, isMastered, isUnlockReady, newCard, review } from "./srs";
+import { isAcquired, isDue, isMastered, newCard, retrievability, review } from "./srs";
 import { State } from "ts-fsrs";
 
 describe("SRS (FSRS)", () => {
@@ -46,20 +46,26 @@ describe("isMastered", () => {
   });
 });
 
-describe("isUnlockReady (seuil léger, découplé de la maîtrise)", () => {
-  it("false pour une carte vierge ou en Learning", () => {
-    expect(isUnlockReady(newCard())).toBe(false);
-    expect(isUnlockReady({ ...newCard(), state: State.Learning, scheduled_days: 30 })).toBe(false);
+describe("isAcquired (dispense des étapes de découverte)", () => {
+  it("false sans carte, pour une carte vierge ou en apprentissage", () => {
+    expect(isAcquired(undefined)).toBe(false);
+    expect(isAcquired(newCard())).toBe(false);
+    expect(isAcquired({ ...newCard(), state: State.Learning, scheduled_days: 30 })).toBe(false);
   });
 
-  it("true dès Review + intervalle ≥ unlockIntervalDays (bien avant 21 j)", () => {
-    const card = { ...newCard(), state: State.Review, scheduled_days: 4 };
-    expect(isUnlockReady(card)).toBe(true);
-    expect(isMastered(card)).toBe(false);
-  });
-
-  it("false sous le seuil de déblocage", () => {
-    expect(isUnlockReady({ ...newCard(), state: State.Review, scheduled_days: 3 })).toBe(false);
+  it("true dès l'état Review, quel que soit l'intervalle", () => {
+    expect(isAcquired({ ...newCard(), state: State.Review, scheduled_days: 1 })).toBe(true);
   });
 });
 
+describe("retrievability (choix des éléments fragiles)", () => {
+  it("baisse avec le temps écoulé depuis la dernière révision", () => {
+    const t0 = new Date("2026-01-01T08:00:00");
+    let card = review(newCard(t0), "good", t0);
+    card = review(card, "good", new Date("2026-01-03T08:00:00"));
+    const soon = retrievability(card, new Date("2026-01-04T08:00:00"));
+    const late = retrievability(card, new Date("2026-03-01T08:00:00"));
+    expect(soon).toBeGreaterThan(late);
+    expect(late).toBeGreaterThan(0);
+  });
+});

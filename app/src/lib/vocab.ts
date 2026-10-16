@@ -215,8 +215,13 @@ export async function purgeNameVocab(): Promise<number> {
   return removed;
 }
 
-/** Drapeau `meta` de la sortie de rotation du vocabulaire incident : une seule passe. */
-const INCIDENTAL_PURGE_KEY = "purge.incidentalCards";
+/**
+ * Drapeau `meta` de la sortie de rotation du vocabulaire incident : une seule passe. Passé
+ * en v2 avec le parcours (SPEC §2.1) : la première passe avait laissé les exercices
+ * d'histoire et la reconstruction de phrase créer des cartes à tous les mots du texte, et
+ * 89 histoires lues avaient remis en rotation des dizaines de mots jamais choisis.
+ */
+const INCIDENTAL_PURGE_KEY = "purge.incidentalCards.v2";
 
 const MERGE_CARDS_KEY = "merge.skillCards";
 
@@ -257,8 +262,9 @@ export async function mergeSkillCards(): Promise<number> {
  * La révision promouvait autrefois n'importe quel mot sans carte, y compris les dizaines de
  * mots hors objectifs qu'une histoire matérialise en base à sa lecture (`enrollStory`) : les
  * révisions se remplissaient de vocabulaire jamais choisi, au détriment des mots-cibles de
- * la leçon. La promotion est désormais réservée aux objectifs des leçons commencées
- * (`newVocabToPromote`, lib/reviewSession.ts) ; cette passe unique rattrape les bases
+ * la leçon. Les cartes naissent désormais dans les étapes du parcours, pour les seuls
+ * objectifs de leçon (SPEC §5.3), et les exercices d'histoire n'en créent plus
+ * (`gradeStoryExercise`, lib/exercise.ts) ; cette passe unique rattrape les bases
  * constituées avant.
  *
  * Est démonté tout mot ABSENT des objectifs du curriculum : ses cartes FSRS sont retirées,

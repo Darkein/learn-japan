@@ -1,40 +1,35 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  daysBeforeGrade,
-  isMiss,
-  itemKey,
-  secondChance,
-  snapshotBeforeGrade,
-  TRACK_FR,
-  type Exercise,
-  type GradeSnapshot,
-} from "../lib/exercise";
+import { useEffect, useState } from "react";
+import { daysBeforeGrade, TRACK_FR, type Exercise } from "../lib/exercise";
+import { STEP_LABEL } from "../lib/path";
 import type { SrsGrade } from "../lib/srs";
-import { buildSession, gradeCard, sessionStats, silenceDeck, type SessionOpts } from "../lib/reviewSession";
+import { buildSession, gradeCard, silenceDeck, type SessionOpts } from "../lib/reviewSession";
 import { ExerciseCard } from "./exercise/ExerciseCard";
 import { SessionSummary } from "./SessionSummary";
-import { PRACTICE_HINT, PRACTICE_SUMMARY, SECOND_CHANCE_HINT, SECOND_CHANCE_SUMMARY } from "./practiceNotes";
+import { PRACTICE_HINT, PRACTICE_SUMMARY, REPLAY_HINT, REPLAY_SUMMARY } from "./practiceNotes";
+import { Button } from "./kit/Button";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { useSettings } from "./useSettings";
 
 interface Props {
   opts?: SessionOpts;
   onExit?: () => void;
+  /** Libellé de la sortie du bilan (le parcours : « Continuer »), cf. SessionSummary. */
+  exitLabel?: string;
 }
 
-export function ReviewSession({ opts, onExit }: Props) {
+export function ReviewSession({ opts, onExit, exitLabel }: Props) {
   const { settings, update } = useSettings();
-  // Deux modes, deux noms : "Révision" (SRS du jour, scope "due") et
-  // "Vérification des acquis" (toute la leçon, scope "all") — cohérent avec le bouton d'entrée.
-  const checkup = (opts?.scope ?? "due") === "all";
-  const sessionName = checkup ? "Question" : "Révision";
-  // Relance des ratés : ces cartes viennent d'être notées dans CETTE session. Les noter une
-  // seconde fois comptait deux fois le même oubli (FSRS rabotait encore la stabilité, et
-  // la maîtrise baissait de nouveau). C'est donc un entraînement, comme le bilan de leçon —
-  // avec une SECONDE CHANCE : un raté réussi cette fois retrouve son état d'avant l'erreur.
+  // Un nom par entrée : l'étape du parcours (« Vocabulaire », « Produire »…), « Révision »
+  // (étape Révision, scope "due") ou « Question » (entraînement libre, scope "all").
+  const scope = opts?.scope ?? "due";
+  const checkup = scope === "all";
+  const sessionName =
+    scope === "step" && opts?.step ? STEP_LABEL[opts.step] : checkup ? "Question" : "Révision";
+  // Relance des ratés : ces cartes viennent d'être notées dans CETTE session — la première
+  // réponse compte, et elle seule (SPEC §5.5). Les noter une seconde fois comptait deux fois
+  // le même oubli ; effacer l'erreur sur une réussite à quelques secondes de la correction
+  // ferait d'une mémoire immédiate une maîtrise. La relance est donc un entraînement.
   const [replaying, setReplaying] = useState(false);
-  // État des éléments ratés, photographié avant que la note ne les replanifie.
-  const beforeMiss = useRef(new Map<string, GradeSnapshot>());
   // Entraînement = aucune écriture SRS : ni la carte, ni le journal, ni le compteur du jour.
   // Le bilan de leçon (scope "all") en fait toujours partie — il se lance à volonté, hors
   // planification ; ni une erreur ne doit faire baisser la maîtrise, ni une réussite
@@ -42,21 +37,10 @@ export function ReviewSession({ opts, onExit }: Props) {
   const practice = checkup || replaying;
   const [cards, setCards] = useState<Exercise[] | null>(null);
   const [i, setI] = useState(0);
-  const [backlog, setBacklog] = useState(0);
   const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
 
   useEffect(() => {
-    void (async () => {
-      // Le retard est mesuré AVANT la construction : celle-ci crée les cartes des
-      // nouveautés du jour (dues sur-le-champ), qui gonfleraient le chiffre annoncé.
-      const due = (opts?.scope ?? "due") === "due" ? (await sessionStats()).dueCount : 0;
-      const deck = await buildSession(new Date(), opts ?? {});
-      setCards(deck);
-      // Bloc dimensionné par l'objectif du jour. On ne garde que le OUI/NON « il en reste
-      // derrière » : le nombre lui-même n'est pas affiché, il ne dit rien du bloc en cours
-      // (même raison que `blockLabel`, lib/flow.ts).
-      setBacklog(Math.max(0, due - deck.length));
-    })();
+    void buildSession(new Date(), opts ?? {}).then(setCards);
   }, []);
 
   const card = cards && i < cards.length ? cards[i] : null;
@@ -64,11 +48,21 @@ export function ReviewSession({ opts, onExit }: Props) {
   if (!cards) return <LoadingScreen />;
   if (cards.length === 0)
     return (
-      <p className="text-muted">
-        {checkup
-          ? "Aucun exercice disponible pour cette leçon."
-          : "Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici."}
-      </p>
+      <div className="flex flex-col gap-4">
+        <p className="m-0 text-muted">
+          {scope === "step"
+            ? "Rien à travailler ici : les éléments de cette étape sont déjà acquis."
+            : checkup
+              ? "Aucun exercice disponible pour cette leçon."
+              : "Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici."}
+        </p>
+        {/* Dans le parcours, une étape vide se valide d'un geste : jamais de cul-de-sac. */}
+        {onExit && (
+          <Button variant="primary" className="self-start" onClick={onExit}>
+            Continuer
+          </Button>
+        )}
+      </div>
     );
   if (i >= cards.length || !card) {
     function restart(deck?: Exercise[]) {
@@ -86,11 +80,12 @@ export function ReviewSession({ opts, onExit }: Props) {
     return (
       <SessionSummary
         results={results}
-        title={checkup ? "Acquis vérifiés" : "Révision terminée"}
-        note={checkup ? PRACTICE_SUMMARY : replaying ? SECOND_CHANCE_SUMMARY : undefined}
+        title={checkup ? "Acquis vérifiés" : scope === "step" ? "Étape terminée" : "Révision terminée"}
+        note={checkup ? PRACTICE_SUMMARY : replaying ? REPLAY_SUMMARY : undefined}
         onRestart={() => restart()}
         onReplayMissed={(missed) => restart(missed)}
         onClose={onExit}
+        closeLabel={exitLabel}
       />
     );
   }
@@ -113,13 +108,7 @@ export function ReviewSession({ opts, onExit }: Props) {
   async function persistGrade(g: SrsGrade) {
     const graded = card!;
     const daysBefore = await daysBeforeGrade(graded);
-    if (!practice) {
-      const snap = isMiss(g) ? await snapshotBeforeGrade(graded) : undefined;
-      if (snap) beforeMiss.current.set(itemKey(graded), snap);
-      await gradeCard(graded, g);
-    } else if (replaying && !isMiss(g)) {
-      await secondChance(beforeMiss.current, graded);
-    }
+    if (!practice) await gradeCard(graded, g);
     setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
   }
 
@@ -133,13 +122,7 @@ export function ReviewSession({ opts, onExit }: Props) {
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
       {practice && (
-        <p className="m-0 text-xs text-muted">{checkup ? PRACTICE_HINT : SECOND_CHANCE_HINT}</p>
-      )}
-      {backlog > 0 && !practice && (
-        <p className="m-0 text-xs text-muted">
-          Bloc calé sur ton objectif du jour, les plus urgents d'abord — le reste attendra le
-          bloc suivant.
-        </p>
+        <p className="m-0 text-xs text-muted">{checkup ? PRACTICE_HINT : REPLAY_HINT}</p>
       )}
       {silentMinutes > 0 && (
         <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-muted">

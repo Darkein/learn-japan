@@ -19,7 +19,6 @@ import { buildBulletin, type Bulletin } from "../lib/exam";
 import { EXAM, SRS } from "../lib/config";
 import { formatMinutes } from "../lib/time";
 import { loadSettings } from "../lib/settings";
-import { effectiveNewPerDay, loadTuning, sustainableNewPerDay, type FsrsTuning } from "../lib/tuning";
 import {
   accuracyKey,
   activityTotals,
@@ -72,7 +71,6 @@ interface Data {
   grammar: GrammarItem[];
   comprehension: ComprehensionItem[];
   reviews: ReviewLog[];
-  tuning: FsrsTuning;
   /** Copies rendues aux contrôles de fin de leçon (bulletin, lib/exam.ts). */
   exams: ExamRecord[];
 }
@@ -163,16 +161,15 @@ export function Stats() {
   const [periodValue, setPeriodValue] = useState<string>(DEFAULT_PERIOD);
 
   async function refresh() {
-    const [vocab, grammar, comprehension, reviews, daily, tuning, exams] = await Promise.all([
+    const [vocab, grammar, comprehension, reviews, daily, exams] = await Promise.all([
       allVocab(),
       allGrammar(),
       allComprehension(),
       allReviews(),
       allSrsDaily(),
-      loadTuning(),
       allExams(),
     ]);
-    setData({ vocab, grammar, comprehension, reviews, daily, tuning, exams });
+    setData({ vocab, grammar, comprehension, reviews, daily, exams });
   }
 
   useEffect(() => {
@@ -207,14 +204,6 @@ export function Stats() {
   const overdue = allCards.filter((c) => c.due.getTime() < startOfToday.getTime()).length;
   const worst = worstItems(data, acc);
   const settings = loadSettings();
-  const newBase = settings.newPerDay;
-  const effNew = effectiveNewPerDay(
-    newBase,
-    data.tuning.measuredRetention,
-    data.tuning.backlog,
-    settings.dailyGoal,
-  );
-  const newCeiling = sustainableNewPerDay(settings.dailyGoal);
   const bulletin = buildBulletin(data.exams, (id) => getCurriculumEntry(id)?.title);
 
   // État courant : ce qui ne dépend d'aucune période — l'édifice, pas le chantier du moment.
@@ -355,16 +344,6 @@ export function Stats() {
               </span>
             </Card>
           )}
-          {/* Auto-réglage : cible de rétention et débit de nouveautés ajustés selon les erreurs. */}
-          <p className="text-xs text-muted">
-            Réglage auto — cible de rétention&nbsp;: {Math.round(data.tuning.requestRetention * 100)}%
-            {" · "}nouveautés&nbsp;: {effNew}/j
-            {effNew < newBase
-              ? ` (au lieu de ${newBase} : ton objectif de ${settings.dailyGoal} cartes/jour en absorbe ${newCeiling}${
-                  effNew < newCeiling ? ", et le retard rabote encore" : ""
-                })`
-              : ""}
-          </p>
         </section>
 
         <section className="flex flex-col gap-3">

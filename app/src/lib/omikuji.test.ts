@@ -23,7 +23,7 @@ import {
   type OmikujiEnv,
 } from "./omikuji";
 import { newCard, State } from "./srs";
-import { SRS } from "./config";
+import { PRODUCTION_MIN_DAYS } from "./vocabDrills";
 
 const NOW = new Date("2026-07-05T12:00:00");
 
@@ -134,7 +134,7 @@ describe("checkOmikuji", () => {
       card: {
         ...newCard(NOW),
         state: State.Review,
-        scheduled_days: SRS.unlockIntervalDays,
+        scheduled_days: PRODUCTION_MIN_DAYS,
       },
       example: { ja: "水を飲む。" },
     };

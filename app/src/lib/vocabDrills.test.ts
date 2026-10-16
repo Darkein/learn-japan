@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { VocabItem } from "./db";
-import { SRS } from "./config";
 import { newCard, State } from "./srs";
 import {
   DRILL_KINDS,
+  PRODUCTION_MIN_DAYS,
   drillEligible,
   orderDrills,
   skillOf,
@@ -24,7 +24,7 @@ function word(p: Partial<VocabItem> = {}): VocabItem {
     card: {
       ...newCard(NOW),
       state: State.Review,
-      scheduled_days: SRS.unlockIntervalDays,
+      scheduled_days: PRODUCTION_MIN_DAYS,
       reps: 3,
     },
     ...p,
@@ -66,7 +66,7 @@ describe("drillEligible", () => {
 
   it("la production attend l'intervalle de déblocage", () => {
     const jeune = word({
-      card: { ...word().card!, scheduled_days: SRS.unlockIntervalDays - 1 },
+      card: { ...word().card!, scheduled_days: PRODUCTION_MIN_DAYS - 1 },
     });
     expect(drillEligible(jeune, "production", WITH_EXAMPLE)).toBe(false);
     expect(drillEligible(jeune, "listen-word", WITH_EXAMPLE)).toBe(true);

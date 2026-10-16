@@ -11,7 +11,6 @@
 // forme qui marche pour TOUS les mots, et celle qui fait avancer la série de saisie.
 
 import type { Skill, VocabItem } from "./db";
-import { SRS } from "./config";
 import { State } from "./srs";
 import { weightedShuffle } from "./random";
 
@@ -75,6 +74,13 @@ export interface DrillContext {
 }
 
 /**
+ * Intervalle FSRS (jours) à partir duquel la révision peut faire PRODUIRE un mot : on ne
+ * fait pas produire un mot qui n'est pas encore stable. Le parcours, lui, fait produire les
+ * mots de la leçon à son étape Produire (SPEC §5.3), sans attendre ce seuil.
+ */
+export const PRODUCTION_MIN_DAYS = 4;
+
+/**
  * La forme est-elle recevable pour ce mot ? Deux verrous seulement, les autres conditions
  * (assez de distracteurs, phrase ni trop courte ni trop longue…) étant connues du seul
  * constructeur, qui rend `null` — l'appelant descend alors la liste.
@@ -82,8 +88,8 @@ export interface DrillContext {
  * ① MATURITÉ. L'écoute et la production ne s'ouvrent pas sur un mot qu'on vient de
  *    rencontrer : reconnaître une graphie précède la reconnaître à l'oreille, et la
  *    produire vient en dernier (SPEC §2.2). Les seuils reprennent ceux des anciennes
- *    amorces : état `Review` pour l'écoute, et l'intervalle de déblocage en plus pour la
- *    production.
+ *    amorces : état `Review` pour l'écoute, et `PRODUCTION_MIN_DAYS` d'intervalle en plus
+ *    pour la production.
  * ② MATIÈRE. Pas de phrase d'exemple → pas de dictée, pas de sens à l'écoute, pas de
  *    production en contexte. Seule la dictée du MOT reste jouable (on prononce le mot).
  */
@@ -94,7 +100,7 @@ export function drillEligible(v: VocabItem, kind: DrillKind, ctx: DrillContext =
   if (!card || card.state !== State.Review) return false;
   if (kind === "listen-word") return true;
   if (!ctx.hasExample) return false;
-  if (kind === "production") return card.scheduled_days >= SRS.unlockIntervalDays;
+  if (kind === "production") return card.scheduled_days >= PRODUCTION_MIN_DAYS;
   return true;
 }
 

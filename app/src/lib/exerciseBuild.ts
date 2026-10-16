@@ -212,6 +212,7 @@ function triangleDirection(
   due: number,
   pool: VocabItem[],
   isLeech: boolean,
+  mode?: "choice" | "type",
 ): Exercise | null {
   const answer = faceText(v, dir.to);
   if (!answer || !faceText(v, dir.from)) return null;
@@ -220,7 +221,7 @@ function triangleDirection(
   // jumeaux de sens sont écartés du QCM et acceptés en saisie (cf. frTwins).
   const twins = dir.from === "fr" ? frTwins(pool, v) : [];
 
-  if (pickInputMode(dir.to, v.streak ?? 0, isLeech) === "type")
+  if ((mode ?? pickInputMode(dir.to, v.streak ?? 0, isLeech)) === "type")
     return readingTypeExercise(v, dir, due, twins);
 
   const distractors = faceDistractors(pool, v, dir.to, answer, new Set(twins.map((t) => t.id)));
@@ -240,6 +241,11 @@ function triangleDirection(
  * suit la face cible et la suite de réussites (QCM tant que ce n'est pas su, saisie de la
  * lecture ensuite).
  *
+ * `mode` impose le mode au lieu de le déduire de la série : le parcours sert la
+ * reconnaissance en QCM (niveau 1) puis le rappel en saisie (niveau 2) — SPEC §5.3. La
+ * saisie ne vise que la lecture (seule cible typable) : les directions vers une autre face
+ * sont alors écartées.
+ *
  * EFFET DE BORD : met à jour `v.lastDir`. L'appelant doit persister `v` (`putVocab`) pour
  * que le prochain tirage évite bien la direction qui vient d'être servie.
  */
@@ -247,11 +253,13 @@ export function vocabTriangleExercise(
   v: VocabItem,
   due: number,
   pool: VocabItem[],
-  opts: { isLeech?: boolean } = {},
+  opts: { isLeech?: boolean; mode?: "choice" | "type" } = {},
 ): Exercise {
-  const dirs = orderDirections(directionsFor(v), v.lastDir);
+  const all = directionsFor(v);
+  const typable = all.filter((d) => d.to === "kana");
+  const dirs = orderDirections(opts.mode === "type" && typable.length ? typable : all, v.lastDir);
   for (const dir of dirs) {
-    const ex = triangleDirection(v, dir, due, pool, opts.isLeech ?? false);
+    const ex = triangleDirection(v, dir, due, pool, opts.isLeech ?? false, opts.mode);
     if (ex) {
       v.lastDir = dirKey(dir);
       return ex;
@@ -591,27 +599,38 @@ function ruleDistractors(excludeId: string, n = 3): string[] {
  * du référentiel si disponible, sinon QCM "règle parmi des règles voisines" (sans LLM).
  */
 export async function grammarReviewExercise(g: GrammarItem, due: number): Promise<Exercise> {
+  return (await grammarBuildExercise(g, due)) ?? grammarChoiceExercise(g, due);
+}
+
+/**
+ * Reconstruction par tuiles de la phrase d'exemple d'un point de grammaire — le RAPPEL du
+ * point en contexte. Null sans phrase exploitable (absente, ou trop courte pour des tuiles).
+ */
+export async function grammarBuildExercise(g: GrammarItem, due: number): Promise<BuildExercise | null> {
+  const detail = grammarDetail(g.id);
+  if (!detail?.exampleJa) return null;
+  const tokens = await tokenize(detail.exampleJa);
+  const target = toTiles(tokens);
+  if (target.length < 2) return null;
+  return {
+    mode: "build",
+    key: `grammar:${g.id}`,
+    track: "grammar",
+    id: g.id,
+    front: g.name,
+    back: g.rule || detail.ruleFr || "",
+    context: detail.exampleJa,
+    ...(detail.exampleFr ? { contextFr: detail.exampleFr } : {}),
+    target,
+    tokens,
+    due,
+  };
+}
+
+/** QCM du rôle d'un point de grammaire, parmi des règles voisines — la RECONNAISSANCE. */
+export function grammarChoiceExercise(g: GrammarItem, due: number): ChoiceExercise {
   const detail = grammarDetail(g.id);
   const rule = g.rule || detail?.ruleFr || "";
-  if (detail?.exampleJa) {
-    const tokens = await tokenize(detail.exampleJa);
-    const target = toTiles(tokens);
-    if (target.length >= 2) {
-      return {
-        mode: "build",
-        key: `grammar:${g.id}`,
-        track: "grammar",
-        id: g.id,
-        front: g.name,
-        back: rule,
-        context: detail.exampleJa,
-        ...(detail.exampleFr ? { contextFr: detail.exampleFr } : {}),
-        target,
-        tokens,
-        due,
-      };
-    }
-  }
   const { choices, answerIndex } = shuffleWithAnswer(rule, ruleDistractors(g.id));
   return {
     mode: "choice",

@@ -2,10 +2,12 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { Card } from "ts-fsrs";
-import { getVocab, putVocab, putLessonProgress, getSrsDaily, bumpSrsDaily, putMeta, _resetDbForTests } from "./db";
+import { getVocab, putVocab, putLessonProgress, getSrsDaily, putMeta, _resetDbForTests } from "./db";
 import { newCard, State } from "./srs";
 import { SRS } from "./config";
-import { gradeCard, buildSession, reviewBlockSize, silenceDeck } from "./reviewSession";
+import { REVIEW_STEP_SIZE } from "./path";
+import { PRODUCTION_MIN_DAYS } from "./vocabDrills";
+import { gradeCard, buildSession, silenceDeck } from "./reviewSession";
 import { vocabTypeExercise } from "./exerciseBuild";
 import { getCurriculumEntry } from "./curriculum";
 import type { KuromojiToken } from "./tokenizer";
@@ -41,7 +43,7 @@ const NOW = new Date(`${TODAY}T08:00:00`);
 // Drapeau de la passe unique `purgeIncidentalCards` (lib/vocab.ts) : posé d'office pour
 // que les tests raisonnent sur les items qu'ils sèment (hors curriculum pour la plupart,
 // donc tous démontés par la purge). Le describe dédié le remet à zéro.
-const INCIDENTAL_PURGE_KEY = "purge.incidentalCards";
+const INCIDENTAL_PURGE_KEY = "purge.incidentalCards.v2";
 
 beforeEach(async () => {
   (globalThis as any).indexedDB = new IDBFactory();
@@ -70,8 +72,8 @@ describe("échauffement SRS (existant)", () => {
     expect(card!.word).toEqual({ id: "水|みず", surface: "水", reading: "みず" });
 
     await gradeCard(card!, "easy", NOW);
-    const due2 = await buildSession(NOW, { scope: "due" });
-    expect(due2.find((c) => c.id === "水|みず")).toBeUndefined();
+    // Plus dû : son échéance s'éloigne (il ne revient qu'en complément, cf. éléments fragiles).
+    expect((await getVocab("水|みず"))!.card!.due.getTime()).toBeGreaterThan(NOW.getTime() + 86_400_000);
   });
 
   it("vocab isolé (pas de distracteur) : saisie de la lecture, graphie acceptée aussi", async () => {
@@ -148,8 +150,8 @@ describe("ordre du deck", () => {
   it("le mélange ne perd ni ne duplique d'exercice", async () => {
     await seedDue(12);
     const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
-    expect(ids).toHaveLength(12);
-    expect(new Set(ids).size).toBe(12);
+    expect(ids).toHaveLength(REVIEW_STEP_SIZE);
+    expect(new Set(ids).size).toBe(REVIEW_STEP_SIZE);
   });
 });
 
@@ -171,97 +173,6 @@ describe("buildSession", () => {
     });
     const result = await buildSession(NOW, { scope: "due" });
     expect(result.length).toBe(1);
-  });
-
-  it("scope:due promeut les nouveaux items jusqu'au plafond newPerDay", async () => {
-    // 15 nouveaux vocab (pas de carte)
-    for (let i = 0; i < 15; i++) {
-      await putVocab({
-        id: `new|${i}`,
-        surface: `new${i}`,
-        reading: `new${i}`,
-        meaning: `meaning${i}`,
-        tags: [],
-        status: "unknown",
-      });
-    }
-    const result = await buildSession(NOW, { scope: "due" });
-    expect(result.length).toBeLessThanOrEqual(SRS.newPerDay);
-  });
-
-  it("scope:due respecte le cap journalier : si introduced=newPerDay → 0 nouveaux promus", async () => {
-    await bumpSrsDaily(TODAY, { introduced: SRS.newPerDay });
-    for (let i = 0; i < 5; i++) {
-      await putVocab({
-        id: `new|${i}`,
-        surface: `new${i}`,
-        reading: `new${i}`,
-        meaning: `meaning${i}`,
-        tags: [],
-        status: "unknown",
-      });
-    }
-    const result = await buildSession(NOW, { scope: "due" });
-    expect(result.length).toBe(0);
-  });
-
-  it("un retard supérieur à l'objectif n'empêche plus les nouveautés (progression gelée)", async () => {
-    // Le cas signalé : 42 éléments dus, objectif du jour plus petit → l'ancienne règle
-    // (« pas de neuf tant que le dû remplit le bloc ») ne promouvait plus AUCUN objectif
-    // de la leçon commencée. Sans carte, ses items ne se stabilisaient jamais : contrôle
-    // jamais ouvert, leçon suivante jamais déverrouillée.
-    const lessonId = "n5-01-today-book";
-    const ids = getCurriculumEntry(lessonId)!.introduces.vocab.slice(0, 3);
-    await putLessonProgress({ id: lessonId, startedAt: Date.now() });
-    for (const id of ids) {
-      const [surface, reading] = id.split("|");
-      await putVocab({
-        id,
-        surface,
-        reading: reading ?? surface,
-        meaning: "test",
-        tags: [],
-        status: "unknown",
-      });
-    }
-    for (let i = 0; i < 42; i++) {
-      await putVocab({
-        id: `due|${i}`,
-        surface: `due${i}`,
-        reading: `due${i}`,
-        meaning: `m${i}`,
-        tags: [],
-        status: "review",
-        card: newCard(new Date(2020, 0, 1 + i)),
-      });
-    }
-    const session = await buildSession(NOW, { scope: "due" });
-    expect(session.some((c) => ids.includes(c.id))).toBe(true);
-    expect((await getSrsDaily(TODAY))?.introduced).toBeGreaterThan(0);
-    // Le retard avance quand même : la réserve de nouveautés n'occupe pas tout le bloc.
-    expect(session.some((c) => c.id.startsWith("due|"))).toBe(true);
-  });
-
-  it("scope:due : après promotion de 3 objectifs, getSrsDaily(today).introduced === 3", async () => {
-    // Seuls les objectifs d'une leçon COMMENCÉE sont promus (cf. newVocabToPromote) : le
-    // compteur du jour se mesure donc sur des mots du curriculum.
-    const lessonId = "n5-01-today-book";
-    const ids = getCurriculumEntry(lessonId)!.introduces.vocab.slice(0, 3);
-    await putLessonProgress({ id: lessonId, startedAt: Date.now() });
-    for (const id of ids) {
-      const [surface, reading] = id.split("|");
-      await putVocab({
-        id,
-        surface,
-        reading: reading ?? surface,
-        meaning: "test",
-        tags: [],
-        status: "unknown",
-      });
-    }
-    await buildSession(NOW, { scope: "due" });
-    const daily = await getSrsDaily(TODAY);
-    expect(daily?.introduced).toBe(3);
   });
 
   it("scope:all avec lessonId : tous les items vocab de la leçon retournés (même sans cartes)", async () => {
@@ -347,81 +258,22 @@ describe("buildSession", () => {
   });
 });
 
-describe("promotion des nouveaux items", () => {
-  it("budget serré : les objectifs d'une leçon commencée sont promus, pas l'incident", async () => {
-    const { getCurriculum } = await import("./curriculum");
-    const { effectiveNewPerDay } = await import("./tuning");
-    const first = getCurriculum()[0];
-    // Débit EFFECTIF du jour : le réglage `newPerDay` est plafonné par ce que l'objectif
-    // quotidien peut absorber (cf. lib/tuning.ts) — c'est lui, le budget à saturer.
-    const newCap = effectiveNewPerDay(SRS.newPerDay, null, 0, SRS.dailyGoal);
-    const lessonVocabIds = first.introduces.vocab.slice(0, Math.min(3, newCap));
-    if (lessonVocabIds.length === 0) return; // curriculum sans vocab : rien à tester
-    await putLessonProgress({ id: first.id, startedAt: Date.now() });
-
-    // Mot incident (histoire) avec un id alphabétiquement AVANT ceux de la leçon : sans
-    // priorisation, l'ordre des clés IndexedDB le ferait passer en premier.
-    await putVocab({
-      id: "ああ|ああ",
-      surface: "ああ",
-      reading: "ああ",
-      meaning: "ah",
-      tags: [],
-      status: "unknown",
-    });
-    for (const id of lessonVocabIds) {
-      const [surface, reading] = id.split("|");
-      await putVocab({
-        id,
-        surface,
-        reading: reading ?? surface,
-        meaning: "test",
-        tags: [],
-        status: "unknown",
-      });
-    }
-
-    // Budget du jour réduit au nombre exact de mots de la leçon : c'est le seul cadre où
-    // la priorisation se voit (l'ordre du deck, lui, est désormais mélangé).
-    await bumpSrsDaily(TODAY, { introduced: newCap - lessonVocabIds.length });
-
-    const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
-    for (const id of lessonVocabIds) expect(ids).toContain(id);
-    expect(ids).not.toContain("ああ|ああ");
-  });
-
-  it("budget large : le vocabulaire incident n'entre jamais en rotation tout seul", async () => {
-    // Les mots d'une histoire sont matérialisés en base à la lecture (`enrollStory`) sans
-    // carte. Leçon commencée et budget de nouveautés intact (ses objectifs, eux, ne sont
-    // pas en base) : la session ne doit pourtant rien promouvoir — un mot croisé dans une
-    // histoire ne s'ajoute que depuis le texte.
+describe("l'étape Révision ne crée aucune carte", () => {
+  it("le vocabulaire sans carte (histoire, leçon) n'entre jamais en rotation par la révision", async () => {
+    // Les cartes naissent dans les étapes Vocabulaire et Grammaire du parcours : l'étape
+    // Révision ne promeut plus rien, quelle que soit la leçon commencée.
     await putLessonProgress({ id: "n5-01-today-book", startedAt: Date.now() });
-    await putVocab({
-      id: "あめ|あめ",
-      surface: "あめ",
-      reading: "あめ",
-      meaning: "bonbon",
-      tags: [],
-      status: "unknown",
-    });
-    await putVocab({
-      id: "山|やま",
-      surface: "山",
-      reading: "やま",
-      meaning: "montagne",
-      tags: [],
-      status: "unknown",
-    });
-
+    await putVocab({ id: "本|ほん", surface: "本", reading: "ほん", meaning: "livre", tags: [], status: "unknown" });
+    await putVocab({ id: "山|やま", surface: "山", reading: "やま", meaning: "montagne", tags: [], status: "unknown" });
     const deck = await buildSession(NOW, { scope: "due" });
     expect(deck).toHaveLength(0);
+    expect((await getVocab("本|ほん"))?.card).toBeUndefined();
     expect((await getVocab("山|やま"))?.card).toBeUndefined();
-    expect((await getVocab("あめ|あめ"))?.card).toBeUndefined();
   });
 
   it("un mot incident ajouté à la main garde sa carte et revient en révision", async () => {
-    // Chemin manuel (tap du Lecteur / exercices de l'histoire) : la carte existe déjà,
-    // la session la sert comme n'importe quelle carte due.
+    // Chemin manuel (tap du Lecteur) : la carte existe déjà, la séance la sert comme
+    // n'importe quelle carte due.
     await putVocab({
       id: "あめ|あめ",
       surface: "あめ",
@@ -523,80 +375,87 @@ describe("scope story (exercices du Lecteur)", () => {
   });
 });
 
-describe("taille d'un bloc de révision (objectif du jour, plafond dur)", () => {
-  it("reviewBlockSize : ce qu'il reste pour atteindre l'objectif, puis un bloc plein", () => {
-    // Objectif de 10 : un bloc en sert 10, et 6 s'il en reste 6 à faire.
-    expect(reviewBlockSize(10, 0)).toBe(10);
-    expect(reviewBlockSize(10, 4)).toBe(6);
-    // Objectif atteint (bloc de renforcement du flux) → un bloc plein de plus.
-    expect(reviewBlockSize(10, 10)).toBe(10);
-    expect(reviewBlockSize(10, 25)).toBe(10);
-    // `sessionCap` reste le plafond dur, et un bloc n'est jamais vide.
-    expect(reviewBlockSize(200, 0)).toBe(SRS.sessionCap);
-    expect(reviewBlockSize(1, 0)).toBe(1);
-  });
+describe("étape Révision : 10 cartes, les dues d'abord, puis les plus fragiles", () => {
+  async function seedWord(id: string, card: Card) {
+    await putVocab({ id, surface: id, reading: id, meaning: `sens ${id}`, tags: [], status: "review", card });
+  }
 
-  it("un objectif de 10 sert 10 cartes, pas les 42 du retard", async () => {
-    const store = new Map<string, string>([["settings", JSON.stringify({ dailyGoal: 10 })]]);
-    vi.stubGlobal("localStorage", {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => void store.set(k, v),
-      removeItem: (k: string) => void store.delete(k),
-    });
-    try {
-      for (let i = 0; i < 42; i++) {
-        await putVocab({
-          id: `due|${i}`,
-          surface: `due${i}`,
-          reading: `due${i}`,
-          meaning: `m${i}`,
-          tags: [],
-          status: "review",
-          card: newCard(new Date(2020, 0, 1 + i)),
-        });
-      }
-      const session = await buildSession(NOW, { scope: "due" });
-      expect(session.length).toBe(10);
-      // Le plus urgent (échéance la plus ancienne) est dedans.
-      expect(session.some((c) => c.id === "due|0")).toBe(true);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("coupe aux items les plus urgents et n'ajoute pas de nouveauté", async () => {
-    // sessionCap + 10 items dus, échéances étalées (les plus anciens = les plus urgents)
-    for (let i = 0; i < SRS.sessionCap + 10; i++) {
-      await putVocab({
-        id: `due|${i}`,
-        surface: `due${i}`,
-        reading: `due${i}`,
-        meaning: `m${i}`,
-        tags: [],
-        status: "review",
-        card: newCard(new Date(2020, 0, 1 + i)),
-      });
-    }
-    // Et des candidats nouveaux qui ne doivent PAS être promus (plus de place)
-    for (let i = 0; i < 3; i++) {
-      await putVocab({
-        id: `fresh|${i}`,
-        surface: `fresh${i}`,
-        reading: `fresh${i}`,
-        meaning: `f${i}`,
-        tags: [],
-        status: "unknown",
-      });
-    }
+  it("un gros retard sert REVIEW_STEP_SIZE cartes, les plus urgentes d'abord", async () => {
+    for (let i = 0; i < 42; i++) await seedWord(`due${i}`, newCard(new Date(2020, 0, 1 + i)));
     const session = await buildSession(NOW, { scope: "due" });
-    // Bloc dimensionné par l'objectif du jour (20 par défaut), pas par le retard.
-    expect(session.length).toBe(SRS.dailyGoal);
-    // Les plus urgents (dates les plus anciennes) sont gardés
-    expect(session.some((c) => c.id === "due|0")).toBe(true);
-    expect(session.some((c) => c.id === `due|${SRS.sessionCap + 9}`)).toBe(false);
-    // Aucune nouveauté promue, et le budget du jour n'a pas été consommé
-    expect(session.some((c) => c.id.startsWith("fresh|"))).toBe(false);
-    expect((await getSrsDaily(TODAY))?.introduced ?? 0).toBe(0);
+    expect(session).toHaveLength(REVIEW_STEP_SIZE);
+    expect(session.some((c) => c.id === "due0")).toBe(true);
+    expect(session.some((c) => c.id === "due41")).toBe(false);
+  });
+
+  it("peu de dû : l'étape complète avec les éléments les plus fragiles", async () => {
+    await seedWord("dû", newCard(new Date("2020-01-01")));
+    // Révisés, pas dus : l'un revu hier (solide), l'autre il y a longtemps (fragile).
+    const reviewedAt = (d: string) => ({ ...stableCard(30), last_review: new Date(d), stability: 3 });
+    await seedWord("solide", reviewedAt("2026-06-29"));
+    await seedWord("fragile", reviewedAt("2026-04-01"));
+    const ids = (await buildSession(NOW, { scope: "due" })).map((c) => c.id);
+    expect(ids).toEqual(expect.arrayContaining(["dû", "solide", "fragile"]));
+    expect(ids).toHaveLength(3);
+  });
+
+  it("une carte jamais révisée (neuve, pas encore due) n'est pas un complément", async () => {
+    const fresh = newCard(new Date("2026-06-30T07:00:00"));
+    await seedWord("neuf", { ...fresh, due: new Date("2026-07-02") });
+    expect(await buildSession(NOW, { scope: "due" })).toEqual([]);
+  });
+
+  it("révision ciblée : les éléments demandés, dus ou non, sans complément", async () => {
+    await seedWord("raté", stableCard(10));
+    await seedWord("autre", newCard(new Date("2020-01-01")));
+    const ids = (await buildSession(NOW, { scope: "due", itemIds: ["raté"] })).map((c) => c.id);
+    expect(ids).toEqual(["raté"]);
+  });
+});
+
+describe("étapes de leçon (scope step)", () => {
+  const lessonId = "n5-01-today-book";
+  const entry = () => getCurriculumEntry(lessonId)!;
+
+  async function seedLesson(over: Partial<{ status: "unknown" | "known" | "review"; card: Card }> = {}) {
+    for (const id of entry().introduces.vocab) {
+      const [surface, reading] = id.split("|");
+      await putVocab({ id, surface, reading: reading ?? surface, meaning: `sens ${id}`, tags: [], status: "unknown", ...over });
+    }
+  }
+
+  it("Vocabulaire : deux exercices par mot, tout le niveau 1 avant le niveau 2", async () => {
+    await seedLesson();
+    const deck = await buildSession(NOW, { scope: "step", lessonId, step: "vocab" });
+    const n = entry().introduces.vocab.length;
+    expect(deck).toHaveLength(2 * n);
+    expect(deck.slice(0, n).every((ex) => ex.key.endsWith("#n1"))).toBe(true);
+    expect(deck.slice(n).every((ex) => ex.key.endsWith("#n2"))).toBe(true);
+    // Niveau 1 = reconnaissance en QCM (ou saisie quand le pool manque de distracteurs).
+    expect(new Set(deck.map((ex) => ex.key)).size).toBe(2 * n);
+  });
+
+  it("les mots reçoivent leur carte à la première rencontre, et comptent comme introduits", async () => {
+    await seedLesson();
+    await buildSession(NOW, { scope: "step", lessonId, step: "vocab" });
+    for (const id of entry().introduces.vocab) expect((await getVocab(id))?.card).toBeDefined();
+    expect((await getSrsDaily(TODAY))?.introduced).toBe(entry().introduces.vocab.length);
+  });
+
+  it("Vocabulaire ne sert pas les mots déjà acquis ; Produire les sert tous", async () => {
+    await seedLesson({ status: "known" });
+    expect(await buildSession(NOW, { scope: "step", lessonId, step: "vocab" })).toEqual([]);
+    const produce = await buildSession(NOW, { scope: "step", lessonId, step: "produce" });
+    const vocabIds = new Set(entry().introduces.vocab);
+    expect(produce.filter((ex) => vocabIds.has(ex.id))).toHaveLength(vocabIds.size);
+    expect(produce.every((ex) => ex.key.endsWith("#n3"))).toBe(true);
+  });
+
+  it("Grammaire : deux exercices par point, le rôle en QCM d'abord", async () => {
+    const deck = await buildSession(NOW, { scope: "step", lessonId, step: "grammar" });
+    const n = entry().introduces.grammar.length;
+    expect(deck).toHaveLength(2 * n);
+    expect(deck.slice(0, n).every((ex) => ex.mode === "choice" && ex.track === "grammar")).toBe(true);
   });
 });
 
@@ -690,7 +549,7 @@ describe("tirage de la forme d'exercice (un mot, une carte)", () => {
   });
 
   it("production fermée tant que le mot n'est pas stable", async () => {
-    await seedMature("本|ほん", { scheduledDays: SRS.unlockIntervalDays - 1 });
+    await seedMature("本|ほん", { scheduledDays: PRODUCTION_MIN_DAYS - 1 });
     await seedPool();
     expect(await kindsOver(30, "本|ほん")).not.toContain("vocab-produce");
   });

@@ -28,6 +28,9 @@ interface Props {
   results: ResultEntry[];
   title: string;
   onClose?: () => void;
+  /** Libellé de la sortie. Fourni (le parcours : « Continuer »), elle devient le bouton
+   *  principal — la suite du parcours, pas un retour en arrière. */
+  closeLabel?: string;
   onRestart?: () => void;
   onReplayMissed?: (missed: Exercise[]) => void;
   /** Mention sous le titre : ce que la session a fait (ou non) à la planification. */
@@ -36,8 +39,8 @@ interface Props {
 
 /**
  * Étiquette d'ÉTAT d'un élément au bilan : ce que vaut le mot dans ta tête, jamais un
- * rouage du parcours. Le seuil de déblocage de la leçon suivante (SRS.unlockIntervalDays)
- * n'a donc pas de badge : il ne dit rien de ce que tu sais, seulement ce que l'app
+ * rouage du parcours : aucun seuil propre à l'app (ouverture de la production, étapes
+ * d'une leçon) n'a de badge — il ne dit rien de ce que tu sais, seulement ce que l'app
  * autorise ensuite.
  *
  * L'INTERVALLE RETOMBÉ À ZÉRO se lit différemment selon d'où l'on vient — « nouveau »
@@ -60,7 +63,7 @@ export function summaryBadge(entry: {
 }
 
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
-export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed, note }: Props) {
+export function SessionSummary({ results, title, onClose, closeLabel, onRestart, onReplayMissed, note }: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
   const chimed = useRef(false);
 
@@ -171,8 +174,13 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {onClose && closeLabel && (
+          <Button variant="primary" onClick={onClose}>
+            {closeLabel}
+          </Button>
+        )}
         {onRestart && (
-          <Button variant="primary" onClick={onRestart}>
+          <Button variant={closeLabel ? "ghost" : "primary"} onClick={onRestart}>
             Recommencer
           </Button>
         )}
@@ -185,7 +193,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
             Rejouer les ratés {missed.length > 0 ? `(${missed.length})` : ""}
           </Button>
         )}
-        {onClose && (
+        {onClose && !closeLabel && (
           <Button variant="ghost" onClick={onClose}>
             Retour
           </Button>

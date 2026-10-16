@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import type { Lesson } from "../lib/lessons";
 import { markLessonStarted } from "../lib/lessons";
-import { SRS } from "../lib/config";
 import { mentionFor } from "../lib/exam";
+import { STEP_LABEL } from "../lib/path";
 import { GenProgress } from "./GenProgress";
 import { useLessonGen } from "./useLessonGen";
 import { DownloadButton } from "./DownloadButton";
@@ -40,16 +39,11 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
   const summary = summarize(lesson);
-  // Leçon en cours : c'est ELLE qui porte la jauge — la progression vers l'OUVERTURE de son
-  // contrôle (le déblocage, lui, se joue à l'épreuve). La leçon verrouillée juste en dessous
-  // n'a plus de barre : elle répétait la même information.
+  // Leçon en cours : c'est ELLE qui porte la jauge — les étapes de son parcours (SPEC §5.2),
+  // une case par étape. La leçon verrouillée juste en dessous n'a pas de barre : le verrou
+  // tombe au contrôle de celle-ci, la jauge d'ici le dit déjà.
   const inProgress = !!lesson.startedAt && !lesson.completedAt;
-
-  const [gaugeWidth, setGaugeWidth] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setGaugeWidth(Math.round(lesson.unlockProgress * 100)), 50);
-    return () => clearTimeout(t);
-  }, [lesson.unlockProgress]);
+  const done = new Set(lesson.stepsDone);
 
   return (
     <li
@@ -112,28 +106,32 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
           </p>
         ) : inProgress && !lesson.examPassed ? (
           <div className="flex flex-col gap-1.5">
-            <div className="relative h-2 w-full">
-              <div className="absolute inset-0 rounded-full bg-hairline" />
-              <div
-                className="absolute inset-y-0 left-0 rounded-l-full bg-accent transition-all duration-700 ease-out"
-                style={{ width: `${gaugeWidth}%` }}
-              />
-              <div
-                className="absolute inset-y-0 w-0.5 bg-text/40"
-                style={{ left: `${Math.round(SRS.examEligibility * 100)}%` }}
-              />
+            <div
+              className="flex gap-1"
+              role="img"
+              aria-label={`${lesson.stepsDone.length} étapes faites sur ${lesson.steps.length}`}
+            >
+              {lesson.steps.map((s) => (
+                <div
+                  key={s}
+                  title={STEP_LABEL[s]}
+                  className={`h-2 flex-1 rounded-full ${done.has(s) ? "bg-accent" : "bg-hairline"}`}
+                />
+              ))}
             </div>
             <div className="flex justify-between text-xs text-muted">
-              <span>{gaugeWidth} %</span>
               <span>
-                {lesson.unlockProgress >= SRS.examEligibility
-                  ? "contrôle ouvert — à passer"
-                  : `contrôle à ${Math.round(SRS.examEligibility * 100)} %`}
+                {lesson.stepsDone.length} / {lesson.steps.length} étapes
               </span>
+              {lesson.nextStep && (
+                <span>
+                  {lesson.nextStep === "exam" ? "contrôle ouvert — à passer" : `ensuite : ${STEP_LABEL[lesson.nextStep]}`}
+                </span>
+              )}
             </div>
           </div>
         ) : lesson.mastery > 0 || lesson.examPassed ? (
-          // Contrôle franchi : la jauge d'ouverture n'a plus d'objet, la MAÎTRISE reprend
+          // Contrôle franchi : la jauge des étapes n'a plus d'objet, la MAÎTRISE reprend
           // la main — c'est l'objectif long terme (intervalle ≥ 21 j), et la note du
           // contrôle l'accompagne comme une appréciation.
           <div className="flex flex-col gap-1">

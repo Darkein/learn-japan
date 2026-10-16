@@ -9,7 +9,6 @@ import {
   putVocab,
   putGrammar,
 } from "./db";
-import { SRS } from "./config";
 import { State } from "./srs";
 import type { Card } from "ts-fsrs";
 
@@ -42,12 +41,13 @@ const {
   listLessons,
   markLessonCourseRead,
   markLessonStarted,
+  markStepDone,
   markUnlockNotified,
   objectivesHash,
 } = await import("./lessons");
 const { getCurriculum, lessonsForGrammar } = await import("./curriculum");
 const genClient = await import("./genClient");
-const { getGeneratedLesson, putGeneratedLesson, putStory, storiesForLesson } = await import("./db");
+const { getGeneratedLesson, getSrsDaily, putGeneratedLesson, putMeta, putStory, storiesForLesson } = await import("./db");
 
 function masteredCard(): Card {
   return {
@@ -168,7 +168,6 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
   it("première leçon jamais locked", async () => {
     const lessons = await listLessons();
     expect(lessons[0].locked).toBe(false);
-    expect(lessons[0].prevUnlockProgress).toBeUndefined();
   });
 
   it("leçon suivante locked tant que le contrôle de la précédente n'est pas réussi", async () => {
@@ -218,14 +217,15 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
     const lessons = await listLessons();
     if (lessons.length < 2) return;
     expect(lessons[0].mastery).toBeCloseTo(1.0);
-    expect(lessons[0].unlockProgress).toBeCloseTo(1.0);
     expect(lessons[0].examPassed).toBe(true);
     expect(lessons[0].examNote).toBe(17);
-    expect(lessons[1].prevUnlockProgress).toBeCloseTo(1.0);
+    // Contrôle admis : toutes les étapes de la leçon sont faites.
+    expect(lessons[0].stepsDone).toEqual(lessons[0].steps);
+    expect(lessons[0].nextStep).toBeUndefined();
     expect(lessons[1].locked).toBe(false);
   });
 
-  it("des items stables OUVRENT le contrôle mais ne débloquent pas la suite à eux seuls", async () => {
+  it("des items stables ne débloquent pas la suite : seule l'admission au contrôle le fait", async () => {
     const { getCurriculum } = await import("./curriculum");
     const curriculum = getCurriculum();
     if (curriculum.length < 2) return;
@@ -245,10 +245,8 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
     }
     const lessons = await listLessons();
     if (lessons.length < 2) return;
-    expect(lessons[0].mastery).toBe(0); // 5 j < 21 j : pas maîtrisé…
-    expect(lessons[0].unlockProgress).toBeCloseTo(1.0); // …mais assez stable
-    expect(lessons[0].examEligible).toBe(true); // → le contrôle est ouvert
-    expect(lessons[0].examPassed).toBe(false); // … et pas encore passé
+    expect(lessons[0].mastery).toBe(0); // 5 j < 21 j : pas maîtrisé
+    expect(lessons[0].examPassed).toBe(false);
     expect(lessons[1].locked).toBe(true); // → la suite reste fermée
 
     // La copie admise, et seulement elle, ouvre la leçon suivante.
@@ -268,11 +266,56 @@ describe("locked / contrôle de fin de leçon dans listLessons", () => {
     expect(after[1].locked).toBe(false);
   });
 
-  it("le contrôle ne s'ouvre pas tant que la leçon n'est pas travaillée", async () => {
-    const lessons = await listLessons();
-    expect(SRS.examEligibility).toBeGreaterThan(0);
-    expect(lessons[0].unlockProgress).toBe(0);
-    expect(lessons[0].examEligible).toBe(false);
+});
+
+describe("étapes du parcours (SPEC §5.2)", () => {
+  it("une leçon vierge : toutes ses étapes à faire, le cours d'abord", async () => {
+    const [first] = await listLessons();
+    expect(first.steps).toEqual(["course", "vocab", "grammar", "review", "story", "produce", "exam"]);
+    expect(first.stepsDone).toEqual([]);
+    expect(first.nextStep).toBe("course");
+  });
+
+  it("une étape validée dans le parcours compte, et une seule fois dans la journée", async () => {
+    const [first] = await listLessons();
+    await markStepDone(first.id, "course", new Date("2026-10-16T10:00:00"));
+    await markStepDone(first.id, "vocab", new Date("2026-10-16T10:05:00"));
+    await markStepDone(first.id, "vocab", new Date("2026-10-16T10:10:00")); // refaite : rien
+    const lesson = await getLesson(first.id);
+    expect(lesson?.stepsDone).toEqual(["course", "vocab"]);
+    expect(lesson?.nextStep).toBe("grammar");
+    expect(lesson?.courseReadAt).toBeDefined(); // valider le cours, c'est l'avoir lu
+    expect((await getSrsDaily("2026-10-16"))?.steps).toBe(2);
+  });
+
+  it("crédits hors parcours : cours lu, histoire lue, éléments déjà acquis", async () => {
+    const [first] = await listLessons();
+    // Tous les mots de la leçon déjà en état Review (rencontrés et réussis ailleurs). Semés
+    // AVANT d'ouvrir la leçon : son enrôlement (non attendu) n'écrase jamais un item existant.
+    for (const id of first.introduces.vocab) {
+      const [surface, reading] = id.split("|");
+      await putVocab({ id, surface, reading: reading ?? surface, meaning: "x", tags: [], status: "review", card: masteredCard() });
+    }
+    await markLessonCourseRead(first.id);
+    await putStory({ id: "s1", createdAt: 1, title: "t", text: "本", params: {}, lessonId: first.id, variant: 1 });
+    await putMeta("storyRead.s1", Date.now());
+    const lesson = await getLesson(first.id);
+    expect(lesson?.stepsDone).toEqual(["course", "vocab", "story"]);
+    expect(lesson?.nextStep).toBe("grammar");
+  });
+
+  it("un mot déclaré connu dispense de l'étape Vocabulaire, une carte neuve non", async () => {
+    const [first] = await listLessons();
+    const [a, ...rest] = first.introduces.vocab;
+    const put = (id: string, status: "known" | "review", card?: Card) => {
+      const [surface, reading] = id.split("|");
+      return putVocab({ id, surface, reading: reading ?? surface, meaning: "x", tags: [], status, card });
+    };
+    await put(a, "review", newCardObj());
+    for (const id of rest) await put(id, "known");
+    expect((await getLesson(first.id))?.stepsDone).not.toContain("vocab");
+    await put(a, "known");
+    expect((await getLesson(first.id))?.stepsDone).toContain("vocab");
   });
 });
 

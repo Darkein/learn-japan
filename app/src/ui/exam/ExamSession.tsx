@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { EXAM, SRS } from "../../lib/config";
+import { EXAM } from "../../lib/config";
 import {
   examStatus,
   prepareExam,
@@ -11,6 +11,7 @@ import {
 } from "../../lib/exam";
 import { generateExamLessonQcm, generateExamText } from "../../lib/genClient";
 import { getLesson, type Lesson } from "../../lib/lessons";
+import type { SessionOpts } from "../../lib/reviewSession";
 import { isSilentMode, loadSettings } from "../../lib/settings";
 import { tokenize } from "../../lib/tokenizer";
 import { Badge } from "../kit/Badge";
@@ -26,7 +27,7 @@ interface Props {
   lessonId: string;
   onExit: () => void;
   /** Ouvre une session de révision (rattrapage : repasser les items ratés). */
-  onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
+  onStartReview?: (opts?: SessionOpts) => void;
 }
 
 type Phase = "cover" | "running" | "report";
@@ -242,10 +243,13 @@ function ExamCover({
   busy: boolean;
   onStart: () => void;
   onExit: () => void;
-  onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
+  onStartReview?: (opts?: SessionOpts) => void;
 }) {
-  const eligible = lesson.unlockProgress >= SRS.examEligibility;
-  const ready = eligible && status.retakeReady;
+  // Après un échec, le rattrapage s'ouvre quand les ratés ont été repassés en révision
+  // ciblée (SPEC §5b) — le parcours la propose de lui-même, ce bouton y mène aussi.
+  const ready = status.retakeReady;
+  const before = lesson.steps.filter((s) => s !== "exam");
+  const doneBefore = before.filter((s) => lesson.stepsDone.includes(s)).length;
   const last = status.records[0];
   // Contrôle déjà franchi : on repasse pour la note, jamais pour le droit de passer —
   // une copie ratée derrière une admission ne referme rien (cf. lib/lessons.ts).
@@ -301,19 +305,11 @@ function ExamCover({
         </Card>
       )}
 
-      {!eligible ? (
-        <Card className="flex flex-col gap-2" accentFlag>
-          <p className="m-0 text-sm text-text">
-            Le contrôle n'est pas encore ouvert : la leçon doit être travaillée avant d'être
-            évaluée ({Math.round(lesson.unlockProgress * 100)} % des éléments stabilisés, il en
-            faut {Math.round(SRS.examEligibility * 100)} %).
-          </p>
-          {onStartReview && (
-            <Button onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}>
-              S'entraîner sur la leçon
-            </Button>
-          )}
-        </Card>
+      {!alreadyPassed && doneBefore < before.length && status.retakeReady ? (
+        <p className="m-0 text-sm text-muted">
+          Le contrôle est la dernière étape du parcours ({doneBefore} sur {before.length} faites) :
+          tu peux le tenter dès maintenant.
+        </p>
       ) : !status.retakeReady && !alreadyPassed ? (
         <Card className="flex flex-col gap-2" accentFlag>
           <p className="m-0 text-sm text-text">
@@ -324,7 +320,7 @@ function ExamCover({
             s'ouvrira ensuite.
           </p>
           {onStartReview && (
-            <Button onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}>
+            <Button onClick={() => onStartReview({ scope: "due", itemIds: status.pendingItems })}>
               Réviser les éléments ratés
             </Button>
           )}

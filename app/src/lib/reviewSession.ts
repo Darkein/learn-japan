@@ -1,41 +1,57 @@
-// Échauffement de révision (SPEC §5) : les éléments SRS dus, toutes pistes confondues,
-// triés par urgence — recall rapide avant la lecture. Tous les exercices exigent un input
-// (QCM, saisie, ou construction) ; voir lib/exercise.ts.
+// Séances d'exercices (SPEC §5) : les étapes du parcours (Vocabulaire, Grammaire, Révision,
+// Produire), l'entraînement libre sur une leçon et les exercices d'une histoire. Tous les
+// exercices exigent un input (QCM, saisie, ou construction) ; voir lib/exercise.ts.
+
 
 import {
   allComprehension,
   allGrammar,
-  allLessonProgress,
   allVocab,
   bumpSrsDaily,
   deleteComprehensionItem,
   getGrammar,
-  getSrsDaily,
   getVocab,
   localDateString,
   putGrammar,
   putVocab,
 } from "./db";
-import type { GrammarItem, VocabItem } from "./db";
+import type { VocabItem } from "./db";
 import { gradeExercise, type Exercise } from "./exercise";
-import { buildDrill, grammarReviewExercise, vocabTriangleExercise, vocabTypeExercise } from "./exerciseBuild";
-import { getCurriculum, getCurriculumEntry, type CurriculumEntry } from "./curriculum";
-import { isDue, newCard, type SrsGrade } from "./srs";
+import {
+  buildDrill,
+  grammarBuildExercise,
+  grammarChoiceExercise,
+  grammarReviewExercise,
+  vocabListenMeaningExercise,
+  vocabTriangleExercise,
+  vocabTypeExercise,
+} from "./exerciseBuild";
+import { getCurriculumEntry } from "./curriculum";
+import { enrollLesson } from "./enroll";
+import { isPreAcquiredGrammar, isPreAcquiredVocab, REVIEW_STEP_SIZE } from "./path";
+import { isDue, newCard, retrievability, State, type Card, type SrsGrade } from "./srs";
 import { SRS } from "./config";
 import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
-import { effectiveNewPerDay, loadTuning } from "./tuning";
 import { loadLeechIds } from "./leech";
 import { effectiveExample, mergeSkillCards, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
 import { isTrainableVocab } from "./vocabFaces";
 import { orderDrills } from "./vocabDrills";
 
+/** Étapes du parcours qui sont des séances d'exercices sur les éléments d'une leçon. */
+export type LessonStepScope = "vocab" | "grammar" | "produce";
+
 export interface SessionOpts {
-  /** "due" = révision SRS globale plafonnée (défaut). "all" = entraînement immédiat toute
-   *  la leçon. "story" = les mots d'un texte lu, hors planification. */
-  scope?: "due" | "all" | "story";
-  /** Si fourni et scope="all", filtre sur les ids introduces de cette leçon. */
+  /** "due" = étape Révision du parcours (défaut). "step" = séance d'une étape de leçon
+   *  (Vocabulaire, Grammaire, Produire). "all" = entraînement libre sur toute la leçon.
+   *  "story" = les mots d'un texte lu, hors planification. */
+  scope?: "due" | "all" | "story" | "step";
+  /** Leçon visée (scopes "all" et "step"). */
   lessonId?: string;
+  /** scope "step" : l'étape de la leçon. */
+  step?: LessonStepScope;
+  /** scope "due" : révision CIBLÉE sur ces éléments (ex. les ratés d'un contrôle). */
+  itemIds?: string[];
   /** scope "story" : ids des mots (`itemIdFor`) et des points de grammaire du texte. */
   vocabIds?: string[];
   grammarIds?: string[];
@@ -48,53 +64,29 @@ export { isTrainableVocab } from "./vocabFaces";
 
 export interface SessionStats {
   dueCount: number;
-  newCount: number;
-}
-
-/**
- * Taille d'un bloc de révision, en cartes. L'objectif quotidien est un OBJECTIF EN CARTES
- * (« Objectif quotidien (cartes) » dans les réglages) : un bloc s'arrête donc à ce qu'il
- * reste à faire pour l'atteindre, et pas au plafond dur. Sans ça, un réglage de 10 servait
- * quand même des sessions de `sessionCap` (30) : trois fois la dose demandée, et le flux
- * n'arrivait jamais aux étapes suivantes (lecture, cours, contrôle).
- *
- * Objectif déjà atteint → un bloc PLEIN de plus : c'est le renforcement du flux, facultatif,
- * qui consolide le retard restant. `SRS.sessionCap` reste le plafond dur — un objectif de
- * 200 cartes ne produit pas une session-fleuve.
- */
-export function reviewBlockSize(dailyGoal: number, reviewedToday: number): number {
-  const remaining = dailyGoal - reviewedToday;
-  return Math.max(1, Math.min(SRS.sessionCap, remaining > 0 ? remaining : dailyGoal));
+  /** Cartes en rotation, dues ou non : une étape Révision a de quoi servir dès qu'il y en a. */
+  cardCount: number;
 }
 
 export async function sessionStats(now: Date = new Date()): Promise<SessionStats> {
-  const [vocab, grammar, started] = await Promise.all([
-    allVocab(),
-    allGrammar(),
-    startedCurriculumEntries(),
-  ]);
-  // Les nouveautés annoncées sont celles que la session peut RÉELLEMENT promouvoir : les
-  // objectifs des leçons commencées (cf. newVocabToPromote). Le vocabulaire incident d'une
-  // histoire est en base sans carte lui aussi — le compter gonflerait le chiffre de mots
-  // qui n'entreront jamais en rotation tout seuls.
-  const promotableVocab = new Set(started.flatMap((e) => e.introduces.vocab));
-  const promotableGrammar = new Set(started.flatMap((e) => e.introduces.grammar));
+  const [vocab, grammar] = await Promise.all([allVocab(), allGrammar()]);
   // +15 min : inclut les cartes dues imminentes (step relearning FSRS = 10 min)
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
   let dueCount = 0;
-  let newCount = 0;
+  let cardCount = 0;
   for (const v of vocab) {
-    if (!isTrainableVocab(v)) continue;
+    if (!isTrainableVocab(v) || !v.card) continue;
     // Une carte par mot : un mot dû, c'est un exercice — le type servi (écrit, écoute,
     // production) est tiré à la construction et ne change pas le compte.
-    if (v.card) { if (isDue(v.card, horizon)) dueCount++; }
-    else if (promotableVocab.has(v.id)) newCount++;
+    cardCount++;
+    if (isDue(v.card, horizon)) dueCount++;
   }
   for (const g of grammar) {
-    if (g.card) { if (isDue(g.card, horizon)) dueCount++; }
-    else if (promotableGrammar.has(g.id)) newCount++;
+    if (!g.card) continue;
+    cardCount++;
+    if (isDue(g.card, horizon)) dueCount++;
   }
-  return { dueCount, newCount };
+  return { dueCount, cardCount };
 }
 
 /**
@@ -134,8 +126,11 @@ export async function buildSession(
     exercises = await buildSessionAll(opts.lessonId, now, leeches);
   } else if (scope === "story") {
     exercises = await buildSessionStory(opts.vocabIds ?? [], opts.grammarIds ?? [], now, leeches);
+  } else if (scope === "step") {
+    if (!opts.lessonId || !opts.step) return [];
+    exercises = await buildSessionStep(opts.lessonId, opts.step, now, leeches);
   } else {
-    exercises = await buildSessionDue(now, leeches);
+    exercises = await buildSessionReview(now, leeches, opts.itemIds);
   }
 
   for (const ex of exercises) {
@@ -169,60 +164,10 @@ export async function silenceDeck(cards: Exercise[]): Promise<Exercise[]> {
   return out;
 }
 
-/** Leçons commencées, dans l'ordre du curriculum (pour prioriser leurs objectifs). */
-async function startedCurriculumEntries(): Promise<CurriculumEntry[]> {
-  const progress = await allLessonProgress();
-  const started = new Set(progress.filter((p) => p.startedAt).map((p) => p.id));
-  return getCurriculum().filter((e) => started.has(e.id));
-}
-
-/**
- * NOUVEAUX items de vocabulaire promus par la révision : UNIQUEMENT les objectifs des
- * leçons commencées, dans l'ordre du curriculum (il est curé).
- *
- * Le vocabulaire INCIDENT — les mots croisés dans une histoire ou un article, matérialisés
- * en base par `enrollStory` / `ensureVocabItems` — n'entre JAMAIS en rotation tout seul :
- * une histoire de leçon contient des dizaines de mots hors objectifs, et les promouvoir
- * automatiquement noyait les mots-cibles de la leçon sous du vocabulaire jamais choisi.
- * Un mot incident entre en planification quand l'utilisateur le décide DEPUIS le texte, et
- * ces chemins créent la carte eux-mêmes : tap du Lecteur (`applyStatus`), exercices de
- * l'histoire (`gradeExercise`), suggestion de la fiche kanji (`addInventoryWordToReview`).
- */
-function newVocabToPromote(vocabAll: VocabItem[], started: CurriculumEntry[]): VocabItem[] {
-  const byId = new Map(vocabAll.filter((v) => !v.card).map((v) => [v.id, v]));
-  const ordered: VocabItem[] = [];
-  for (const entry of started) {
-    for (const id of entry.introduces.vocab) {
-      const v = byId.get(id);
-      if (v) {
-        ordered.push(v);
-        byId.delete(id); // un même mot peut être objectif de deux leçons
-      }
-    }
-  }
-  return ordered;
-}
-
-/** Même règle pour la grammaire : seuls les points des leçons commencées sont promus. */
-function newGrammarToPromote(grammarAll: GrammarItem[], started: CurriculumEntry[]): GrammarItem[] {
-  const byId = new Map(grammarAll.filter((g) => !g.card).map((g) => [g.id, g]));
-  const ordered: GrammarItem[] = [];
-  for (const entry of started) {
-    for (const id of entry.introduces.grammar) {
-      const g = byId.get(id);
-      if (g) {
-        ordered.push(g);
-        byId.delete(id);
-      }
-    }
-  }
-  return ordered;
-}
-
 /**
  * Fabrique d'exercices de vocabulaire. Deux façons de servir un mot :
  *
- *  - `drill` (révision SRS) — la FORME est tirée parmi les cinq du répertoire
+ *  - `drill` (étape Révision) — la FORME est tirée parmi les cinq du répertoire
  *    (lib/vocabDrills.ts), la première constructible gagne ;
  *  - `triangle` (bilan de leçon, exercices d'histoire) — toujours l'écrit : ces entrées
  *    servent des mots qui n'ont pas forcément de carte, et on y vérifie la reconnaissance.
@@ -260,129 +205,161 @@ function exerciseFactory(pool: VocabItem[], leeches: Set<string>, ctx: { silent?
 }
 
 /**
- * Promeut jusqu'à `slots` NOUVEAUX items : objectifs des leçons commencées (vocabulaire
- * d'abord, puis grammaire), carte FSRS créée et compteur du jour incrémenté. Renvoie leurs
- * exercices — moins que `slots` s'il n'y a plus rien à introduire.
+ * L'étape Révision du parcours (SPEC §5.4) : `REVIEW_STEP_SIZE` cartes, les plus urgentes
+ * d'abord. Quand il n'y en a pas assez de dues, elle complète avec les éléments les plus
+ * FRAGILES (plus faible probabilité de rappel FSRS, les difficiles d'abord) : une étape
+ * Révision n'est jamais vide tant qu'il existe des cartes, ce qui garde la séance sans fin.
+ * FSRS traite une révision anticipée — elle compte, et fait moins progresser la stabilité
+ * qu'une révision à l'échéance.
+ *
+ * `itemIds` cible la révision sur des éléments donnés (les ratés d'un contrôle) : ils sont
+ * servis qu'ils soient dus ou non, sans complément.
  */
-async function promoteNew(
-  slots: number,
-  vocabAll: VocabItem[],
-  grammarAll: GrammarItem[],
-  make: ReturnType<typeof exerciseFactory>,
-  dateStr: string,
+async function buildSessionReview(
   now: Date,
+  leeches: Set<string>,
+  itemIds?: string[],
 ): Promise<Exercise[]> {
-  const out: Exercise[] = [];
-  const started = await startedCurriculumEntries();
-
-  // Vocab sans carte — objectifs des leçons commencées, à l'exclusion de l'incident.
-  // Première rencontre : toujours l'écrit (`orderDrills` n'ouvrirait de toute façon rien
-  // d'autre sur une carte neuve), on ne fait pas écouter un mot jamais vu.
-  for (const v of newVocabToPromote(vocabAll, started)) {
-    if (out.length >= slots) break;
-    if (!isTrainableVocab(v)) continue;
-    const card = newCard(now);
-    v.card = card;
-    await bumpSrsDaily(dateStr, { introduced: 1 });
-    out.push(make.triangle(v, card.due.getTime()));
-  }
-
-  // Grammaire sans carte — même règle.
-  for (const g of newGrammarToPromote(grammarAll, started)) {
-    if (out.length >= slots) break;
-    const card = newCard(now);
-    g.card = card;
-    await putGrammar(g);
-    await bumpSrsDaily(dateStr, { introduced: 1 });
-    out.push(await grammarReviewExercise(g, card.due.getTime()));
-  }
-  return out;
-}
-
-async function buildSessionDue(now: Date, leeches: Set<string>): Promise<Exercise[]> {
   const s = loadSettings();
   // Sans le son : réglage permanent OU pause « je ne peux pas écouter » encore en cours.
   // Le tirage de forme écarte alors l'écoute — inutile de la construire pour la remplacer.
   const silent = isSilentMode(s, now);
-  // Signal d'auto-réglage : la rétention mesurée module le débit de nouveautés (le retard,
-  // lui, est mesuré plus bas sur les items dus de CETTE session). Voir lib/tuning.ts.
-  const tuning = await loadTuning();
-  const due: Exercise[] = [];
   const horizon = new Date(now.getTime() + 15 * 60 * 1000);
 
-  // Un seul chargement de chaque store (réutilisé par les passes dues et nouveaux).
+  // Un seul chargement de chaque store.
   const [vocabAll, grammarAll] = await Promise.all([allVocab(), allGrammar()]);
   // Le pool de distracteurs, c'est tout le vocabulaire connu : un QCM tire ses options
   // sur la même face que la réponse (cf. faceDistractors).
   const make = exerciseFactory(vocabAll, leeches, { silent });
 
-  // Items dus. Un mot = UNE carte = UN exercice : plus de passes séparées par compétence,
-  // plus de mot écarté parce qu'il passait déjà sous un autre angle. La forme (écrit,
-  // écoute, dictée, production) est tirée mot par mot — c'est ce qui donne la variété que
-  // les trois cartes obtenaient en multipliant les passages.
+  // Candidats : un mot = UNE carte = UN exercice. La forme (écrit, écoute, dictée,
+  // production) est tirée mot par mot — c'est ce qui donne la variété.
+  type Candidate = { card: Card; build: () => Promise<Exercise>; id: string };
+  const candidates: Candidate[] = [];
   for (const v of vocabAll) {
-    if (!isTrainableVocab(v)) continue;
-    if (v.card && isDue(v.card, horizon)) due.push(await make.drill(v, v.card.due.getTime()));
+    if (!isTrainableVocab(v) || !v.card) continue;
+    const card = v.card;
+    candidates.push({ card, id: v.id, build: () => make.drill(v, card.due.getTime()) });
   }
   for (const g of grammarAll) {
-    if (g.card && isDue(g.card, horizon)) {
-      due.push(await grammarReviewExercise(g, g.card.due.getTime()));
-    }
+    if (!g.card) continue;
+    const card = g.card;
+    candidates.push({ card, id: g.id, build: () => grammarReviewExercise(g, card.due.getTime()) });
   }
 
-  const dateStr = localDateString(now);
-  const daily = await getSrsDaily(dateStr);
+  let chosen: Candidate[];
+  if (itemIds) {
+    const wanted = new Set(itemIds);
+    chosen = candidates.filter((c) => wanted.has(c.id));
+  } else {
+    // Dus, les plus urgents d'abord ; puis les plus fragiles parmi ceux déjà travaillés
+    // (une carte neuve n'a pas de mémoire à entretenir).
+    const due = candidates
+      .filter((c) => isDue(c.card, horizon))
+      .sort((a, b) => a.card.due.getTime() - b.card.due.getTime());
+    const fragile = candidates
+      .filter((c) => !isDue(c.card, horizon) && c.card.state !== State.New)
+      .map((c) => ({ c, r: retrievability(c.card, now), leech: leeches.has(c.id) }))
+      .sort((a, b) => Number(b.leech) - Number(a.leech) || a.r - b.r)
+      .map((x) => x.c);
+    chosen = [...due, ...fragile].slice(0, REVIEW_STEP_SIZE);
+  }
 
-  // Taille du bloc : ce qu'il reste à faire pour atteindre l'objectif du jour (cf.
-  // `reviewBlockSize`), plafonnée à `sessionCap`. Le dû qui dépasse attendra le bloc
-  // suivant — renforcement du flux, ou demain : mieux qu'une session-fleuve après
-  // quelques jours d'absence.
-  const cap = reviewBlockSize(s.dailyGoal, daily?.reviewed ?? 0);
+  const out: Exercise[] = [];
+  for (const c of chosen) out.push(await c.build());
 
-  // Budget nouveaux items — débit auto-réglé (lib/tuning.ts) : `newPerDay` est un plafond
-  // SOUHAITÉ, plafonné à son tour par ce que l'objectif du jour peut absorber (un mot neuf
-  // demande ~`NEW_ITEM_LOAD` révisions dans ses premiers mois), puis raboté par la rétention
-  // mesurée et le retard dû du jour (backlog = items dus de cette session), exprimé en
-  // JOURS d'objectif.
-  //
-  // Sans le plafond de capacité, 10 mots neufs par jour sur un objectif de 10 cartes
-  // faisaient croître le retard indéfiniment : l'utilisateur voyait « à consolider » monter
-  // de plusieurs unités chaque jour sans jamais pouvoir revenir à zéro.
-  //
-  // Ce n'est PAS un gel par l'objectif du jour (« pas de neuf tant que le dû remplit le
-  // bloc ») : celui-là bloquait toute progression dès le moindre retard — les objectifs de
-  // la leçon en cours n'obtenaient jamais de carte, sa part d'items stabilisés ne montait
-  // plus, son contrôle ne s'ouvrait pas, et la leçon suivante restait verrouillée. Ici le
-  // débit garde un plancher d'un mot par jour tant que le retard reste sous le palier de
-  // coupure ; la coupure elle-même est temporaire, et se lève dès que le retard s'est vidé.
-  const newCap = effectiveNewPerDay(
-    s.newPerDay,
-    tuning.measuredRetention,
-    due.length,
-    s.dailyGoal,
-  );
-  const budget = Math.max(0, newCap - (daily?.introduced ?? 0));
-  // Réserve de nouveautés DANS le bloc : au plus la moitié tant qu'il reste du dû (le
-  // retard doit avancer aussi), tout le bloc quand il n'y a rien à revoir.
-  const newSlots = Math.min(budget, due.length > 0 ? Math.floor(cap / 2) : cap);
-
-  // Les nouveautés sont promues AVANT de découper le dû : une réserve non consommée
-  // (plus rien à introduire aujourd'hui, aucune leçon commencée) revient au retard, elle
-  // ne laisse pas un bloc à moitié vide.
-  const newCards =
-    newSlots > 0 ? await promoteNew(newSlots, vocabAll, grammarAll, make, dateStr, now) : [];
-
-  // Items dus triés par urgence, coupés à la place qui reste dans le bloc.
-  due.sort((a, b) => (a.due ?? 0) - (b.due ?? 0));
-  const out: Exercise[] = [...due.slice(0, cap - newCards.length), ...newCards];
-
-  // Le tri par urgence ci-dessus sert à CHOISIR les items qui tiennent dans la session ;
-  // il ne doit pas dicter l'ordre de passage. Sans mélange, les échéances (identiques pour
-  // toutes les cartes neuves) retombent sur l'ordre des clés IndexedDB : mêmes mots dans
-  // la même séquence, session après session.
+  // Le tri sert à CHOISIR les cartes de l'étape, pas à dicter l'ordre de passage : sans
+  // mélange, les mêmes mots reviendraient dans la même séquence, étape après étape.
   const deck = shuffle(out);
   await make.flush(deck);
   return deck;
+}
+
+/** Donne sa carte FSRS à un élément qui n'en a pas encore : sa PREMIÈRE rencontre en exercice. */
+async function ensureCard<T extends { card?: Card }>(item: T, now: Date): Promise<Card> {
+  if (item.card) return item.card;
+  item.card = newCard(now);
+  await bumpSrsDaily(localDateString(now), { introduced: 1 });
+  return item.card;
+}
+
+/** Clé d'exercice propre à un niveau : le même mot passe deux fois dans une étape. */
+function atLevel(ex: Exercise, level: number): Exercise {
+  return { ...ex, key: `${ex.key}#n${level}` };
+}
+
+/**
+ * Séance d'une étape de leçon (SPEC §5.2, §5.3). Chaque élément y est servi à un niveau de
+ * difficulté, et TOUS les exercices du premier niveau passent avant ceux du second : chaque
+ * élément est revu après quelques autres, jamais deux fois de suite.
+ *
+ *  - Vocabulaire : niveau 1 (triangle en QCM) puis niveau 2 (saisie de la lecture, ou sens à
+ *    l'écoute) — pour les mots pas encore acquis.
+ *  - Grammaire : niveau 1 (rôle du point en QCM) puis niveau 2 (reconstruction de sa phrase
+ *    d'exemple) — pour les points pas encore acquis.
+ *  - Produire : niveau 3 — production du mot en contexte, reconstruction de la phrase du
+ *    point de grammaire — pour TOUS les éléments de la leçon.
+ *
+ * Les éléments reçoivent leur carte ici, à leur première rencontre en exercice : chaque
+ * réponse est notée (la première réponse compte, SPEC §5.5).
+ */
+async function buildSessionStep(
+  lessonId: string,
+  step: LessonStepScope,
+  now: Date,
+  leeches: Set<string>,
+): Promise<Exercise[]> {
+  const entry = getCurriculumEntry(lessonId);
+  if (!entry) return [];
+  // Les éléments de la leçon existent en base dès qu'elle est commencée ; l'enrôlement est
+  // idempotent et rattrape une leçon ouverte par un chemin qui ne l'a pas attendu.
+  await enrollLesson(lessonId);
+  const silent = isSilentMode(loadSettings(), now);
+  const pool = await allVocab();
+  const byId = new Map(pool.map((v) => [v.id, v]));
+  const first: Exercise[] = [];
+  const second: Exercise[] = [];
+
+  if (step === "vocab" || step === "produce") {
+    for (const id of entry.introduces.vocab) {
+      const v = byId.get(id);
+      if (!v || !isTrainableVocab(v)) continue;
+      if (step === "vocab" && isPreAcquiredVocab(v)) continue;
+      const card = await ensureCard(v, now);
+      const due = card.due.getTime();
+      const isLeech = leeches.has(v.id);
+      if (step === "vocab") {
+        first.push(atLevel(vocabTriangleExercise(v, due, pool, { isLeech, mode: "choice" }), 1));
+        const listen =
+          !silent && Math.random() < 0.5 && effectiveExample(v)?.ja
+            ? vocabListenMeaningExercise(v, due, pool)
+            : null;
+        second.push(atLevel(listen ?? vocabTriangleExercise(v, due, pool, { isLeech, mode: "type" }), 2));
+      } else {
+        first.push(atLevel(await vocabTypeExercise(v, due, { produce: true, pool }), 3));
+      }
+      await putVocab(v);
+    }
+  }
+
+  if (step === "grammar" || step === "produce") {
+    for (const id of entry.introduces.grammar) {
+      const g = await getGrammar(id);
+      if (!g) continue;
+      if (step === "grammar" && isPreAcquiredGrammar(g)) continue;
+      const card = await ensureCard(g, now);
+      await putGrammar(g);
+      const due = card.due.getTime();
+      if (step === "grammar") {
+        first.push(atLevel(grammarChoiceExercise(g, due), 1));
+        second.push(atLevel((await grammarBuildExercise(g, due)) ?? grammarChoiceExercise(g, due), 2));
+      } else {
+        first.push(atLevel((await grammarBuildExercise(g, due)) ?? grammarChoiceExercise(g, due), 3));
+      }
+    }
+  }
+
+  return [...shuffle(first), ...shuffle(second)];
 }
 
 async function buildSessionAll(
@@ -393,6 +370,8 @@ async function buildSessionAll(
   const entry = getCurriculumEntry(lessonId);
   if (!entry) return [];
 
+  // Entraînement neutre (SPEC §5) : une carte manquante n'est qu'un repère d'échéance pour
+  // le tri, jamais une carte mise en rotation — la séance n'écrit rien dans le SRS.
   const out: Exercise[] = [];
   const { vocab: vocabIds, grammar: grammarIds } = entry.introduces;
   // Distracteurs tirés dans TOUT le vocabulaire connu, pas seulement la leçon : quatre
@@ -403,18 +382,13 @@ async function buildSessionAll(
   for (const id of vocabIds) {
     const v = await getVocab(id);
     if (!v || !isTrainableVocab(v)) continue;
-    if (!v.card) v.card = newCard(now);
-    out.push(make.triangle(v, v.card.due.getTime()));
+    out.push(make.triangle(v, (v.card ?? newCard(now)).due.getTime()));
   }
 
   for (const id of grammarIds) {
     const g = await getGrammar(id);
     if (!g) continue;
-    if (!g.card) {
-      g.card = newCard(now);
-      await putGrammar(g);
-    }
-    out.push(await grammarReviewExercise(g, g.card!.due.getTime()));
+    out.push(await grammarReviewExercise(g, (g.card ?? newCard(now)).due.getTime()));
   }
 
   // Les plus urgents sont retenus, puis mélangés : le bilan reste plafonné pour rester

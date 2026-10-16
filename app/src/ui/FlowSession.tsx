@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSrsDaily, getStory, localDateString } from "../lib/db";
 import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
-import { getLesson, markLessonCourseRead, type Lesson } from "../lib/lessons";
+import { startLessonJob } from "../lib/genJobs";
+import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
+import { STEP_LABEL } from "../lib/path";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival } from "../lib/tokaido";
 import { MirrorDeltaView } from "./MirrorDelta";
@@ -50,8 +52,8 @@ export function FlowSession({ onExit, forced }: Props) {
   const [arrival, setArrival] = useState<RouteArrival | null>(null);
   // Révisions du jour au début du bloc courant → « 12 révisions faites » au checkpoint.
   const reviewedAtBlockStart = useRef(0);
-  // Contexte de la session de flux : borne le renforcement. État de session UI, jamais persisté.
-  const flowCtx = useRef({ reinforceCountThisFlow: 0 });
+  // Contexte de la séance : une relecture-miroir au plus. État de séance UI, jamais persisté.
+  const flowCtx = useRef({ mirrorDoneThisFlow: false });
 
   // Réservation de l'ouverture auto mémorisée : un effet rejoué (StrictMode) doit relire la
   // même réponse, pas re-réserver — il obtiendrait `false` et lancerait le flux par-dessus.
@@ -105,8 +107,13 @@ export function FlowSession({ onExit, forced }: Props) {
     // Le défi omikuji (tiré au lancement de l'app, hors du flux) peut venir d'être accompli
     // par ce bloc : on l'évalue AVANT le Tōkaidō pour que le bonus éventuel soit crédité
     // dans la position lue juste après.
+    // L'étape finie est VALIDÉE avant de relire l'état : le parcours avance d'un cran. Le
+    // contrôle, lui, se valide par son admission (lib/lessons.ts), pas par sa remise.
+    if (finished.step && finished.lessonId && finished.step !== "exam") {
+      await markStepDone(finished.lessonId, finished.step);
+    }
     const omikuji = await checkOmikuji();
-    if (finished.kind === "reinforce") flowCtx.current.reinforceCountThisFlow++;
+    if (finished.kind === "mirror") flowCtx.current.mirrorDoneThisFlow = true;
     const { state, lessons } = await gatherFlowState({
       lastActivity: finished.kind,
       ...flowCtx.current,
@@ -120,6 +127,13 @@ export function FlowSession({ onExit, forced }: Props) {
     // Une arrivée de station se fête au checkpoint (la progression vient d'être créditée).
     const tokaido = await tokaidoStatus(lessons);
     if (tokaido.newlyArrived) setArrival(tokaido.newlyArrived);
+    // Une leçon s'ouvre : on prépare déjà la suivante (cours, première histoire), pour
+    // qu'enchaîner deux leçons dans la soirée ne fasse jamais attendre (SPEC §5.1).
+    if (finished.step === "course" && finished.lessonId) {
+      const i = lessons.findIndex((l) => l.id === finished.lessonId);
+      const following = i >= 0 ? lessons[i + 1] : undefined;
+      if (following?.state === "to-generate") void startLessonJob(following);
+    }
     setPhase({ name: "checkpoint", result: recap, next: pickNext(state) });
   }
 
@@ -134,13 +148,13 @@ export function FlowSession({ onExit, forced }: Props) {
     <div className="flex flex-col gap-6">
       <header className="flex items-baseline justify-between gap-4 border-b border-hairline pb-4">
         <div className="flex items-baseline gap-3">
-          <h2 className="m-0 font-serif text-xl">Flux d'étude</h2>
+          <h2 className="m-0 font-serif text-xl">Parcours</h2>
           {flowMs > 0 && (
             <span className="text-xs text-muted">{formatMinutes(flowMs)} aujourd'hui</span>
           )}
         </div>
         <Button variant="quiet" onClick={onExit}>
-          Terminer
+          Arrêter
         </Button>
       </header>
 
@@ -184,25 +198,20 @@ async function recapFor(
   omikujiDone: boolean,
 ): Promise<FlowBlockResult> {
   const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur la route." : "";
-  if (activity.kind === "review" || activity.kind === "reinforce") {
-    const daily = await getSrsDaily(localDateString());
-    const delta = Math.max(0, (daily?.reviewed ?? 0) - reviewedBefore);
-    return {
-      kind: activity.kind,
-      recap:
-        (delta > 0
-          ? `${delta} révision${delta > 1 ? "s" : ""} faite${delta > 1 ? "s" : ""} — ${daily?.reviewed ?? 0} aujourd'hui.`
-          : "Bloc de révision terminé.") + suffix,
-    };
-  }
-  if (activity.kind === "read-story" || activity.kind === "mirror") {
-    return { kind: activity.kind, recap: "Histoire lue — chaque page recroise tes acquis." + suffix };
-  }
-  if (activity.kind === "lesson") {
-    return { kind: activity.kind, recap: "Leçon découverte — ses mots arrivent en révision." + suffix };
-  }
+  const daily = await getSrsDaily(localDateString());
+  const answered = Math.max(0, (daily?.reviewed ?? 0) - reviewedBefore);
+  const answers = answered > 0 ? ` — ${answered} réponse${answered > 1 ? "s" : ""}.` : ".";
   if (activity.kind === "exam") {
     return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." + suffix };
+  }
+  if (activity.kind === "mirror") {
+    return { kind: activity.kind, recap: "Histoire relue — chaque page recroise tes acquis." + suffix };
+  }
+  if (activity.step) {
+    return { kind: activity.kind, recap: `Étape validée : ${STEP_LABEL[activity.step]}${answers}` + suffix };
+  }
+  if (activity.kind === "review") {
+    return { kind: activity.kind, recap: `Révision faite${answers}` + suffix };
   }
   return { kind: activity.kind };
 }
@@ -218,21 +227,94 @@ function ActivityBlock({
   furigana: boolean;
   onDone: () => void;
 }) {
-  if (activity.kind === "review" || activity.kind === "reinforce") {
-    return <ReviewSession opts={{ scope: "due" }} onExit={onDone} />;
+  switch (activity.kind) {
+    case "review":
+      return <ReviewSession opts={{ scope: "due", itemIds: activity.itemIds }} onExit={onDone} exitLabel="Continuer" />;
+    case "vocab":
+    case "grammar":
+    case "produce":
+      return (
+        <ReviewSession
+          key={`${activity.lessonId}:${activity.kind}`}
+          opts={{ scope: "step", lessonId: activity.lessonId, step: activity.kind }}
+          onExit={onDone}
+          exitLabel="Continuer"
+        />
+      );
+    case "read-story":
+      return activity.lessonId ? (
+        <StoryStep lessonId={activity.lessonId} storyId={activity.refId} onDone={onDone} />
+      ) : null;
+    case "mirror":
+      return <StoryBlock storyId={activity.refId} onDone={onDone} />;
+    case "lesson":
+      return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} />;
+    case "exam":
+      // Le contrôle vit dans le flux comme les autres blocs : il porte son en-tête de copie
+      // et sa correction, et rend la main au checkpoint une fois la copie rendue.
+      return activity.refId ? <ExamSession lessonId={activity.refId} onExit={onDone} /> : null;
+    default:
+      return null;
   }
-  if (activity.kind === "read-story" || activity.kind === "mirror") {
-    return <StoryBlock storyId={activity.refId} onDone={onDone} />;
-  }
-  if (activity.kind === "lesson") {
-    return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} />;
-  }
-  if (activity.kind === "exam") {
-    // Le contrôle vit dans le flux comme les autres blocs : il porte son en-tête de copie
-    // et sa correction, et rend la main au checkpoint une fois la copie rendue.
-    return activity.refId ? <ExamSession lessonId={activity.refId} onExit={onDone} /> : null;
-  }
-  return null;
+}
+
+/**
+ * L'étape Histoire : la première histoire de la leçon jamais ouverte (à défaut, la première
+ * de toutes). Une leçon sans histoire en reçoit une ICI — téléchargée si elle est
+ * pré-générée, générée sinon — plutôt que de renvoyer l'utilisateur hors du parcours.
+ */
+function StoryStep({ lessonId, storyId, onDone }: { lessonId: string; storyId?: string; onDone: () => void }) {
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const reload = useCallback(async () => {
+    const l = await getLesson(lessonId);
+    if (l) setLesson(l);
+  }, [lessonId]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  if (!lesson) return <LoadingScreen />;
+  const id = storyId && storyId !== lessonId ? storyId : lesson.stories[0]?.id;
+  if (id) return <StoryBlock storyId={id} onDone={onDone} />;
+  return <StoryGeneration lesson={lesson} onReload={reload} />;
+}
+
+function StoryGeneration({ lesson, onReload }: { lesson: Lesson; onReload: () => Promise<void> }) {
+  const { busy, error, progress, label, addStory, retry } = useLessonGen(lesson);
+  useEffect(() => {
+    if (!busy && !error) addStory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson.id]);
+  // Génération terminée → l'histoire est en base : on recharge la leçon pour la lire.
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (wasBusy.current && !busy) void onReload();
+    wasBusy.current = busy;
+  }, [busy, onReload]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <SectionLabel>Histoire</SectionLabel>
+        <p className="m-0 font-serif text-lg text-text">{lesson.title}</p>
+      </div>
+      {busy && <GenProgress label={label} progress={progress} />}
+      {!busy && (
+        <Card className="py-4">
+          <p className="m-0 text-sm text-muted">
+            {error
+              ? "L'histoire de cette leçon n'a pas pu être préparée (hors ligne ?)."
+              : "Préparation de l'histoire de la leçon…"}
+          </p>
+          {error && (
+            <button className="mt-2 cursor-pointer text-sm underline" onClick={() => retry()}>
+              Réessayer
+            </button>
+          )}
+        </Card>
+      )}
+    </div>
+  );
 }
 
 function StoryBlock({ storyId, onDone }: { storyId?: string; onDone: () => void }) {
