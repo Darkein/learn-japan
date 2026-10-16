@@ -2,14 +2,12 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { allReviews, getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
+import { getCurriculum } from "./curriculum";
 import {
   gradeExercise,
-  secondChance,
-  snapshotBeforeGrade,
-  itemKey,
+  gradeStoryExercise,
   type BuildExercise,
   type ChoiceExercise,
-  type GradeSnapshot,
   type TypeExercise,
 } from "./exercise";
 import { newCard, review, State } from "./srs";
@@ -311,51 +309,56 @@ describe("gradeExercise", () => {
   });
 });
 
-describe("seconde chance (relance des ratés)", () => {
-  const ex: TypeExercise = {
-    mode: "type",
-    key: "vocab:猫|ねこ",
-    track: "vocab",
-    id: "猫|ねこ",
-    front: "chat",
-    back: "猫（ねこ）",
-    answers: ["ねこ"],
-  };
+describe("gradeStoryExercise (exercices d'une histoire)", () => {
+  // Un objectif de la première leçon, et un mot qu'aucune leçon n'enseigne.
+  const objective = getCurriculum()[0].introduces.vocab[0];
+  const [objSurface, objReading] = objective.split("|");
+  const incidental = "宝物|ほうもつ";
 
-  async function seedMature() {
-    let card = newCard(new Date("2026-08-01"));
-    for (const d of ["2026-08-01", "2026-08-02", "2026-08-06", "2026-08-20"]) card = review(card, "good", new Date(d));
-    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review", card, streak: 4 });
-    return card;
+  function typeEx(id: string): TypeExercise {
+    const [surface, reading] = id.split("|");
+    return { mode: "type", key: `vocab:${id}`, track: "vocab", id, front: surface, back: reading, answers: [reading] };
   }
 
-  it("un raté réussi à la relance retrouve sa carte et sa série d'avant l'erreur", async () => {
-    const before = await seedMature();
-    const beforeMiss = new Map<string, GradeSnapshot>();
-    const snap = await snapshotBeforeGrade(ex);
-    beforeMiss.set(itemKey(ex), snap!);
-    await gradeExercise(ex, "again", new Date("2026-10-15"));
-    const missed = await getVocab("猫|ねこ");
-    expect(missed?.card?.scheduled_days).toBe(0);
-    expect(missed?.streak).toBe(0);
-
-    await secondChance(beforeMiss, ex);
-    const v = await getVocab("猫|ねこ");
-    expect(v?.card?.stability).toBe(before.stability);
-    expect(v?.card?.scheduled_days).toBe(before.scheduled_days);
-    expect(v?.card?.lapses).toBe(0);
-    expect(v?.streak).toBe(4);
-    // L'erreur reste au journal (détection des éléments difficiles, rétention mesurée).
-    expect((await allReviews()).map((r) => r.grade)).toEqual(["again"]);
-    // Photo consommée : une seconde restauration ne fait rien.
-    expect(beforeMiss.size).toBe(0);
+  it("note un objectif de leçon qui a déjà une carte", async () => {
+    await putVocab({ id: objective, surface: objSurface, reading: objReading, meaning: "x", tags: [], status: "review", card: newCard(new Date("2026-01-01")) });
+    await gradeStoryExercise(typeEx(objective), "good", new Date("2026-01-02"));
+    expect((await getVocab(objective))?.card?.reps).toBe(1);
   });
 
-  it("sans photo (élément sans carte avant l'erreur), rien n'est restauré", async () => {
-    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review" });
-    expect(await snapshotBeforeGrade(ex)).toBeUndefined();
-    await gradeExercise(ex, "again", new Date("2026-10-15"));
-    await secondChance(new Map(), ex);
-    expect((await getVocab("猫|ねこ"))?.card?.reps).toBe(1);
+  it("ne crée aucune carte : un objectif sans carte reste sans carte", async () => {
+    await putVocab({ id: objective, surface: objSurface, reading: objReading, meaning: "x", tags: [], status: "unknown" });
+    await gradeStoryExercise(typeEx(objective), "good");
+    expect((await getVocab(objective))?.card).toBeUndefined();
+    expect(await allReviews()).toEqual([]);
+  });
+
+  it("un mot incident est travaillé sans écriture SRS, même avec une carte", async () => {
+    await putVocab({ id: incidental, surface: "宝物", reading: "ほうもつ", meaning: "trésor", tags: [], status: "review", card: newCard(new Date("2026-01-01")) });
+    await gradeStoryExercise(typeEx(incidental), "again");
+    expect((await getVocab(incidental))?.card?.reps).toBe(0);
+    expect(await allReviews()).toEqual([]);
+  });
+
+  it("reconstruction de phrase : seuls les objectifs déjà en rotation sont notés", async () => {
+    await putVocab({ id: objective, surface: objSurface, reading: objReading, meaning: "x", tags: [], status: "review", card: newCard(new Date("2026-01-01")) });
+    const tokens = [
+      tok({ surface_form: objSurface, pos: "名詞", reading: objReading, basic_form: objSurface }),
+      tok({ surface_form: "宝物", pos: "名詞", reading: "ホウモツ", basic_form: "宝物" }),
+    ];
+    const ex: BuildExercise = {
+      mode: "build",
+      key: "build:0",
+      track: "vocab",
+      id: "build:0",
+      front: "…",
+      back: "…",
+      target: [objSurface, "宝物"],
+      tokens,
+    };
+    await gradeStoryExercise(ex, "good", new Date("2026-01-02"));
+    expect((await getVocab(objective))?.card?.reps).toBe(1);
+    // Le mot incident n'a même pas été matérialisé avec une carte.
+    expect((await getVocab(incidental))?.card).toBeUndefined();
   });
 });

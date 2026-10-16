@@ -25,14 +25,17 @@ import {
   allExams,
   allGrammar,
   allVocab,
+  bumpSrsDaily,
   getGeneratedLesson,
   getLessonProgress,
+  getMeta,
   getStory,
   putGeneratedLesson,
   putLessonProgress,
   putStoryImage,
   storiesForLesson,
   examsForLesson,
+  localDateString,
   type ExamRecord,
   type GeneratedLessonRecord,
   type GrammarItem,
@@ -41,9 +44,9 @@ import {
   type VocabItem,
 } from "./db";
 import { enrollLesson } from "./enroll";
+import { isPreAcquiredGrammar, isPreAcquiredVocab, lessonSteps, nextStep, type PathStep } from "./path";
 import { sample } from "./random";
-import { isMastered, isUnlockReady, type Card } from "./srs";
-import { SRS } from "./config";
+import { isMastered, type Card } from "./srs";
 
 /** Une leçon est « prête » dès qu'elle a au moins une histoire à lire (locale ou distante). */
 export type LessonState = "ready" | "to-generate";
@@ -72,22 +75,23 @@ export interface Lesson extends CurriculumEntry {
   remoteStoryVariants: number[];
   /** Part des items maîtrisés (0..1) — intervalle ≥ 21 j, objectif long terme affiché. */
   mastery: number;
-  /** Part des items assez stables pour le déblocage (0..1) — seuil léger, voir isUnlockReady. */
-  unlockProgress: number;
   /** La leçon est-elle verrouillée faute d'admission au contrôle de la précédente ? */
   locked: boolean;
-  /**
-   * Contrôle de fin de leçon (le 関所, lib/exam.ts) — la DOUBLE CLÉ du parcours :
-   * `examEligible` (assez d'items stabilisés) donne le droit de se présenter,
-   * `examPassed` (admission) débloque la leçon suivante.
-   */
-  examEligible: boolean;
+  /** Étapes du parcours de CETTE leçon, dans l'ordre (SPEC §5.2). */
+  steps: PathStep[];
+  /** Étapes faites — dans le parcours, ou créditées hors parcours (cf. `computeStepsDone`). */
+  stepsDone: PathStep[];
+  /** Prochaine étape à faire ; absente quand tout est fait. */
+  nextStep?: PathStep;
+  /** Au moins une histoire de la leçon a été ouverte (meta `storyRead.<id>`). */
+  storyRead: boolean;
+  /** Étapes validées dans le parcours (progression locale, avec leur date). */
+  stepDates: Partial<Record<PathStep, number>>;
+  /** Contrôle de fin de leçon (le 関所, lib/exam.ts) : l'admission débloque la suivante. */
   examPassed: boolean;
   /** Meilleure note obtenue (sur 20), absente tant qu'aucune copie n'a été rendue. */
   examNote?: number;
   examAttempts: number;
-  /** Progression de déblocage de la leçon précédente (pour la jauge du verrou). */
-  prevUnlockProgress?: number;
   /** La leçon précédente a-t-elle passé son contrôle ? (message du verrou) */
   prevExamPassed?: boolean;
   /** Titre de la leçon précédente (pour le message de débloquage). */
@@ -152,28 +156,6 @@ export function invalidateGeneratedIndex(): void {
   _generatedIndexPromise = null;
 }
 
-/** Part des items d'une leçon dont la carte satisfait `pred` (0..1). */
-function computeProgress(
-  entry: Pick<CurriculumEntry, "introduces">,
-  vocabMap: Map<string, VocabItem>,
-  grammarMap: Map<string, GrammarItem>,
-  pred: (card: Card) => boolean,
-): number {
-  let total = 0;
-  let ok = 0;
-  for (const id of entry.introduces.vocab) {
-    total++;
-    const card = vocabMap.get(id)?.card;
-    if (card && pred(card)) ok++;
-  }
-  for (const id of entry.introduces.grammar) {
-    total++;
-    const card = grammarMap.get(id)?.card;
-    if (card && pred(card)) ok++;
-  }
-  return total === 0 ? 0 : ok / total;
-}
-
 /**
  * Un item compte comme maîtrisé s'il est :
  * - déclaré connu (status "known") : l'utilisateur l'a marqué « Je connais » depuis la fiche
@@ -209,13 +191,44 @@ export function computeMastery(
   return total === 0 ? 0 : ok / total;
 }
 
-/** Part des items assez stables pour débloquer la leçon suivante (0..1) — seuil léger. */
-export function computeUnlockProgress(
-  entry: Pick<CurriculumEntry, "introduces">,
+/**
+ * Étapes FAITES d'une leçon. Une leçon terminée (contrôle admis, ou terminée avant le
+ * parcours) a tout fait. Sinon, ce que le parcours a validé (`stepDates`), plus ce qui se
+ * crédite hors parcours (SPEC §5.6, §5.8) : le cours lu, une histoire lue, et les étapes
+ * Vocabulaire / Grammaire quand tous leurs éléments sont déjà acquis.
+ */
+export function computeStepsDone(
+  lesson: Pick<Lesson, "introduces" | "steps" | "stepDates" | "completedAt" | "examPassed" | "courseReadAt" | "storyRead">,
   vocabMap: Map<string, VocabItem>,
   grammarMap: Map<string, GrammarItem>,
-): number {
-  return computeProgress(entry, vocabMap, grammarMap, isUnlockReady);
+): PathStep[] {
+  if (lesson.completedAt || lesson.examPassed) return [...lesson.steps];
+  const done = (s: PathStep): boolean => {
+    if (lesson.stepDates[s]) return true;
+    switch (s) {
+      case "course":
+        return !!lesson.courseReadAt;
+      case "story":
+        return lesson.storyRead;
+      case "vocab":
+        return lesson.introduces.vocab.every((id) => isPreAcquiredVocab(vocabMap.get(id)));
+      case "grammar":
+        return lesson.introduces.grammar.every((id) => isPreAcquiredGrammar(grammarMap.get(id)));
+      default:
+        return false;
+    }
+  };
+  return lesson.steps.filter(done);
+}
+
+/** Calcule les champs du parcours d'une leçon hydratée (étapes faites, étape suivante). */
+function applySteps(
+  lesson: Lesson,
+  vocabMap: Map<string, VocabItem>,
+  grammarMap: Map<string, GrammarItem>,
+): void {
+  lesson.stepsDone = computeStepsDone(lesson, vocabMap, grammarMap);
+  lesson.nextStep = nextStep(lesson.steps, new Set(lesson.stepsDone));
 }
 
 /**
@@ -229,7 +242,6 @@ function applyExamState(lesson: Lesson, exams: ExamRecord[]): void {
   lesson.examAttempts = mine.length;
   lesson.examPassed = mine.some((e) => e.passed) || !!lesson.examPassedAt;
   if (mine.length > 0) lesson.examNote = Math.max(...mine.map((e) => e.note));
-  lesson.examEligible = lesson.unlockProgress >= SRS.examEligibility;
 }
 
 /**
@@ -264,6 +276,9 @@ async function hydrate(
     storiesForLesson(entry.id),
   ]);
   const stories = dedupeStoryVariants(allStories);
+  const storyRead = (
+    await Promise.all(stories.map((s) => getMeta<number>(`storyRead.${s.id}`)))
+  ).some((at) => at != null);
 
   const remote = remoteIndex[entry.id];
   // Un contenu généré pour une révision antérieure du curriculum (objectifs différents)
@@ -291,9 +306,11 @@ async function hydrate(
     pregenerated,
     remoteStoryVariants,
     mastery: 0,
-    unlockProgress: 0,
     locked: false,
-    examEligible: false,
+    steps: lessonSteps(entry),
+    stepsDone: [],
+    storyRead,
+    stepDates: progress?.steps ?? {},
     examPassed: false,
     examAttempts: 0,
     notifiedUnlock: progress?.unlockedNotified ?? false,
@@ -323,10 +340,9 @@ export async function listLessons(): Promise<Lesson[]> {
 
   for (let i = 0; i < lessons.length; i++) {
     lessons[i].mastery = computeMastery(lessons[i], vocabMap, grammarMap);
-    lessons[i].unlockProgress = computeUnlockProgress(lessons[i], vocabMap, grammarMap);
     applyExamState(lessons[i], exams);
+    applySteps(lessons[i], vocabMap, grammarMap);
     const prev = i > 0 ? lessons[i - 1] : null;
-    lessons[i].prevUnlockProgress = prev ? prev.unlockProgress : undefined;
     lessons[i].prevTitle = prev ? prev.title : undefined;
     lessons[i].prevExamPassed = prev ? prev.examPassed : undefined;
     // Le verrou tombe à l'ADMISSION au contrôle de la leçon précédente — plus au simple
@@ -382,11 +398,10 @@ export async function getLesson(id: string): Promise<Lesson | undefined> {
   const { vocabMap, grammarMap } = await loadSrsMaps();
   const lesson = await hydrate(entry, remoteIndex);
   lesson.mastery = computeMastery(lesson, vocabMap, grammarMap);
-  lesson.unlockProgress = computeUnlockProgress(lesson, vocabMap, grammarMap);
   applyExamState(lesson, await examsForLesson(entry.id));
+  applySteps(lesson, vocabMap, grammarMap);
   // locked non calculable sans la leçon précédente
   lesson.locked = false;
-  lesson.prevUnlockProgress = undefined;
   return lesson;
 }
 
@@ -411,6 +426,23 @@ async function saveLesson(
   };
   await putGeneratedLesson(rec);
   return rec;
+}
+
+/**
+ * Une étape du parcours vient d'être VALIDÉE (SPEC §5.2) : date posée une fois pour toutes,
+ * et l'étape compte dans celles du jour. Refaire une étape déjà faite ne compte rien.
+ * Valider le cours, c'est aussi l'avoir lu (`markLessonCourseRead`).
+ */
+export async function markStepDone(id: string, step: PathStep, now: Date = new Date()): Promise<void> {
+  if (step === "course") await markLessonCourseRead(id);
+  const prev = (await getLessonProgress(id)) ?? { id };
+  if (prev.steps?.[step]) return;
+  await putLessonProgress({
+    ...prev,
+    startedAt: prev.startedAt ?? now.getTime(),
+    steps: { ...prev.steps, [step]: now.getTime() },
+  });
+  await bumpSrsDaily(localDateString(now), { steps: 1 });
 }
 
 export async function markLessonStarted(id: string): Promise<void> {

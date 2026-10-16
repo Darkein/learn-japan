@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SRS } from "../lib/config";
+import { PRODUCTION_MIN_DAYS } from "../lib/vocabDrills";
 import { summaryBadge } from "./SessionSummary";
 
 /** Entrée de bilan minimale : seuls les champs lus par `summaryBadge`. */
@@ -24,8 +25,8 @@ describe("summaryBadge", () => {
     expect(summaryBadge(e)).toEqual({ label: "maîtrisé", variant: "accent" });
   });
 
-  it("le seuil de déblocage ne porte AUCUN badge : il sert la leçon, pas l'apprenant", () => {
-    expect(summaryBadge(entry({ intervalDays: SRS.unlockIntervalDays }))).toBeNull();
+  it("le seuil d'ouverture de la production ne porte AUCUN badge : il sert l'app, pas l'apprenant", () => {
+    expect(summaryBadge(entry({ intervalDays: PRODUCTION_MIN_DAYS }))).toBeNull();
   });
 
   it("tout l'entre-deux reste sans badge : la barre raconte la progression", () => {

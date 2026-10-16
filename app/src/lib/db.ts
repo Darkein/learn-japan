@@ -4,6 +4,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Card } from "ts-fsrs";
 import type { ComprehensionQuestion } from "./genClient";
+import type { PathStep } from "./path";
 import type { PodcastSegment } from "./podcastScript";
 
 /**
@@ -182,6 +183,12 @@ export interface LessonProgressRecord {
    * propose son contrôle (voir lib/flow.ts).
    */
   courseReadAt?: number;
+  /**
+   * Étapes du parcours FAITES dans le parcours lui-même (SPEC §5.2), avec leur date. Le
+   * cours et l'histoire se créditent aussi hors parcours (`courseReadAt`, histoire lue), et
+   * le contrôle par son admission : `steps` ne porte que ce que le parcours a validé.
+   */
+  steps?: Partial<Record<PathStep, number>>;
 }
 
 /**
@@ -227,6 +234,8 @@ export interface SrsDailyRecord {
   flowMs?: number;
   /** v12 — histoires ouvertes en lecture ce jour. Absent sur les anciens jours. */
   storiesRead?: number;
+  /** Étapes du parcours validées ce jour (SPEC §5.1). Absent avant le parcours. */
+  steps?: number;
 }
 
 /**
@@ -624,7 +633,7 @@ async function putSrsDaily(rec: SrsDailyRecord): Promise<void> {
 }
 export async function bumpSrsDaily(
   date: string,
-  delta: { introduced?: number; reviewed?: number; flowMs?: number; storiesRead?: number },
+  delta: { introduced?: number; reviewed?: number; flowMs?: number; storiesRead?: number; steps?: number },
 ): Promise<void> {
   const existing = (await getSrsDaily(date)) ?? { date, introduced: 0, reviewed: 0 };
   await putSrsDaily({
@@ -633,6 +642,7 @@ export async function bumpSrsDaily(
     reviewed: existing.reviewed + (delta.reviewed ?? 0),
     flowMs: (existing.flowMs ?? 0) + (delta.flowMs ?? 0),
     storiesRead: (existing.storiesRead ?? 0) + (delta.storiesRead ?? 0),
+    ...(delta.steps || existing.steps ? { steps: (existing.steps ?? 0) + (delta.steps ?? 0) } : {}),
   });
 }
 /**

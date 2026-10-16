@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
-import { gatherFlowState, previewFlow, type FlowPreviewStep } from "../lib/flow";
+import { gatherFlowState, pickNext, previewFlow, type FlowActivity, type FlowPreviewStep } from "../lib/flow";
 import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
@@ -33,17 +33,9 @@ interface Props {
   onGoVoyage: () => void;
 }
 
-/** « Au programme : … » — deux renforcements d'affilée se lisent mieux fusionnés. */
+/** « Au programme : le vocabulaire, puis la grammaire, puis une révision. » */
 function flowPhrase(steps: FlowPreviewStep[]): string {
-  const labels: string[] = [];
-  for (const s of steps) {
-    if (s.kind === "reinforce" && labels[labels.length - 1] === "un bloc de renforcement") {
-      labels[labels.length - 1] = "deux blocs de renforcement";
-      continue;
-    }
-    labels.push(s.label);
-  }
-  return `Au programme : ${labels.join(", puis ")}.`;
+  return `Au programme : ${steps.map((s) => s.label).join(", puis ")}.`;
 }
 
 function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
@@ -67,6 +59,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
   const [reco, setReco] = useState<Recommendation | null>(null);
   const [flowSteps, setFlowSteps] = useState<FlowPreviewStep[] | null>(null);
+  const [flowNext, setFlowNext] = useState<FlowActivity | null>(null);
   // Bandelette du jour ouverte d'office au lancement, et clé de remontage de la carte
   // omikuji (elle porte son propre état : la refermer doit la faire relire la base).
   const [omikujiOpen, setOmikujiOpen] = useState(false);
@@ -91,7 +84,10 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
     // cache) — hors du chemin de rendu, la carte apparaît quand elle est prête.
     void recommendStories(new Date(), stories).then((r) => setReco(r[0] ?? null));
     // Prévisualisation du flux : hors chemin critique, la phrase se précise quand prête.
-    void gatherFlowState().then(({ state }) => setFlowSteps(previewFlow(state, 3)));
+    void gatherFlowState().then(({ state }) => {
+      setFlowNext(pickNext(state));
+      setFlowSteps(previewFlow(state, 3));
+    });
   }
 
   useEffect(() => {
@@ -157,42 +153,31 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
               {formatMinutes(dailyData.flowMs)} d'étude aujourd'hui
             </span>
           )}
-          {dailyData.dueCount > 0 && (() => {
-            const goalMet = dailyData.reviewed >= dailyData.goal;
-            // Ce que le flux propose AUJOURD'HUI, pas le retard accumulé : les blocs sont
-            // dimensionnés par l'objectif du jour (cf. `reviewBlockSize`), et annoncer
-            // « 47 éléments à consolider » mettait en vitrine un chiffre dont le flux ne
-            // fait rien — décourageant, et sans rapport avec la dose qui va être servie.
-            // Le retard, lui, se lit là où il veut dire quelque chose : les Statistiques
-            // (« Charge des 7 prochains jours »).
-            const planned = Math.min(dailyData.dueCount, dailyData.goal - dailyData.reviewed);
-            return (
-              <Card accentFlag className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <SectionLabel>{goalMet ? "Renforcement" : "Flux d'étude"}</SectionLabel>
-                  <span className="font-serif text-lg text-text">
-                    {goalMet
-                      ? "Objectif du jour atteint"
-                      : `${planned} révision${planned > 1 ? "s" : ""} pour l'objectif du jour`}
-                  </span>
-                  <span className="text-sm text-muted">
-                    {flowSteps?.length
-                      ? flowPhrase(flowSteps)
-                      : "Le flux enchaîne tes révisions, puis une lecture ou une leçon adaptée."}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <Button variant="primary" onClick={onStartFlow}>
-                    {goalMet ? "Continuer le flux" : "Démarrer le flux"}
-                  </Button>
-                  <Button variant="ghost" onClick={onStartReview}>
-                    Réviser seulement
-                  </Button>
-                </div>
-              </Card>
-            );
-          })()}
         </section>
+      )}
+
+      {/* Le parcours est TOUJOURS accessible : il y a toujours une étape suivante, qu'il y
+          ait du dû ou non (SPEC §5.1). */}
+      {flowNext && flowNext.kind !== "done" && (
+        <Card accentFlag className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <SectionLabel>Parcours</SectionLabel>
+            <span className="font-serif text-lg text-text">{flowNext.title}</span>
+            {flowSteps?.length ? (
+              <span className="text-sm text-muted">{flowPhrase(flowSteps)}</span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="primary" onClick={onStartFlow}>
+              Continuer le parcours
+            </Button>
+            {dailyData && dailyData.dueCount > 0 && (
+              <Button variant="ghost" onClick={onStartReview}>
+                Réviser seulement
+              </Button>
+            )}
+          </div>
+        </Card>
       )}
 
       <OmikujiCard key={omikujiVersion} />

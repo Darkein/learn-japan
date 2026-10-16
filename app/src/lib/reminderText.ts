@@ -40,8 +40,7 @@ const GENERIC: ReminderNotification = {
 /**
  * Combien de cartes tiennent VRAIMENT dans cinq minutes. Une carte prend ~20–30 s (lecture,
  * audio, saisie, correction) : au-delà d'une dizaine, promettre « 5 minutes suffisent » est
- * un mensonge. Volontairement distinct de `SRS.sessionCap` (30), qui borne la session, pas
- * la promesse.
+ * un mensonge.
  */
 const FIVE_MIN_CARDS = 10;
 

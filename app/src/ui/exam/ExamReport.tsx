@@ -1,6 +1,7 @@
 import { EXAM } from "../../lib/config";
 import type { ExamResult, QuestionResult } from "../../lib/exam";
 import type { Lesson } from "../../lib/lessons";
+import type { SessionOpts } from "../../lib/reviewSession";
 import { Badge } from "../kit/Badge";
 import { Button } from "../kit/Button";
 import { Card } from "../kit/Card";
@@ -10,7 +11,7 @@ interface Props {
   lesson: Lesson;
   result: ExamResult;
   onExit: () => void;
-  onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
+  onStartReview?: (opts?: SessionOpts) => void;
 }
 
 const VERDICT_MARK: Record<QuestionResult["verdict"], string> = {
@@ -111,7 +112,11 @@ export function ExamReport({ lesson, result, onExit, onStartReview }: Props) {
           {result.passed || wasPassed ? "Continuer" : "Retour à la leçon"}
         </Button>
         {!result.passed && onStartReview && missed.length > 0 && (
-          <Button onClick={() => onStartReview({ lessonId: lesson.id, scope: "all" })}>
+          <Button
+            onClick={() =>
+              onStartReview({ scope: "due", itemIds: [...new Set(missed.map((r) => r.itemId).filter(Boolean))] })
+            }
+          >
             Réviser maintenant ({missed.length})
           </Button>
         )}

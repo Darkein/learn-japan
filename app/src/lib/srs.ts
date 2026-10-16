@@ -26,22 +26,11 @@ const GRADE_TO_RATING: Record<SrsGrade, Grade> = {
   easy: Rating.Easy,
 };
 
-// Cible de rétention courante (`request_retention`). Ajustée à l'exécution par le module
-// d'auto-réglage (lib/tuning.ts) selon le taux d'erreur mesuré : le scheduler est reconstruit
-// à chaque changement. Défaut = 0.9 (défaut FSRS) tant qu'aucun réglage n'est appliqué.
-let requestRetention = 0.9;
-let scheduler = fsrs(generatorParameters({ request_retention: requestRetention, enable_fuzz: true }));
-
-/** Cible de rétention actuellement appliquée au scheduler. */
-export function getRequestRetention(): number {
-  return requestRetention;
-}
-
-/** Reconstruit le scheduler avec une nouvelle cible de rétention (auto-réglage). */
-export function setRequestRetention(r: number): void {
-  requestRetention = r;
-  scheduler = fsrs(generatorParameters({ request_retention: r, enable_fuzz: true }));
-}
+// Cible de rétention FIXE : 90 %, le défaut FSRS (SPEC §2.3). L'auto-réglage qui la
+// relevait quand on se trompait est retiré : il raccourcissait les intervalles, gonflait le
+// dû, et la rétention mesurée ne remontait pas pour autant.
+export const REQUEST_RETENTION = 0.9;
+const scheduler = fsrs(generatorParameters({ request_retention: REQUEST_RETENTION, enable_fuzz: true }));
 
 /** Nouvelle carte vierge (élément jamais révisé). */
 export function newCard(now: Date = new Date()): Card {
@@ -64,10 +53,17 @@ export function isMastered(card: Card): boolean {
 }
 
 /**
- * La carte est-elle assez stable pour compter dans le DÉBLOCAGE de la leçon suivante
- * (FSRS Review + intervalle ≥ seuil léger) ? Découplé de `isMastered` : la maîtrise (21 j)
- * est l'objectif long terme, le déblocage ne doit pas attendre des semaines.
+ * L'élément est-il ACQUIS (carte en état `Review`) ? C'est ce qui le dispense des étapes de
+ * découverte de sa leçon quand il a déjà été rencontré et réussi ailleurs (SPEC §5.6).
  */
-export function isUnlockReady(card: Card): boolean {
-  return card.state === State.Review && card.scheduled_days >= SRS.unlockIntervalDays;
+export function isAcquired(card: Card | undefined): boolean {
+  return !!card && card.state === State.Review;
+}
+
+/**
+ * Probabilité de rappel FSRS à l'instant `now` (0..1). Sert à choisir les éléments les plus
+ * FRAGILES quand une étape Révision manque de cartes dues (SPEC §5.4).
+ */
+export function retrievability(card: Card, now: Date = new Date()): number {
+  return scheduler.get_retrievability(card, now, false);
 }

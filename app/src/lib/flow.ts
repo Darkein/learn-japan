@@ -1,7 +1,9 @@
-// Flux d'étude continu : l'app enchaîne les activités (révisions → lecture → leçon →
-// miroir) avec un point de sortie à chaque checkpoint — on reste 5 minutes ou 2 heures,
-// tout compte. L'omikuji du jour n'en fait PAS partie : la bandelette s'ouvre d'elle-même
-// au lancement de l'app (voir lib/omikuji.ts, ui/Home.tsx).
+// Flux d'étude : le PARCOURS (SPEC §5). L'app enchaîne les étapes de la leçon en cours —
+// cours, vocabulaire, grammaire, révision, histoire, produire, contrôle — puis celles de la
+// leçon suivante, avec un point de sortie à chaque checkpoint. La séance n'a pas de fin
+// imposée : il y a toujours une étape suivante, on s'arrête quand on veut. L'omikuji du jour
+// n'en fait PAS partie : la bandelette s'ouvre d'elle-même au lancement de l'app (voir
+// lib/omikuji.ts, ui/Home.tsx).
 //
 // RÈGLE DURE : `pickNext` est PURE et DÉTERMINISTE — aucun Math.random, aucun accès IO.
 // Même FlowState → même activité, entre l'accueil et le checkpoint, et dans les tests.
@@ -14,25 +16,43 @@ import {
   localDateString,
   type StoryRecord,
 } from "./db";
+import { examStatus } from "./exam";
 import { listLessons, type Lesson } from "./lessons";
 import { currentMirrorCandidate } from "./mirror";
-import { reviewBlockSize, sessionStats } from "./reviewSession";
+import {
+  CONTENT_STEPS,
+  REVIEW_INSERT_THRESHOLD,
+  REVIEW_STEP_SIZE,
+  STEP_LABEL,
+  nextStep,
+  stepNumber,
+  type PathStep,
+} from "./path";
+import { sessionStats } from "./reviewSession";
 import { loadSettings } from "./settings";
 
 export type FlowActivityKind =
-  | "review" // cartes dues, objectif du jour pas atteint
-  | "reinforce" // objectif atteint mais backlog dû
-  | "read-story" // lire une histoire de la leçon en cours
-  | "exam" // contrôle de la leçon en cours (le 関所) : il ouvre la suivante
-  | "lesson" // lire le cours d'une leçon : celui de la leçon en cours s'il a été sauté,
-  //            sinon découvrir la prochaine leçon prête
+  | "lesson" // étape Cours : le cours de la leçon (il ouvre une leçon pas encore commencée)
+  | "vocab" // étape Vocabulaire
+  | "grammar" // étape Grammaire
+  | "review" // étape Révision, révision insérée devant le neuf, ou révision ciblée (rattrapage)
+  | "read-story" // étape Histoire
+  | "produce" // étape Produire
+  | "exam" // contrôle de la leçon (le 関所) : il ouvre la suivante
   | "mirror" // relecture-miroir (une vieille histoire, pour mesurer le chemin)
-  | "done"; // sortie naturelle
+  | "done"; // rien à proposer : aucune leçon ouverte et aucune carte (cas limite)
 
 export interface FlowActivity {
   kind: FlowActivityKind;
-  /** Cible concrète : storyId (read-story/mirror) ou lessonId (lesson). */
+  /** Cible concrète : storyId (read-story/mirror) ou lessonId (lesson, étapes, exam). */
   refId?: string;
+  /** Leçon de l'étape, quand l'activité en fait partie. */
+  lessonId?: string;
+  /** L'étape que l'activité VALIDE une fois finie ; absente pour une révision insérée,
+   *  une révision ciblée ou un miroir, qui ne font pas avancer le parcours. */
+  step?: PathStep;
+  /** Révision ciblée : les éléments à repasser (les ratés d'un contrôle). */
+  itemIds?: string[];
   /** Libellé du bouton « Continuer avec : … ». */
   title: string;
   /** Justification courte affichée au checkpoint. */
@@ -41,107 +61,70 @@ export interface FlowActivity {
 
 export interface FlowState {
   dueCount: number;
-  newCount: number;
+  /** Au moins une carte existe : une étape Révision a toujours de quoi servir. */
+  hasCards: boolean;
   reviewedToday: number;
   dailyGoal: number;
   flowMsToday: number;
   currentLesson?: {
     id: string;
     title: string;
+    /** Étapes du parcours de la leçon, dans l'ordre (SPEC §5.2). */
+    steps: PathStep[];
+    /** Étapes déjà faites. */
+    stepsDone: PathStep[];
     /** Première histoire de la leçon jamais ouverte (meta storyRead absent). */
     unreadStoryId?: string;
     unreadStoryTitle?: string;
-    /** Au moins une histoire de la leçon a été lue. */
-    storyRead?: boolean;
-    /**
-     * Le cours a été LU : bloc « Leçon » du flux validé, ou page de la leçon ouverte
-     * (`courseReadAt`). Une leçon peut être « courante » sans cela — une histoire lue, un
-     * podcast écouté, un « commencer quand même » suffisent à la commencer.
-     */
-    courseRead?: boolean;
-    /** Le cours est présentable maintenant (leçon prête, cf. LessonState). */
-    courseReady?: boolean;
-    /** Contrôle ouvert (leçon assez travaillée) et pas encore réussi. */
-    examDue?: boolean;
+    /** Une histoire de la leçon à lire si toutes l'ont déjà été (relecture). */
+    anyStoryId?: string;
+    /** Ratés du dernier contrôle échoué pas encore repassés : la révision ciblée d'abord. */
+    retakePending?: string[];
   };
   nextLesson?: { id: string; title: string; ready: boolean };
   mirrorCandidate?: { storyId: string; title: string; ageDays: number };
   lastActivity?: FlowActivityKind;
-  /** Blocs de renforcement déjà terminés dans cette session de flux (0 hors flux). */
-  reinforceCountThisFlow?: number;
+  /** Une relecture-miroir a déjà été proposée dans cette séance (au plus une). */
+  mirrorDoneThisFlow?: boolean;
 }
 
-/** Le renforcement s'arrête après ce nombre de blocs par session de flux : le dû restant
- *  attend demain — le flux doit toujours pouvoir se terminer. */
-export const MAX_REINFORCE_PER_FLOW = 2;
+const STEP_KIND: Record<PathStep, FlowActivityKind> = {
+  course: "lesson",
+  vocab: "vocab",
+  grammar: "grammar",
+  review: "review",
+  story: "read-story",
+  produce: "produce",
+  exam: "exam",
+};
+
+const STEP_REASON: Record<PathStep, string> = {
+  course: "Le cours de la leçon : ses mots et ses règles, posés avant les exercices.",
+  vocab: "Les mots de la leçon : les reconnaître, puis les retrouver.",
+  grammar: "Les règles de la leçon : leur rôle, puis leur place dans une phrase.",
+  review: "Un tour de révision : ce qui est dû, sinon ce qui s'efface le plus vite.",
+  story: "Une histoire de la leçon — ses mots en contexte.",
+  produce: "Le dernier niveau : écrire les mots et les phrases de la leçon toi-même.",
+  exam: "Le poste de contrôle : franchis la barrière pour ouvrir la leçon suivante.",
+};
 
 /**
- * Choisit LA meilleure activité suivante. Barème, dans l'ordre :
- * ① lecture d'une histoire de la leçon en cours juste après un bloc d'effort
- *    (révision OU renforcement — alternance travail/plaisir) ;
- * ② révisions si des cartes sont dues et l'objectif du jour pas atteint ;
- * ③ COURS de la leçon en cours s'il n'a jamais été lu : une leçon peut être devenue
- *    « courante » sans que le flux ne l'ait jamais enseignée (histoire lue depuis le
- *    catalogue, podcast, « commencer quand même ») — on la présente avant tout le reste
- *    de la leçon, et surtout avant son contrôle ;
- * ④ contrôle de la leçon en cours dès qu'il est ouvert ET que la leçon a été travaillée
- *    (cours lu + au moins une histoire lue) : c'est lui qui débloque la suite, il passe
- *    donc AVANT la découverte d'une nouvelle leçon ;
- * ⑤ prochaine leçon si elle est prête et débloquée ;
- * ⑥ relecture-miroir si un candidat existe ;
- * ⑦ histoire non lue de la leçon en cours (même sans révision préalable) ;
- * ⑧ renforcement si backlog dû restant, plafonné à MAX_REINFORCE_PER_FLOW blocs ;
- * ⑨ done — le flux propose toujours une sortie élégante, même s'il reste du dû.
+ * Choisit LA prochaine activité du parcours. Dans l'ordre :
+ * ① relecture-miroir, au plus une fois par séance, entre deux étapes ;
+ * ② après un contrôle échoué, la révision CIBLÉE de ses ratés, puis le rattrapage ;
+ * ③ une révision INSÉRÉE devant une étape de contenu nouveau quand le retard dépasse deux
+ *    étapes Révision — au plus une par étape : le neuf ralentit, il ne gèle jamais ;
+ * ④ l'étape suivante de la leçon en cours ;
+ * ⑤ le cours de la prochaine leçon débloquée (il la commence) ;
+ * ⑥ une étape Révision libre, tant qu'il existe des cartes (fin du curriculum, leçon
+ *    suivante verrouillée) — la séance reste sans fin ;
+ * ⑦ done, seulement quand il n'y a vraiment rien (profil vierge sans leçon ouverte).
  */
 export function pickNext(state: FlowState): FlowActivity {
   const s = state;
-  const unread = s.currentLesson?.unreadStoryId;
-
-  if ((s.lastActivity === "review" || s.lastActivity === "reinforce") && unread) {
-    return readStory(s);
-  }
-  // Pas de garde anti-répétition ici : si rien d'autre à alterner, on enchaîne les blocs
-  // de révision jusqu'à l'objectif — c'est le cœur du flux. Un bloc sert la dose qui reste
-  // à faire pour l'atteindre (cf. `reviewBlockSize`), pas tout le retard : c'est ce qui
-  // fait que le flux arrive aux étapes suivantes le jour même.
-  if (s.dueCount > 0 && s.reviewedToday < s.dailyGoal) {
-    return {
-      kind: "review",
-      title: `Révisions (${blockLabel(s)})`,
-      reason: "L'objectif du jour n'est pas encore atteint.",
-    };
-  }
   const cur = s.currentLesson;
-  if (cur && !cur.courseRead && cur.courseReady && s.lastActivity !== "lesson") {
-    return {
-      kind: "lesson",
-      refId: cur.id,
-      title: `Leçon — ${cur.title}`,
-      reason: "Tu as commencé cette leçon sans jamais lire son cours — le voici.",
-    };
-  }
-  // Le 関所 ne s'ouvre que sur une leçon RÉELLEMENT travaillée : assez d'items stabilisés
-  // (examDue) ET la leçon enseignée — son cours lu, au moins une de ses histoires lue.
-  // Sans cette garde, un contrôle tombait sur une leçon jamais vue : ses mots avaient pu se
-  // stabiliser ailleurs (mots communs croisés dans d'autres histoires, objectifs partagés
-  // entre leçons), et la barrière se dressait devant un cours jamais enseigné.
-  if (cur?.examDue && cur.courseRead && cur.storyRead && s.lastActivity !== "exam") {
-    return {
-      kind: "exam",
-      refId: cur.id,
-      title: `Contrôle — ${cur.title}`,
-      reason: "Le poste de contrôle est ouvert : franchis la barrière pour ouvrir la suite.",
-    };
-  }
-  if (s.nextLesson?.ready && s.lastActivity !== "lesson") {
-    return {
-      kind: "lesson",
-      refId: s.nextLesson.id,
-      title: `Leçon — ${s.nextLesson.title}`,
-      reason: "La leçon suivante est prête.",
-    };
-  }
-  if (s.mirrorCandidate && s.lastActivity !== "mirror") {
+
+  if (s.mirrorCandidate && !s.mirrorDoneThisFlow && s.lastActivity && s.lastActivity !== "mirror") {
     return {
       kind: "mirror",
       refId: s.mirrorCandidate.storyId,
@@ -149,121 +132,128 @@ export function pickNext(state: FlowState): FlowActivity {
       reason: `Tu l'as lue il y a ${s.mirrorCandidate.ageDays} jours — mesure le chemin parcouru.`,
     };
   }
-  if (unread && s.lastActivity !== "read-story") return readStory(s);
-  // Renforcement plafonné : pas de garde `lastActivity`, c'est le compteur qui borne
-  // (la règle ① intercale une lecture quand il y en a une). Au-delà du plafond, le dû
-  // restant attend demain et le flux atteint `done`.
-  if (s.dueCount > 0 && (s.reinforceCountThisFlow ?? 0) < MAX_REINFORCE_PER_FLOW) {
+
+  if (cur) {
+    const step = nextStep(cur.steps, new Set(cur.stepsDone));
+    if (step === "exam" && cur.retakePending?.length && s.lastActivity !== "review") {
+      const n = cur.retakePending.length;
+      return {
+        kind: "review",
+        lessonId: cur.id,
+        itemIds: cur.retakePending,
+        title: `Révision ciblée — ${n} élément${n > 1 ? "s" : ""} raté${n > 1 ? "s" : ""}`,
+        reason: "Avant le rattrapage, on repasse ce que le contrôle a fait tomber.",
+      };
+    }
+    if (step) {
+      if (CONTENT_STEPS.has(step) && s.dueCount > REVIEW_INSERT_THRESHOLD && s.lastActivity !== "review") {
+        return {
+          kind: "review",
+          lessonId: cur.id,
+          title: `Révision · ${s.dueCount} cartes en attente`,
+          reason: "Le retard monte : un tour de révision avant la suite de la leçon.",
+        };
+      }
+      return stepActivity(cur, step);
+    }
+  }
+
+  if (s.nextLesson) {
     return {
-      kind: "reinforce",
-      title: `Renforcement (${blockLabel(s)})`,
-      reason: "Objectif atteint — consolide ce qui reste dû, si tu en as envie.",
+      kind: "lesson",
+      refId: s.nextLesson.id,
+      lessonId: s.nextLesson.id,
+      step: "course",
+      title: `Nouvelle leçon — ${s.nextLesson.title}`,
+      reason: "La leçon suivante est ouverte : son cours d'abord.",
     };
   }
+
+  if (s.hasCards) {
+    return {
+      kind: "review",
+      title: `Révision (${REVIEW_STEP_SIZE} cartes)`,
+      reason:
+        s.dueCount > 0
+          ? "Les cartes dues d'abord, puis ce qui s'efface le plus vite."
+          : "Rien n'est dû : on entretient ce qui s'efface le plus vite.",
+    };
+  }
+
   return {
     kind: "done",
-    title: "Terminer pour aujourd'hui",
-    reason: "Tout est fait pour aujourd'hui. La route t'attend demain.",
+    title: "Arrêter ici",
+    reason: "Rien à proposer pour l'instant : ouvre une leçon pour commencer le parcours.",
   };
 }
 
-/**
- * Nombre de cartes que le PROCHAIN bloc va réellement servir : le bloc est dimensionné par
- * l'objectif du jour (cf. `reviewBlockSize`), pas par le retard accumulé.
- */
-function blockCards(s: FlowState): number {
-  return Math.min(s.dueCount, reviewBlockSize(s.dailyGoal, s.reviewedToday));
-}
-
-/**
- * Libellé du bouton d'un bloc de révision : la DOSE du bloc, et rien d'autre. Annoncer le
- * retard derrière (« 10 sur 42 dues ») remettait en vitrine un chiffre dont le flux ne fait
- * rien — le bloc sert la dose de l'objectif du jour, pas le retard, et l'utilisateur n'a
- * aucune décision à prendre avec ce total. Il se lit dans les Statistiques.
- */
-function blockLabel(s: FlowState): string {
-  const n = blockCards(s);
-  return `${n} carte${n > 1 ? "s" : ""}`;
+/** L'activité d'une étape de la leçon en cours, avec son rang dans le parcours. */
+function stepActivity(cur: NonNullable<FlowState["currentLesson"]>, step: PathStep): FlowActivity {
+  const n = stepNumber(cur.steps, step);
+  const storyId = step === "story" ? (cur.unreadStoryId ?? cur.anyStoryId) : undefined;
+  return {
+    kind: STEP_KIND[step],
+    refId: storyId ?? cur.id,
+    lessonId: cur.id,
+    step,
+    title: `Étape ${n}/${cur.steps.length} · ${STEP_LABEL[step]} — ${cur.title}`,
+    reason: STEP_REASON[step],
+  };
 }
 
 // ---- Prévisualisation (carte d'accueil) ------------------------------------------
 
 export interface FlowPreviewStep {
   kind: FlowActivityKind;
-  /** Libellé court en français, prêt à joindre : « 34 révisions, puis une lecture ». */
+  /** Libellé court en français, prêt à joindre : « le vocabulaire, puis la grammaire ». */
   label: string;
 }
 
+const PREVIEW_LABEL: Record<PathStep, string> = {
+  course: "le cours",
+  vocab: "le vocabulaire",
+  grammar: "la grammaire",
+  review: "une révision",
+  story: "une histoire",
+  produce: "la production",
+  exam: "le contrôle",
+};
+
 /**
- * Déroule `pickNext` en simulant l'avancement d'une session de flux qui démarre :
- * les `n` prochaines étapes annoncées sur la carte d'accueil. Pure — ne mute pas `state`.
- * La phase de révision est annoncée comme UN pas (« 34 révisions »), pas bloc par bloc.
+ * Déroule `pickNext` en simulant l'avancement d'une séance qui démarre : les `n` prochaines
+ * étapes annoncées sur la carte d'accueil. Pure — ne mute pas `state`. S'arrête à l'entrée
+ * d'une nouvelle leçon : ses étapes ne sont pas connues ici.
  */
 export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
   const sim: FlowState = {
     ...state,
-    currentLesson: state.currentLesson ? { ...state.currentLesson } : undefined,
+    currentLesson: state.currentLesson
+      ? { ...state.currentLesson, stepsDone: [...state.currentLesson.stepsDone] }
+      : undefined,
     lastActivity: undefined,
-    reinforceCountThisFlow: 0,
+    // L'aperçu annonce le parcours, pas le miroir : il a sa propre carte sur l'accueil.
+    mirrorDoneThisFlow: true,
   };
   const steps: FlowPreviewStep[] = [];
   while (steps.length < n) {
     const a = pickNext(sim);
     if (a.kind === "done") break;
-    switch (a.kind) {
-      case "review": {
-        // La phase de révision s'arrête à l'objectif du jour : c'est ce nombre-là qu'on
-        // annonce, pas tout le retard (le reste part en renforcement, ou attend demain).
-        const n = Math.min(sim.dueCount, Math.max(0, sim.dailyGoal - sim.reviewedToday));
-        steps.push({ kind: a.kind, label: `${n} révision${n > 1 ? "s" : ""}` });
-        sim.reviewedToday = sim.dailyGoal;
-        sim.dueCount -= n;
-        break;
-      }
-      case "reinforce":
-        steps.push({ kind: a.kind, label: "un bloc de renforcement" });
-        sim.dueCount -= Math.min(sim.dueCount, reviewBlockSize(sim.dailyGoal, sim.reviewedToday));
-        sim.reinforceCountThisFlow = (sim.reinforceCountThisFlow ?? 0) + 1;
-        break;
-      case "read-story":
-        steps.push({ kind: a.kind, label: "une lecture" });
-        if (sim.currentLesson) {
-          sim.currentLesson.unreadStoryId = undefined;
-          sim.currentLesson.storyRead = true;
-        }
-        break;
-      case "lesson":
-        // Deux leçons possibles derrière le même `kind` : le cours jamais lu de la leçon
-        // courante (règle ③) ou la découverte de la suivante (règle ⑤).
-        if (sim.currentLesson && a.refId === sim.currentLesson.id) {
-          steps.push({ kind: a.kind, label: "le cours de ta leçon" });
-          sim.currentLesson.courseRead = true;
-        } else {
-          steps.push({ kind: a.kind, label: "une leçon" });
-          sim.nextLesson = undefined;
-        }
-        break;
-      case "exam":
-        steps.push({ kind: a.kind, label: "le contrôle de la leçon" });
-        if (sim.currentLesson) sim.currentLesson.examDue = false;
-        break;
-      case "mirror":
-        steps.push({ kind: a.kind, label: "une relecture-miroir" });
-        sim.mirrorCandidate = undefined;
-        break;
+    if (a.step && sim.currentLesson && a.lessonId === sim.currentLesson.id) {
+      steps.push({ kind: a.kind, label: PREVIEW_LABEL[a.step] });
+      sim.currentLesson.stepsDone.push(a.step);
+      if (a.step === "exam") break; // l'issue du contrôle n'est pas connue d'avance
+    } else if (a.kind === "lesson") {
+      steps.push({ kind: a.kind, label: "une nouvelle leçon" });
+      break;
+    } else {
+      steps.push({ kind: a.kind, label: a.itemIds ? "une révision ciblée" : "une révision" });
+      sim.dueCount = Math.max(0, sim.dueCount - REVIEW_STEP_SIZE);
+      if (a.itemIds && sim.currentLesson) sim.currentLesson.retakePending = undefined;
+      if (!sim.currentLesson && !sim.nextLesson) break; // révision libre : elle se répète
     }
     sim.lastActivity = a.kind;
   }
   return steps;
-}
-
-function readStory(s: FlowState): FlowActivity {
-  return {
-    kind: "read-story",
-    refId: s.currentLesson!.unreadStoryId,
-    title: `Lecture — ${s.currentLesson!.unreadStoryTitle ?? "histoire de la leçon"}`,
-    reason: "Une histoire de ta leçon t'attend — le plaisir après l'effort.",
-  };
 }
 
 // ---- Collecteur IO -------------------------------------------------------------
@@ -276,25 +266,20 @@ export interface FlowGathered {
 
 /**
  * État de lecture des histoires d'une leçon (meta `storyRead.<id>`) : la première jamais
- * ouverte (à proposer) et s'il y en a au moins une de lue (la leçon a été travaillée).
+ * ouverte (à proposer), à défaut la première de toutes (à relire).
  */
-async function storyReadState(
-  stories: StoryRecord[],
-): Promise<{ unread?: StoryRecord; anyRead: boolean }> {
-  let unread: StoryRecord | undefined;
-  let anyRead = false;
+async function storyReadState(stories: StoryRecord[]): Promise<{ unread?: StoryRecord }> {
   for (const s of stories) {
     const read = (await getMeta<number>(`storyRead.${s.id}`)) != null;
-    if (read) anyRead = true;
-    else if (!unread) unread = s;
+    if (!read) return { unread: s };
   }
-  return { unread, anyRead };
+  return {};
 }
 
-/** Contexte de la session de flux en cours, traqué par l'UI (FlowSession) — pas en DB. */
+/** Contexte de la séance en cours, traqué par l'UI (FlowSession) — pas en DB. */
 export interface FlowSessionCtx {
   lastActivity?: FlowActivityKind;
-  reinforceCountThisFlow?: number;
+  mirrorDoneThisFlow?: boolean;
 }
 
 export async function gatherFlowState(
@@ -311,16 +296,16 @@ export async function gatherFlowState(
   const settings = loadSettings();
 
   const current = lessons.find((l) => l.startedAt && !l.completedAt);
-  const storyState = current
-    ? await storyReadState(current.stories)
-    : { unread: undefined, anyRead: false };
-  const unread = storyState.unread;
+  const { unread } = current ? await storyReadState(current.stories) : {};
+  // Après un contrôle échoué, les ratés pas encore repassés commandent la révision ciblée.
+  const retake =
+    current && current.examAttempts > 0 && !current.examPassed ? await examStatus(current.id) : undefined;
   const next = lessons.find((l) => !l.startedAt && !l.completedAt && !l.locked);
   const mirror = await currentMirrorCandidate(stories, now);
 
   const state: FlowState = {
     dueCount: stats.dueCount,
-    newCount: stats.newCount,
+    hasCards: stats.cardCount > 0,
     reviewedToday: daily?.reviewed ?? 0,
     dailyGoal: settings.dailyGoal,
     flowMsToday: daily?.flowMs ?? 0,
@@ -328,12 +313,12 @@ export async function gatherFlowState(
       ? {
           id: current.id,
           title: current.title,
+          steps: current.steps,
+          stepsDone: current.stepsDone,
           unreadStoryId: unread?.id,
           unreadStoryTitle: unread ? (unread.titleFr ?? unread.title) : undefined,
-          storyRead: storyState.anyRead,
-          courseRead: !!current.courseReadAt,
-          courseReady: current.state === "ready",
-          examDue: current.examEligible && !current.examPassed,
+          anyStoryId: current.stories[0]?.id,
+          ...(retake?.pendingItems.length ? { retakePending: retake.pendingItems } : {}),
         }
       : undefined,
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,

@@ -1,10 +1,11 @@
 import { createPortal } from "react-dom";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { StoryRecord } from "../lib/db";
-import { EXAM, SRS } from "../lib/config";
+import { EXAM } from "../lib/config";
 import { mentionFor } from "../lib/exam";
 import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
 import { markLessonCourseRead, markLessonStarted, type Lesson } from "../lib/lessons";
+import type { SessionOpts } from "../lib/reviewSession";
 import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
@@ -25,7 +26,7 @@ import { StoryIllustration } from "./StoryIllustration";
 interface Props {
   lesson: Lesson;
   onOpenStory: (story: StoryRecord) => void;
-  onStartReview?: (opts?: { lessonId?: string; scope?: "due" | "all" }) => void;
+  onStartReview?: (opts?: SessionOpts) => void;
   /** Ouvre le contrôle de fin de leçon (le 関所) — c'est lui qui débloque la suivante. */
   onStartExam?: (lessonId: string) => void;
   /** Rendu en aperçu (couche voisine du carrousel) : neutralise les effets de bord au montage
@@ -299,9 +300,9 @@ export function CourseDetail({
 }
 
 /**
- * Entrée du contrôle (le 関所). Trois états : pas encore ouvert (la leçon n'est pas assez
- * travaillée — on affiche ce qu'il manque), ouvert (l'épreuve), déjà franchi (la note et
- * la possibilité de repasser pour améliorer sa copie).
+ * Entrée du contrôle (le 関所). Le contrôle est la dernière étape du parcours (SPEC §5b) :
+ * avant la fin des six premières, on peut le tenter quand même — c'est un choix, jamais une
+ * proposition du flux. Déjà franchi : la note, et la possibilité de repasser pour la note.
  */
 function ExamEntry({
   lesson,
@@ -310,9 +311,9 @@ function ExamEntry({
   lesson: Lesson;
   onStartExam: (lessonId: string) => void;
 }) {
-  const eligible = lesson.unlockProgress >= SRS.examEligibility;
-  const pct = Math.round(lesson.unlockProgress * 100);
-  const need = Math.round(SRS.examEligibility * 100);
+  const before = lesson.steps.filter((s) => s !== "exam");
+  const doneBefore = before.filter((s) => lesson.stepsDone.includes(s)).length;
+  const pathDone = doneBefore === before.length;
 
   if (lesson.examPassed) {
     return (
@@ -337,17 +338,16 @@ function ExamEntry({
   return (
     <div className="flex flex-col items-center gap-1">
       <Button
-        variant="primary"
-        disabled={!eligible}
+        variant={pathDone ? "primary" : "ghost"}
         onClick={() => onStartExam(lesson.id)}
         title={`Épreuve notée sur 20 (admission à ${EXAM.passMark}) — c'est elle qui débloque la leçon suivante`}
       >
         {lesson.examAttempts > 0 ? "Passer le rattrapage" : "Passer le contrôle"}
       </Button>
       <span className="text-xs text-muted">
-        {eligible
+        {pathDone
           ? `Sur 20, admission à ${EXAM.passMark} — débloque la leçon suivante.`
-          : `Le contrôle s'ouvre à ${need} % d'éléments stabilisés (${pct} % pour l'instant).`}
+          : `Dernière étape du parcours (${doneBefore} sur ${before.length} faites) — tu peux le tenter dès maintenant.`}
       </span>
     </div>
   );

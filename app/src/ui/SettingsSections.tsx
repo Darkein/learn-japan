@@ -3,7 +3,6 @@ import { pushAvailable, syncPushSubscription, type PushState } from "../lib/push
 import { ensurePeriodicSync, showReminderNow } from "../lib/reminders";
 import { playSfx } from "../lib/sfx";
 import { formatBytes, getStorageInfo, requestPersistentStorage, type StorageInfo } from "../lib/storage";
-import { NEW_ITEM_LOAD, sustainableNewPerDay } from "../lib/tuning";
 import { useSettings, THEMES, READER_FONT_SCALES } from "./useSettings";
 import { Toggle } from "./kit/Toggle";
 import { SegmentedControl } from "./kit/SegmentedControl";
@@ -67,13 +66,6 @@ export function SettingsSections({ quick }: Props) {
               value={settings.dailyGoal}
               min={1}
               onChange={(v) => update({ dailyGoal: v })}
-            />
-            <NumberRow
-              label="Nouveaux mots par jour"
-              value={settings.newPerDay}
-              min={1}
-              onChange={(v) => update({ newPerDay: v })}
-              hint={`Plafonné par l'objectif : ${sustainableNewPerDay(settings.dailyGoal)}/jour au plus — un mot neuf demande ~${NEW_ITEM_LOAD} révisions avant de s'éloigner (le jour même, puis à 3 jours, 8, 20, 45…). Au-delà, le retard grossirait sans fin.`}
             />
             <Toggle
               label="Romaji → kana dans les révisions"

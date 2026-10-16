@@ -8,7 +8,7 @@ import type { FlowState } from "./flow";
 
 const state = (over: Partial<FlowState> = {}): FlowState => ({
   dueCount: 0,
-  newCount: 0,
+  hasCards: false,
   reviewedToday: 0,
   dailyGoal: 20,
   flowMsToday: 0,
@@ -24,8 +24,8 @@ describe("dayIsDone", () => {
 
   it("boucle la journée quand l'objectif du jour est atteint", () => {
     expect(dayIsDone(state({ reviewedToday: 20 }), "done")).toBe(true);
-    // Même avec du reliquat : le renforcement est offert, pas exigé.
-    expect(dayIsDone(state({ reviewedToday: 20, dueCount: 12 }), "reinforce")).toBe(true);
+    // Même avec du reliquat : la séance continue si on veut, elle n'est pas exigée.
+    expect(dayIsDone(state({ reviewedToday: 20, dueCount: 12 }), "review")).toBe(true);
   });
 
   it("boucle une journée courte : plus rien à faire après avoir révisé", () => {

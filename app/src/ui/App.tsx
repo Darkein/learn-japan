@@ -4,6 +4,7 @@ import { enrollStory } from "../lib/enroll";
 import { requestPersistentStorage } from "../lib/storage";
 import { initSync } from "../lib/sync";
 import { getLesson, type Lesson } from "../lib/lessons";
+import type { SessionOpts } from "../lib/reviewSession";
 import { BottomNav, BOTTOM_NAV_HEIGHT } from "./BottomNav";
 import { Button } from "./kit/Button";
 import { IconGear } from "./kit/Icon";
@@ -137,7 +138,7 @@ function AppShell() {
   const [course, setCourse] = useState<Lesson | null>(null);
   // Force le rafraîchissement des données de l'onglet courant au retour d'une page de lecture.
   const [refreshKey, setRefreshKey] = useState(0);
-  const [reviewOpts, setReviewOpts] = useState<{ lessonId?: string; scope?: "due" | "all" }>({});
+  const [reviewOpts, setReviewOpts] = useState<SessionOpts>({});
   const { dataVersion } = useGenJobs();
 
   const tab = tabForRoute(route);
@@ -263,7 +264,7 @@ function AppShell() {
     navigate(`/cours/${encodeURIComponent(id)}?from=${encodeURIComponent(from)}`);
   }
 
-  function startReview(opts?: { lessonId?: string; scope?: "due" | "all" }) {
+  function startReview(opts?: SessionOpts) {
     setReviewOpts(opts ?? {});
     navigate(`/revision?from=${encodeURIComponent(currentLocation())}`);
   }

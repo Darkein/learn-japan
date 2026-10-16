@@ -49,26 +49,10 @@ export const TTS_SSML_BUDGET_BYTES = 4000;
 export const TTS_SSML_PART_WRAP_BYTES = 80;
 
 export const SRS = {
-  newPerDay: 10,
   dailyGoal: 20,
-  /**
-   * PLAFOND DUR d'une session de révision. La taille d'un bloc, elle, vient de l'objectif
-   * du jour (`dailyGoal`, cf. `reviewBlockSize`) : ce plafond ne sert plus qu'à borner un
-   * objectif très haut — sans lui, un backlog de quelques jours d'absence produirait une
-   * session-fleuve décourageante. Les items les plus urgents passent d'abord, le reste attend.
-   */
-  sessionCap: 30,
   /** Plafond du bilan de leçon (« Vérifier mes acquis », scope "all"). */
   sessionAllCap: 10,
   masteredIntervalDays: 21,
-  /**
-   * Intervalle FSRS (jours) à partir duquel un item compte pour le DÉBLOCAGE de la leçon
-   * suivante. Volontairement bien plus bas que `masteredIntervalDays` : la maîtrise (21 j)
-   * reste l'objectif affiché, mais exiger 21 j pour avancer gèlerait la progression
-   * pendant des semaines. Ouvre aussi la PRODUCTION dans le tirage des formes d'exercice
-   * (lib/vocabDrills.ts) : on ne fait pas produire un mot qui n'est pas encore stable.
-   */
-  unlockIntervalDays: 4,
   /**
    * Seuil du statut « difficile » (leech) : nombre d'échecs COURANTS d'un élément, au sens
    * de `lapseCounts` — un compteur qui se remet à zéro après `leechRecoveryStreak`
@@ -84,13 +68,6 @@ export const SRS = {
    * rechute avant d'avoir enchaîné trois bonnes réponses.
    */
   leechRecoveryStreak: 3,
-  /**
-   * Part des items assez stables (`unlockProgress`) à partir de laquelle le CONTRÔLE de fin
-   * de leçon s'ouvre : le droit de SE PRÉSENTER, pas le déblocage — celui-ci s'obtient à
-   * l'épreuve (lib/exam.ts). Volontairement bas : le contrôle est l'évaluation, pas une
-   * récompense pour l'avoir déjà dépassée ; mais on ne se présente pas sans avoir travaillé.
-   */
-  examEligibility: 0.6,
 } as const;
 
 /**

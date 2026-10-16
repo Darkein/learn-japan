@@ -20,8 +20,9 @@ interface Props {
 }
 
 /**
- * Checkpoint du flux : bref récap du bloc accompli, UNE seule suggestion pour continuer,
- * et une sortie toujours disponible — le point de sortie naturel toutes les ~5 minutes.
+ * Checkpoint du parcours : bref récap de l'étape accomplie, UNE seule suggestion pour
+ * continuer, et une sortie toujours disponible — la séance n'a pas de fin imposée, on
+ * s'arrête quand on veut (SPEC §5.1).
  */
 export function FlowCheckpoint({ result, next, onContinue, onExit }: Props) {
   const done = next.kind === "done";
@@ -29,7 +30,7 @@ export function FlowCheckpoint({ result, next, onContinue, onExit }: Props) {
     <div className="flex flex-col gap-4">
       {result?.recap && (
         <Card className="flex flex-col gap-1 py-4">
-          <SectionLabel>Bloc accompli</SectionLabel>
+          <SectionLabel>Étape accomplie</SectionLabel>
           <p className="m-0 font-serif text-lg text-text">{result.recap}</p>
         </Card>
       )}
@@ -43,7 +44,7 @@ export function FlowCheckpoint({ result, next, onContinue, onExit }: Props) {
             </Button>
           )}
           <Button variant={done ? "primary" : "ghost"} onClick={onExit}>
-            Terminer pour aujourd'hui
+            Arrêter ici
           </Button>
         </div>
       </div>
