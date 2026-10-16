@@ -86,6 +86,28 @@ bouton « à revoir » fait remonter l'item dans la révision suivante.
 **Vérif** : restauration d'une sauvegarde sur un appareil vierge ; pré-génération nocturne prête au
 réveil.
 
+## Phase 5 — Le parcours (SPEC §5)
+**But : une progression prévisible, des étapes qu'on suit, une séance sans fin.**
+- **Modèle et flux** : étapes d'une leçon et leur progression enregistrée, `pickNext` sans fin
+  (étape suivante, révision insérée), contrôle en 7e étape (fin de `examEligibility`), jauge par
+  étapes, reprise des bases existantes. Fin du débit de nouveautés et de son frein, cible de
+  rétention fixe à 90 %, première réponse seule notée (fin de la seconde chance), exercices
+  d'histoire sans carte pour les mots incidents. Nouvelle version du schéma et de la synchro.
+- **Tout ce qui comptait en cartes** (SPEC §5.8) : réglages (objectif en étapes, « Nouveaux
+  mots par jour » retiré), accueil, statistiques, rappels et badge, série de jours, omikuji,
+  position sur le Tōkaidō, Catalogue et « Je connais ».
+- **Séances d'étape** : assemblage par niveau (reconnaître, rappeler, produire), trois réussites
+  par élément, ratés rejoués en fin d'étape, étape Révision (dû, rappels N−1 et N−3, éléments
+  fragiles), station de repos toutes les 5 leçons. Mesure de la forme, du niveau et de la durée de
+  chaque exercice.
+- **Écran du parcours** : les stations de la leçon sur la route, durée annoncée de chaque étape,
+  objectif du jour en étapes (série, rappels, omikuji).
+- **Matière de grammaire** : phrases d'exemple supplémentaires par point (corpus, puis Worker)
+  pour les niveaux 2 et 3.
+
+**Vérif** : une leçon se termine en un nombre d'étapes connu d'avance, sans jamais rester figée ;
+avec un gros retard, une révision s'insère avant chaque étape nouvelle, et le parcours continue.
+
 ---
 
 ## Risques & points de vigilance
