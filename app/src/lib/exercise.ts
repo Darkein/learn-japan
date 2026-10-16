@@ -4,7 +4,7 @@
 
 import { getGrammar, getVocab, logReview, putGrammar, putVocab, type Skill } from "./db";
 import { generateStoryTranslation } from "./genClient";
-import { newCard, review, type SrsGrade } from "./srs";
+import { newCard, review, type Card, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 import { applyStatus, isTrackedWord } from "./vocab";
 
@@ -192,4 +192,73 @@ export async function daysBeforeGrade(ex: Exercise): Promise<number> {
     const item = await getGrammar(ex.id);
     return item?.card?.scheduled_days ?? 0;
   }
+}
+
+/**
+ * « Seconde chance » de la relance des ratés : l'état d'un élément AVANT qu'une erreur ne
+ * le replanifie. Rejouer un raté est un entraînement (aucune note) ; mais le réussir cette
+ * fois-ci efface l'erreur — l'élément retrouve sa maîtrise d'avant, ni plus (une réussite
+ * à quelques secondes de la correction ne prouve pas la rétention), ni moins.
+ */
+export interface GradeSnapshot {
+  track: ExerciseTrack;
+  id: string;
+  card: Card;
+  streak?: number;
+}
+
+/** Clé d'élément (pas d'exercice) : la relance peut servir le mot sous une autre forme. */
+export function itemKey(ex: Exercise): string {
+  return `${ex.track}:${ex.id}`;
+}
+
+/** Une note qui compte comme un raté (« Rejouer les ratés », seconde chance). */
+export function isMiss(grade: SrsGrade): boolean {
+  return grade === "again" || grade === "hard";
+}
+
+/**
+ * Photographie l'élément noté par `ex`, à prendre AVANT `gradeExercise`. Rien à
+ * photographier pour un élément sans carte (pas de niveau antérieur à retrouver) ni pour
+ * la reconstruction du Lecteur, qui note tous les mots de la phrase à la fois.
+ */
+export async function snapshotBeforeGrade(ex: Exercise): Promise<GradeSnapshot | undefined> {
+  if (ex.mode === "build" && ex.track === "vocab" && !ex.skill) return undefined;
+  if (ex.track === "vocab") {
+    const v = await getVocab(ex.id);
+    return v?.card ? { track: ex.track, id: ex.id, card: structuredClone(v.card), streak: v.streak } : undefined;
+  }
+  const g = await getGrammar(ex.id);
+  return g?.card ? { track: ex.track, id: ex.id, card: structuredClone(g.card) } : undefined;
+}
+
+/**
+ * Rend à l'élément l'état photographié (carte FSRS, série de saisie). Le journal garde
+ * l'erreur : elle a eu lieu, et la détection des éléments difficiles s'en sert.
+ */
+export async function restoreSnapshot(snap: GradeSnapshot): Promise<void> {
+  if (snap.track === "vocab") {
+    const v = await getVocab(snap.id);
+    if (!v) return;
+    v.card = snap.card;
+    v.streak = snap.streak;
+    await putVocab(v);
+  } else {
+    const g = await getGrammar(snap.id);
+    if (!g) return;
+    g.card = snap.card;
+    await putGrammar(g);
+  }
+}
+
+/**
+ * Seconde chance d'une relance : un raté RÉUSSI cette fois retrouve l'état photographié
+ * avant son erreur (une seule fois — la photo est consommée). Sans photo (élément réussi
+ * au premier passage, ou sans carte avant l'erreur), rien ne change.
+ */
+export async function secondChance(beforeMiss: Map<string, GradeSnapshot>, ex: Exercise): Promise<void> {
+  const snap = beforeMiss.get(itemKey(ex));
+  if (!snap) return;
+  beforeMiss.delete(itemKey(ex));
+  await restoreSnapshot(snap);
 }

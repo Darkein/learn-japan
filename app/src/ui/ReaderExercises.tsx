@@ -1,8 +1,18 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { analyze } from "../lib/analyze";
 import { loadContentDict } from "../lib/data";
 import { sentenceBuildExercises } from "../lib/exerciseBuild";
-import { daysBeforeGrade, gradeExercise, TRACK_FR, type Exercise } from "../lib/exercise";
+import {
+  daysBeforeGrade,
+  gradeExercise,
+  isMiss,
+  itemKey,
+  secondChance,
+  snapshotBeforeGrade,
+  TRACK_FR,
+  type Exercise,
+  type GradeSnapshot,
+} from "../lib/exercise";
 import { splitJaSentences } from "../lib/kana";
 import { ensureStoryTranslationById } from "../lib/podcast";
 import { shuffle } from "../lib/random";
@@ -15,6 +25,7 @@ import { Button } from "./kit/Button";
 import { IconClose } from "./kit/Icon";
 import { Sheet } from "./kit/Sheet";
 import { SessionSummary } from "./SessionSummary";
+import { SECOND_CHANCE_HINT, SECOND_CHANCE_SUMMARY } from "./practiceNotes";
 
 interface Props {
   /** Identifiant de l'histoire en base (cache la traduction). Absent pour une lecture libre. */
@@ -67,6 +78,12 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
   const [error, setError] = useState<string | null>(null);
   const [i, setI] = useState(0);
   const [results, setResults] = useState<{ card: Exercise; grade: SrsGrade; daysBefore: number }[]>([]);
+  // Deuxième passage (« Recommencer », « Rejouer les ratés ») : ces cartes viennent d'être
+  // notées. Les renoter comptait deux fois le même oubli — c'est un entraînement, sans
+  // écriture SRS, sauf la seconde chance (cf. ReviewSession) : un raté réussi retrouve son
+  // état d'avant l'erreur.
+  const [practice, setPractice] = useState(false);
+  const beforeMiss = useRef(new Map<string, GradeSnapshot>());
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +145,7 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
     function restart(replay?: Exercise[]) {
       setResults([]);
       setI(0);
+      setPractice(true);
       setDeck(replay ?? shuffle(fullDeck ?? []));
     }
 
@@ -135,6 +153,7 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
       <SessionSummary
         results={results}
         title="Exercices terminés"
+        note={practice ? SECOND_CHANCE_SUMMARY : undefined}
         onRestart={() => restart()}
         onReplayMissed={(missed) => restart(missed)}
         onClose={onClose}
@@ -149,7 +168,13 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
   async function persistGrade(g: SrsGrade) {
     const graded = card!;
     const daysBefore = await daysBeforeGrade(graded);
-    await gradeExercise(graded, g);
+    if (!practice) {
+      const snap = isMiss(g) ? await snapshotBeforeGrade(graded) : undefined;
+      if (snap) beforeMiss.current.set(itemKey(graded), snap);
+      await gradeExercise(graded, g);
+    } else if (!isMiss(g)) {
+      await secondChance(beforeMiss.current, graded);
+    }
     setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
   }
 
@@ -159,6 +184,9 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
         Exercices {i + 1} / {deck.length} ·{" "}
         <span className="text-accent-2">{TRACK_FR[card.track]}</span>
       </span>
+      {practice && (
+        <p className="m-0 text-xs text-muted">{SECOND_CHANCE_HINT}</p>
+      )}
       <ExerciseCard key={card.key} exercise={card} onGraded={(g) => void persistGrade(g)} onNext={nextCard} />
     </div>,
   );

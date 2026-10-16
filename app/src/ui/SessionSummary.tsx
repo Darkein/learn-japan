@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getGrammar, getVocab } from "../lib/db";
-import type { Exercise } from "../lib/exercise";
+import { isMiss, type Exercise } from "../lib/exercise";
 import { playSfx } from "../lib/sfx";
 import { isMastered, type SrsGrade } from "../lib/srs";
 import { SRS } from "../lib/config";
@@ -30,6 +30,8 @@ interface Props {
   onClose?: () => void;
   onRestart?: () => void;
   onReplayMissed?: (missed: Exercise[]) => void;
+  /** Mention sous le titre : ce que la session a fait (ou non) à la planification. */
+  note?: string;
 }
 
 /**
@@ -58,7 +60,7 @@ export function summaryBadge(entry: {
 }
 
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
-export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed }: Props) {
+export function SessionSummary({ results, title, onClose, onRestart, onReplayMissed, note }: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
   const chimed = useRef(false);
 
@@ -97,7 +99,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
     void loadSummary();
   }, [results]);
 
-  const missed = results.filter((r) => r.grade === "again" || r.grade === "hard");
+  const missed = results.filter((r) => isMiss(r.grade));
   const leeches = results.filter((r) => r.card.isLeech);
 
   return (
@@ -108,6 +110,7 @@ export function SessionSummary({ results, title, onClose, onRestart, onReplayMis
           {title} — {results.length} élément{results.length > 1 ? "s" : ""} revu
           {results.length > 1 ? "s" : ""}
         </p>
+        {note && <p className="m-0 text-xs text-muted">{note}</p>}
       </div>
 
       {leeches.length > 0 && (

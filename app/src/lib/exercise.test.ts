@@ -2,7 +2,16 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { allReviews, getGrammar, getVocab, putVocab, _resetDbForTests } from "./db";
-import { gradeExercise, type BuildExercise, type ChoiceExercise, type TypeExercise } from "./exercise";
+import {
+  gradeExercise,
+  secondChance,
+  snapshotBeforeGrade,
+  itemKey,
+  type BuildExercise,
+  type ChoiceExercise,
+  type GradeSnapshot,
+  type TypeExercise,
+} from "./exercise";
 import { newCard, review, State } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 
@@ -299,5 +308,54 @@ describe("gradeExercise", () => {
     expect(g?.card?.reps).toBe(1);
     const v = await getVocab("猫|ねこ");
     expect(v).toBeUndefined();
+  });
+});
+
+describe("seconde chance (relance des ratés)", () => {
+  const ex: TypeExercise = {
+    mode: "type",
+    key: "vocab:猫|ねこ",
+    track: "vocab",
+    id: "猫|ねこ",
+    front: "chat",
+    back: "猫（ねこ）",
+    answers: ["ねこ"],
+  };
+
+  async function seedMature() {
+    let card = newCard(new Date("2026-08-01"));
+    for (const d of ["2026-08-01", "2026-08-02", "2026-08-06", "2026-08-20"]) card = review(card, "good", new Date(d));
+    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review", card, streak: 4 });
+    return card;
+  }
+
+  it("un raté réussi à la relance retrouve sa carte et sa série d'avant l'erreur", async () => {
+    const before = await seedMature();
+    const beforeMiss = new Map<string, GradeSnapshot>();
+    const snap = await snapshotBeforeGrade(ex);
+    beforeMiss.set(itemKey(ex), snap!);
+    await gradeExercise(ex, "again", new Date("2026-10-15"));
+    const missed = await getVocab("猫|ねこ");
+    expect(missed?.card?.scheduled_days).toBe(0);
+    expect(missed?.streak).toBe(0);
+
+    await secondChance(beforeMiss, ex);
+    const v = await getVocab("猫|ねこ");
+    expect(v?.card?.stability).toBe(before.stability);
+    expect(v?.card?.scheduled_days).toBe(before.scheduled_days);
+    expect(v?.card?.lapses).toBe(0);
+    expect(v?.streak).toBe(4);
+    // L'erreur reste au journal (détection des éléments difficiles, rétention mesurée).
+    expect((await allReviews()).map((r) => r.grade)).toEqual(["again"]);
+    // Photo consommée : une seconde restauration ne fait rien.
+    expect(beforeMiss.size).toBe(0);
+  });
+
+  it("sans photo (élément sans carte avant l'erreur), rien n'est restauré", async () => {
+    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review" });
+    expect(await snapshotBeforeGrade(ex)).toBeUndefined();
+    await gradeExercise(ex, "again", new Date("2026-10-15"));
+    await secondChance(new Map(), ex);
+    expect((await getVocab("猫|ねこ"))?.card?.reps).toBe(1);
   });
 });
