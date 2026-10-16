@@ -2,7 +2,8 @@
 // 1. Web Push (app fermée, à l'heure choisie) : le Worker envoie un push VIDE à l'heure dite,
 //    le service worker rédige la notification sur l'appareil (voir lib/push.ts et sw.ts).
 //    Seul mécanisme qui tienne la promesse « à 19 h », et le seul qui existe sur iOS.
-// 2. Badge d'icône (App Badging API) : compte des cartes dues. Android/desktop installé.
+// 2. Badge d'icône (App Badging API) : étapes qui restent pour l'objectif du jour.
+//    Android/desktop installé.
 // 3. Notification locale « à l'ouverture » : repli quand le push n'est pas disponible.
 // 4. Periodic Background Sync : Chrome/Edge installé, fréquence décidée par le navigateur.
 //
@@ -10,7 +11,7 @@
 // drapeau « journée bouclée ». Jamais une carte, jamais un mot, jamais un compte de révisions —
 // le contenu de la notification est calculé localement.
 
-import { allGrammar, allVocab, getMeta, localDateString, putMeta, recentSrsDaily } from "./db";
+import { allGrammar, allVocab, getMeta, getSrsDaily, localDateString, putMeta, recentSrsDaily } from "./db";
 import { gatherFlowState, pickNext, type FlowActivityKind, type FlowState } from "./flow";
 import { shouldOpenOmikuji } from "./omikuji";
 import { syncPushSubscription } from "./push";
@@ -22,9 +23,10 @@ import {
   type ReminderEvent,
   type ReminderHint,
 } from "./reminderText";
+import { STEP_LABEL, stepNumber } from "./path";
 import { sessionStats } from "./reviewSession";
-import type { ReminderSettings } from "./settings";
-import { reviewStreak } from "./stats";
+import { loadSettings, type ReminderSettings } from "./settings";
+import { goalStreak } from "./stats";
 import { isTrainableVocab } from "./vocabFaces";
 
 export const PERIODIC_SYNC_TAG = "revision-reminder";
@@ -39,13 +41,23 @@ type NavigatorBadge = Navigator & {
   clearAppBadge?: () => Promise<void>;
 };
 
-/** Met à jour le badge d'icône avec le nombre de cartes dues (no-op si non supporté). */
+/** Étapes qui restent aujourd'hui pour atteindre l'objectif du jour (0 = atteint). */
+export async function stepsLeftToday(now: Date = new Date()): Promise<number> {
+  const daily = await getSrsDaily(localDateString(now));
+  return Math.max(0, loadSettings().dailySteps - (daily?.steps ?? 0));
+}
+
+/**
+ * Met à jour le badge d'icône avec les étapes qui restent pour l'objectif du jour (no-op si
+ * non supporté). Plus le nombre de cartes dues (SPEC §5.8) : le parcours se compte en
+ * étapes, et un badge à 47 ne disait rien de ce qu'il y avait à faire.
+ */
 export async function updateBadge(count?: number): Promise<void> {
   const nav = navigator as NavigatorBadge;
   if (!nav.setAppBadge || !nav.clearAppBadge) return;
   try {
-    const due = count ?? (await sessionStats()).dueCount;
-    if (due > 0) await nav.setAppBadge(due);
+    const left = count ?? (await stepsLeftToday());
+    if (left > 0) await nav.setAppBadge(left);
     else await nav.clearAppBadge();
   } catch {
     /* Badging refusé (contexte non installé…) : sans gravité. */
@@ -112,12 +124,12 @@ function pickEvent(s: FlowState): ReminderEvent | undefined {
  * d'ici là. Le symptôme, côté utilisateur : « je ne reçois plus rien dès que j'ai lancé l'app ».
  *
  * On exige donc du TRAVAIL fait aujourd'hui, sous l'une des deux formes qui valent « c'est
- * fait » : l'objectif du jour atteint (même définition que la série, voir `reviewStreak`), ou
- * plus rien à faire APRÈS avoir révisé (journée courte : quatre cartes dues, quatre révisées).
+ * fait » : l'objectif du jour atteint, en étapes (même définition que la série, voir
+ * `goalStreak`), ou plus rien à proposer APRÈS avoir travaillé.
  */
 export function dayIsDone(s: FlowState, kind: FlowActivityKind): boolean {
-  if (s.reviewedToday === 0) return false;
-  return s.reviewedToday >= s.dailyGoal || kind === "done";
+  if (s.stepsToday === 0) return false;
+  return s.stepsToday >= s.dailySteps || kind === "done";
 }
 
 /**
@@ -136,8 +148,10 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
   let skipDate: string | undefined;
   try {
     const { state } = await gatherFlowState();
-    void updateBadge(state.dueCount);
+    const stepsLeft = Math.max(0, state.dailySteps - state.stepsToday);
+    void updateBadge(stepsLeft);
     const next = pickNext(state);
+    const cur = state.currentLesson;
     // Le peloton d'éléments et la série : le SW ne sait pas les calculer (ts-fsrs, log de
     // révisions), et ils restent dans le store `meta` local — rien ne part au push.
     const [vocab, grammar, daily, omikujiPending] = await Promise.all([
@@ -156,7 +170,19 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
       items: reminderItemPool(vocab.filter(isTrainableVocab), grammar, new Date()),
       event: pickEvent(state),
       omikujiPending,
-      streak: reviewStreak(daily, state.dailyGoal, today),
+      streak: goalStreak(daily, loadSettings(), today),
+      ...(next.step && cur && next.lessonId === cur.id
+        ? {
+            step: {
+              label: STEP_LABEL[next.step],
+              number: stepNumber(cur.steps, next.step),
+              total: cur.steps.length,
+              lesson: cur.title,
+            },
+          }
+        : {}),
+      stepsLeft,
+      dailySteps: state.dailySteps,
     };
     await putMeta(HINT_KEY, hint);
     // `""` efface le marqueur : la journée n'est plus bouclée (nouveau jour, cartes à venir).
@@ -181,10 +207,10 @@ export async function maybeNotifyOnOpen(reminders: ReminderSettings): Promise<vo
   if (now.getHours() < reminders.hour) return;
   const today = localDateString(now);
   if ((await getMeta<string>("reminder.lastShown")) === today) return;
+  // Contrairement au push (déclenché à l'heure dite), ici l'utilisateur vient d'ouvrir
+  // l'app : objectif du jour déjà atteint, on ne le dérange pas.
+  if ((await stepsLeftToday(now)) === 0) return;
   const due = (await sessionStats()).dueCount;
-  // Contrairement au push (déclenché à l'heure dite, donc légitime même sans dû), ici
-  // l'utilisateur vient d'ouvrir l'app : sans révision en attente, on ne le dérange pas.
-  if (due === 0) return;
   await putMeta("reminder.lastShown", today);
   try {
     const reg = await navigator.serviceWorker.ready;

@@ -6,7 +6,7 @@ import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
 import { recommendStories, type Recommendation } from "../lib/recommend";
 import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
 import { sessionStats, type SessionStats } from "../lib/reviewSession";
-import { reviewStreak } from "../lib/stats";
+import { goalStreak, type DayGoal } from "../lib/stats";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
 import { formatDaysAgo, formatMinutes } from "../lib/time";
 import { LessonList } from "./LessonList";
@@ -38,14 +38,15 @@ function flowPhrase(steps: FlowPreviewStep[]): string {
   return `Au programme : ${steps.map((s) => s.label).join(", puis ")}.`;
 }
 
-function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], dailyGoal: number) {
+function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], goal: DayGoal) {
   const todayStr = localDateString();
   const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
   return {
-    reviewed: today.reviewed,
-    goal: dailyGoal,
+    // L'objectif du jour se compte en ÉTAPES du parcours (SPEC §5.1).
+    steps: today.steps ?? 0,
+    goal: goal.dailySteps,
     // Même calcul que le rappel du soir : les deux doivent annoncer le même chiffre.
-    streak: reviewStreak(daily, dailyGoal, todayStr),
+    streak: goalStreak(daily, goal, todayStr),
     dueCount: stats.dueCount,
     flowMs: today.flowMs ?? 0,
   };
@@ -75,7 +76,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
       allStories(),
     ]);
     setLessons(ls);
-    setDailyData(buildDailyStats(stats, daily, settings.dailyGoal));
+    setDailyData(buildDailyStats(stats, daily, settings));
     setTokaido(await tokaidoStatus(ls));
     setMirror(await currentMirrorCandidate(stories));
     const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
@@ -135,11 +136,12 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
         />
       )}
 
-      {dailyData && (dailyData.reviewed > 0 || dailyData.dueCount > 0) && (
+      {dailyData && (
         <section className="flex flex-col gap-3">
           <div className="flex gap-4 text-sm">
             <span className="text-muted">
-              Révisions du jour : <strong className="text-text">{dailyData.reviewed}</strong> / {dailyData.goal}
+              Étapes du jour : <strong className="text-text">{dailyData.steps}</strong> / {dailyData.goal}
+              {dailyData.steps >= dailyData.goal ? " — objectif atteint" : ""}
             </span>
             {dailyData.streak > 0 && (
               <span className="text-muted">
@@ -147,7 +149,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
               </span>
             )}
           </div>
-          <ProgressBar value={(dailyData.reviewed / dailyData.goal) * 100} />
+          <ProgressBar value={Math.min(100, (dailyData.steps / dailyData.goal) * 100)} />
           {dailyData.flowMs > 0 && (
             <span className="text-xs text-muted">
               {formatMinutes(dailyData.flowMs)} d'étude aujourd'hui

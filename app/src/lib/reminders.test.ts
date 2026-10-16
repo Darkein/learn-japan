@@ -9,8 +9,8 @@ import type { FlowState } from "./flow";
 const state = (over: Partial<FlowState> = {}): FlowState => ({
   dueCount: 0,
   hasCards: false,
-  reviewedToday: 0,
-  dailyGoal: 20,
+  stepsToday: 0,
+  dailySteps: 3,
   flowMsToday: 0,
   ...over,
 });
@@ -23,16 +23,16 @@ describe("dayIsDone", () => {
   });
 
   it("boucle la journée quand l'objectif du jour est atteint", () => {
-    expect(dayIsDone(state({ reviewedToday: 20 }), "done")).toBe(true);
+    expect(dayIsDone(state({ stepsToday: 3 }), "done")).toBe(true);
     // Même avec du reliquat : la séance continue si on veut, elle n'est pas exigée.
-    expect(dayIsDone(state({ reviewedToday: 20, dueCount: 12 }), "review")).toBe(true);
+    expect(dayIsDone(state({ stepsToday: 3, dueCount: 12 }), "review")).toBe(true);
   });
 
-  it("boucle une journée courte : plus rien à faire après avoir révisé", () => {
-    expect(dayIsDone(state({ reviewedToday: 4 }), "done")).toBe(true);
+  it("boucle une journée courte : plus rien à proposer après avoir travaillé", () => {
+    expect(dayIsDone(state({ stepsToday: 1 }), "done")).toBe(true);
   });
 
-  it("ne boucle pas une journée commencée mais inachevée", () => {
-    expect(dayIsDone(state({ reviewedToday: 4, dueCount: 30 }), "review")).toBe(false);
+  it("ne boucle pas une journée commencée sous l'objectif d'étapes — même avec des révisions", () => {
+    expect(dayIsDone(state({ stepsToday: 1, dueCount: 30 }), "vocab")).toBe(false);
   });
 });

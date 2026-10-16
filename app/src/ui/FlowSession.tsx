@@ -71,8 +71,8 @@ export function FlowSession({ onExit, forced }: Props) {
   function start() {
     setPhase({ name: "loading" });
     void (async () => {
-      const { state } = await gatherFlowState();
-      reviewedAtBlockStart.current = state.reviewedToday;
+      const [{ state }, daily] = await Promise.all([gatherFlowState(), getSrsDaily(localDateString())]);
+      reviewedAtBlockStart.current = daily?.reviewed ?? 0;
       // Entrée forcée depuis une carte de l'accueil (ex. relecture-miroir).
       const first =
         forced === "miroir" && state.mirrorCandidate

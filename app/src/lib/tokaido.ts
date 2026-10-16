@@ -5,7 +5,9 @@
 // donc comparable d'un niveau à l'autre.
 //
 // La route ACTIVE est celle du premier niveau (5 → 1) dont les leçons ne sont pas toutes
-// terminées. Position sur la route active = span × (0.6 × leçons + 0.4 × maîtrise) ;
+// terminées. Position sur la route active = span × (0.6 × leçons + 0.4 × maîtrise), où
+// « leçons » compte aussi la part d'étapes faites des leçons en cours (SPEC §5.8) : le
+// voyageur avance à chaque étape du parcours, plus seulement à chaque leçon ;
 // toutes les leçons terminées → la route est faite (position = terme), quelle que soit la
 // maîtrise, et la route suivante commence. Monotonie persistée PAR NIVEAU
 // (meta "tokaido.maxReached.<niveau>") : on ne recule jamais sur une route.
@@ -20,6 +22,9 @@ export interface TokaidoLessonLike {
   completedAt?: number;
   /** Part des items de la leçon maîtrisés (0..1), déjà calculée par listLessons. */
   mastery: number;
+  /** Étapes du parcours de la leçon, et celles déjà faites (absentes : avant le parcours). */
+  steps?: string[];
+  stepsDone?: string[];
   introduces: { vocab: string[]; grammar: string[] };
 }
 
@@ -60,6 +65,9 @@ export function levelStatsFromLessons(lessons: TokaidoLessonLike[]): TokaidoLeve
     const items = l.introduces.vocab.length + l.introduces.grammar.length;
     stat.lessonsTotal++;
     if (l.completedAt) stat.lessonsCompleted++;
+    // Une leçon en cours compte pour la part de ses étapes faites — jamais une leçon entière :
+    // seule l'admission au contrôle termine une leçon (et un niveau).
+    else if (l.steps?.length) stat.lessonsCompleted += Math.min(l.stepsDone?.length ?? 0, l.steps.length - 1) / l.steps.length;
     stat.itemsTotal += items;
     stat.itemsMastered += l.mastery * items;
     byLevel.set(l.level, stat);

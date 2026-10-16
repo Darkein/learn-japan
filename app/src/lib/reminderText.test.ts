@@ -45,7 +45,7 @@ describe("reminderNotification", () => {
   it("accroche sur un élément dû plutôt que sur le compte", () => {
     const n = reminderNotification(51, hint(), TODAY);
     expect(n.title).toBe("Tu te souviens de 「花火」 ?");
-    expect(n.body).toBe("Il t'attend dans tes révisions du jour.");
+    expect(n.body).toBe("Il revient dans ta prochaine révision.");
     // Le nombre de cartes ne doit apparaître nulle part : c'est justement ce qu'on remplace.
     expect(`${n.title} ${n.body}`).not.toMatch(/51/);
   });
@@ -61,11 +61,11 @@ describe("reminderNotification", () => {
 
   it("ouvre le corps sur la série quand elle existe", () => {
     expect(reminderNotification(9, hint({ streak: 12 }), TODAY).body).toBe(
-      "Ta série de 12 jours tient toujours. Il t'attend dans tes révisions du jour.",
+      "Ta série de 12 jours tient toujours. Il revient dans ta prochaine révision.",
     );
     // Une série d'un seul jour ne mérite pas d'être annoncée.
     expect(reminderNotification(9, hint({ streak: 1 }), TODAY).body).toBe(
-      "Il t'attend dans tes révisions du jour.",
+      "Il revient dans ta prochaine révision.",
     );
   });
 
@@ -80,17 +80,22 @@ describe("reminderNotification", () => {
       .toBeUndefined();
   });
 
-  it("se rabat sur le compte au-delà de la péremption du peloton", () => {
+  it("ne se rabat jamais sur le compte de cartes dues", () => {
+    // Peloton périmé et 51 cartes dues : plus de « 51 révisions t'attendent » (SPEC §5.8).
     const fossil = reminderNotification(51, hint({ date: "2026-06-01" }), TODAY);
-    expect(fossil.title).toBe("51 révisions t'attendent.");
-    expect(fossil.body).toBe("Commence par les 10 plus urgentes, le reste attendra.");
+    expect(fossil.title).not.toContain("51");
+    expect(reminderNotification(8, undefined, TODAY).title).toBe("Cinq minutes de japonais ?");
   });
 
-  it("taille la promesse au dû quand il ne reste que le compte", () => {
-    expect(reminderNotification(8, undefined, TODAY).body).toBe("Cinq minutes suffisent.");
-    expect(reminderNotification(2, undefined, TODAY).body).toBe("C'est vite plié.");
-    expect(reminderNotification(11, undefined, TODAY).body).not.toContain("minutes");
-    expect(reminderNotification(1, undefined, TODAY).title).toBe("1 révision t'attend.");
+  it("annonce l'étape suivante du parcours faute d'élément à nommer", () => {
+    const step = { label: "Révision", number: 4, total: 7, lesson: "Les gens autour de moi" };
+    const n = reminderNotification(0, hint({ items: [], step }), TODAY);
+    expect(n.title).toBe("Étape 4/7 : Révision");
+    expect(n.body).toBe("« Les gens autour de moi » t'attend là où tu l'as laissée.");
+    // Un élément dû passe devant : l'accroche par le contenu reste la meilleure.
+    expect(reminderNotification(3, hint({ step }), TODAY).title).toBe("Tu te souviens de 「花火」 ?");
+    // L'étape d'un autre jour ne vaut plus : elle a pu être faite depuis.
+    expect(reminderNotification(0, hint({ date: "2026-08-09", items: [], step }), TODAY).title).not.toContain("Étape");
   });
 
   it("propose le contenu du jour quand rien n'est dû", () => {

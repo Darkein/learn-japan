@@ -87,6 +87,21 @@ describe("computeTokaidoPosition", () => {
     expect(pos.betweenPct).toBe(20);
   });
 
+  it("les étapes faites d'une leçon en cours font avancer le voyageur (SPEC §5.8)", () => {
+    const steps = ["course", "vocab", "grammar", "review", "story", "produce", "exam"];
+    const inProgress = (n: number) => ({ ...lesson(5), steps, stepsDone: steps.slice(0, n) });
+    const pos = (n: number) =>
+      computeTokaidoPosition({ levels: levelStatsFromLessons([inProgress(n), lesson(5)]), bonus: 0, maxReached: 0 }).position;
+    expect(pos(0)).toBe(0);
+    expect(pos(3)).toBeGreaterThan(pos(2));
+    // 3 étapes sur 7 de la première de deux leçons : 54 × 0.6 × (3/7) / 2.
+    expect(pos(3)).toBeCloseTo((54 * 0.6 * (3 / 7)) / 2);
+    // Toutes les étapes sauf l'admission : jamais une leçon entière, jamais le niveau achevé.
+    const almost = levelStatsFromLessons([inProgress(7)]);
+    expect(almost[0].lessonsCompleted).toBeLessThan(1);
+    expect(activeLevel(almost)).toBe(5);
+  });
+
   it("N5 achevé → on repart de zéro sur le Kōshū Kaidō (N4)", () => {
     const levels = levelStatsFromLessons([
       lesson(5, { done: true, mastery: 0.5 }),

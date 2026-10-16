@@ -59,16 +59,18 @@ export function SettingsSections({ quick }: Props) {
 
       {!quick && (
         <section>
-          <SectionLabel as="h3" className="mb-3">Révision</SectionLabel>
+          <SectionLabel as="h3" className="mb-3">Parcours</SectionLabel>
           <div className="flex flex-col gap-4">
             <NumberRow
-              label="Objectif quotidien (cartes)"
-              value={settings.dailyGoal}
+              label="Objectif quotidien (étapes)"
+              value={settings.dailySteps}
               min={1}
-              onChange={(v) => update({ dailyGoal: v })}
+              max={10}
+              onChange={(v) => update({ dailySteps: v })}
+              hint="Un repère pour la série de jours et les rappels : une étape prend 3 à 8 minutes, et le parcours continue une fois l'objectif atteint."
             />
             <Toggle
-              label="Romaji → kana dans les révisions"
+              label="Romaji → kana dans les exercices"
               value={settings.warmupRomaji}
               onChange={(v) => update({ warmupRomaji: v })}
             />
@@ -342,12 +344,14 @@ function NumberRow({
   label,
   value,
   min,
+  max,
   onChange,
   hint,
 }: {
   label: string;
   value: number;
   min: number;
+  max?: number;
   onChange: (v: number) => void;
   /** Précision sous le libellé — ce que le réglage ne dit pas à lui seul. */
   hint?: string;
@@ -362,10 +366,11 @@ function NumberRow({
         type="number"
         value={value}
         min={min}
+        max={max}
         className="h-11 w-20 rounded-sm border border-hairline-strong bg-surface px-2 text-right text-sm text-text"
         onChange={(e) => {
           const n = parseInt(e.target.value, 10);
-          if (!isNaN(n) && n >= min) onChange(n);
+          if (!isNaN(n) && n >= min && (max == null || n <= max)) onChange(n);
         }}
       />
     </div>

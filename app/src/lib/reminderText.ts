@@ -8,8 +8,8 @@
 // le titre n'a pas à le répéter.
 //
 // CE QU'ON MET EN AVANT : le contenu, pas le compteur. « 51 révisions t'attendent » annonce
-// une corvée ; « Tu te souviens de 「花火」 ? » rappelle pourquoi on est là. Le compte ne
-// ressort que faute de mieux, et jamais avec une durée qu'il ne tiendrait pas.
+// une corvée ; « Tu te souviens de 「花火」 ? » rappelle pourquoi on est là. Faute d'élément,
+// c'est l'étape suivante du parcours qui parle (SPEC §5.8) — jamais le nombre de cartes dues.
 //
 // RÈGLE : aucune branche ne doit affirmer quelque chose de faux. Le nombre de cartes dues est
 // recalculé au moment du rappel (donc exact) ; tout ce qui vient du hint est daté, et chaque
@@ -36,13 +36,6 @@ const GENERIC: ReminderNotification = {
   title: "Cinq minutes de japonais ?",
   body: "Ton programme du jour t'attend.",
 };
-
-/**
- * Combien de cartes tiennent VRAIMENT dans cinq minutes. Une carte prend ~20–30 s (lecture,
- * audio, saisie, correction) : au-delà d'une dizaine, promettre « 5 minutes suffisent » est
- * un mensonge.
- */
-const FIVE_MIN_CARDS = 10;
 
 /**
  * Combien de jours le PELOTON d'éléments survit à sa date. Une carte due hier et non révisée
@@ -81,6 +74,17 @@ export interface ReminderEvent {
   ageDays?: number;
 }
 
+/** L'étape suivante du parcours, telle que le rappel l'annonce. */
+export interface ReminderStep {
+  /** Nom de l'étape (« Révision », « Grammaire »…). */
+  label: string;
+  /** Rang dans le parcours de la leçon, et nombre d'étapes. */
+  number: number;
+  total: number;
+  /** Titre de la leçon. */
+  lesson: string;
+}
+
 export interface ReminderHint {
   /** Date locale (YYYY-MM-DD) du calcul. */
   date: string;
@@ -94,6 +98,12 @@ export interface ReminderHint {
   omikujiPending?: boolean;
   /** Jours consécutifs à objectif atteint. Absent, 0 ou 1 = pas de série à évoquer. */
   streak?: number;
+  /** L'étape suivante du parcours, quand il y en a une dans la leçon en cours. */
+  step?: ReminderStep;
+  /** Étapes qui restaient pour l'objectif du jour au calcul, et l'objectif lui-même : le
+   *  badge d'icône du service worker (un nouveau jour repart de l'objectif entier). */
+  stepsLeft?: number;
+  dailySteps?: number;
 }
 
 /** Écart en jours calendaires entre deux dates locales (YYYY-MM-DD), sans fuseau. */
@@ -183,22 +193,16 @@ function itemNotification(item: ReminderItem, due: number, streak?: number): Rem
       ? `Tu te souviens de 「${item.text}」 ?`
       : `Et « ${item.text} », ça te revient ?`;
   const rest =
-    due > 1 ? "Il t'attend dans tes révisions du jour." : "C'est ta seule carte due aujourd'hui.";
+    due > 1 ? "Il revient dans ta prochaine révision." : "C'est ta seule carte due aujourd'hui.";
   return { title, body: body(streak, rest) };
 }
 
-/**
- * Le compte, quand il ne reste que lui. La promesse est taillée à la taille du dû : sur un
- * gros backlog on propose la première bouchée (les plus urgentes passent d'abord dans la
- * session) plutôt qu'une durée intenable.
- */
-function countNotification(due: number, streak?: number): ReminderNotification {
-  const title = `${due} révision${due > 1 ? "s" : ""} t'attend${due > 1 ? "ent" : ""}.`;
-  if (due <= 3) return { title, body: body(streak, "C'est vite plié.") };
-  if (due <= FIVE_MIN_CARDS) return { title, body: body(streak, "Cinq minutes suffisent.") };
+/** L'étape suivante du parcours : là où l'on s'est arrêté, et ce qui vient. */
+function stepNotification(step: ReminderStep, streak?: number): ReminderNotification {
+  const lesson = clamp(step.lesson);
   return {
-    title,
-    body: body(streak, `Commence par les ${FIVE_MIN_CARDS} plus urgentes, le reste attendra.`),
+    title: `Étape ${step.number}/${step.total} : ${step.label}`,
+    body: body(streak, lesson ? `« ${lesson} » t'attend là où tu l'as laissée.` : "Ta leçon t'attend là où tu l'as laissée."),
   };
 }
 
@@ -206,7 +210,7 @@ function countNotification(due: number, streak?: number): ReminderNotification {
  * Titre et corps du rappel, dans l'ordre de ce qui mérite le plus d'être dit :
  * ① le rendez-vous du moment, s'il n'a pas déjà été annoncé ;
  * ② un élément dû, nommé — l'accroche par le contenu ;
- * ③ le compte, faute d'élément ;
+ * ③ l'étape suivante du parcours ;
  * ④ l'omikuji du jour ;
  * ⑤ le générique.
  *
@@ -228,10 +232,9 @@ export function reminderNotification(
   const items = hint && stale >= 0 && stale <= ITEMS_STALE_DAYS ? (hint.items ?? []) : [];
 
   if (fresh?.event && fresh.event.key !== lastEvent) return eventNotification(fresh.event, streak);
-  if (due > 0) {
-    const item = pickFromPool(items, today);
-    return item ? itemNotification(item, due, streak) : countNotification(due, streak);
-  }
+  const item = due > 0 ? pickFromPool(items, today) : undefined;
+  if (item) return itemNotification(item, due, streak);
+  if (fresh?.step) return stepNotification(fresh.step, streak);
   if (fresh?.omikujiPending) {
     return {
       title: "Ton omikuji du jour t'attend.",

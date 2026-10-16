@@ -18,6 +18,7 @@ import { getCurriculumEntry } from "../lib/curriculum";
 import { buildBulletin, type Bulletin } from "../lib/exam";
 import { EXAM, SRS } from "../lib/config";
 import { formatMinutes } from "../lib/time";
+import { REVIEW_STEP_SIZE } from "../lib/path";
 import { loadSettings } from "../lib/settings";
 import {
   accuracyKey,
@@ -30,7 +31,7 @@ import {
   perItemAccuracy,
   retentionRate,
   reviewForecast,
-  reviewStreak,
+  goalStreak,
   shiftDay,
   statusCounts,
   type ForecastDay,
@@ -198,11 +199,17 @@ export function Stats() {
   const forecast = reviewForecast(allCards, now);
   const maxLoad = Math.max(1, ...forecast.map((d) => d.count));
   // Le RETARD au sens strict : les cartes échues avant aujourd'hui. C'est ici sa place —
-  // le flux d'étude, lui, n'annonce que la dose du jour (cf. lib/flow.ts, ui/Home.tsx).
+  // le parcours, lui, l'absorbe en étapes Révision sans l'afficher (cf. lib/flow.ts).
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   const overdue = allCards.filter((c) => c.due.getTime() < startOfToday.getTime()).length;
   const worst = worstItems(data, acc);
+  // Leçons dont le contrôle a été admis pour la PREMIÈRE fois dans la période.
+  const firstPass = new Map<string, number>();
+  for (const e of data.exams) {
+    if (e.passed && e.submittedAt < (firstPass.get(e.lessonId) ?? Infinity)) firstPass.set(e.lessonId, e.submittedAt);
+  }
+  const lessonsDone = [...firstPass.values()].filter((at) => at >= since).length;
   const settings = loadSettings();
   const bulletin = buildBulletin(data.exams, (id) => getCurriculumEntry(id)?.title);
 
@@ -211,7 +218,7 @@ export function Stats() {
   const grammarCounts = statusCounts(data.grammar);
   const maturity = cardMaturity(allCards);
   const maxMaturity = Math.max(1, maturity.fresh, maturity.learning, maturity.young, maturity.mature);
-  const streak = reviewStreak(data.daily, settings.dailyGoal, today);
+  const streak = goalStreak(data.daily, settings, today);
   const firstDay = firstActiveDay(data.daily, data.reviews);
   // Ancienneté inclusive : le premier jour compte pour un.
   const sinceDays = firstDay ? daysBetween(firstDay, today) + 1 : 0;
@@ -293,13 +300,15 @@ export function Stats() {
       <section className="flex flex-col gap-3">
         <SectionLabel>Charge des 7 prochains jours</SectionLabel>
         {overdue > 0 && (() => {
-          // Le retard en JOURS d'objectif : « 47 cartes » ne dit rien, « cinq jours de
-          // travail » se décide. Arrondi à l'unité, plancher à 1 (un retard existe).
-          const days = Math.max(1, Math.round(overdue / Math.max(1, settings.dailyGoal)));
+          // Le retard en ÉTAPES Révision (SPEC §5.8) : « 47 cartes » ne dit rien, « cinq
+          // étapes de révision » se lit dans le parcours, qui les insère de lui-même.
+          // Arrondi à l'unité, plancher à 1 (un retard existe).
+          const steps = Math.max(1, Math.round(overdue / REVIEW_STEP_SIZE));
           return (
             <p className="text-sm text-muted">
               Le jour « Aujourd'hui » inclut {overdue} carte{overdue > 1 ? "s" : ""} en retard,
-              soit {days} jour{days > 1 ? "s" : ""} à ton objectif de {settings.dailyGoal} par jour.
+              soit environ {steps} étape{steps > 1 ? "s" : ""} Révision — le parcours les
+              intercale de lui-même avant les étapes nouvelles.
             </p>
           );
         })()}
@@ -350,6 +359,11 @@ export function Stats() {
           <SectionLabel>Activité</SectionLabel>
           <Card className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
             <Figure value={formatMinutes(totals.flowMs)} label="d'étude" />
+            <Figure value={String(totals.steps)} label={`étape${totals.steps > 1 ? "s" : ""} du parcours`} />
+            <Figure
+              value={String(lessonsDone)}
+              label={`leçon${lessonsDone > 1 ? "s" : ""} terminée${lessonsDone > 1 ? "s" : ""}`}
+            />
             <Figure value={String(totals.reviewed)} label={`révision${totals.reviewed > 1 ? "s" : ""}`} />
             <Figure
               value={String(totals.introduced)}
@@ -367,7 +381,7 @@ export function Stats() {
           {/* La moyenne rend deux périodes comparables, ce qu'un total ne fait pas. */}
           <p className="text-xs text-muted">
             {totals.activeDays > 0
-              ? `Par jour actif : ${formatMinutes(avgPerActiveDay)} d'étude · ${Math.round(totals.reviewed / totals.activeDays)} révisions`
+              ? `Par jour actif : ${formatMinutes(avgPerActiveDay)} d'étude · ${(totals.steps / totals.activeDays).toFixed(1).replace(".", ",")} étapes`
               : "Aucun jour d'activité sur cette période."}
           </p>
         </section>

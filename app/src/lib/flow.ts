@@ -63,8 +63,9 @@ export interface FlowState {
   dueCount: number;
   /** Au moins une carte existe : une étape Révision a toujours de quoi servir. */
   hasCards: boolean;
-  reviewedToday: number;
-  dailyGoal: number;
+  /** Étapes du parcours validées aujourd'hui, et l'objectif du jour en étapes (§5.1). */
+  stepsToday: number;
+  dailySteps: number;
   flowMsToday: number;
   currentLesson?: {
     id: string;
@@ -306,8 +307,8 @@ export async function gatherFlowState(
   const state: FlowState = {
     dueCount: stats.dueCount,
     hasCards: stats.cardCount > 0,
-    reviewedToday: daily?.reviewed ?? 0,
-    dailyGoal: settings.dailyGoal,
+    stepsToday: daily?.steps ?? 0,
+    dailySteps: settings.dailySteps,
     flowMsToday: daily?.flowMs ?? 0,
     currentLesson: current
       ? {
