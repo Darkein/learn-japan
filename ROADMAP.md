@@ -92,7 +92,10 @@ réveil.
   (étape suivante, révision insérée), contrôle en 7e étape (fin de `examEligibility`), jauge par
   étapes, reprise des bases existantes. Fin du débit de nouveautés et de son frein, cible de
   rétention fixe à 90 %, première réponse seule notée (fin de la seconde chance), exercices
-  d'histoire sans carte pour les mots incidents.
+  d'histoire sans carte pour les mots incidents. Nouvelle version du schéma et de la synchro.
+- **Tout ce qui comptait en cartes** (SPEC §5.8) : réglages (objectif en étapes, « Nouveaux
+  mots par jour » retiré), accueil, statistiques, rappels et badge, série de jours, omikuji,
+  position sur le Tōkaidō, Catalogue et « Je connais ».
 - **Séances d'étape** : assemblage par niveau (reconnaître, rappeler, produire), trois réussites
   par élément, ratés rejoués en fin d'étape, étape Révision (dû, rappels N−1 et N−3, éléments
   fragiles), station de repos toutes les 5 leçons. Mesure de la forme, du niveau et de la durée de

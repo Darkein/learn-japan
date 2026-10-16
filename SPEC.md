@@ -196,6 +196,7 @@ Statistiques, à titre d'information.
 ### 2.4 Progression et calibrage
 - Progression **partant de zéro**.
 - Marquage manuel d'un élément comme **« connu »** (ne plus le réviser).
+  Dans le parcours, un élément de leçon déclaré connu passe directement au niveau 3 (§5.8).
 - **Test de calibrage initial** : mini-quiz survolant quelques règles de grammaire par niveau JLPT.
 - **Calibrage par import** (plus rapide que le quiz) : listes JLPT, export **Anki**, **WaniKani**
   (API avec ton propre token). Pré-remplit l'acquis.
@@ -486,6 +487,115 @@ durée de réponse** de chaque exercice. Ces mesures recalent les coefficients d
 élément (§5.2) et la durée annoncée de chaque étape, affichée avant de la commencer
 (« Vocabulaire · 16 exercices · ~5 min »).
 
+### 5.8 Ce que le parcours change dans le reste de l'app
+
+Le parcours touche tout ce qui comptait en **cartes par jour** ou reposait sur la stabilité FSRS.
+Inventaire complet, pour qu'aucun écran ni réglage ne garde un sens qu'il n'a plus.
+
+**Réglages** (`lib/settings.ts`, `ui/SettingsSections.tsx`)
+
+| Réglage | Devenir |
+|---|---|
+| Objectif quotidien (cartes) | **Change de sens** : « Objectif quotidien (étapes) », de 1 à 10, défaut 3. L'ancienne valeur en cartes n'a pas d'équivalent : elle est remplacée par le défaut à la migration. |
+| Nouveaux mots par jour | **Supprimé**, avec son explication (plafond, `NEW_ITEM_LOAD`). Les mots arrivent par les étapes. |
+| Romaji → kana dans les révisions | Conservé, renommé « dans les exercices » : il s'applique à toutes les étapes. |
+| Sans le son (et la pause « Je ne peux pas écouter ») | Conservé, étendu au parcours : les formes d'écoute des niveaux 2 et 3 passent à leur équivalent écrit (niveau 3 : production seule, sans dictée). La lecture de l'histoire n'est pas concernée. |
+| Furigana, gloss, masquage des mots connus, sons de retour, vitesse audio, taille du texte, thème, stockage | Inchangés. |
+| Rappels (activation, heure) | Conservés ; leur contenu change (ci-dessous). |
+
+**Accueil** (`ui/Home.tsx`)
+- La carte « Aujourd'hui » compte les **étapes du jour** sur l'objectif (et non plus les révisions),
+  et la série de jours.
+- La carte du flux devient la carte du **parcours** : leçon en cours, étape suivante, jauge des
+  étapes, durée annoncée (« Étape 3 / 7 · Grammaire · ~3 min »). Son libellé « Renforcement »
+  disparaît.
+- « Nouvelle leçon débloquée », « Relecture-miroir » et « À lire pour toi » restent, comme
+  activités hors parcours.
+
+**Flux** (`lib/flow.ts`, `ui/FlowSession.tsx`, `ui/FlowCheckpoint.tsx`)
+- Le checkpoint garde « Continuer avec : … » ; « Terminer pour aujourd'hui » devient un simple
+  « Arrêter ici » toujours disponible, jamais l'unique bouton.
+- L'aperçu (`previewFlow`) annonce les prochaines étapes du parcours au lieu de « 34 révisions,
+  puis une lecture ».
+- Les activités `review`, `reinforce` et `done` disparaissent ; le cours, l'histoire et le contrôle
+  deviennent des étapes ; la relecture-miroir reste proposée entre deux étapes, au plus une fois par
+  séance.
+
+**Leçons** (`ui/LessonCard.tsx`, `ui/CourseDetail.tsx`)
+- La jauge d'ouverture (part d'éléments stabilisés, repère à 60 %) devient la **jauge des étapes**.
+- Le message d'une leçon verrouillée renvoie au **contrôle** de la précédente, plus à un
+  pourcentage de stabilité. « Commencer quand même » reste.
+- L'entrée du contrôle n'affiche plus « s'ouvre à 60 % d'éléments stabilisés », mais l'avancée
+  du parcours (« 4 étapes sur 6 faites »), avec la possibilité de le tenter avant.
+- « S'entraîner sur la leçon » reste un entraînement neutre.
+- **Commencer une leçon hors du parcours** : lire son cours depuis sa page crédite l'étape 1, lire
+  une de ses histoires crédite l'étape 5 (même règle que la reprise des bases, §5.6). Le podcast
+  et « Commencer quand même » rendent la leçon courante sans créditer d'étape.
+
+**Fin de séance et ratés** (`ui/SessionSummary.tsx`, `ui/ReviewSession.tsx`)
+- Dans une étape, les ratés sont rejoués **automatiquement** à la fin (§5.5) : les boutons
+  « Rejouer les ratés » et « Recommencer » ne restent que pour les entraînements et les exercices
+  du Lecteur.
+- Le bilan d'étape montre les réussites, les ratés rejoués, et ce qui suit dans le parcours.
+
+**Statistiques** (`ui/Stats.tsx`)
+- La ligne « Réglage auto — cible de rétention · nouveautés : N/j » est **supprimée** (cible fixe,
+  plus de débit). La rétention mesurée reste.
+- « Charge des 7 prochains jours » reste : le retard s'y exprime en **étapes Révision** (10 cartes
+  chacune) plutôt qu'en jours d'objectif.
+- « Activité » ajoute les étapes faites et les leçons terminées ; « par jour actif » donne les
+  minutes et les étapes plutôt que les révisions.
+- Maturité des cartes, temps d'étude, précision la plus faible et bulletin des contrôles sont
+  inchangés.
+
+**Rappels, badge et série** (`lib/reminders.ts`, `lib/reminderText.ts`, `lib/dueCount.ts`,
+`sw.ts`, `lib/stats.ts`)
+- La journée est faite (`dayIsDone`) quand l'objectif d'**étapes** est atteint, plus quand
+  l'objectif de cartes l'est.
+- Le texte du rappel annonce l'**étape suivante** (« Étape 4 de « Les gens autour de moi » :
+  Révision ») parmi ses accroches. Le nombre de cartes dues n'y sert plus de repli.
+- Le **badge d'icône** affiche les étapes qui restent pour l'objectif du jour, plus le nombre de
+  cartes dues (rien quand l'objectif est atteint).
+- **Série de jours** (`reviewStreak`) : un jour compte si l'objectif d'étapes est atteint. Les
+  jours d'avant la migration gardent leur règle d'alors (révisions ≥ objectif en cartes) : la
+  série n'est pas remise à zéro.
+
+**Omikuji** (`lib/omikuji.ts`)
+- « Atteins ton objectif du jour (N révisions) » et « Dépasse-le de 10 révisions » deviennent
+  « Atteins ton objectif du jour (N étapes) » et « Fais 2 étapes de plus ».
+- Les défis de production et d'écoute ne sont proposés que si des éléments ont atteint le niveau
+  correspondant (§5.3).
+- Défis de lecture et de précision, fortunes et bonus de station : inchangés.
+
+**Tōkaidō** (`lib/tokaido.ts`)
+- La position compte les étapes : span × (0,6 × (leçons terminées + étapes faites de la leçon en
+  cours ÷ 7) + 0,4 × maîtrise). Le voyageur avance à chaque étape, plus seulement à chaque leçon.
+  La monotonie (on ne recule jamais) et le bonus du contrôle restent.
+
+**Catalogue, Lecteur, fiches** (§6, §8)
+- La « session de révision ciblée » du Catalogue devient un **entraînement** (aucune écriture
+  SRS), comme toute pratique hors parcours.
+- « Je connais » (Lecteur) : un élément de leçon déclaré connu est crédité des niveaux 1 et 2 ; il
+  ne passe qu'au niveau 3 de sa leçon (Produire), qui vérifie la déclaration.
+- L'ajout explicite d'un mot à la révision (tap « à revoir », fiche kanji) crée toujours sa
+  carte : le mot revient dans les étapes Révision.
+- Les éléments « difficiles » (leeches) et leur remise à zéro sont inchangés ; l'étape Révision les
+  sert en priorité parmi les éléments fragiles.
+
+**Données et synchro** (`lib/db.ts`, `lib/sync.ts`)
+- Nouvelle version du schéma IndexedDB : étapes faites par leçon (`LessonProgressRecord`), niveau
+  atteint par élément (vocabulaire et grammaire), étapes par jour (`SrsDailyRecord`), forme,
+  niveau et durée par réponse (`ReviewLog`).
+- Le snapshot de synchro porte ces champs ; un snapshot d'avant la migration s'importe et passe
+  par la reprise (§5.6). La réinitialisation de la progression les efface aussi.
+
+**Code retiré** : `lib/tuning.ts` (cible et débit ; la mesure de rétention reste dans
+`lib/stats.ts`), `effectiveNewPerDay`, `sustainableNewPerDay`, `NEW_ITEM_LOAD`,
+`reviewBlockSize`, `MAX_REINFORCE_PER_FLOW`, `secondChance` et `snapshotBeforeGrade`,
+`SRS.newPerDay`, `SRS.sessionCap`, `SRS.unlockIntervalDays`, `SRS.examEligibility`,
+`unlockProgress` et `isUnlockReady`, ainsi que l'ouverture du rattrapage par éléments repassés
+(`retakeReady`). Leurs tests partent avec eux, remplacés par ceux du parcours.
+
 ### Types de quiz
 - **Triangle** kanji ↔ furigana ↔ traduction (§2.2b) — le format de base du vocabulaire écrit
 - Grammaire (« que signifie てもいい ? », parmi des règles voisines du curriculum)
@@ -500,7 +610,7 @@ du parcours, entraînement libre d'une leçon, exercices d'une histoire. Seule l
 
 **Entraînement ≠ parcours.** Seules les étapes du parcours (première réponse de chaque exercice)
 et le premier passage des exercices d'une histoire notent les cartes. L'entraînement libre sur
-une leçon (`scope: "all"`), une étape refaite et toute relance d'un deck déjà joué (ratés rejoués,
+une leçon (`scope: "all"`) ou une sélection du Catalogue, une étape refaite et toute relance d'un deck déjà joué (ratés rejoués,
 « Recommencer » du Lecteur) n'écrivent **rien** dans le SRS — ni la carte, ni le journal, ni le
 compteur du jour.
 
@@ -633,8 +743,8 @@ Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou
   neuves et compteur d'échecs remis à zéro par un jalon dans le log de révisions, qui est
   append-only. C'est là qu'ils se consultent — pas dans les Statistiques.
 - **Recherche**.
-- **Action** : lancer une **session de révision ciblée** depuis une sélection, ou **alimenter une
-  génération d'histoire** ciblée (§4.1).
+- **Action** : lancer un **entraînement ciblé** depuis une sélection (sans écriture SRS, §5.8), ou
+  **alimenter une génération d'histoire** ciblée (§4.1).
 C'est le complément de la carte de progression (qui, elle, reste un indicateur de motivation chiffré).
 
 ## 7. Tags / thèmes *(nouveau)*
