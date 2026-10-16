@@ -1,4 +1,4 @@
-import { SRS } from "./config";
+import { DAILY_STEPS_DEFAULT } from "./path";
 
 export type Theme = "system" | "dark" | "light";
 
@@ -15,7 +15,14 @@ export interface AppSettings {
   glossDefault: boolean;
   /** Estompage : masque gloss et furigana des mots marqués « connus » dans le lecteur. */
   glossHideKnown: boolean;
-  dailyGoal: number;
+  /** Objectif du jour en ÉTAPES du parcours (SPEC §5.1) : un repère pour la série et les
+   *  rappels, jamais une limite — la séance continue une fois l'objectif atteint. */
+  dailySteps: number;
+  /** Objectif en CARTES d'avant le parcours : la série de jours le garde pour juger les
+   *  jours d'avant `pathSince`, pour que le passage au parcours ne la remette pas à zéro. */
+  legacyCardGoal?: number;
+  /** Date locale (YYYY-MM-DD) du passage au parcours. */
+  pathSince?: string;
   theme: Theme;
   warmupRomaji: boolean;
   /** Révisions sans le son : les exercices d'écoute sont remplacés par de l'écrit
@@ -41,7 +48,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   furiganaDefault: true,
   glossDefault: true,
   glossHideKnown: true,
-  dailyGoal: SRS.dailyGoal,
+  dailySteps: DAILY_STEPS_DEFAULT,
   theme: "system",
   warmupRomaji: true,
   silentReviews: false,
@@ -67,12 +74,39 @@ export function isSilentMode(s: AppSettings, now: Date = new Date()): boolean {
   return s.silentReviews || s.silentUntil > now.getTime();
 }
 
+/** Date locale du jour (YYYY-MM-DD) — sans dépendre de db.ts, cf. `saveSettings`. */
+function todayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Réglages d'avant le parcours : l'objectif du jour se comptait en cartes. */
+type LegacySettings = Partial<AppSettings> & { dailyGoal?: number; newPerDay?: number };
+
+/**
+ * Passage au parcours (SPEC §5.8) : l'objectif en cartes n'a pas d'équivalent en étapes,
+ * il repasse au défaut. Il reste mémorisé pour la série des jours d'avant le passage, et la
+ * date du passage est posée une fois pour toutes. « Nouveaux mots par jour » disparaît.
+ */
+function migrateToPath(parsed: LegacySettings): Partial<AppSettings> {
+  if (parsed.dailySteps != null) return parsed;
+  const { dailyGoal, newPerDay: _dropped, ...rest } = parsed;
+  return {
+    ...rest,
+    dailySteps: DAILY_STEPS_DEFAULT,
+    ...(dailyGoal != null ? { legacyCardGoal: dailyGoal } : {}),
+    pathSince: todayLocal(),
+  };
+}
+
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem("settings");
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AppSettings>;
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      const parsed = JSON.parse(raw) as LegacySettings;
+      const migrated = migrateToPath(parsed);
+      if (migrated !== parsed) localStorage.setItem("settings", JSON.stringify(migrated));
+      return { ...DEFAULT_SETTINGS, ...migrated };
     }
     // Migration depuis les anciennes clés indépendantes
     const theme = (localStorage.getItem("theme") as Theme) || DEFAULT_SETTINGS.theme;

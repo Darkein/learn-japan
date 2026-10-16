@@ -41,8 +41,8 @@ export async function claimOmikujiAutoOpen(): Promise<boolean> {
 // Env minimal pour résoudre le libellé du défi (le tirage a déjà filtré la disponibilité).
 function labelEnv(): OmikujiEnv {
   return {
-    dailyGoal: loadSettings().dailyGoal,
-    reviewedToday: 0,
+    dailySteps: loadSettings().dailySteps,
+    stepsToday: 0,
     hasProductionCards: true,
     hasOralCards: true,
     hasStories: true,

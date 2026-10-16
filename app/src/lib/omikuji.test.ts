@@ -13,12 +13,14 @@ import {
 } from "./db";
 import {
   CHALLENGES,
+  challengeById,
   checkOmikuji,
   drawFor,
   drawOmikuji,
   FORTUNES,
   fortuneById,
   markOmikujiSeen,
+  omikujiProgress,
   shouldOpenOmikuji,
   type OmikujiEnv,
 } from "./omikuji";
@@ -34,8 +36,8 @@ beforeEach(() => {
 
 function fullEnv(over: Partial<OmikujiEnv> = {}): OmikujiEnv {
   return {
-    dailyGoal: 20,
-    reviewedToday: 0,
+    dailySteps: 3,
+    stepsToday: 0,
     hasProductionCards: true,
     hasOralCards: true,
     hasStories: true,
@@ -64,7 +66,7 @@ describe("drawFor (pur)", () => {
     const env = fullEnv({ hasProductionCards: false, hasOralCards: false, hasStories: false });
     for (let i = 1; i <= 28; i++) {
       const { challenge } = drawFor(`2026-02-${String(i).padStart(2, "0")}`, env);
-      expect(["reviews-goal", "reviews-stretch", "accuracy-80", "accuracy-90"]).toContain(
+      expect(["steps-goal", "steps-stretch", "accuracy-80", "accuracy-90"]).toContain(
         challenge.id,
       );
     }
@@ -72,7 +74,7 @@ describe("drawFor (pur)", () => {
 
   it("repli sur les défis de précision si rien d'autre n'est disponible", () => {
     const env = fullEnv({
-      reviewedToday: 35, // objectif et objectif +10 déjà atteints → défis reviews indisponibles
+      stepsToday: 5, // objectif et objectif +2 déjà atteints → défis d'étapes indisponibles
       hasProductionCards: false,
       hasOralCards: false,
       hasStories: false,
@@ -91,6 +93,15 @@ describe("drawOmikuji (IO)", () => {
     const second = await drawOmikuji(new Date(NOW.getTime() + 3600e3));
     expect(second.drawnAt).toBe(first.drawnAt);
     expect(second.baseline.reviewed).toBe(3);
+  });
+});
+
+describe("défi d'objectif du jour (en étapes)", () => {
+  it("se mesure aux étapes du parcours, pas aux révisions", () => {
+    const rec = { date: "2026-07-05", challengeId: "steps-goal", fortune: "kichi" as const, drawnAt: 0, baseline: { reviewed: 0, prodOk: 0, oralOk: 0, storiesRead: 0 } };
+    const counts = { reviewed: 80, steps: 2, prodOk: 0, oralOk: 0, storiesRead: 0, dayReviews: 80, dayCorrect: 80 };
+    expect(omikujiProgress(rec, counts, fullEnv())).toEqual({ done: 2, target: 3 });
+    expect(challengeById("steps-goal")!.label(fullEnv())).toBe("Atteins ton objectif du jour (3 étapes)");
   });
 });
 

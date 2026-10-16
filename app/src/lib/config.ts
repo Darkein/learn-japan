@@ -49,7 +49,6 @@ export const TTS_SSML_BUDGET_BYTES = 4000;
 export const TTS_SSML_PART_WRAP_BYTES = 80;
 
 export const SRS = {
-  dailyGoal: 20,
   /** Plafond du bilan de leçon (« Vérifier mes acquis », scope "all"). */
   sessionAllCap: 10,
   masteredIntervalDays: 21,

@@ -194,6 +194,8 @@ export interface ActivityTotals {
   reviewed: number;
   introduced: number;
   storiesRead: number;
+  /** Étapes du parcours validées (SPEC §5.2). */
+  steps: number;
   /** Jours où quelque chose s'est passé — le dénominateur honnête d'une moyenne. */
   activeDays: number;
   days: number;
@@ -205,6 +207,7 @@ export function activityTotals(days: SrsDailyRecord[]): ActivityTotals {
     reviewed: 0,
     introduced: 0,
     storiesRead: 0,
+    steps: 0,
     activeDays: 0,
     days: days.length,
   };
@@ -213,7 +216,8 @@ export function activityTotals(days: SrsDailyRecord[]): ActivityTotals {
     out.reviewed += d.reviewed;
     out.introduced += d.introduced;
     out.storiesRead += d.storiesRead ?? 0;
-    if ((d.flowMs ?? 0) > 0 || d.reviewed > 0 || d.introduced > 0) out.activeDays++;
+    out.steps += d.steps ?? 0;
+    if ((d.flowMs ?? 0) > 0 || d.reviewed > 0 || d.introduced > 0 || (d.steps ?? 0) > 0) out.activeDays++;
   }
   return out;
 }
@@ -305,30 +309,56 @@ export function shiftDay(date: string, days: number): string {
 
 const prevDay = (date: string): string => shiftDay(date, -1);
 
+/** Ce qui fait un jour « à objectif atteint » (cf. `dayGoalMet`). */
+export interface DayGoal {
+  /** Objectif du jour en étapes du parcours. */
+  dailySteps: number;
+  /** Objectif en cartes d'avant le parcours, pour les jours d'avant `pathSince`. */
+  legacyCardGoal?: number;
+  /** Date locale du passage au parcours (YYYY-MM-DD). */
+  pathSince?: string;
+}
+
+/** Objectif en cartes par défaut d'avant le parcours (l'ancien `SRS.dailyGoal`). */
+const LEGACY_CARD_GOAL = 20;
+
+/**
+ * Un jour a-t-il atteint son objectif ? En ÉTAPES du parcours (SPEC §5.1) ; les jours
+ * d'avant le passage au parcours gardent la règle d'alors — révisions ≥ objectif en cartes —
+ * pour qu'une série en cours ne tombe pas à zéro le jour de la mise à jour.
+ */
+export function dayGoalMet(day: { date: string; reviewed: number; steps?: number }, goal: DayGoal): boolean {
+  if (goal.pathSince && day.date < goal.pathSince) {
+    return day.reviewed >= (goal.legacyCardGoal ?? LEGACY_CARD_GOAL);
+  }
+  return (day.steps ?? 0) >= goal.dailySteps;
+}
+
 /**
  * Série de jours consécutifs à objectif atteint. Un aujourd'hui encore incomplet ne casse
  * pas la série (la journée n'est pas finie) : on l'ignore et on compte depuis hier.
- * Partagée entre l'accueil et les rappels, qui doivent afficher le MÊME chiffre.
+ * Partagée entre l'accueil, les statistiques et les rappels, qui doivent afficher le MÊME
+ * chiffre.
  *
  * Un jour d'absence n'a PAS d'entrée dans `srsDaily` : parcourir les seules entrées connues
  * compterait la série à travers le trou. On avance donc de veille en veille, et le premier
  * jour manquant ou en dessous de l'objectif arrête le compte.
  */
-export function reviewStreak(
-  daily: { date: string; reviewed: number }[],
-  dailyGoal: number,
+export function goalStreak(
+  daily: { date: string; reviewed: number; steps?: number }[],
+  goal: DayGoal,
   today: string,
 ): number {
-  const byDate = new Map(daily.map((d) => [d.date, d.reviewed]));
+  const byDate = new Map(daily.map((d) => [d.date, d]));
+  const met = (date: string) => {
+    const d = byDate.get(date);
+    return !!d && dayGoalMet(d, goal);
+  };
   let streak = 0;
   // Borne `streak < byDate.size` : sans elle, un objectif à 0 ferait boucler à l'infini.
-  for (
-    let date = prevDay(today);
-    streak < byDate.size && (byDate.get(date) ?? 0) >= dailyGoal;
-    date = prevDay(date)
-  ) {
+  for (let date = prevDay(today); streak < byDate.size && met(date); date = prevDay(date)) {
     streak++;
   }
-  if ((byDate.get(today) ?? 0) >= dailyGoal) streak++;
+  if (met(today)) streak++;
   return streak;
 }

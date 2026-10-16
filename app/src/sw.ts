@@ -68,9 +68,9 @@ function localDateString(d: Date): string {
 
 /**
  * Affiche le rappel du jour. Le texte est calculé ICI, sur l'appareil : le compte de cartes
- * dues est relu dans IndexedDB (donc exact à la seconde), l'activité proposée vient de
- * l'indice que l'app a laissé en meta (voir refreshReminderState). Rien de tout cela n'a
- * transité par le réseau.
+ * dues est relu dans IndexedDB (donc exact à la seconde), l'étape suivante du parcours
+ * vient de l'indice que l'app a laissé en meta (voir refreshReminderState). Rien de tout
+ * cela n'a transité par le réseau.
  */
 async function showDailyReminder(now: Date = new Date()): Promise<void> {
   const today = localDateString(now);
@@ -79,7 +79,10 @@ async function showDailyReminder(now: Date = new Date()): Promise<void> {
   const lastEvent = await readMetaRaw<string>("reminder.lastEvent");
   await writeMetaRaw("reminder.lastShown", today);
   const nav = self.navigator as Navigator & { setAppBadge?: (n: number) => Promise<void> };
-  if (nav.setAppBadge && due > 0) await nav.setAppBadge(due).catch(() => {});
+  // Badge : les étapes qui restent pour l'objectif du jour. Un indice d'un autre jour ne vaut
+  // plus : la journée repart de l'objectif entier.
+  const stepsLeft = hint?.date === today ? hint.stepsLeft : hint?.dailySteps;
+  if (nav.setAppBadge && stepsLeft) await nav.setAppBadge(stepsLeft).catch(() => {});
   const { title, body, eventShown } = reminderNotification(due, hint, today, lastEvent);
   // Mémorise le rendez-vous annoncé : demain, ce sera au tour d'autre chose.
   if (eventShown) await writeMetaRaw("reminder.lastEvent", eventShown);

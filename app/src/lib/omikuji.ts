@@ -58,8 +58,9 @@ export function fortuneById(id: OmikujiFortune): Fortune {
 }
 
 export interface OmikujiEnv {
-  dailyGoal: number;
-  reviewedToday: number;
+  /** Objectif du jour en étapes du parcours, et étapes déjà faites au tirage. */
+  dailySteps: number;
+  stepsToday: number;
   hasProductionCards: boolean;
   hasOralCards: boolean;
   hasStories: boolean;
@@ -68,6 +69,8 @@ export interface OmikujiEnv {
 /** Compteurs du jour utilisés par les détecteurs. */
 export interface DayCounts {
   reviewed: number;
+  /** Étapes du parcours validées aujourd'hui. */
+  steps: number;
   prodOk: number;
   oralOk: number;
   storiesRead: number;
@@ -78,7 +81,7 @@ export interface DayCounts {
 export interface OmikujiChallenge {
   id: string;
   label: (env: OmikujiEnv) => string;
-  metric: "reviewed" | "prodOk" | "oralOk" | "storiesRead" | "accuracy";
+  metric: "steps" | "prodOk" | "oralOk" | "storiesRead" | "accuracy";
   target: (env: OmikujiEnv) => number;
   available: (env: OmikujiEnv) => boolean;
 }
@@ -86,20 +89,23 @@ export interface OmikujiChallenge {
 // Tous les défis sont DÉTECTABLES sans instrumentation nouvelle. (Extension future notée :
 // « lis N phrases sans gloss » exigerait d'instrumenter le toggle gloss — hors scope.)
 export const CHALLENGES: OmikujiChallenge[] = [
+  // L'objectif du jour se compte en étapes du parcours (SPEC §5.8). Les anciens défis en
+  // révisions (`reviews-goal`, `reviews-stretch`) ne sont plus tirés ; un tirage du jour
+  // de la mise à jour qui en porte un reste sans détecteur, sans autre conséquence.
   {
-    id: "reviews-goal",
-    label: (env) => `Atteins ton objectif du jour (${env.dailyGoal} révisions)`,
-    metric: "reviewed",
-    target: (env) => env.dailyGoal,
+    id: "steps-goal",
+    label: (env) => `Atteins ton objectif du jour (${env.dailySteps} étape${env.dailySteps > 1 ? "s" : ""})`,
+    metric: "steps",
+    target: (env) => env.dailySteps,
     // Sans intérêt si l'objectif est déjà atteint au tirage.
-    available: (env) => env.reviewedToday < env.dailyGoal,
+    available: (env) => env.stepsToday < env.dailySteps,
   },
   {
-    id: "reviews-stretch",
-    label: (env) => `Dépasse ton objectif du jour de 10 révisions (${env.dailyGoal + 10})`,
-    metric: "reviewed",
-    target: (env) => env.dailyGoal + 10,
-    available: (env) => env.reviewedToday < env.dailyGoal + 10,
+    id: "steps-stretch",
+    label: (env) => `Fais deux étapes de plus que ton objectif (${env.dailySteps + 2})`,
+    metric: "steps",
+    target: (env) => env.dailySteps + 2,
+    available: (env) => env.stepsToday < env.dailySteps + 2,
   },
   {
     id: "prod-5",
@@ -220,6 +226,7 @@ async function collectDayCounts(now: Date): Promise<DayCounts> {
   const dayLogs = reviews.filter((r) => r.at >= dayStart);
   return {
     reviewed: daily?.reviewed ?? 0,
+    steps: daily?.steps ?? 0,
     prodOk: dayLogs.filter((r) => r.skill === "production" && r.grade !== "again").length,
     oralOk: dayLogs.filter((r) => r.skill === "oral" && r.grade !== "again").length,
     storiesRead: daily?.storiesRead ?? 0,
@@ -235,8 +242,8 @@ async function collectEnv(now: Date): Promise<OmikujiEnv> {
     getSrsDaily(localDateString(now)),
   ]);
   return {
-    dailyGoal: loadSettings().dailyGoal,
-    reviewedToday: daily?.reviewed ?? 0,
+    dailySteps: loadSettings().dailySteps,
+    stepsToday: daily?.steps ?? 0,
     // Un mot ne porte plus de carte par compétence : ce qui rend un défi atteignable,
     // c'est qu'au moins un mot soit assez mûr pour que la forme puisse être TIRÉE
     // (cf. lib/vocabDrills.ts) — sinon on proposerait « réussis 5 écoutes » sans écoute.
@@ -310,8 +317,8 @@ export function omikujiProgress(
   if (!challenge) return { done: 0, target: 1 };
   const target = challenge.target(env);
   switch (challenge.metric) {
-    case "reviewed":
-      return { done: Math.min(target, counts.reviewed), target };
+    case "steps":
+      return { done: Math.min(target, counts.steps), target };
     case "prodOk":
       return { done: Math.min(target, counts.prodOk - rec.baseline.prodOk), target };
     case "oralOk":

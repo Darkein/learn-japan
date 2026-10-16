@@ -36,6 +36,9 @@ export const STEP_LABEL: Record<PathStep, string> = {
  */
 export const CONTENT_STEPS: ReadonlySet<PathStep> = new Set(["vocab", "grammar", "story", "produce"]);
 
+/** Objectif du jour par défaut, en étapes (§5.1) : environ quinze minutes. */
+export const DAILY_STEPS_DEFAULT = 3;
+
 /** Cartes servies par une étape Révision (§5.4). */
 export const REVIEW_STEP_SIZE = 10;
 

@@ -7,8 +7,8 @@ function state(over: Partial<FlowState> = {}): FlowState {
   return {
     dueCount: 0,
     hasCards: false,
-    reviewedToday: 0,
-    dailyGoal: 20,
+    stepsToday: 0,
+    dailySteps: 3,
     flowMsToday: 0,
     ...over,
   };

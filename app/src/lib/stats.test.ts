@@ -20,7 +20,8 @@ import {
   perItemAccuracy,
   retentionRate,
   reviewForecast,
-  reviewStreak,
+  dayGoalMet,
+  goalStreak,
   shiftDay,
   statusCounts,
 } from "./stats";
@@ -227,35 +228,48 @@ describe("jalon de remise à zéro", () => {
   });
 });
 
-describe("reviewStreak", () => {
-  const day = (date: string, reviewed: number) => ({ date, reviewed });
+describe("goalStreak (série de jours à objectif atteint)", () => {
+  const goal = { dailySteps: 3 };
+  const day = (date: string, steps: number, reviewed = 0) => ({ date, reviewed, steps });
 
   it("compte les jours consécutifs à objectif atteint, aujourd'hui exclu s'il est incomplet", () => {
-    const daily = [day("2026-08-08", 20), day("2026-08-09", 25), day("2026-08-10", 3)];
-    expect(reviewStreak(daily, 20, "2026-08-10")).toBe(2);
+    const daily = [day("2026-08-08", 3), day("2026-08-09", 5), day("2026-08-10", 1)];
+    expect(goalStreak(daily, goal, "2026-08-10")).toBe(2);
     // Objectif atteint aujourd'hui : la journée compte en plus.
-    expect(reviewStreak([...daily.slice(0, 2), day("2026-08-10", 20)], 20, "2026-08-10")).toBe(3);
+    expect(goalStreak([...daily.slice(0, 2), day("2026-08-10", 3)], goal, "2026-08-10")).toBe(3);
   });
 
   it("casse la série sur un jour d'absence, qui n'a aucune entrée", () => {
     // Le 9 manque : la série ne doit pas se recoller par-dessus le trou.
-    const daily = [day("2026-08-06", 30), day("2026-08-07", 30), day("2026-08-08", 30)];
-    expect(reviewStreak(daily, 20, "2026-08-10")).toBe(0);
-    expect(reviewStreak([...daily, day("2026-08-09", 30)], 20, "2026-08-10")).toBe(4);
+    const daily = [day("2026-08-06", 4), day("2026-08-07", 4), day("2026-08-08", 4)];
+    expect(goalStreak(daily, goal, "2026-08-10")).toBe(0);
+    expect(goalStreak([...daily, day("2026-08-09", 4)], goal, "2026-08-10")).toBe(4);
   });
 
-  it("casse la série sur un jour sous l'objectif", () => {
-    const daily = [day("2026-08-08", 30), day("2026-08-09", 5)];
-    expect(reviewStreak(daily, 20, "2026-08-10")).toBe(0);
+  it("casse la série sur un jour sous l'objectif — beaucoup de révisions ne suffisent pas", () => {
+    const daily = [day("2026-08-08", 4), day("2026-08-09", 2, 80)];
+    expect(goalStreak(daily, goal, "2026-08-10")).toBe(0);
   });
 
   it("traverse un changement de mois sans se perdre", () => {
-    const daily = [day("2026-07-31", 20), day("2026-08-01", 20)];
-    expect(reviewStreak(daily, 20, "2026-08-02")).toBe(2);
+    const daily = [day("2026-07-31", 3), day("2026-08-01", 3)];
+    expect(goalStreak(daily, goal, "2026-08-02")).toBe(2);
   });
 
-  it("ne boucle pas sur un objectif à zéro", () => {
-    expect(reviewStreak([day("2026-08-09", 0)], 0, "2026-08-10")).toBe(2);
+  it("ne boucle pas sur un objectif à zéro (un jour sans entrée ne compte jamais)", () => {
+    expect(goalStreak([day("2026-08-09", 0)], { dailySteps: 0 }, "2026-08-10")).toBe(1);
+  });
+
+  it("les jours d'avant le parcours gardent leur règle : la série ne tombe pas à zéro", () => {
+    // Passage au parcours le 10 : les 8 et 9 se jugeaient en cartes (objectif 10).
+    const migrated = { dailySteps: 3, legacyCardGoal: 10, pathSince: "2026-08-10" };
+    const daily = [
+      { date: "2026-08-08", reviewed: 12 },
+      { date: "2026-08-09", reviewed: 10 },
+      day("2026-08-10", 3),
+    ];
+    expect(goalStreak(daily, migrated, "2026-08-10")).toBe(3);
+    expect(dayGoalMet({ date: "2026-08-09", reviewed: 9 }, migrated)).toBe(false);
   });
 });
 
@@ -303,6 +317,7 @@ describe("fenêtres d'activité", () => {
       reviewed: 10,
       introduced: 2,
       storiesRead: 0,
+      steps: 0,
       activeDays: 2,
       days: 3,
     });
