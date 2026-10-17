@@ -6,6 +6,9 @@ import type { GrammarItem, VocabItem } from "./db";
 import { isAcquired } from "./srs";
 import { isTrainableVocab } from "./vocabFaces";
 
+/** Les trois niveaux de difficulté d'un élément (§5.3) : reconnaître, rappeler, produire. */
+export type PathLevel = 1 | 2 | 3;
+
 /** Les sept étapes d'une leçon, dans l'ordre du parcours. */
 export type PathStep = "course" | "vocab" | "grammar" | "review" | "story" | "produce" | "exam";
 

@@ -741,6 +741,42 @@ function correctionQuestion(
   };
 }
 
+// ---- Hors contrôle : l'étape Grammaire du parcours -------------------------------
+//
+// L'emploi et la correction sont aussi les exercices de l'étape Grammaire (SPEC §5.3) —
+// servis là en mode corrigé au fil de l'eau, notés comme toute séance. Même construction,
+// mêmes garde-fous (particules qui commutent, fautes indiscutables), tirage non seedé.
+
+/** Une phrase exploitable par la grammaire du parcours (même forme que celles du sujet). */
+export interface GrammarSentence {
+  ja: string;
+  fr?: string;
+  tokens: KuromojiToken[];
+}
+
+/** L'EMPLOI d'un point (sa particule retirée d'une phrase), ou null sans phrase qui s'y prête. */
+export function grammarUsageExercise(
+  g: GrammarItem,
+  sentences: GrammarSentence[],
+  rng: () => number = Math.random,
+): Exercise | null {
+  const pool = [...sentences];
+  const take = (pred: (s: ExamSentence) => boolean = () => true) => {
+    const i = pool.findIndex(pred);
+    return i < 0 ? null : pool.splice(i, 1)[0];
+  };
+  return usageQuestion(g, take, rng)?.exercise ?? null;
+}
+
+/** La CORRECTION (une seule phrase juste parmi quatre), ou null si la phrase ne s'y prête pas. */
+export function grammarCorrectionExercise(
+  g: GrammarItem,
+  sentence: GrammarSentence,
+  rng: () => number = Math.random,
+): Exercise | null {
+  return correctionQuestion(sentence, g.id, rng)?.exercise ?? null;
+}
+
 /** QCM produit par le Worker (cours ou compréhension) → questions du sujet. */
 function llmQuestions(
   questions: ComprehensionQuestion[],

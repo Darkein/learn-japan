@@ -3,6 +3,7 @@ import type { VocabItem } from "./db";
 import { newCard, State } from "./srs";
 import {
   DRILL_KINDS,
+  KIND_LEVEL,
   PRODUCTION_MIN_DAYS,
   drillEligible,
   orderDrills,
@@ -115,5 +116,18 @@ describe("skillOf", () => {
     expect(skillOf("dictation")).toBe("oral");
     expect(skillOf("written")).toBe("written");
     expect(skillOf("production")).toBe("production");
+  });
+});
+
+describe("borne de niveau (SPEC §2.2)", () => {
+  it("aucune forme au-dessus du niveau atteint", () => {
+    const v = word();
+    const ctx = { hasExample: true };
+    expect(drillEligible(v, "production", { ...ctx, maxLevel: 2 })).toBe(false);
+    expect(drillEligible(v, "dictation", { ...ctx, maxLevel: 2 })).toBe(false);
+    expect(drillEligible(v, "listen-meaning", { ...ctx, maxLevel: 1 })).toBe(false);
+    expect(drillEligible(v, "written", { ...ctx, maxLevel: 1 })).toBe(true);
+    expect(drillEligible(v, "listen-meaning", { ...ctx, maxLevel: 2 })).toBe(true);
+    expect(KIND_LEVEL.production).toBe(3);
   });
 });

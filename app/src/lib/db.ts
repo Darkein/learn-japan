@@ -4,7 +4,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Card } from "ts-fsrs";
 import type { ComprehensionQuestion } from "./genClient";
-import type { PathStep } from "./path";
+import type { PathLevel, PathStep } from "./path";
 import type { PodcastSegment } from "./podcastScript";
 
 /**
@@ -48,6 +48,9 @@ export interface VocabItem {
   /** Type d'exercice servi au passage précédent (`DrillKind`) : même règle que `lastDir`,
    *  d'un cran au-dessus — on ne redonne pas deux fois de suite la même forme d'exercice. */
   lastDrill?: string;
+  /** Plus haut niveau atteint dans le parcours (SPEC §5.3) : 1 reconnaître, 2 rappeler,
+   *  3 produire. Il borne les formes servies en révision tant que la leçon n'est pas finie. */
+  level?: PathLevel;
 }
 
 export interface GrammarItem {
@@ -59,6 +62,8 @@ export interface GrammarItem {
   jlpt?: number;
   status: ItemStatus;
   card?: Card;
+  /** Plus haut niveau atteint dans le parcours (cf. VocabItem.level). */
+  level?: PathLevel;
 }
 
 /**
@@ -78,6 +83,12 @@ export interface ReviewLog {
   /** Note FSRS (`SrsGrade`), ou `RESET_GRADE` pour un jalon de remise à zéro. */
   grade: string;
   at: number; // epoch ms
+  /** Forme d'exercice servie (« written-choice », « production », « grammar-usage »…),
+   *  niveau du parcours, et durée de réponse en ms — de quoi recaler la durée des étapes
+   *  (SPEC §5.7). Absents avant le parcours. */
+  form?: string;
+  level?: PathLevel;
+  ms?: number;
 }
 
 /**

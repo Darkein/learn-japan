@@ -4,6 +4,8 @@ import type { ExamRecord, GrammarItem, VocabItem } from "./db";
 import {
   buildBulletin,
   composeExam,
+  grammarCorrectionExercise,
+  grammarUsageExercise,
   gradeExam,
   mentionFor,
   verdictFor,
@@ -704,5 +706,40 @@ describe("buildBulletin — le relevé de notes", () => {
   it("leçon inconnue du curriculum : son id sert de libellé (jamais de ligne vide)", () => {
     const b = buildBulletin([copy("n5-99", 1, 12, 1_000)], titleOf);
     expect(b.rows[0].title).toBe("n5-99");
+  });
+});
+
+describe("emploi et correction hors contrôle (étape Grammaire du parcours)", () => {
+  const sentence = {
+    ja: "今日は本を読む。",
+    fr: "Aujourd'hui, je lis un livre.",
+    tokens: [
+      mkToken("今日"),
+      mkToken("は", "助詞"),
+      mkToken("本"),
+      mkToken("を", "助詞"),
+      mkToken("読む", "動詞"),
+      mkToken("。", "記号"),
+    ],
+  };
+
+  it("l'emploi retire la particule enseignée de sa phrase, traduction à l'appui", () => {
+    const ex = grammarUsageExercise(GRAMMAR[0], [sentence]);
+    expect(ex?.mode).toBe("choice");
+    expect(ex?.front).toBe("今日＿本を読む。");
+    if (ex?.mode !== "choice") throw new Error("QCM attendu");
+    expect(ex.choices[ex.answerIndex]).toBe("は");
+    expect(ex.prompt).toContain("Aujourd'hui");
+  });
+
+  it("pas d'emploi sans phrase traduite qui contienne la particule", () => {
+    expect(grammarUsageExercise(GRAMMAR[0], [{ ...sentence, fr: undefined }])).toBeNull();
+  });
+
+  it("la correction propose une seule phrase juste parmi quatre", () => {
+    const ex = grammarCorrectionExercise(GRAMMAR[0], sentence);
+    if (ex?.mode !== "choice") throw new Error("QCM attendu");
+    expect(ex.choices).toHaveLength(4);
+    expect(ex.choices[ex.answerIndex]).toBe("今日は本を読む。");
   });
 });

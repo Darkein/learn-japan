@@ -5,6 +5,7 @@
 import { getGrammar, getVocab, logReview, putGrammar, putVocab, type Skill } from "./db";
 import { generateStoryTranslation } from "./genClient";
 import { getCurriculum } from "./curriculum";
+import type { PathLevel } from "./path";
 import { newCard, review, type SrsGrade } from "./srs";
 import type { KuromojiToken } from "./tokenizer";
 import { applyStatus, isTrackedWord, itemIdFor } from "./vocab";
@@ -74,6 +75,12 @@ interface ExerciseBase {
   /** Nom/règle utilisés pour CRÉER l'item SRS s'il n'existe pas encore (sinon `front`/`back`). */
   seedName?: string;
   seedRule?: string;
+  /** Niveau du parcours que l'exercice travaille (SPEC §5.3) : réussi, il devient le niveau
+   *  atteint de l'élément (`VocabItem.level`). Absent hors parcours. */
+  level?: PathLevel;
+  /** Forme d'exercice, pour le journal (`ReviewLog.form`) : « written-choice »,
+   *  « listen-meaning », « production », « grammar-usage »… */
+  form?: string;
 }
 
 export interface TypeExercise extends ExerciseBase {
@@ -117,11 +124,45 @@ export async function translateExampleFr(ja: string, ex: Exercise): Promise<stri
   return fr;
 }
 
-/** Note un exercice et replanifie via FSRS. Crée l'item SRS s'il n'existe pas encore. */
+/** La note vaut-elle une réussite (le niveau de l'exercice est alors atteint) ? */
+function isSuccess(grade: SrsGrade): boolean {
+  return grade === "good" || grade === "easy";
+}
+
+/** Élève le niveau atteint d'un élément, jamais ne le rabaisse. */
+function raiseLevel<T extends { level?: PathLevel }>(item: T, level: PathLevel | undefined): void {
+  if (level && level > (item.level ?? 0)) item.level = level;
+}
+
+/**
+ * Niveau atteint par une réussite SANS note FSRS : un raté rejoué et réussi en fin d'étape
+ * (SPEC §5.5). La relance n'écrit rien dans le SRS ; le niveau, lui, dit quelles formes la
+ * révision peut servir, et l'élément vient bel et bien d'y réussir.
+ */
+export async function recordLevel(ex: Exercise): Promise<void> {
+  if (!ex.level) return;
+  if (ex.track === "vocab") {
+    const v = await getVocab(ex.id);
+    if (!v || (v.level ?? 0) >= ex.level) return;
+    raiseLevel(v, ex.level);
+    await putVocab(v);
+  } else {
+    const g = await getGrammar(ex.id);
+    if (!g || (g.level ?? 0) >= ex.level) return;
+    raiseLevel(g, ex.level);
+    await putGrammar(g);
+  }
+}
+
+/**
+ * Note un exercice et replanifie via FSRS. Crée l'item SRS s'il n'existe pas encore.
+ * `ms` : durée de réponse, journalisée avec la forme et le niveau (SPEC §5.7).
+ */
 export async function gradeExercise(
   ex: Exercise,
   grade: SrsGrade,
   now: Date = new Date(),
+  opts: { ms?: number } = {},
 ): Promise<void> {
   // Reconstruction issue du Lecteur (sans compétence ciblée) : note les MOTS de la
   // phrase individuellement. Une dictée (skill "oral") passe par la voie normale et
@@ -158,6 +199,7 @@ export async function gradeExercise(
     // comme une remise à zéro — c'est aussi la note d'une réponse à une coquille près,
     // et taper un mot qu'on écrit de travers n'est pas encore acquis.
     v.streak = grade === "again" || grade === "hard" ? 0 : (v.streak ?? 0) + 1;
+    if (isSuccess(grade)) raiseLevel(v, ex.level);
     await putVocab(v);
   } else {
     const g = (await getGrammar(ex.id)) ?? {
@@ -173,6 +215,7 @@ export async function gradeExercise(
     // Même règle que le vocab ci-dessus : réviser, c'est être « à revoir ». La maîtrise
     // d'un point de grammaire se prouve par l'intervalle atteint, pas par un clic.
     g.status = "review";
+    if (isSuccess(grade)) raiseLevel(g, ex.level);
     await putGrammar(g);
   }
   await logReview({
@@ -181,6 +224,9 @@ export async function gradeExercise(
     grade,
     at: now.getTime(),
     ...(ex.track === "vocab" ? { skill: ex.skill ?? "written" } : {}),
+    ...(ex.form ? { form: ex.form } : {}),
+    ...(ex.level ? { level: ex.level } : {}),
+    ...(opts.ms != null ? { ms: Math.round(opts.ms) } : {}),
   });
 }
 

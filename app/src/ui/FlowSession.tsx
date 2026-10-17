@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSrsDaily, getStory, localDateString } from "../lib/db";
-import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
+import { bumpSrsDaily, getSrsDaily, getStory, localDateString, putMeta } from "../lib/db";
+import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
 import { startLessonJob } from "../lib/genJobs";
 import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
@@ -112,6 +112,11 @@ export function FlowSession({ onExit, forced }: Props) {
     if (finished.step && finished.lessonId && finished.step !== "exam") {
       await markStepDone(finished.lessonId, finished.step);
     }
+    // La station de repos ne se refait pas : elle est marquée faite pour son bloc de leçons.
+    if (finished.kind === "rest" && finished.lessonIds?.length) {
+      await putMeta(restKey(finished.lessonIds[finished.lessonIds.length - 1]), Date.now());
+      await bumpSrsDaily(localDateString(), { steps: 1 });
+    }
     const omikuji = await checkOmikuji();
     if (finished.kind === "mirror") flowCtx.current.mirrorDoneThisFlow = true;
     const { state, lessons } = await gatherFlowState({
@@ -213,6 +218,9 @@ async function recapFor(
   if (activity.kind === "review") {
     return { kind: activity.kind, recap: `Révision faite${answers}` + suffix };
   }
+  if (activity.kind === "rest") {
+    return { kind: activity.kind, recap: `Station de repos faite${answers}` + suffix };
+  }
   return { kind: activity.kind };
 }
 
@@ -229,7 +237,18 @@ function ActivityBlock({
 }) {
   switch (activity.kind) {
     case "review":
-      return <ReviewSession opts={{ scope: "due", itemIds: activity.itemIds }} onExit={onDone} exitLabel="Continuer" />;
+      return (
+        <ReviewSession
+          opts={{ scope: "due", itemIds: activity.itemIds, lessonId: activity.lessonId }}
+          onExit={onDone}
+          exitLabel="Continuer"
+          autoReplay
+        />
+      );
+    case "rest":
+      return (
+        <ReviewSession opts={{ scope: "rest", lessonIds: activity.lessonIds }} onExit={onDone} exitLabel="Continuer" autoReplay />
+      );
     case "vocab":
     case "grammar":
     case "produce":
@@ -239,6 +258,7 @@ function ActivityBlock({
           opts={{ scope: "step", lessonId: activity.lessonId, step: activity.kind }}
           onExit={onDone}
           exitLabel="Continuer"
+          autoReplay
         />
       );
     case "read-story":

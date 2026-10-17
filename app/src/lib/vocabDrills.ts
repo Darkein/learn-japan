@@ -11,6 +11,7 @@
 // forme qui marche pour TOUS les mots, et celle qui fait avancer la série de saisie.
 
 import type { Skill, VocabItem } from "./db";
+import type { PathLevel } from "./path";
 import { State } from "./srs";
 import { weightedShuffle } from "./random";
 
@@ -65,8 +66,23 @@ export function skillOf(kind: DrillKind): Skill {
  */
 export const WRITTEN_WEIGHT = 2;
 
+/**
+ * Niveau du parcours de chaque forme (SPEC §5.3) : reconnaître (l'écrit, servi en QCM
+ * tant que la série de saisie n'est pas acquise), rappeler (à l'oreille), produire.
+ */
+export const KIND_LEVEL: Record<DrillKind, PathLevel> = {
+  written: 1,
+  "listen-meaning": 2,
+  "listen-word": 2,
+  dictation: 3,
+  production: 3,
+};
+
 /** Contexte du tirage — ce que le mot seul ne dit pas. */
 export interface DrillContext {
+  /** Plus haut niveau que la révision peut servir pour ce mot (SPEC §2.2) : le niveau
+   *  atteint dans sa leçon, ou 3 une fois la leçon finie. Absent = pas de borne. */
+  maxLevel?: PathLevel;
   /** Sans le son (réglage permanent ou pause « je ne peux pas écouter »). */
   silent?: boolean;
   /** Le mot porte une phrase d'exemple exploitable (`effectiveExample(v)?.ja`). */
@@ -92,9 +108,13 @@ export const PRODUCTION_MIN_DAYS = 4;
  *    pour la production.
  * ② MATIÈRE. Pas de phrase d'exemple → pas de dictée, pas de sens à l'écoute, pas de
  *    production en contexte. Seule la dictée du MOT reste jouable (on prononce le mot).
+ * ③ NIVEAU. Jamais une forme au-dessus du niveau atteint dans le parcours (`maxLevel`) :
+ *    un échec sur une forme jamais travaillée comptait comme un oubli, alors que FSRS
+ *    suppose un test de difficulté constante (SPEC §2.2).
  */
 export function drillEligible(v: VocabItem, kind: DrillKind, ctx: DrillContext = {}): boolean {
   if (kind === "written") return true;
+  if (ctx.maxLevel && KIND_LEVEL[kind] > ctx.maxLevel) return false;
   if (ctx.silent && AUDIO_KINDS.has(kind)) return false;
   const card = v.card;
   if (!card || card.state !== State.Review) return false;

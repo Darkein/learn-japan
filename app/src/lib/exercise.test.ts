@@ -6,6 +6,7 @@ import { getCurriculum } from "./curriculum";
 import {
   gradeExercise,
   gradeStoryExercise,
+  recordLevel,
   type BuildExercise,
   type ChoiceExercise,
   type TypeExercise,
@@ -360,5 +361,45 @@ describe("gradeStoryExercise (exercices d'une histoire)", () => {
     expect((await getVocab(objective))?.card?.reps).toBe(1);
     // Le mot incident n'a même pas été matérialisé avec une carte.
     expect((await getVocab(incidental))?.card).toBeUndefined();
+  });
+});
+
+describe("niveau atteint et journal (SPEC §5.3, §5.7)", () => {
+  const ex = (level: 1 | 2 | 3): TypeExercise => ({
+    mode: "type",
+    key: "vocab:猫|ねこ#n" + level,
+    track: "vocab",
+    id: "猫|ねこ",
+    front: "chat",
+    back: "猫（ねこ）",
+    answers: ["ねこ"],
+    level,
+    form: "written-type",
+  });
+
+  it("une réussite élève le niveau atteint, un échec ne le touche pas, rien ne le rabaisse", async () => {
+    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review" });
+    await gradeExercise(ex(2), "again");
+    expect((await getVocab("猫|ねこ"))?.level).toBeUndefined();
+    await gradeExercise(ex(2), "good");
+    expect((await getVocab("猫|ねこ"))?.level).toBe(2);
+    await gradeExercise(ex(1), "good");
+    expect((await getVocab("猫|ねこ"))?.level).toBe(2);
+  });
+
+  it("une relance réussie enregistre le niveau sans toucher à la carte", async () => {
+    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review" });
+    await recordLevel(ex(3));
+    const v = await getVocab("猫|ねこ");
+    expect(v?.level).toBe(3);
+    expect(v?.card).toBeUndefined();
+    expect(await allReviews()).toEqual([]);
+  });
+
+  it("le journal porte la forme, le niveau et la durée de réponse", async () => {
+    await putVocab({ id: "猫|ねこ", surface: "猫", reading: "ねこ", meaning: "chat", tags: [], status: "review" });
+    await gradeExercise(ex(2), "good", new Date(), { ms: 4321.6 });
+    const [log] = await allReviews();
+    expect(log).toMatchObject({ form: "written-type", level: 2, ms: 4322 });
   });
 });
