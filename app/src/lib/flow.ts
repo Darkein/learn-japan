@@ -39,6 +39,7 @@ export type FlowActivityKind =
   | "read-story" // étape Histoire
   | "produce" // étape Produire
   | "exam" // contrôle de la leçon (le 関所) : il ouvre la suivante
+  | "rest" // station de repos, toutes les 5 leçons : révision longue des 5 dernières
   | "mirror" // relecture-miroir (une vieille histoire, pour mesurer le chemin)
   | "done"; // rien à proposer : aucune leçon ouverte et aucune carte (cas limite)
 
@@ -53,6 +54,8 @@ export interface FlowActivity {
   step?: PathStep;
   /** Révision ciblée : les éléments à repasser (les ratés d'un contrôle). */
   itemIds?: string[];
+  /** Station de repos : les leçons qu'elle révise. */
+  lessonIds?: string[];
   /** Libellé du bouton « Continuer avec : … ». */
   title: string;
   /** Justification courte affichée au checkpoint. */
@@ -83,6 +86,9 @@ export interface FlowState {
     retakePending?: string[];
   };
   nextLesson?: { id: string; title: string; ready: boolean };
+  /** Station de repos due (SPEC §5.4) : après le contrôle d'une 5e leçon, avant le cours
+   *  de la suivante. `key` = la leçon qui la déclenche. */
+  restDue?: { key: string; lessonIds: string[] };
   mirrorCandidate?: { storyId: string; title: string; ageDays: number };
   lastActivity?: FlowActivityKind;
   /** Une relecture-miroir a déjà été proposée dans cette séance (au plus une). */
@@ -116,10 +122,11 @@ const STEP_REASON: Record<PathStep, string> = {
  * ③ une révision INSÉRÉE devant une étape de contenu nouveau quand le retard dépasse deux
  *    étapes Révision — au plus une par étape : le neuf ralentit, il ne gèle jamais ;
  * ④ l'étape suivante de la leçon en cours ;
- * ⑤ le cours de la prochaine leçon débloquée (il la commence) ;
- * ⑥ une étape Révision libre, tant qu'il existe des cartes (fin du curriculum, leçon
+ * ⑤ entre deux leçons, la station de repos quand elle est due (toutes les 5 leçons) ;
+ * ⑥ le cours de la prochaine leçon débloquée (il la commence) ;
+ * ⑦ une étape Révision libre, tant qu'il existe des cartes (fin du curriculum, leçon
  *    suivante verrouillée) — la séance reste sans fin ;
- * ⑦ done, seulement quand il n'y a vraiment rien (profil vierge sans leçon ouverte).
+ * ⑧ done, seulement quand il n'y a vraiment rien (profil vierge sans leçon ouverte).
  */
 export function pickNext(state: FlowState): FlowActivity {
   const s = state;
@@ -157,6 +164,15 @@ export function pickNext(state: FlowState): FlowActivity {
       }
       return stepActivity(cur, step);
     }
+  }
+
+  if (!cur && s.restDue) {
+    return {
+      kind: "rest",
+      lessonIds: s.restDue.lessonIds,
+      title: `Station de repos — les ${s.restDue.lessonIds.length} dernières leçons`,
+      reason: "Une pause sur la route : on consolide ce que les dernières leçons ont appris.",
+    };
   }
 
   if (s.nextLesson) {
@@ -246,6 +262,9 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
     } else if (a.kind === "lesson") {
       steps.push({ kind: a.kind, label: "une nouvelle leçon" });
       break;
+    } else if (a.kind === "rest") {
+      steps.push({ kind: a.kind, label: "une station de repos" });
+      sim.restDue = undefined;
     } else {
       steps.push({ kind: a.kind, label: a.itemIds ? "une révision ciblée" : "une révision" });
       sim.dueCount = Math.max(0, sim.dueCount - REVIEW_STEP_SIZE);
@@ -277,6 +296,32 @@ async function storyReadState(stories: StoryRecord[]): Promise<{ unread?: StoryR
   return {};
 }
 
+/** Une station de repos toutes les `REST_EVERY` leçons (SPEC §5.4). */
+export const REST_EVERY = 5;
+
+/** Clé meta d'une station de repos faite (la valeur est sa date). */
+export function restKey(lessonId: string): string {
+  return `rest.${lessonId}`;
+}
+
+/**
+ * Station de repos à faire maintenant : la dernière leçon terminée ferme un bloc de
+ * `REST_EVERY` leçons, la station de ce bloc n'a pas été faite, et la leçon suivante n'est
+ * pas encore commencée — elle se place ENTRE le contrôle et le cours suivant, jamais
+ * rétroactivement au milieu d'une leçon en cours.
+ */
+async function pendingRest(lessons: Lesson[]): Promise<FlowState["restDue"]> {
+  let last = -1;
+  lessons.forEach((l, i) => {
+    if (l.completedAt) last = i;
+  });
+  if (last < 0 || (last + 1) % REST_EVERY !== 0) return undefined;
+  if (lessons[last + 1]?.startedAt) return undefined;
+  const key = lessons[last].id;
+  if ((await getMeta<number>(restKey(key))) != null) return undefined;
+  return { key, lessonIds: lessons.slice(last + 1 - REST_EVERY, last + 1).map((l) => l.id) };
+}
+
 /** Contexte de la séance en cours, traqué par l'UI (FlowSession) — pas en DB. */
 export interface FlowSessionCtx {
   lastActivity?: FlowActivityKind;
@@ -303,6 +348,7 @@ export async function gatherFlowState(
     current && current.examAttempts > 0 && !current.examPassed ? await examStatus(current.id) : undefined;
   const next = lessons.find((l) => !l.startedAt && !l.completedAt && !l.locked);
   const mirror = await currentMirrorCandidate(stories, now);
+  const restDue = current ? undefined : await pendingRest(lessons);
 
   const state: FlowState = {
     dueCount: stats.dueCount,
@@ -323,6 +369,7 @@ export async function gatherFlowState(
         }
       : undefined,
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,
+    ...(restDue ? { restDue } : {}),
     mirrorCandidate: mirror
       ? { storyId: mirror.storyId, title: mirror.title, ageDays: mirror.ageDays }
       : undefined,

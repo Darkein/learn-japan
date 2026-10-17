@@ -185,3 +185,23 @@ describe("previewFlow — prévisualisation de la carte d'accueil", () => {
     expect(s).toEqual(snapshot);
   });
 });
+
+describe("pickNext — station de repos (toutes les 5 leçons)", () => {
+  const restDue = { key: "n5-28-yes-polite", lessonIds: ["a", "b", "c", "d", "e"] };
+
+  it("entre deux leçons, la station passe avant le cours suivant", () => {
+    const a = pickNext(state({ restDue, nextLesson: { id: "n5-06", title: "La météo", ready: true } }));
+    expect(a.kind).toBe("rest");
+    expect(a.lessonIds).toEqual(restDue.lessonIds);
+    expect(a.step).toBeUndefined();
+  });
+
+  it("jamais au milieu d'une leçon en cours", () => {
+    expect(pickNext(state({ restDue, currentLesson: lesson(["course"]) })).kind).toBe("vocab");
+  });
+
+  it("l'aperçu l'annonce, puis la leçon suivante", () => {
+    const steps = previewFlow(state({ restDue, nextLesson: { id: "n5-06", title: "La météo", ready: true } }));
+    expect(steps.map((s) => s.label)).toEqual(["une station de repos", "une nouvelle leçon"]);
+  });
+});

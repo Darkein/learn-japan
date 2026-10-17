@@ -627,6 +627,34 @@ export async function grammarBuildExercise(g: GrammarItem, due: number): Promise
   };
 }
 
+/**
+ * Dictée de la phrase d'exemple d'un point de grammaire : jouée, texte masqué, reconstruite
+ * par tuiles — la PRODUCTION du point (étape Produire, SPEC §5.3). Null sans phrase, ou
+ * trop courte/longue pour l'oreille (mêmes bornes que la dictée de vocabulaire).
+ */
+export async function grammarDictationExercise(g: GrammarItem, due: number): Promise<BuildExercise | null> {
+  const detail = grammarDetail(g.id);
+  if (!detail?.exampleJa) return null;
+  const tokens = await tokenize(detail.exampleJa);
+  const target = toTiles(tokens);
+  if (target.length < DICTATION_MIN_TILES || target.length > DICTATION_MAX_TILES) return null;
+  return {
+    mode: "build",
+    key: `grammar-dictation:${g.id}`,
+    track: "grammar",
+    id: g.id,
+    front: "Reconstitue la phrase entendue",
+    back: target.join(" "),
+    due,
+    audioOnly: true,
+    audio: { sentence: detail.exampleJa },
+    context: detail.exampleJa,
+    ...(detail.exampleFr ? { contextFr: detail.exampleFr } : {}),
+    target,
+    tokens,
+  };
+}
+
 /** QCM du rôle d'un point de grammaire, parmi des règles voisines — la RECONNAISSANCE. */
 export function grammarChoiceExercise(g: GrammarItem, due: number): ChoiceExercise {
   const detail = grammarDetail(g.id);

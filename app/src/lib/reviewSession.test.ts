@@ -413,6 +413,45 @@ describe("étape Révision : 10 cartes, les dues d'abord, puis les plus fragiles
   });
 });
 
+describe("rappels des leçons précédentes et station de repos (SPEC §5.4)", () => {
+  /** Sème les mots d'une leçon du curriculum, déjà révisés (Review, pas dus). */
+  async function seedReviewed(lessonIndex: number) {
+    const { getCurriculum } = await import("./curriculum");
+    const e = getCurriculum()[lessonIndex];
+    for (const id of e.introduces.vocab) {
+      const [surface, reading] = id.split("|");
+      await putVocab({
+        id, surface, reading: reading ?? surface, meaning: `sens ${id}`, tags: [], status: "review",
+        card: { ...stableCard(20), last_review: new Date("2026-06-01"), stability: 5 },
+      });
+    }
+    return e;
+  }
+
+  it("l'étape Révision réserve des places aux mots de la leçon N−1, même non dus", async () => {
+    const { getCurriculum } = await import("./curriculum");
+    const prev = await seedReviewed(0);
+    const deck = await buildSession(NOW, { scope: "due", lessonId: getCurriculum()[1].id });
+    const recalls = deck.filter((ex) => ex.key.startsWith("recall:"));
+    expect(recalls).toHaveLength(2);
+    expect(recalls.every((ex) => prev.introduces.vocab.includes(ex.id) && ex.level === 2)).toBe(true);
+  });
+
+  it("sans leçon en cours, pas de rappel : la révision ordinaire", async () => {
+    await seedReviewed(0);
+    const deck = await buildSession(NOW, { scope: "due" });
+    expect(deck.some((ex) => ex.key.startsWith("recall:"))).toBe(false);
+  });
+
+  it("la station de repos révise les leçons données, aux niveaux 2 et 3", async () => {
+    const e = await seedReviewed(0);
+    const deck = await buildSession(NOW, { scope: "rest", lessonIds: [e.id] });
+    expect(deck.length).toBe(e.introduces.vocab.length);
+    expect(new Set(deck.map((ex) => ex.level))).toEqual(new Set([2, 3]));
+    expect(deck.every((ex) => e.introduces.vocab.includes(ex.id))).toBe(true);
+  });
+});
+
 describe("étapes de leçon (scope step)", () => {
   const lessonId = "n5-01-today-book";
   const entry = () => getCurriculumEntry(lessonId)!;
@@ -451,11 +490,38 @@ describe("étapes de leçon (scope step)", () => {
     expect(produce.every((ex) => ex.key.endsWith("#n3"))).toBe(true);
   });
 
-  it("Grammaire : deux exercices par point, le rôle en QCM d'abord", async () => {
+  it("Grammaire : niveau 1 (rôle, emploi) avant niveau 2 (phrase à reconstruire)", async () => {
     const deck = await buildSession(NOW, { scope: "step", lessonId, step: "grammar" });
-    const n = entry().introduces.grammar.length;
-    expect(deck).toHaveLength(2 * n);
-    expect(deck.slice(0, n).every((ex) => ex.mode === "choice" && ex.track === "grammar")).toBe(true);
+    const n1 = deck.filter((ex) => ex.level === 1);
+    const n2 = deck.filter((ex) => ex.level === 2);
+    expect(deck.slice(0, n1.length)).toEqual(n1);
+    expect(n1.every((ex) => ex.track === "grammar" && ex.mode === "choice")).toBe(true);
+    // Deux exercices par point au niveau 1 : son rôle, et son emploi quand une phrase s'y
+    // prête — sinon un second QCM de rôle (l'emploi lui-même est testé dans exam.test.ts :
+    // le tokeniseur bouchonné d'ici ne sait pas le placer).
+    expect(n1).toHaveLength(2 * entry().introduces.grammar.length);
+    expect(n1.map((ex) => ex.form)).toContain("grammar-rule");
+    expect(n2.map((ex) => ex.form)).toContain("grammar-build");
+  });
+
+  it("Produire : niveau 3 pour tous les éléments, sans le son ni dictée", async () => {
+    const store = new Map<string, string>([["settings", JSON.stringify({ silentReviews: true })]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    try {
+      await seedLesson({ status: "known" });
+      const deck = await buildSession(NOW, { scope: "step", lessonId, step: "produce" });
+      expect(deck.every((ex) => ex.level === 3)).toBe(true);
+      expect(deck.some((ex) => ex.form === "dictation" || ex.form === "grammar-dictation")).toBe(false);
+      expect(deck.filter((ex) => ex.track === "vocab").map((ex) => ex.form)).toEqual(
+        entry().introduces.vocab.map(() => "production"),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -479,10 +545,11 @@ describe("tirage de la forme d'exercice (un mot, une carte)", () => {
   const WRITTEN = "vocab";
   const ALL_KINDS = ["vocab", "vocab-listen", "vocab-listen-meaning", "vocab-dictation", "vocab-produce"];
 
-  /** Mot MÛR (Review, au-dessus du seuil de déblocage) et DÛ, avec sa phrase d'exemple. */
+  /** Mot MÛR (Review, au-dessus du seuil de production) et DÛ, avec sa phrase d'exemple,
+   *  qui a atteint le niveau 3 du parcours (`level`) : aucune borne de niveau ne s'applique. */
   async function seedMature(
     id: string,
-    opts: { example?: boolean; scheduledDays?: number; state?: State } = {},
+    opts: { example?: boolean; scheduledDays?: number; state?: State; level?: 1 | 2 | 3 } = {},
   ) {
     const [surface, reading] = id.split("|");
     await putVocab({
@@ -492,6 +559,7 @@ describe("tirage de la forme d'exercice (un mot, une carte)", () => {
       meaning: `sens-${surface}`,
       tags: [],
       status: "review",
+      level: opts.level ?? 3,
       card: {
         ...stableCard(-1), // échue hier
         state: opts.state ?? State.Review,
@@ -539,6 +607,18 @@ describe("tirage de la forme d'exercice (un mot, une carte)", () => {
     expect(session.find((c) => c.id === "水|みず")!.key).toBe("vocab-listen:水|みず");
     // Et le tirage retenu est mémorisé pour la fois suivante.
     expect((await getVocab("水|みず"))?.lastDrill).toBe("listen-word");
+  });
+
+  it("la forme ne dépasse jamais le niveau atteint dans une leçon pas finie (SPEC §2.2)", async () => {
+    // 水 est un objectif de leçon : niveau 1 atteint seulement → l'écrit et rien d'autre ;
+    // niveau 2 → l'écoute s'ouvre, pas encore la production ni la dictée.
+    await seedPool();
+    await seedMature("水|みず", { level: 1 });
+    expect(await kindsOver(15, "水|みず")).toEqual([WRITTEN]);
+    await seedMature("水|みず", { level: 2 });
+    const kinds = await kindsOver(40, "水|みず");
+    expect(kinds).not.toContain("vocab-produce");
+    expect(kinds).not.toContain("vocab-dictation");
   });
 
   it("un mot encore en apprentissage ne sort qu'à l'écrit", async () => {
