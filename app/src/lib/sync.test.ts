@@ -105,17 +105,17 @@ describe("export / import", () => {
   it("exclut les meta locales de l'export et les préserve à l'import", async () => {
     await putMeta("sync:code", "K7MP-X2R9-4TQF");
     await putMeta("storyImageTried:s1", true);
-    await putMeta("tokaido.bonus", 3);
+    await putMeta("tokaido.lastCelebrated.5", 3);
 
     const snapshot = await exportSnapshot();
     const keys = snapshot.stores.meta.map((m) => m.key);
-    expect(keys).toContain("tokaido.bonus");
+    expect(keys).toContain("tokaido.lastCelebrated.5");
     expect(keys.some((k) => k.startsWith("sync:") || k.startsWith("storyImageTried:"))).toBe(false);
 
     // Import d'un snapshot étranger : le code local de CET appareil survit.
     await importSnapshot(snapshot);
     expect(await getMeta("sync:code")).toBe("K7MP-X2R9-4TQF");
-    expect(await getMeta("tokaido.bonus")).toBe(3);
+    expect(await getMeta("tokaido.lastCelebrated.5")).toBe(3);
   });
 
   it("refuse une sauvegarde d'un schéma plus récent", async () => {

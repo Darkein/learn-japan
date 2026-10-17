@@ -286,8 +286,8 @@ export interface OmikujiRecord {
 }
 
 /**
- * Petit KV persistant pour les marqueurs d'engagement : tokaido.maxReached, tokaido.bonus,
- * tokaido.lastCelebrated, mirror.lastAt, storyRead.<id>, reminders, reminder.lastShown…
+ * Petit KV persistant pour les marqueurs d'engagement : tokaido.lastCelebrated.<niveau>,
+ * stamps.fortune, mirror.lastAt, storyRead.<id>, reminders, reminder.lastShown…
  */
 export interface MetaRecord {
   key: string;

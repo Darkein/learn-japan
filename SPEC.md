@@ -851,7 +851,8 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
   Kaidō pour N4, Nakasendō pour N3, Oku no Hosomichi pour N2, Shikoku henro pour N1.
 - **Les villes sont fixées par étape.**
   - Un niveau compte T étapes ; sa route compte S tronçons (sa dernière ville porte l'index S).
-  - La ville k (de 1 à S) est atteinte à la fin de l'étape `round(k × T / S)` du niveau.
+  - La ville k (de 1 à S) est atteinte à la fin de l'étape `round(k × T / S)` du niveau, et
+    jamais avant la première étape.
   - La dernière ville est atteinte à la fin du contrôle final du niveau.
   - Sur la voie, la ville se dessine juste après cette étape. Si plusieurs villes tombent sur la
     même étape, elles se suivent.

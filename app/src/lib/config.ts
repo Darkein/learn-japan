@@ -111,6 +111,4 @@ export const EXAM = {
   },
   /** Écoutes autorisées sur une question de dictée — après, on écrit ce qu'on a retenu. */
   listens: 2,
-  /** Fraction de station gagnée sur la route en cours quand la barrière est franchie. */
-  tokaidoBonus: 0.5,
 } as const;

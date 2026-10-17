@@ -70,6 +70,23 @@ export function nextStep(steps: PathStep[], done: ReadonlySet<PathStep>): PathSt
   return steps.find((s) => !done.has(s));
 }
 
+/**
+ * Numérotation GLOBALE des étapes (SPEC §5c.2) : pour chaque leçon, le nombre d'étapes qui
+ * la précèdent dans le curriculum, pris dans l'ordre donné (N5 d'abord). La n° d'une étape
+ * est cette base + son rang dans la leçon ; les étapes absentes d'une leçon ne comptent pas.
+ */
+export function stepNumberBases(
+  entries: { id: string; introduces: { vocab: string[]; grammar: string[] } }[],
+): Map<string, number> {
+  const bases = new Map<string, number>();
+  let n = 0;
+  for (const e of entries) {
+    bases.set(e.id, n);
+    n += lessonSteps(e).length;
+  }
+  return bases;
+}
+
 /** Position 1-indexée d'une étape dans le parcours de sa leçon (« étape 3 / 7 »). */
 export function stepNumber(steps: PathStep[], step: PathStep): number {
   return steps.indexOf(step) + 1;

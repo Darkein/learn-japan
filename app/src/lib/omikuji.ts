@@ -23,7 +23,7 @@ import {
 import { loadSettings } from "./settings";
 import { effectiveExample } from "./vocab";
 import { drillEligible } from "./vocabDrills";
-import { addTokaidoBonus } from "./tokaido";
+import { addFortuneStamp } from "./tokaido";
 
 export interface Fortune {
   id: OmikujiFortune;
@@ -33,24 +33,19 @@ export interface Fortune {
   fr: string;
   /** Poids de tirage (les extrêmes sont rares, comme au temple). */
   weight: number;
-  /** Fraction de station Tōkaidō gagnée si le défi du jour est accompli. */
-  bonus: number;
-  /** Le bonus en toutes lettres (affiché sur la bandelette). */
-  bonusFr: string;
 }
 
-// Échelle traditionnelle, du meilleur au pire. La fortune n'est plus purement décorative :
-// elle fixe la mise — le CHEMIN gagné sur le Tōkaidō quand le défi est accompli. Une
-// mauvaise fortune rapporte moins, mais rapporte toujours (on ne punit jamais).
+// Échelle traditionnelle, du meilleur au pire. Le défi accompli pose le tampon de la fortune
+// du jour dans le carnet (SPEC §5c.5) : même une mauvaise fortune se collectionne.
 export const FORTUNES: Fortune[] = [
-  { id: "daikichi", kanji: "大吉", yomi: "だいきち", romaji: "daikichi", fr: "Grande fortune", weight: 2, bonus: 0.5, bonusFr: "une demi-station" },
-  { id: "kichi", kanji: "吉", yomi: "きち", romaji: "kichi", fr: "Fortune", weight: 4, bonus: 0.25, bonusFr: "un quart de station" },
-  { id: "chukichi", kanji: "中吉", yomi: "ちゅうきち", romaji: "chūkichi", fr: "Fortune moyenne", weight: 4, bonus: 0.25, bonusFr: "un quart de station" },
-  { id: "shokichi", kanji: "小吉", yomi: "しょうきち", romaji: "shōkichi", fr: "Petite fortune", weight: 4, bonus: 0.25, bonusFr: "un quart de station" },
-  { id: "hankichi", kanji: "半吉", yomi: "はんきち", romaji: "hankichi", fr: "Demi-fortune", weight: 2, bonus: 0.25, bonusFr: "un quart de station" },
-  { id: "suekichi", kanji: "末吉", yomi: "すえきち", romaji: "suekichi", fr: "Fortune à venir", weight: 3, bonus: 0.25, bonusFr: "un quart de station" },
-  { id: "kyo", kanji: "凶", yomi: "きょう", romaji: "kyō", fr: "Infortune", weight: 2, bonus: 0.125, bonusFr: "un huitième de station" },
-  { id: "daikyo", kanji: "大凶", yomi: "だいきょう", romaji: "daikyō", fr: "Grande infortune", weight: 1, bonus: 0.125, bonusFr: "un huitième de station" },
+  { id: "daikichi", kanji: "大吉", yomi: "だいきち", romaji: "daikichi", fr: "Grande fortune", weight: 2 },
+  { id: "kichi", kanji: "吉", yomi: "きち", romaji: "kichi", fr: "Fortune", weight: 4 },
+  { id: "chukichi", kanji: "中吉", yomi: "ちゅうきち", romaji: "chūkichi", fr: "Fortune moyenne", weight: 4 },
+  { id: "shokichi", kanji: "小吉", yomi: "しょうきち", romaji: "shōkichi", fr: "Petite fortune", weight: 4 },
+  { id: "hankichi", kanji: "半吉", yomi: "はんきち", romaji: "hankichi", fr: "Demi-fortune", weight: 2 },
+  { id: "suekichi", kanji: "末吉", yomi: "すえきち", romaji: "suekichi", fr: "Fortune à venir", weight: 3 },
+  { id: "kyo", kanji: "凶", yomi: "きょう", romaji: "kyō", fr: "Infortune", weight: 2 },
+  { id: "daikyo", kanji: "大凶", yomi: "だいきょう", romaji: "daikyō", fr: "Grande infortune", weight: 1 },
 ];
 
 export function fortuneById(id: OmikujiFortune): Fortune {
@@ -212,7 +207,6 @@ export function drawFor(
   const eligible = CHALLENGES.filter((c) => c.available(env));
   const pool = eligible.length > 0 ? eligible : CHALLENGES.filter((c) => c.id === "accuracy-90");
   const challenge = pool[Math.floor(rng() * pool.length)];
-  // La fortune module la récompense (bonus Tōkaidō), jamais une punition.
   const fortune = pickFortune(rng());
   return { challenge, fortune };
 }
@@ -345,13 +339,14 @@ export interface OmikujiCheck {
   rec: OmikujiRecord;
   counts: DayCounts;
   env: OmikujiEnv;
-  /** Le défi vient d'être accompli par CET appel (bonus crédité, bandeau à afficher). */
+  /** Le défi vient d'être accompli par CET appel (tampon posé, bandeau à afficher). */
   completedNow: boolean;
 }
 
 /**
- * Évalue le défi du jour ; s'il vient d'être accompli, marque `completedAt` et crédite le
- * bonus Tōkaidō (une seule fois — idempotent). Null si rien n'a été tiré aujourd'hui.
+ * Évalue le défi du jour ; s'il vient d'être accompli, marque `completedAt` et pose le
+ * tampon de la fortune dans le carnet (une seule fois — idempotent). Null si rien n'a été
+ * tiré aujourd'hui.
  */
 export async function checkOmikuji(now: Date = new Date()): Promise<OmikujiCheck | null> {
   const rec = await getOmikuji(localDateString(now));
@@ -361,6 +356,6 @@ export async function checkOmikuji(now: Date = new Date()): Promise<OmikujiCheck
   if (!isMet(rec, counts, env)) return { rec, counts, env, completedNow: false };
   const updated = { ...rec, completedAt: now.getTime() };
   await putOmikuji(updated);
-  await addTokaidoBonus(fortuneById(rec.fortune).bonus);
+  await addFortuneStamp({ date: rec.date, fortune: rec.fortune });
   return { rec: updated, counts, env, completedNow: true };
 }

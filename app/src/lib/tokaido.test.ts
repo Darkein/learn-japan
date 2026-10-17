@@ -5,11 +5,13 @@ import { ROUTES, routeForLevel } from "../data/routes";
 import { _resetDbForTests, getMeta, putMeta } from "./db";
 import {
   activeLevel,
-  addTokaidoBonus,
+  addFortuneStamp,
   computeTokaidoPosition,
-  estimateLessonsToNext,
+  fortuneStamps,
   levelStatsFromLessons,
   markStationCelebrated,
+  stampTotal,
+  stationStep,
   tokaidoStatus,
   type TokaidoLessonLike,
 } from "./tokaido";
@@ -19,16 +21,20 @@ beforeEach(() => {
   _resetDbForTests();
 });
 
-function lesson(
-  level: number,
-  { done = false, mastery = 0, items = 4 }: { done?: boolean; mastery?: number; items?: number } = {},
-): TokaidoLessonLike {
+const STEPS7 = ["course", "vocab", "grammar", "review", "story", "produce", "exam"];
+
+function lesson(level: number, { done = false, stepsDone = 0 }: { done?: boolean; stepsDone?: number } = {}): TokaidoLessonLike {
   return {
     level,
     completedAt: done ? Date.now() : undefined,
-    mastery,
-    introduces: { vocab: Array.from({ length: items }, (_, i) => `v${i}`), grammar: [] },
+    steps: STEPS7,
+    stepsDone: done ? STEPS7 : STEPS7.slice(0, stepsDone),
   };
+}
+
+/** N leçons de 7 étapes au niveau donné, les `done` premières terminées. */
+function lessons(level: number, n: number, done = 0): TokaidoLessonLike[] {
+  return Array.from({ length: n }, (_, i) => lesson(level, { done: i < done }));
 }
 
 describe("données ROUTES", () => {
@@ -60,125 +66,117 @@ describe("activeLevel", () => {
     expect(activeLevel([])).toBe(5);
   });
 
-  it("passe à N4 dès que N5 est achevé, même sans maîtrise parfaite", () => {
-    const levels = levelStatsFromLessons([
-      lesson(5, { done: true, mastery: 0.4 }),
-      lesson(4),
-    ]);
+  it("passe à N4 dès que N5 est achevé", () => {
+    const levels = levelStatsFromLessons([lesson(5, { done: true }), lesson(4)]);
     expect(activeLevel(levels)).toBe(4);
+  });
+});
+
+describe("stationStep", () => {
+  it("répartit les villes sur les étapes du niveau, la dernière sur le contrôle final", () => {
+    // Tōkaidō : 54 tronçons ; 67 leçons de 7 étapes = 469 étapes.
+    expect(stationStep(0, 469, 54)).toBe(0);
+    expect(stationStep(1, 469, 54)).toBe(9);
+    expect(stationStep(27, 469, 54)).toBe(235);
+    expect(stationStep(54, 469, 54)).toBe(469);
+    // Plus de villes que d'étapes : plusieurs villes sur la même étape, jamais au-delà.
+    expect(stationStep(88, 20, 88)).toBe(20);
+    expect(stationStep(3, 0, 54)).toBe(0);
   });
 });
 
 describe("computeTokaidoPosition", () => {
   it("part de Nihonbashi (position 0) sans progression", () => {
-    const pos = computeTokaidoPosition({ levels: [], bonus: 0, maxReached: 0 });
+    const pos = computeTokaidoPosition([]);
     expect(pos.route.level).toBe(5);
     expect(pos.position).toBe(0);
     expect(pos.station.kanji).toBe("日本橋");
     expect(pos.next?.kanji).toBe("品川");
   });
 
-  it("pondère 60 % leçons / 40 % maîtrise sur toute la route", () => {
-    // 1 leçon sur 2 terminée, maîtrise nulle → 54 × 0.6 × 0.5 = 16.2
-    const levels = levelStatsFromLessons([lesson(5, { done: true }), lesson(5)]);
-    const pos = computeTokaidoPosition({ levels, bonus: 0, maxReached: 0 });
-    expect(pos.position).toBeCloseTo(16.2);
-    expect(pos.station.index).toBe(16);
-    expect(pos.betweenPct).toBe(20);
+  it("la position compte les étapes faites du niveau (SPEC §5c.4)", () => {
+    // 67 leçons, 10 terminées = 70 étapes sur 469 ; la ville 8 tombe à l'étape 69, la 9 à 78.
+    const pos = computeTokaidoPosition(levelStatsFromLessons(lessons(5, 67, 10)));
+    expect(pos.stepsDone).toBe(70);
+    expect(pos.stepsTotal).toBe(469);
+    expect(pos.station.index).toBe(8);
+    expect(pos.stepsToNext).toBe(8);
+    expect(pos.betweenPct).toBe(11);
+    expect(pos.position).toBeCloseTo(8 + 1 / 9);
   });
 
-  it("les étapes faites d'une leçon en cours font avancer le voyageur (SPEC §5.8)", () => {
-    const steps = ["course", "vocab", "grammar", "review", "story", "produce", "exam"];
-    const inProgress = (n: number) => ({ ...lesson(5), steps, stepsDone: steps.slice(0, n) });
-    const pos = (n: number) =>
-      computeTokaidoPosition({ levels: levelStatsFromLessons([inProgress(n), lesson(5)]), bonus: 0, maxReached: 0 }).position;
-    expect(pos(0)).toBe(0);
-    expect(pos(3)).toBeGreaterThan(pos(2));
-    // 3 étapes sur 7 de la première de deux leçons : 54 × 0.6 × (3/7) / 2.
-    expect(pos(3)).toBeCloseTo((54 * 0.6 * (3 / 7)) / 2);
-    // Toutes les étapes sauf l'admission : jamais une leçon entière, jamais le niveau achevé.
-    const almost = levelStatsFromLessons([inProgress(7)]);
-    expect(almost[0].lessonsCompleted).toBeLessThan(1);
+  it("chaque étape d'une leçon en cours fait avancer, jamais jusqu'au bout sans le contrôle", () => {
+    const at = (n: number) =>
+      computeTokaidoPosition(levelStatsFromLessons([lesson(5, { stepsDone: n }), ...lessons(5, 66)]));
+    expect(at(0).stepsDone).toBe(0);
+    expect(at(3).stepsDone).toBe(3);
+    expect(at(3).position).toBeGreaterThan(at(2).position);
+    // Toutes les étapes cochées sans l'admission : la dernière reste à faire.
+    expect(at(7).stepsDone).toBe(6);
+    const almost = levelStatsFromLessons([lesson(5, { stepsDone: 7 })]);
     expect(activeLevel(almost)).toBe(5);
   });
 
-  it("N5 achevé → on repart de zéro sur le Kōshū Kaidō (N4)", () => {
-    const levels = levelStatsFromLessons([
-      lesson(5, { done: true, mastery: 0.5 }),
-      lesson(4, { done: true, mastery: 0 }),
-      lesson(4),
-    ]);
-    const pos = computeTokaidoPosition({ levels, bonus: 0, maxReached: 0 });
+  it("une leçon sans grammaire compte six étapes", () => {
+    const six: TokaidoLessonLike = { level: 5, steps: STEPS7.filter((s) => s !== "grammar"), stepsDone: [] };
+    expect(levelStatsFromLessons([six, lesson(5)])[0].stepsTotal).toBe(13);
+  });
+
+  it("N5 achevé → on repart de zéro sur le Kōshū Kaidō (N4), la route N5 est faite", () => {
+    const levels = levelStatsFromLessons([...lessons(5, 2, 2), ...lessons(4, 4, 2)]);
+    const pos = computeTokaidoPosition(levels);
     expect(pos.route.name).toBe("Kōshū Kaidō");
-    // 45 × 0.6 × 0.5 = 13.5 — la progression N5 ne compte plus, la route est neuve.
-    expect(pos.position).toBeCloseTo(13.5);
+    expect(pos.stepsDone).toBe(14);
+    expect(pos.stepsTotal).toBe(28);
+    // 14 étapes sur 28 : les villes 22 et 23 tombent toutes deux sur l'étape 14.
+    expect(Math.floor(pos.position)).toBe(23);
   });
 
-  it("ne recule jamais sous maxReached et ne dépasse jamais le terme", () => {
-    const pos = computeTokaidoPosition({ levels: [], bonus: 0, maxReached: 7.2 });
-    expect(pos.position).toBe(7.2);
-    const end = computeTokaidoPosition({ levels: [], bonus: 100, maxReached: 0 });
-    expect(end.position).toBe(54);
-    expect(end.next).toBeUndefined();
-    expect(end.betweenPct).toBe(100);
-  });
-});
-
-describe("estimateLessonsToNext", () => {
-  it("estime les leçons restantes vers la prochaine station", () => {
-    const lessons = Array.from({ length: 67 }, (_, i) => lesson(5, { done: i < 5, mastery: i < 5 ? 1 : 0 }));
-    const levels = levelStatsFromLessons(lessons);
-    const pos = computeTokaidoPosition({ levels, bonus: 0, maxReached: 0 });
-    const est = estimateLessonsToNext(pos, levels);
-    expect(est).toBeGreaterThanOrEqual(1);
-    expect(est).toBeLessThanOrEqual(2);
+  it("N5 achevé sans leçon N4 : on attend au départ du Kōshū Kaidō", () => {
+    const pos = computeTokaidoPosition(levelStatsFromLessons(lessons(5, 3, 3)));
+    // N5 achevé et aucun N4 : la route active est le Kōshū Kaidō, au départ.
+    expect(pos.route.level).toBe(4);
+    expect(pos.position).toBe(0);
   });
 });
 
 describe("tokaidoStatus (IO)", () => {
-  it("persiste la monotonie par niveau : la position ne recule pas quand la maîtrise retombe", async () => {
-    const half = [lesson(5, { done: true, mastery: 1 }), lesson(5)];
-    const first = await tokaidoStatus(half);
-    // 54 × (0.6×0.5 + 0.4×0.5) = 27
-    expect(first.pos.position).toBeCloseTo(27);
-    const regressed = [lesson(5, { done: true, mastery: 0.2 }), lesson(5)];
-    const second = await tokaidoStatus(regressed);
-    expect(second.pos.position).toBeCloseTo(27);
-  });
-
   it("signale une arrivée uniquement au franchissement, une seule fois", async () => {
-    const none = await tokaidoStatus([lesson(5)]);
+    const none = await tokaidoStatus(lessons(5, 67));
     expect(none.newlyArrived).toBeUndefined();
 
-    const some = await tokaidoStatus([lesson(5, { done: true, mastery: 1 }), lesson(5)]);
-    // 54 × (0.6×0.5 + 0.4×0.5) = 27 → station 27 franchie
-    expect(some.newlyArrived?.station.index).toBe(27);
+    const some = await tokaidoStatus(lessons(5, 67, 10));
+    expect(some.newlyArrived?.station.index).toBe(8);
     expect(some.newlyArrived?.route.level).toBe(5);
+    expect(some.stamps[5]).toBe(8);
 
-    await markStationCelebrated(5, 27);
-    const again = await tokaidoStatus([lesson(5, { done: true, mastery: 1 }), lesson(5)]);
+    await markStationCelebrated(5, 8);
+    const again = await tokaidoStatus(lessons(5, 67, 10));
     expect(again.newlyArrived).toBeUndefined();
   });
 
   it("un terme de route achevée non fêté prime sur la route suivante", async () => {
-    const done = [lesson(5, { done: true, mastery: 0.5 }), lesson(4)];
+    const done = [...lessons(5, 2, 2), lesson(4)];
     const status = await tokaidoStatus(done);
     expect(status.pos.route.level).toBe(4);
     expect(status.pos.position).toBe(0);
     expect(status.newlyArrived?.route.level).toBe(5);
     expect(status.newlyArrived?.station.romaji).toBe("Sanjō Ōhashi");
+    expect(status.stamps[5]).toBe(54);
+    expect(stampTotal(status.stamps)).toBe(54);
 
     await markStationCelebrated(5, 54);
     const after = await tokaidoStatus(done);
     expect(after.newlyArrived).toBeUndefined();
   });
 
-  it("le bonus omikuji avance la position, clampé à 1 par appel", async () => {
-    await addTokaidoBonus(0.25);
-    await addTokaidoBonus(5); // clampé à 1
-    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(1.25);
-    const status = await tokaidoStatus([]);
-    expect(status.pos.position).toBeCloseTo(1.25);
+  it("une ville déjà fêtée par l'ancien calcul garde son tampon, sans seconde fête", async () => {
+    await putMeta("tokaido.routesMigrated", true);
+    await putMeta("tokaido.lastCelebrated.5", 12);
+    const status = await tokaidoStatus(lessons(5, 67, 10));
+    expect(Math.floor(status.pos.position)).toBe(8);
+    expect(status.stamps[5]).toBe(12);
+    expect(status.newlyArrived).toBeUndefined();
   });
 
   it("markStationCelebrated ne régresse pas", async () => {
@@ -187,20 +185,26 @@ describe("tokaidoStatus (IO)", () => {
     expect(await getMeta<number>("tokaido.lastCelebrated.5")).toBe(8);
   });
 
-  it("migre l'ancien schéma : fraction du segment N5 → fraction du Tōkaidō entier", async () => {
-    // Ancien monde : position 5.5 sur les segments de 11 (N5 à moitié), station 5 fêtée.
-    await putMeta("tokaido.maxReached", 5.5);
+  it("migre l'ancien schéma : la station fêtée du segment N5 devient sa fraction du Tōkaidō", async () => {
     await putMeta("tokaido.lastCelebrated", 5);
-    const status = await tokaidoStatus([]);
-    // 5.5/11 = 50 % du segment N5 → 50 % du Tōkaidō = 27.
-    expect(status.pos.position).toBeCloseTo(27);
-    expect(await getMeta<number>("tokaido.maxReached.5")).toBeCloseTo(27);
-    // 5/11 → floor(0.4545… × 54) = 24 ; pas de rafale : seule la dernière station se fête.
+    await tokaidoStatus([]);
+    // 5/11 → floor(0.4545… × 54) = 24.
     expect(await getMeta<number>("tokaido.lastCelebrated.5")).toBe(24);
-    expect(status.newlyArrived?.station.index).toBe(27);
     // La migration ne rejoue pas.
-    await putMeta("tokaido.maxReached", 11);
-    const again = await tokaidoStatus([]);
-    expect(again.pos.position).toBeCloseTo(27);
+    await putMeta("tokaido.lastCelebrated", 11);
+    await tokaidoStatus([]);
+    expect(await getMeta<number>("tokaido.lastCelebrated.5")).toBe(24);
+  });
+});
+
+describe("tampons de fortune", () => {
+  it("un par jour au plus, dans l'ordre", async () => {
+    await addFortuneStamp({ date: "2026-10-01", fortune: "kichi" });
+    await addFortuneStamp({ date: "2026-10-01", fortune: "daikichi" });
+    await addFortuneStamp({ date: "2026-10-02", fortune: "kyo" });
+    expect(await fortuneStamps()).toEqual([
+      { date: "2026-10-01", fortune: "kichi" },
+      { date: "2026-10-02", fortune: "kyo" },
+    ]);
   });
 });
