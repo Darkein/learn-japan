@@ -101,7 +101,18 @@ export function FlowSession({ onExit, forced }: Props) {
     })();
   }
 
+  // Une étape finie ne laisse jamais l'écran en attente : si le bilan échoue (une lecture en
+  // base qui lève), le parcours repart de l'état courant plutôt que de rester figé.
   async function toCheckpoint(finished: FlowActivity) {
+    try {
+      await checkpointAfter(finished);
+    } catch (e) {
+      console.error("Bilan d'étape impossible", e);
+      start();
+    }
+  }
+
+  async function checkpointAfter(finished: FlowActivity) {
     setPhase({ name: "loading" });
     // Après une relecture-miroir : calcule le delta (à l'époque / aujourd'hui) et
     // déclenche le refroidissement de 14 jours AVANT de re-collecter l'état.
