@@ -108,6 +108,29 @@ réveil.
 **Vérif** : une leçon se termine en un nombre d'étapes connu d'avance, sans jamais rester figée ;
 avec un gros retard, une révision s'insère avant chaque étape nouvelle, et le parcours continue.
 
+## Phase 6 — L'accueil : la voie du voyage (SPEC §5c)
+**But : le parcours comme information principale de l'accueil, sur une voie ferrée sans fin, dans
+le décor réel des cinq routes.**
+- **Voyage par étapes** : numérotation globale des étapes, villes fixées par étape, position sur
+  la route = étapes faites du niveau, fin des bonus du contrôle et de l'omikuji (tampon de
+  fortune à la place), tampons de ville, reprise des bases existantes, Voyage exact.
+- **Mise en page de la voie** : module pur qui range les nœuds (étapes, villes, révisions
+  insérées, station de repos, séparateurs, fin de route), calcule le tracé, les zones
+  interdites et les arrêts du train.
+- **L'accueil** : en-tête, bandeau de leçon, la voie (rails, sceaux, libellés en kana, numéros),
+  bulle de l'étape à faire, train animé, défilement par blocs, retour à l'étape ; les cartes qui
+  quittent l'accueil trouvent leur place (Histoires, Catalogue, Voyage).
+- **Tampons et changement de niveau** : tampons à côté des villes, arrivée en gare avec pose du
+  tampon, carnet dans le Voyage, fin de route, correspondance et nouveau train, fin du curriculum.
+- **Le décor** : jeu de sprites, paysages et remplissage, règles d'agencement, ciel selon l'heure,
+  saisons du calendrier, tokens de décor.
+- **La route réelle** : données des cinq routes (taille des villes, repères réels, paysages,
+  traversées, motifs des tampons) et illustrations uniques.
+
+**Vérif** : l'accueil s'ouvre sur l'étape à faire ; une étape terminée fait rouler le train
+jusqu'à la suivante ; une ville franchie pose son tampon ; le contrôle final d'un niveau mène au
+terminus puis à la nouvelle route.
+
 ---
 
 ## Risques & points de vigilance

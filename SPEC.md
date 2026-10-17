@@ -511,6 +511,8 @@ Inventaire complet, pour qu'aucun écran ni réglage ne garde un sens qu'il n'a 
   disparaît.
 - « Nouvelle leçon débloquée », « Relecture-miroir » et « À lire pour toi » restent, comme
   activités hors parcours.
+- *Remplacé par §5c* : l'accueil devient la voie du voyage. Les cartes ci-dessus quittent
+  l'accueil (§5c.1).
 
 **Flux** (`lib/flow.ts`, `ui/FlowSession.tsx`, `ui/FlowCheckpoint.tsx`)
 - Le checkpoint garde « Continuer avec : … » ; « Terminer pour aujourd'hui » devient un simple
@@ -565,12 +567,15 @@ Inventaire complet, pour qu'aucun écran ni réglage ne garde un sens qu'il n'a 
   « Atteins ton objectif du jour (N étapes) » et « Fais 2 étapes de plus ».
 - Les défis de production et d'écoute ne sont proposés que si des éléments ont atteint le niveau
   correspondant (§5.3).
-- Défis de lecture et de précision, fortunes et bonus de station : inchangés.
+- Défis de lecture et de précision, fortunes : inchangés. Le bonus de station devient un
+  **tampon de fortune** (§5c.5).
 
 **Tōkaidō** (`lib/tokaido.ts`)
 - La position compte les étapes : span × (0,6 × (leçons terminées + étapes faites de la leçon en
   cours ÷ 7) + 0,4 × maîtrise). Le voyageur avance à chaque étape, plus seulement à chaque leçon.
   La monotonie (on ne recule jamais) et le bonus du contrôle restent.
+- *Remplacé par §5c.4* : la position est le nombre d'étapes faites dans le niveau, les villes
+  sont fixées par étape, et les bonus du contrôle et de l'omikuji ne font plus avancer le train.
 
 **Catalogue, Lecteur, fiches** (§6, §8)
 - La « session de révision ciblée » du Catalogue devient un **entraînement** (aucune écriture
@@ -730,6 +735,309 @@ referme jamais la leçon suivante.
   (objectif long terme, intervalle ≥ 21 j) ;
 - dans les **Statistiques**, un **bulletin** : une ligne par leçon présentée (meilleure note,
   mention, nombre de tentatives) et la **moyenne générale**, chaque leçon comptant pour une.
+
+## 5c. L'accueil : la voie du voyage *(nouveau)*
+
+Le parcours (§5) devient **l'information principale de l'accueil** : une voie ferrée qui serpente
+sur toute la page, sans fin, des étapes déjà faites jusqu'aux leçons à venir. Les étapes en sont les
+arrêts, les villes du voyage (Tōkaidō, puis les routes suivantes) sont posées sur les rails, et un
+petit train montre où l'on en est. La voie fusionne trois éléments qui se répétaient : la bande du
+Tōkaidō, la carte « Parcours » et la liste des leçons.
+
+Maquettes de référence (canevas « Redesign de l'accueil ») : **L** pour la structure, **P2** pour
+la voie et le train, **Q** (catalogue du décor), **R** (agencement réel) et **S** (changement de
+niveau). Les maquettes fixent le style général ; elles ne valident pas chaque élément de décor.
+
+### 5c.1 Ce que montre l'accueil
+
+- **En-tête** : la route et la ville atteinte (« 東海道 4/54 »), le nombre de tampons récoltés
+  (« 印 4 »), la série de jours, l'anneau des étapes du jour (« 2/3 ») et les réglages. Toucher la
+  route ou les tampons ouvre le Voyage (§5c.5) ; toucher la série ou l'anneau ouvre les
+  Statistiques.
+- **Bandeau de leçon**, collé sous l'en-tête : la leçon visible à l'écran (« Leçon 12 · étapes 78
+  à 84 », son titre) et un bouton pour relire son cours. Il change quand une autre leçon passe
+  au centre de l'écran.
+- **La voie** (§5c.2), qui occupe tout le reste de la page.
+- **Ce qui quitte l'accueil** :
+  - la bande du Tōkaidō : la voie la remplace, et le Voyage garde la vue d'ensemble ;
+  - la carte « Parcours » : la bulle de l'étape à faire la remplace (§5c.2) ;
+  - la liste des leçons et « Voir tout le parcours » : elles sont dans l'onglet Catalogue ;
+  - « Nouvelle leçon débloquée » : la leçon suivante apparaît d'elle-même sur la voie ;
+  - « À lire pour toi » : passe en tête de l'onglet Histoires ;
+  - « Relecture-miroir » : reste proposée par le flux entre deux étapes (§5.8), sans carte ;
+  - la carte de l'omikuji : la bandelette s'ouvre toujours d'office au premier lancement du
+    jour, et se rouvre depuis le Voyage ;
+  - le lien « Statistiques » : remplacé par l'en-tête.
+
+### 5c.2 La voie
+
+**Les nœuds, dans l'ordre du voyage**
+
+| Nœud | Numéro | Icône | Libellé (mot, lecture, nom) |
+|---|---|---|---|
+| Cours | oui | 講 | 講義 こうぎ · Cours |
+| Vocabulaire | oui | 語 | 語彙 ごい · Vocabulaire |
+| Grammaire | oui | 文 | 文法 ぶんぽう · Grammaire |
+| Révision | oui | 復 | 復習 ふくしゅう · Révision |
+| Histoire | oui | 話 | 話 はなし · Histoire |
+| Produire | oui | 書 | 書く かく · Produire |
+| Contrôle | oui | 関 (carré) | 関所 せきしょ · Contrôle |
+| Révision insérée (§5.4) | non | 復 | 復習 ふくしゅう · Révision insérée · 34 cartes |
+| Révision ciblée (après un contrôle échoué) | non | 復 | 復習 ふくしゅう · Révision ciblée |
+| Station de repos (§5.4) | non | 休 | 休憩 きゅうけい · Station de repos |
+| Ville du voyage | non | selon sa taille (§5c.4) | nom en kanji, lecture, « Ville 5 · Totsuka » |
+| Séparateur de leçon | — | — | « Leçon 13 », cadenas tant qu'elle est fermée |
+| Fin de route, correspondance | — | — | §5c.7 |
+
+- **Numérotation globale.** Le numéro d'une étape est son rang dans tout le curriculum, dans
+  l'ordre des leçons : la première étape de la leçon 1 est la n° 1, et la numérotation continue
+  d'un niveau à l'autre. Une étape absente d'une leçon (une leçon sans grammaire) n'est pas
+  comptée. Le numéro se calcule à partir du curriculum : il ne dépend pas de ce que l'on a fait.
+  Les nœuds non numérotés (révisions insérées, station de repos) ne décalent pas les numéros.
+- **Libellés** : le mot japonais, sa **lecture en kana dessous** (pour pouvoir le dire sans
+  connaître le kanji), puis le numéro et le nom français, et la durée pour les étapes à venir
+  (« 81 · Révision · ~4 min »). Les villes aussi ont leur lecture.
+- **États des étapes**, dessinés comme des sceaux :
+  - **faite** : sceau vermillon plein, filet intérieur, légèrement de biais (angle stable par
+    numéro, entre −8° et +8°) ;
+  - **à faire** : cercle en pointillés vermillon, plus grand, avec un halo ;
+  - **à venir** : cercle en pointillés d'encre.
+
+  Les nœuds d'une leçon pas encore ouverte sont atténués (opacité 45 %).
+- **La bulle de l'étape à faire**, accrochée à son nœud, du côté libre :
+  - le numéro et le mot avec sa lecture et son nom ;
+  - le contenu (points de grammaire, nombre de mots) ;
+  - les exercices et la durée annoncée (§5.7) ;
+  - le bouton **Commencer**, qui lance le flux sur cette activité ;
+  - « Réviser seulement · N cartes dues » quand des cartes sont dues.
+- **Le tracé** : des virages lissés, en zigzag, calculés de façon déterministe à partir du rang
+  du nœud, avec un espacement vertical propre à chaque type de nœud. L'amplitude dépend du
+  paysage du tronçon : lacets serrés aux cols, grandes courbes en plaine. Les illustrations
+  uniques réservent leur place et la voie les contourne (§5c.6).
+- **Le rendu des rails** (maquette P2) :
+  - un ballast de 18 px avec son gravier ;
+  - des traverses qui passent sous deux rails fins, écartés de 5 px ;
+  - les rails en vermillon derrière le train, en encre devant ;
+  - dessiné en SVG, uniquement avec des tokens.
+- **Le défilement** :
+  - l'accueil s'ouvre centré sur l'étape à faire ;
+  - les leçons se chargent par blocs au fil du défilement : vers le haut les leçons faites,
+    vers le bas les leçons à venir, jusqu'à la fin du curriculum ;
+  - seules les leçons proches de l'écran sont rendues ;
+  - un bouton flottant « Revenir à l'étape 80 » apparaît quand l'étape à faire sort de l'écran.
+- **Toucher un nœud** :
+  - une étape faite propose de la refaire en entraînement (§5.5) ou d'ouvrir sa leçon ;
+  - une étape à venir dit ce qu'elle demande et quand elle viendra (« après l'étape 81 ») ;
+  - une ville ouvre sa fiche (note, tampon) ;
+  - un séparateur ouvre la page de sa leçon.
+
+### 5c.3 Le train
+
+- **L'aspect.** Un petit train vu du dessus (36 × 11 px), posé sur les rails, orienté le long de
+  la voie. Il est arrêté juste avant l'étape à faire, comme à quai.
+- **La couleur** est celle de la route (`trainColor`, `data/routes.ts`) : vermillon pour le
+  Tōkaidō, indigo pour le Kōshū Kaidō, puis vert, or et violet.
+- **Le mouvement.** Quand on revient sur l'accueil après une étape terminée, le train roule de son
+  ancien arrêt au nouveau (environ 1,6 s, départ et arrivée en douceur). Les rails passent en
+  vermillon derrière lui. S'il dépasse une ville, elle passe à « passée » et son tampon se pose
+  (§5c.5).
+- **Plusieurs étapes d'un coup** donnent un seul trajet, plafonné à 3 s.
+- **L'arrêt vu en dernier** est mémorisé : c'est le point de départ du trajet suivant.
+- Sous `prefers-reduced-motion`, le train se pose directement à son arrêt.
+
+### 5c.4 Les villes et l'avancée sur la route
+
+- **Une route par niveau**, comme aujourd'hui (`data/routes.ts`) : Tōkaidō pour N5, Kōshū
+  Kaidō pour N4, Nakasendō pour N3, Oku no Hosomichi pour N2, Shikoku henro pour N1.
+- **Les villes sont fixées par étape.**
+  - Un niveau compte T étapes ; sa route compte S tronçons (sa dernière ville porte l'index S).
+  - La ville k (de 1 à S) est atteinte à la fin de l'étape `round(k × T / S)` du niveau.
+  - La dernière ville est atteinte à la fin du contrôle final du niveau.
+  - Sur la voie, la ville se dessine juste après cette étape. Si plusieurs villes tombent sur la
+    même étape, elles se suivent.
+  - Pour le Tōkaidō, 469 étapes pour 54 tronçons font une ville toutes les 8 à 9 étapes, soit
+    à peu près toutes les 1,2 leçon.
+- **La position sur la route est le nombre d'étapes faites dans le niveau.** Ce qui change dans
+  `lib/tokaido.ts` :
+  - **fin de la formule** 0,6 × leçons + 0,4 × maîtrise : la maîtrise reste affichée ailleurs ;
+  - **fin du bonus du contrôle** (`EXAM.tokaidoBonus`) : le contrôle est déjà une étape ;
+  - **fin du bonus de l'omikuji** sur la position : un défi accompli donne à la place un
+    **tampon de fortune** (§5c.5) ;
+  - **la monotonie est acquise par construction** : `maxReached` n'est plus lu.
+- **Reprise d'une base existante.** Les arrivées déjà fêtées (`lastCelebrated`) restent acquises
+  et leurs tampons sont gardés. Si l'ancienne formule plaçait le train plus loin, la ville reste
+  marquée comme visitée et n'est pas fêtée une seconde fois.
+- **Taille des villes**, donnée par les données de la route (§5c.6) :
+
+  | Taille | Nœud | Repère |
+  |---|---|---|
+  | **village** | 44 px, simple anneau indigo, 村 | sans décor dédié obligatoire |
+  | **ville** (relais, 宿場町) | 56 px, double anneau indigo, 宿 | au moins un repère réel |
+  | **grande ville** (ville-château, grande cité) | 64 px, double anneau, son kanji propre (城, 京…) | une illustration propre |
+  | **départ et terminus** | 64 px, triple anneau, 橋 (Nihonbashi), 京 (Kyōto)… | une illustration propre |
+
+  Une ville passée a un anneau plein ; la prochaine, un anneau en pointillés.
+- **Le Voyage** (`ui/Voyage.tsx`) devient exact. « Encore ~2 leçons jusqu'à Totsuka » devient
+  « encore 6 étapes jusqu'à Totsuka ».
+
+### 5c.5 Les tampons
+
+- **Le tampon de ville.** Chaque ville atteinte donne son tampon de gare (駅スタンプ) :
+  - un carré vermillon à double filet, avec un motif et le nom ;
+  - le motif vient du repère principal de la ville (château, mont, vague, pont, temple, lac,
+    rizière, pins) ;
+  - les grandes villes et les lieux uniques ont un tampon dessiné pour eux.
+- **Sur la voie**, le tampon est posé à côté de sa ville, du côté libre, légèrement de biais.
+- **L'arrivée en gare** (`ui/StationArrival.tsx`) :
+  - la fiche montre le tampon qui se pose (révélé à l'encre, sans animation sous
+    `prefers-reduced-motion`), puis la note de la ville ;
+  - quand plusieurs villes sont franchies d'un coup, une seule fiche s'ouvre : elle montre la
+    dernière ville et cite les autres.
+- **Le carnet** est dans le Voyage :
+  - la grille des tampons de chaque route, ceux à venir en pointillés ;
+  - toucher un tampon ouvre la fiche de sa ville ;
+  - les tampons de fortune de l'omikuji (大吉, 吉…) ont leur page.
+- **Le tampon de fortune.** Le défi de l'omikuji accompli donne le tampon de la fortune du jour,
+  au lieu d'une fraction de station. La bandelette annonce « Défi accompli : le tampon 吉 rejoint
+  ton carnet ».
+- **Le compteur 印 de l'en-tête** compte les tampons de ville, toutes routes confondues.
+
+### 5c.6 Le décor
+
+**Principe.** Tout élément du décor existe vraiment sur la route, à l'endroit où il est dessiné :
+la géographie réelle, les monuments et les estampes d'Hiroshige servent de source. Un repère dont
+la source n'est pas sûre n'est pas mis. Le décor est à l'encre ; trois choses seulement ont une
+couleur :
+- l'eau, en indigo ;
+- le vermillon : torii, soleil, érables, bavoirs des jizō, lanternes allumées ;
+- la neige, en blanc.
+
+**Le catalogue des éléments** (maquette Q). Chaque élément a son dessin, dans un jeu de sprites
+commun aux cinq routes :
+
+| Famille | Éléments |
+|---|---|
+| Relief et eau | montagnes et col, rivière, gué à porteurs, pont de bois, lac, mer et vagues, rizières, champs de thé, cascade |
+| Arbres | allée de pins, allée de cèdres, bambouseraie, verger, vigne |
+| Saisons | cerisiers, hortensias, érables rouges, neige, averse, lucioles |
+| La route | borne-lieue (一里塚), poteau indicateur, jizō, lanterne de pierre, maison de thé, ville-étape, poste de contrôle, bac |
+| Lieux sacrés et villes | torii, sanctuaire, temple, pagode, château, bateaux de pêche, entrepôts, moulin à eau, toits de grande ville |
+| Le ciel | soleil, aube et crépuscule, lune, étoiles, brume, vol d'oies, hirondelles, grue |
+
+**Les illustrations uniques.** Un lieu remarquable a son propre dessin, plus grand (jusqu'à toute
+la largeur), qui réserve sa place sur la voie :
+
+| Route | Illustrations uniques |
+|---|---|
+| Tōkaidō | Nihonbashi et Edo (départ), le Fuji (vu de Hara et Yoshiwara, et du col de Satta), Hakone (lac Ashi, torii dans l'eau, poste de contrôle), le gué de l'Ōi, le lac Hamana, la traversée en mer de Miya à Kuwana, Kyōto (Sanjō Ōhashi, pagode) |
+| Kōshū Kaidō | Nihonbashi, le pont-singe de Saruhashi, les vignes du bassin de Kai et le Fuji vu de Kai, le lac Suwa |
+| Nakasendō | Nihonbashi, le col d'Usui et le volcan Asama, la vallée du Kiso (Tsumago, Magome), le lac Biwa, Kyōto |
+| Oku no Hosomichi | Edo (Fukagawa, départ de Bashō), Nikkō, Matsushima, Hiraizumi, Yamadera, Kisakata, Ōgaki |
+| Shikoku henro | les tourbillons de Naruto, le cap Muroto, le pont de lianes d'Iya, la pagode de Zentsū-ji, Ōkubo-ji |
+
+**Les données de chaque route** (`data/scenery/<route>.ts`, à côté de `data/<route>.ts`) :
+- **pour chaque ville** : sa taille (§5c.4), ses repères réels (élément du catalogue, côté de la
+  voie s'il compte, illustration unique éventuelle) et le motif de son tampon ;
+- **pour chaque tronçon** (d'une ville à la suivante) : son paysage dominant (côte, plaine et
+  rizières, montagne et col, forêt, bord de lac, bord de rivière, ville) et ses traversées (pont,
+  gué, bac).
+
+**Les règles d'agencement** (maquette R) :
+1. **Ancrage.** Un repère réel est ancré à une ville, ou au tronçon entre deux villes : il apparaît
+   dans cette portion de la voie.
+2. **Côté.** Il se place du côté opposé aux libellés des étapes. Jamais à moins de 24 px d'un nœud,
+   jamais sous un libellé ni sous la bulle. Les boîtes des nœuds, des libellés et de la bulle
+   servent de zones interdites.
+3. **L'eau croise la voie** :
+   - rivière : un pont ;
+   - gué : des rails sur pilotis ;
+   - mer ou lac traversé en bateau : des rails en pointillés et un bac.
+4. **Le relief règle les virages.** Les cols resserrent la voie en lacets, entre deux versants ;
+   les plaines l'étirent.
+5. **La profondeur.** Ce qui est loin est grand et pâle (le Fuji, les montagnes) ; ce qui est
+   près est petit et plus contrasté (jizō, bornes, lanternes).
+6. **Le remplissage.** Entre les repères réels, le paysage du tronçon fournit son décor :
+   1 à 2 éléments par écran de chaque côté, tirés au sort avec une graine stable (le tronçon) pour
+   que le décor ne change pas d'une visite à l'autre.
+7. **La distance.** Une borne-lieue revient toutes les 4 étapes.
+
+**Les saisons** suivent le calendrier réel (date locale) :
+
+| Période | Ce qui change |
+|---|---|
+| 20 mars – 30 avril | cerisiers en fleur, pétales, hirondelles |
+| juin | hortensias, averses |
+| juillet – août | lucioles la nuit, rizières vertes |
+| octobre – novembre | érables rouges, vols d'oies |
+| décembre – février | neige sur les cols et les toits, grues au-dessus des rizières |
+
+Deux exceptions viennent des estampes : Kanbara reste toujours sous la neige, et Shōno toujours
+sous l'averse.
+
+**Le ciel.** Une couche fixe, derrière la voie, en haut de l'écran : elle rappelle l'heure qu'il
+est.
+- Le soleil monte et descend selon l'heure.
+- À l'aube et au crépuscule, il est à demi caché derrière une crête.
+- La nuit, la lune a sa phase réelle et les étoiles scintillent ; c'est la logique de la bande
+  actuelle, reprise telle quelle.
+- La brume des estampes apparaît au matin.
+
+**Thèmes.** Clair et sombre partagent les dessins ; seules les couleurs changent, par des tokens de
+décor (DESIGN.md).
+
+### 5c.7 Le changement de niveau
+
+- **L'arrivée au terminus.** Le contrôle final du niveau, sa dernière étape, amène le train au
+  terminus : 三条大橋 à Kyōto pour le Tōkaidō.
+- **Une célébration plein écran** (l'arrivée en gare, en grand) :
+  - le grand tampon du terminus ;
+  - « Le Tōkaidō est fait. Niveau N5 terminé. » ;
+  - les chiffres du voyage : tampons, étapes, leçons, jours depuis le départ.
+- **Sur la voie, dans l'ordre** :
+  1. un butoir au bout des rails ;
+  2. la **carte de fin de route**, qui reste dans le fil : tampon du terminus, 東海道踏破
+     (とうかいどう とうは), les chiffres, « Ouvrir mon carnet » ;
+  3. le **panneau de correspondance** (乗り換え) : le niveau suivant, sa route et son sous-titre,
+     le nombre de villes ;
+  4. la **nouvelle voie**, qui part de la ville de départ de la route (Nihonbashi pour les trois
+     premières), avec un nouveau train à la couleur de la route.
+- **La numérotation continue** : la première étape du N4 suit la dernière du N5.
+- **Le bandeau de leçon** suit la route visible.
+- **Fin du curriculum.** Si le niveau suivant n'a pas encore de leçons, la voie continue après le
+  terminus en pointillés : « La suite du voyage se prépare ». Le flux propose des révisions
+  libres (§5.1), affichées comme un nœud Révision non numéroté, toujours disponible.
+
+### 5c.8 Performance et accessibilité
+
+- **Performance.**
+  - Tout est en SVG, sans requête réseau.
+  - Seules les leçons proches de l'écran sont rendues.
+  - La mise en page (nœuds, tracé, décor) est un calcul pur, mémorisé par bloc de leçons.
+  - Le train et les rails animés utilisent `offset-path` et `stroke-dasharray`, sans recalcul de
+    mise en page.
+- **Accessibilité.**
+  - Chaque nœud est un bouton étiqueté (« Étape 80, grammaire, à faire »).
+  - Le décor, les rails et le train sont `aria-hidden`.
+  - L'ordre de tabulation suit la voie.
+  - Les textes gardent leurs contrastes (DESIGN.md §7), et les animations sont coupées sous
+    `prefers-reduced-motion`.
+
+### 5c.9 Ce que la voie change ailleurs
+
+- `ui/Home.tsx` est réécrit autour de la voie.
+- `ui/TokaidoStrip.tsx` quitte l'accueil ; sa logique du ciel (heure, phase de la lune, étoiles)
+  passe dans le décor.
+- `ui/LessonPath.tsx` garde sa variante bande pour le checkpoint.
+- `lib/tokaido.ts` : position par étapes, villes fixées par étape, tampons (§5c.4, §5c.5).
+- `lib/omikuji.ts` et `ui/OmikujiSheet.tsx` : tampon de fortune au lieu du bonus de station ;
+  `bonusFr` devient le nom du tampon.
+- `lib/exam.ts` : plus de bonus Tōkaidō.
+- `ui/Voyage.tsx` : étapes exactes jusqu'à la ville suivante, le carnet de tampons, l'omikuji du
+  jour.
+- `ui/Stories.tsx` : « À lire pour toi » en tête.
+- Les tampons de fortune sont gardés en meta : ils sont synchronisés et effacés par la remise à
+  zéro de la progression. Les tampons de ville se déduisent des étapes faites et de
+  `lastCelebrated`.
 
 ## 6. Catalogue / révision à la demande *(nouveau)*
 Un écran **bibliothèque** parcourable de tout ce que l'utilisateur connaît ou apprend :
