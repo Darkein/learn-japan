@@ -19,6 +19,7 @@ import { Card } from "./kit/Card";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { ProgressBar } from "./kit/ProgressBar";
 import { SectionLabel } from "./kit/SectionLabel";
+import { LessonPath } from "./LessonPath";
 import { useGenJobs } from "./useGenJobs";
 import { useSettings } from "./useSettings";
 
@@ -67,6 +68,7 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
   const [omikujiVersion, setOmikujiVersion] = useState(0);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
+  const currentLesson = lessons?.find((l) => l.startedAt && !l.completedAt);
 
   async function refresh() {
     const [ls, stats, daily, stories] = await Promise.all([
@@ -169,6 +171,8 @@ export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, on
               <span className="text-sm text-muted">{flowPhrase(flowSteps)}</span>
             ) : null}
           </div>
+          {/* Les stations de la leçon en cours : où l'on en est, et ce que coûte la suivante. */}
+          {currentLesson && <LessonPath lesson={currentLesson} />}
           <div className="flex flex-wrap gap-3">
             <Button variant="primary" onClick={onStartFlow}>
               Continuer le parcours

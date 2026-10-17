@@ -5,6 +5,8 @@ import { checkOmikuji } from "../lib/omikuji";
 import { startLessonJob } from "../lib/genJobs";
 import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
 import { STEP_LABEL } from "../lib/path";
+import { estimateLabel, loadFormDurations, stepPlan } from "../lib/pathPlan";
+import { REST_STEP_SIZE } from "../lib/reviewSession";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
 import { markStationCelebrated, tokaidoStatus, type RouteArrival } from "../lib/tokaido";
 import { MirrorDeltaView } from "./MirrorDelta";
@@ -32,7 +34,15 @@ type Phase =
   // présente avant tout, et le premier bloc n'est choisi qu'une fois refermée.
   | { name: "omikuji" }
   | { name: "activity"; activity: FlowActivity }
-  | { name: "checkpoint"; result: FlowBlockResult | null; next: FlowActivity };
+  | {
+      name: "checkpoint";
+      result: FlowBlockResult | null;
+      next: FlowActivity;
+      /** Ce que demande l'activité suivante (« 8 exercices · ~3 min »), et la leçon en
+       *  cours pour en montrer les stations. */
+      estimate?: string;
+      lesson?: Lesson;
+    };
 
 interface Props {
   onExit: () => void;
@@ -139,7 +149,15 @@ export function FlowSession({ onExit, forced }: Props) {
       const following = i >= 0 ? lessons[i + 1] : undefined;
       if (following?.state === "to-generate") void startLessonJob(following);
     }
-    setPhase({ name: "checkpoint", result: recap, next: pickNext(state) });
+    const next = pickNext(state);
+    const lesson = lessons.find((l) => l.id === state.currentLesson?.id);
+    setPhase({
+      name: "checkpoint",
+      result: recap,
+      next,
+      estimate: estimateFor(next, lessons, await loadFormDurations()),
+      ...(lesson ? { lesson } : {}),
+    });
   }
 
   function startNext(next: FlowActivity) {
@@ -179,6 +197,8 @@ export function FlowSession({ onExit, forced }: Props) {
         <FlowCheckpoint
           result={phase.result}
           next={phase.next}
+          estimate={phase.estimate}
+          lesson={phase.lesson}
           onContinue={() => startNext(phase.next)}
           onExit={onExit}
         />
@@ -196,6 +216,29 @@ export function FlowSession({ onExit, forced }: Props) {
     </div>
   );
 }
+
+/**
+ * Ce que demande l'activité suivante, annoncé AVANT de la commencer (SPEC §5.7) : une étape
+ * de leçon d'après son plan, une révision insérée comme une étape Révision, la station de
+ * repos comme deux.
+ */
+function estimateFor(next: FlowActivity, lessons: Lesson[], ms: Map<string, number>): string | undefined {
+  const lesson = lessons.find((l) => l.id === next.lessonId);
+  const plan = lesson ? stepPlan(lesson, ms) : undefined;
+  if (next.step) {
+    const e = plan?.find((x) => x.step === next.step);
+    return e ? estimateLabel(e) : undefined;
+  }
+  const review = stepPlan({ ...EMPTY_PLAN, steps: ["review"] }, ms)[0];
+  if (next.kind === "review") {
+    const n = next.itemIds?.length ?? review.exercises ?? 0;
+    return estimateLabel({ exercises: n, minutes: Math.max(1, Math.round((review.minutes * n) / (review.exercises || 1))) });
+  }
+  if (next.kind === "rest") return estimateLabel({ exercises: REST_STEP_SIZE, minutes: review.minutes * 2 });
+  return undefined;
+}
+
+const EMPTY_PLAN = { vocabToLearn: 0, grammarToLearn: 0, vocabCount: 0, grammarCount: 0 };
 
 async function recapFor(
   activity: FlowActivity,

@@ -95,7 +95,9 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
             ? "Rien à travailler ici : les éléments de cette étape sont déjà acquis."
             : checkup
               ? "Aucun exercice disponible pour cette leçon."
-              : "Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici."}
+              : autoReplay
+                ? "Rien à réviser pour l'instant : aucune carte n'est encore en rotation."
+                : "Rien à réviser pour l'instant. Marque des mots « à revoir » dans le Lecteur, puis reviens ici."}
         </p>
         {/* Dans le parcours, une étape vide se valide d'un geste : jamais de cul-de-sac. */}
         {onExit && (
