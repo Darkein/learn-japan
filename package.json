@@ -22,6 +22,7 @@
     "curriculum:check": "tsx scripts/check-curriculum.ts",
     "content:batch": "tsx scripts/pregenerate.ts",
     "data:examples": "tsx scripts/build-examples.ts",
+    "data:grammar-examples": "tsx scripts/build-grammar-examples.ts",
     "data:mnemonics": "tsx scripts/build-mnemonics.ts",
     "data:word-mnemonics": "tsx scripts/build-word-mnemonics.ts",
     "data:sfx": "tsx scripts/build-sfx.mts"

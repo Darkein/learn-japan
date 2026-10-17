@@ -32,7 +32,7 @@ import {
 } from "./exerciseBuild";
 import { getCurriculum, getCurriculumEntry } from "./curriculum";
 import { enrollLesson } from "./enroll";
-import { grammarDetail } from "./inventory";
+import { grammarDetail, grammarExamples, grammarForm, staticExample } from "./inventory";
 import { isPreAcquiredGrammar, isPreAcquiredVocab, REVIEW_STEP_SIZE, type PathLevel } from "./path";
 import { isAcquired, isDue, newCard, retrievability, State, type Card, type SrsGrade } from "./srs";
 import { tokenize } from "./tokenizer";
@@ -263,62 +263,111 @@ async function vocabAtLevel(
 }
 
 /**
- * Phrases où un point de grammaire peut s'exercer : son exemple du référentiel, puis les
- * phrases d'exemple des mots de la leçon (l'emploi y cherche la particule enseignée).
+ * La matière d'un point de grammaire (SPEC §5.3), en deux réserves :
+ *  - `own` : les phrases PROPRES au point, dans son sens précis — son exemple du
+ *    référentiel, puis les phrases générées pour lui (`grammarExamples`). Elles portent la
+ *    phrase à reconstruire, la dictée et la correction.
+ *  - `form` : des phrases où figure seulement sa FORME — exemples des mots des dernières
+ *    leçons (lexique déjà vu). に y marque peut-être un moment quand le point enseigne le
+ *    lieu : elles ne servent qu'à l'emploi et à la correction, qui travaillent la forme.
  */
-async function grammarSentences(g: GrammarItem, words: VocabItem[]): Promise<GrammarSentence[]> {
-  const raw: { ja: string; fr?: string }[] = [];
-  const detail = grammarDetail(g.id);
-  if (detail?.exampleJa) raw.push({ ja: detail.exampleJa, fr: detail.exampleFr });
-  for (const v of words) {
-    const ex = effectiveExample(v);
-    if (ex?.ja) raw.push({ ja: ex.ja, fr: ex.fr });
-  }
+interface PointMaterial {
+  own: GrammarSentence[];
+  form: GrammarSentence[];
+}
+
+const NO_MATERIAL: PointMaterial = { own: [], form: [] };
+
+/** Leçons dont les exemples de mots alimentent la réserve `form` : la leçon et les 5 d'avant. */
+const FORM_LESSONS_BACK = 5;
+
+/** Tokenise une phrase pour la matière d'un point ; tokeniseur indisponible → écartée. */
+async function sentenceOf(s: { ja: string; fr?: string }): Promise<GrammarSentence | null> {
+  const tokens = await tokenize(s.ja).catch(() => null);
+  return tokens?.length ? { ja: s.ja, ...(s.fr ? { fr: s.fr } : {}), tokens } : null;
+}
+
+/**
+ * La FORME du point figure-t-elle dans la phrase ? Une particule ou un auxiliaire court se
+ * cherche comme MOT (token 助詞/助動詞 de même surface) — は figure dans はい sans y être
+ * une particule ; une forme plus longue (ている, ませんでした) se cherche dans le texte.
+ */
+function showsForm(form: string, s: GrammarSentence): boolean {
+  if (form.length >= 3) return s.ja.includes(form);
+  return s.tokens.some((t) => t.surface_form === form && (t.pos === "助詞" || t.pos === "助動詞"));
+}
+
+async function pointMaterial(g: GrammarItem, lessonId: string): Promise<PointMaterial> {
+  // Une phrase n'entre qu'une fois, dans la première réserve qui la propose.
   const seen = new Set<string>();
-  const out: GrammarSentence[] = [];
-  for (const s of raw) {
-    if (seen.has(s.ja)) continue;
+  const fresh = (s: { ja: string; fr?: string } | null | undefined): s is { ja: string; fr?: string } => {
+    if (!s?.ja || seen.has(s.ja)) return false;
     seen.add(s.ja);
-    // Tokeniseur indisponible (dictionnaire absent) : la phrase est simplement écartée.
-    const tokens = await tokenize(s.ja).catch(() => null);
-    if (tokens?.length) out.push({ ja: s.ja, ...(s.fr ? { fr: s.fr } : {}), tokens });
-  }
-  return out;
+    return true;
+  };
+
+  const detail = grammarDetail(g.id);
+  const ownRaw = [
+    ...(detail?.exampleJa ? [{ ja: detail.exampleJa, fr: detail.exampleFr }] : []),
+    ...grammarExamples(g.id),
+  ].filter(fresh);
+  const own = (await Promise.all(ownRaw.map(sentenceOf))).filter((s): s is GrammarSentence => !!s);
+
+  // Seule une forme en kana se reconnaît dans une phrase (« adjectif -い » ne se cherche pas).
+  const form = grammarForm(detail?.name ?? g.name);
+  if (!/^[ぁ-ゖ]+$/.test(form)) return { own, form: [] };
+  const curriculum = getCurriculum();
+  const i = curriculum.findIndex((e) => e.id === lessonId);
+  const ids = curriculum.slice(Math.max(0, i - FORM_LESSONS_BACK), i + 1).flatMap((e) => e.introduces.vocab);
+  const formRaw = ids.map((id) => staticExample(id)).filter(fresh);
+  const formSentences = (await Promise.all(formRaw.map(sentenceOf))).filter(
+    (s): s is GrammarSentence => !!s && showsForm(form, s),
+  );
+  return { own, form: formSentences };
+}
+
+/** Une phrase au hasard d'une réserve, ou undefined si elle est vide. */
+function pick<T>(list: T[]): T | undefined {
+  return list.length ? list[Math.floor(Math.random() * list.length)] : undefined;
 }
 
 /**
  * Les exercices de grammaire d'un point À UN NIVEAU (SPEC §5.3), deux par niveau :
  *  1 · reconnaître — le rôle du point en QCM, et son EMPLOI (la particule à remettre) ;
- *  2 · rappeler — la phrase à reconstruire, et la CORRECTION (la seule phrase juste) ;
- *  3 · produire — la dictée de sa phrase, ou la phrase à reconstruire sans le son.
- * Un exercice impossible faute de matière (pas de particule, phrase trop courte) cède sa
+ *  2 · rappeler — une phrase du point à reconstruire, et la CORRECTION (la seule juste) ;
+ *  3 · produire — la dictée d'une phrase du point, ou sa reconstruction sans le son.
+ * Les phrases sont tirées dans la matière du point (`pointMaterial`) : d'une étape à
+ * l'autre, ce n'est pas toujours la même. Un exercice impossible faute de matière cède sa
  * place au premier du niveau, jamais à un exercice d'un autre niveau.
  */
 async function grammarAtLevel(
   g: GrammarItem,
   level: PathLevel,
   due: number,
-  ctx: { sentences: GrammarSentence[]; silent: boolean },
+  ctx: { material: PointMaterial; silent: boolean },
 ): Promise<Exercise[]> {
+  const { own, form } = ctx.material;
   if (level === 1) {
     const rule = atLevel(grammarChoiceExercise(g, due), 1, "grammar-rule");
-    const usage = grammarUsageExercise(g, ctx.sentences);
+    const usage = grammarUsageExercise(g, shuffle([...own, ...form]));
     return [rule, usage ? atLevel({ ...usage, due }, 1, "grammar-usage") : atLevel(grammarChoiceExercise(g, due), 1, "grammar-rule")]
       .map((ex, i) => ({ ...ex, key: `${ex.key}.${i}` }));
   }
   if (level === 2) {
-    const build = await grammarBuildExercise(g, due);
-    const own = ctx.sentences[0];
-    const correction = own ? grammarCorrectionExercise(g, own) : null;
+    const build = await grammarBuildExercise(g, due, pick(own));
+    const correction = [pick(own), pick(form)].reduce<Exercise | null>(
+      (found, s) => found ?? (s ? grammarCorrectionExercise(g, s) : null),
+      null,
+    );
     const out = [
       build ? atLevel(build, 2, "grammar-build") : atLevel(grammarChoiceExercise(g, due), 2, "grammar-rule"),
       ...(correction ? [atLevel({ ...correction, due }, 2, "grammar-correction")] : []),
     ];
     return out.map((ex, i) => ({ ...ex, key: `${ex.key}.${i}` }));
   }
-  const dictation = ctx.silent ? null : await grammarDictationExercise(g, due);
+  const dictation = ctx.silent ? null : await grammarDictationExercise(g, due, pick(own));
   if (dictation) return [atLevel(dictation, 3, "grammar-dictation")];
-  const build = await grammarBuildExercise(g, due);
+  const build = await grammarBuildExercise(g, due, pick(own));
   return [build ? atLevel(build, 3, "grammar-build") : atLevel(grammarChoiceExercise(g, due), 3, "grammar-rule")];
 }
 
@@ -412,7 +461,7 @@ async function buildSessionReview(
       card,
       id: g.id,
       build: async () => ({ ...(await grammarReviewExercise(g, card.due.getTime())), form: "grammar-review" }),
-      atLevel: async (level) => (await grammarAtLevel(g, level, card.due.getTime(), { sentences: [], silent }))[0],
+      atLevel: async (level) => (await grammarAtLevel(g, level, card.due.getTime(), { material: NO_MATERIAL, silent }))[0],
     });
   }
   const byWeakness = (list: Candidate[]) =>
@@ -497,7 +546,7 @@ async function buildSessionRest(lessonIds: string[], now: Date, leeches: Set<str
       out.push(await vocabAtLevel(item.v, level, due, { pool: vocabAll, silent, isLeech: leeches.has(item.id) }));
       await putVocab(item.v);
     } else if (item.g) {
-      out.push((await grammarAtLevel(item.g, level, due, { sentences: [], silent }))[0]);
+      out.push((await grammarAtLevel(item.g, level, due, { material: NO_MATERIAL, silent }))[0]);
     }
   }
   return shuffle(out);
@@ -567,15 +616,15 @@ async function buildSessionStep(
       if (step === "grammar" && isPreAcquiredGrammar(g)) continue;
       const due = (await ensureCard(g, now)).due.getTime();
       await putGrammar(g);
-      const ctx = { sentences: await grammarSentences(g, words), silent };
+      const ctx = { material: await pointMaterial(g, lessonId), silent };
       if (step === "grammar") {
         first.push(...(await grammarAtLevel(g, 1, due, ctx)));
         second.push(...(await grammarAtLevel(g, 2, due, ctx)));
       } else {
-        first.push(...(await grammarAtLevel(g, 3, due, { ...ctx, silent })));
-        // Deuxième production du point : sa phrase à reconstruire (si la dictée a été
-        // servie), à défaut un second tour de la même forme.
-        const build = await grammarBuildExercise(g, due);
+        first.push(...(await grammarAtLevel(g, 3, due, ctx)));
+        // Deuxième production du point : une de ses phrases à reconstruire (si la dictée
+        // a été servie), à défaut un second tour de la même forme.
+        const build = await grammarBuildExercise(g, due, pick(ctx.material.own));
         if (build && !first.some((ex) => ex.key.startsWith(`grammar:${g.id}#`))) {
           first.push(atLevel(build, 3, "grammar-build"));
         }

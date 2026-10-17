@@ -15,9 +15,12 @@ import type { KuromojiToken } from "./tokenizer";
 // Corpus d'exemples statique neutralisé : ces tests raisonnent sur les seuls items
 // qu'ils sèment — le corpus réel (examples.json) évolue via le workflow build-examples
 // et fournirait sinon des exemples inattendus (amorçage écoute, cloze).
+// Les phrases générées par point (grammar-examples.json) aussi : un test les sème au besoin.
+const grammarExtra = vi.hoisted(() => ({}) as Record<string, { ja: string; fr?: string }[]>);
 vi.mock("./inventory", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./inventory")>()),
   staticExample: () => null,
+  grammarExamples: (id: string) => grammarExtra[id] ?? [],
 }));
 
 // kuromoji ne tourne pas en node : chaque caractère devient un token 名詞 (suffit pour
@@ -502,6 +505,24 @@ describe("étapes de leçon (scope step)", () => {
     expect(n1).toHaveLength(2 * entry().introduces.grammar.length);
     expect(n1.map((ex) => ex.form)).toContain("grammar-rule");
     expect(n2.map((ex) => ex.form)).toContain("grammar-build");
+  });
+
+  it("Grammaire : la phrase à reconstruire varie entre l'exemple et les phrases du point", async () => {
+    const generated = { ja: "私は先生です。", fr: "Je suis professeur." };
+    grammarExtra["n5-wa-topic"] = [generated];
+    try {
+      const contexts = new Set<string>();
+      for (let i = 0; i < 20; i++) {
+        const deck = await buildSession(NOW, { scope: "step", lessonId, step: "grammar" });
+        for (const ex of deck) {
+          if (ex.id === "n5-wa-topic" && ex.form === "grammar-build" && "context" in ex) contexts.add(ex.context!);
+        }
+      }
+      expect(contexts).toContain(generated.ja);
+      expect(contexts.size).toBe(2);
+    } finally {
+      delete grammarExtra["n5-wa-topic"];
+    }
   });
 
   it("Produire : niveau 3 pour tous les éléments, sans le son ni dictée", async () => {
