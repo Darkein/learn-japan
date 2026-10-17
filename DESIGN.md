@@ -83,6 +83,24 @@ la retenue** : vide, hiérarchie typographique, un seul accent.
 | `--state-known` | `transparent`/neutre | idem | connu (neutre) |
 Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de surlignage vif.
 
+### Décor de la voie (accueil, SPEC §5c)
+La voie et son décor sont dessinés à l'encre : ils dérivent de `--ink` et des deux accents, et
+n'ajoutent que ces tokens.
+
+| Token | Dark | Light | Usage |
+|---|---|---|---|
+| `--ballast` | `#24201A` | `#EDE6D8` | lit de la voie, et creux entre les deux rails |
+| `--ballast-edge` | `rgba(232,226,212,0.14)` | `rgba(26,24,21,0.14)` | bord du ballast, gravier |
+| `--sleeper` | `rgba(232,226,212,0.32)` | `rgba(26,24,21,0.42)` | traverses |
+| `--rail` | `rgba(232,226,212,0.6)` | `rgba(26,24,21,0.72)` | rails devant le train (derrière : `--accent`) |
+| `--decor-fill` | `rgba(232,226,212,0.10)` | `rgba(26,24,21,0.14)` | aplats du décor (montagnes, toits, arbres) |
+| `--decor-water` | `rgba(124,143,192,0.45)` | `rgba(46,67,116,0.45)` | traits de l'eau (fond : même teinte à 0.12) |
+| `--decor-snow` | `#E8E2D4` | `#FFFFFF` | neige, sommets, voiles |
+
+Couleurs du décor : l'encre partout ; l'indigo pour l'eau et les villes ; le vermillon pour les
+sceaux, le train du Tōkaidō, les torii, le soleil, les érables et les lanternes allumées ; la
+neige en blanc. Aucune autre teinte, même pour les saisons.
+
 ### Typographie
 | Token | Valeur |
 |---|---|
@@ -171,6 +189,19 @@ Rendu : **soulignement filet** ou **teinte de fond très légère**, jamais de s
     `text-sm text-muted` : d'où sort la forme (« forme de する ») puis **la règle qui la
     commande** (« ます (poli) — … », référentiel, cf. `lib/blankRule.ts`). Une ligne, pas un
     cours : le cours est au Catalogue.
+
+- **La voie de l'accueil** (SPEC §5c, maquettes L et P2 du canevas « Redesign de l'accueil ») :
+  - *Étapes* : sceaux de 64 px (76 px pour l'étape à faire), kanji `--font-jp`. Faite : aplat
+    `--accent`, filet intérieur `--on-accent`, de biais. À faire : pointillés `--accent` 2px et
+    halo. À venir : pointillés `--hairline-strong`. Contrôle : carré (rayon `--radius`).
+  - *Libellés* : le mot en `--font-jp`, sa lecture dessous en ruby (`ruby-position: under`,
+    `--fs-xs`, `--text-muted`), puis « 80 · Grammaire » en `--fs-xs`.
+  - *Villes* : anneaux `--accent-2` (simple, double ou triple selon la taille), plein si passée,
+    en pointillés sinon ; tampon vermillon à double filet posé à côté, de biais.
+  - *Rails* : ballast 18px, traverses, deux rails écartés de 5px ; vermillon derrière le train.
+  - *Train* : 36 × 11 px vu du dessus, à la couleur de sa route ; il suit la voie
+    (`offset-path`, `offset-rotate: auto`) en ≈1,6 s, sans rebond.
+  - *Bulle* de l'étape à faire : panneau `--surface` + filet + `--elev`, un seul bouton primary.
 
 ## 7. Accessibilité
 
