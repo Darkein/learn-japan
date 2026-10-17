@@ -47,6 +47,7 @@ import { enrollLesson } from "./enroll";
 import { isPreAcquiredGrammar, isPreAcquiredVocab, lessonSteps, nextStep, type PathStep } from "./path";
 import { sample } from "./random";
 import { isMastered, type Card } from "./srs";
+import { isTrainableVocab } from "./vocabFaces";
 
 /** Une leçon est « prête » dès qu'elle a au moins une histoire à lire (locale ou distante). */
 export type LessonState = "ready" | "to-generate";
@@ -87,6 +88,12 @@ export interface Lesson extends CurriculumEntry {
   storyRead: boolean;
   /** Étapes validées dans le parcours (progression locale, avec leur date). */
   stepDates: Partial<Record<PathStep, number>>;
+  /** Mots et points de la leçon, et ceux qui restent à apprendre (pas encore acquis) — de
+   *  quoi annoncer la taille et la durée de chaque étape (lib/pathPlan.ts). */
+  vocabCount: number;
+  grammarCount: number;
+  vocabToLearn: number;
+  grammarToLearn: number;
   /** Contrôle de fin de leçon (le 関所, lib/exam.ts) : l'admission débloque la suivante. */
   examPassed: boolean;
   /** Meilleure note obtenue (sur 20), absente tant qu'aucune copie n'a été rendue. */
@@ -229,6 +236,12 @@ function applySteps(
 ): void {
   lesson.stepsDone = computeStepsDone(lesson, vocabMap, grammarMap);
   lesson.nextStep = nextStep(lesson.steps, new Set(lesson.stepsDone));
+  // Un mot pas encore en base (leçon jamais ouverte) compte comme à apprendre.
+  const words = lesson.introduces.vocab.map((id) => vocabMap.get(id));
+  lesson.vocabCount = words.filter((v) => !v || isTrainableVocab(v)).length;
+  lesson.vocabToLearn = words.filter((v) => !isPreAcquiredVocab(v)).length;
+  lesson.grammarCount = lesson.introduces.grammar.length;
+  lesson.grammarToLearn = lesson.introduces.grammar.filter((id) => !isPreAcquiredGrammar(grammarMap.get(id))).length;
 }
 
 /**
@@ -311,6 +324,10 @@ async function hydrate(
     stepsDone: [],
     storyRead,
     stepDates: progress?.steps ?? {},
+    vocabCount: entry.introduces.vocab.length,
+    grammarCount: entry.introduces.grammar.length,
+    vocabToLearn: entry.introduces.vocab.length,
+    grammarToLearn: entry.introduces.grammar.length,
     examPassed: false,
     examAttempts: 0,
     notifiedUnlock: progress?.unlockedNotified ?? false,
