@@ -71,8 +71,13 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
     shownAt.current = Date.now();
   }, [round, i]);
 
-  // Fin d'un tour d'une étape : s'il reste des ratés, on les rejoue d'office.
-  const roundOver = !!cards && cards.length > 0 && i >= cards.length;
+  // Fin d'un tour d'une étape : s'il reste des ratés, on les rejoue d'office. Le tour n'est
+  // fini qu'une fois TOUS ses résultats arrivés : « Continuer » passe à la suite aussitôt,
+  // mais la note du dernier exercice s'écrit en base avant d'entrer dans `results`. Décider
+  // sur le seul index, c'était chercher les ratés sans le dernier — raté, il n'était jamais
+  // rejoué et l'écran attendait une relance qui ne venait pas.
+  const grading = !!cards && i >= cards.length && results.length < cards.length;
+  const roundOver = !!cards && cards.length > 0 && i >= cards.length && !grading;
   const missedThisRound = roundOver ? results.filter((r) => isMiss(r.grade)).map((r) => r.card) : [];
   useEffect(() => {
     if (!autoReplay || !roundOver) return;
@@ -107,7 +112,7 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
         )}
       </div>
     );
-  if (autoReplay && roundOver && missedThisRound.length > 0) return <LoadingScreen />;
+  if (grading || (autoReplay && roundOver && missedThisRound.length > 0)) return <LoadingScreen />;
   if (i >= cards.length || !card) {
     function restart(deck?: Exercise[]) {
       setResults([]);
@@ -156,11 +161,18 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
   async function persistGrade(g: SrsGrade) {
     const graded = card!;
     const ms = Date.now() - shownAt.current;
-    const daysBefore = await daysBeforeGrade(graded);
-    if (!practice) await gradeCard(graded, g, new Date(), { ms });
-    // Relance réussie : aucune note, mais le niveau de l'exercice est bel et bien atteint.
-    else if (replaying && !isMiss(g)) await recordLevel(graded);
-    setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
+    let daysBefore = 0;
+    try {
+      daysBefore = await daysBeforeGrade(graded);
+      if (!practice) await gradeCard(graded, g, new Date(), { ms });
+      // Relance réussie : aucune note, mais le niveau de l'exercice est bel et bien atteint.
+      else if (replaying && !isMiss(g)) await recordLevel(graded);
+    } catch (e) {
+      // Une note qui ne s'écrit pas ne doit pas bloquer la séance : la réponse compte au bilan.
+      console.error("Note non enregistrée", e);
+    } finally {
+      setResults((r) => [...r, { card: graded, grade: g, daysBefore }]);
+    }
   }
 
   // Pause d'écoute en cours : minutes restantes (0 = pas de pause).
