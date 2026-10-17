@@ -40,6 +40,7 @@ export type GenKind =
   | "exam-text"
   | "exam-lesson-qcm"
   | "vocab-examples"
+  | "grammar-examples"
   | "mnemonic"
   | "word-mnemonic"
   | "part-gloss";
@@ -66,8 +67,12 @@ export interface GenerateRequest {
   avoidTitles?: string[];
   // kind: "story-translation" — phrases JP déjà découpées.
   sentences?: string[];
-  // kind: "vocab-examples" — lexique déjà connu à privilégier dans les phrases.
+  // kind: "vocab-examples" / "grammar-examples" — lexique déjà connu à privilégier dans
+  // les phrases.
   allowedVocab?: string[];
+  // kind: "grammar-examples" — LOT de points de grammaire (forme, nom, règle) : le Worker
+  // n'a pas d'inventaire, tout le contexte voyage dans le lot.
+  grammarPoints?: GrammarPointInput[];
   // kind: "mnemonic" / "word-mnemonic" / "part-gloss" — LOT d'éléments (kanji, mots ou
   // composants) traités en UN appel, chacun avec ses métadonnées (le Worker n'a pas
   // d'inventaire : tout le contexte voyage dans le lot).
@@ -75,6 +80,16 @@ export interface GenerateRequest {
   // Métadonnées de clé R2 structurée (lesson / lesson-story uniquement).
   lessonId?: string;
   variant?: number;
+}
+
+/** Un point de grammaire d'un lot « grammar-examples ». */
+export interface GrammarPointInput {
+  /** Forme japonaise à employer telle quelle (« を », « ている »). */
+  form: string;
+  /** Nom du référentiel (« を (objet) »). */
+  name: string;
+  /** Règle en français (le SENS précis à illustrer). */
+  rule: string;
 }
 
 // ---------- Bornes & nettoyage ----------------------------------------------
@@ -94,6 +109,9 @@ const LIMITS = {
   sentence: 600,
   sentenceList: 200,
   exampleVocabList: 20,
+  // kind: "grammar-examples" — lot de points, et phrases demandées par point.
+  grammarPointsList: 10,
+  grammarRule: 200,
   allowedVocabList: 400,
   allowedVocabItem: 40,
   // kind: "mnemonic" / "word-mnemonic" — lot d'éléments + leurs lectures/sens/composants.
@@ -190,6 +208,21 @@ function cleanVocab(value: unknown): VocabItem[] {
  * plafond dépend du `kind` — un lot de gloses de composants coûte bien moins qu'un lot de
  * mnémos, cf. LIMITS.partItemsList.
  */
+function cleanGrammarPoints(value: unknown): GrammarPointInput[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, LIMITS.grammarPointsList)
+    .map((v) => {
+      const it = (v ?? {}) as Record<string, unknown>;
+      return {
+        form: clean(it.form, LIMITS.grammarItem),
+        name: clean(it.name, LIMITS.grammarItem),
+        rule: clean(it.rule, LIMITS.grammarRule),
+      };
+    })
+    .filter((p) => p.form && p.name);
+}
+
 function cleanMnemonicItems(value: unknown, maxItems: number = LIMITS.mnemonicItemsList): MnemonicItem[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -585,6 +618,40 @@ export function buildVocabExamplesPrompt(r: GenerateRequest): string {
     .join("\n");
 }
 
+/** Phrases demandées par point de grammaire (le script en garde jusqu'à 3 conformes). */
+export const GRAMMAR_EXAMPLES_PER_POINT = 4;
+
+/**
+ * Phrases d'exemple pour un lot de points de grammaire (corpus statique, généré au build
+ * par scripts/build-grammar-examples.ts) : plusieurs phrases courtes par point, qui
+ * emploient sa FORME dans le SENS précis de sa règle (に de lieu, pas に de moment), avec un
+ * lexique déjà connu. La conformité est revérifiée côté script (kuromoji), le prompt n'est
+ * qu'un premier filtre.
+ */
+export function buildGrammarExamplesPrompt(r: GenerateRequest): string {
+  const level = cleanLevel(r.level);
+  const points = cleanGrammarPoints(r.grammarPoints);
+  const allowed = cleanList(r.allowedVocab, LIMITS.allowedVocabList, LIMITS.allowedVocabItem);
+  const numbered = points
+    .map((p, i) => `${i + 1}. « ${p.form} » — ${p.name}${p.rule ? ` : ${p.rule}` : ""}`)
+    .join("\n");
+  const n = GRAMMAR_EXAMPLES_PER_POINT;
+  return [
+    `Voici ${points.length} points de grammaire japonaise (niveau JLPT N${level}), avec leur règle :`,
+    numbered,
+    "",
+    `Pour CHAQUE point, écris ${n} phrases d'exemple différentes en japonais qui l'emploient dans le sens précis de sa règle, chacune suivie de sa traduction française.`,
+    `Contraintes : phrases très simples (grammaire N${level} uniquement), environ 8 à 20 caractères japonais, la forme du point écrite TELLE QUELLE dans chaque phrase.`,
+    allowed.length
+      ? `N'utilise QUE ce vocabulaire déjà connu de l'apprenant (plus particules, copules et mots grammaticaux) : ${allowed.join("、")}.`
+      : "",
+    `Format STRICT, une ligne par phrase, ${n} lignes par point, dans l'ordre, sans aucune autre ligne : « N. phrase japonaise || traduction française », où N est le numéro du point. Pas de furigana, pas de romaji.`,
+    "Exemple pour le point 1 : 1. 本を読む。 || Je lis un livre.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 /**
  * Moyens mnémotechniques pour un LOT de kanji. UN SEUL mnémo par kanji (méthode du mot-clé) :
  * une phrase française qui contient le SON de la lecture ET évoque le sens — voir le kanji
@@ -832,6 +899,8 @@ export function composePrompt(req: GenerateRequest): string {
       return buildExamLessonQcmPrompt(req);
     case "vocab-examples":
       return buildVocabExamplesPrompt(req);
+    case "grammar-examples":
+      return buildGrammarExamplesPrompt(req);
     case "mnemonic":
       return buildMnemonicPrompt(req);
     case "word-mnemonic":

@@ -8,6 +8,7 @@ import grammarInv from "../data/inventory/grammar.json";
 import kanjiFrOverlay from "../data/inventory/kanji-fr.json";
 import vocabFrOverlay from "../data/inventory/vocab-fr.json";
 import examplesInv from "../data/inventory/examples.json";
+import grammarExamplesInv from "../data/inventory/grammar-examples.json";
 import { hasJapanese, kataToHira, splitEntryForms } from "./kana";
 import type { VocabEntry } from "./curriculum";
 
@@ -47,6 +48,9 @@ const grammarById = new Map(
 const kanjiFr = kanjiFrOverlay as Record<string, string>;
 const vocabFr = vocabFrOverlay as Record<string, string>;
 const examplesById = examplesInv as Record<string, { ja: string; fr?: string }>;
+// Phrases supplémentaires PAR POINT de grammaire (scripts/build-grammar-examples.ts) : elles
+// emploient le point dans son sens précis, avec le seul lexique des leçons déjà vues.
+const grammarExamplesById = grammarExamplesInv as Record<string, { ja: string; fr?: string }[]>;
 
 /**
  * Sens FR d'un mot de l'inventaire : l'OVERLAY CURÉ (`vocab-fr.json`) d'abord, le champ
@@ -141,6 +145,11 @@ const KANA_ONLY = /^[ぁ-ヿ〜]+$/;
  */
 export function staticExample(id: string): { ja: string; fr?: string } | null {
   return examplesById[canonicalVocabId(id)] ?? null;
+}
+
+/** Phrases générées pour un point de grammaire (SPEC §5.3), en plus de son exemple. */
+export function grammarExamples(id: string): { ja: string; fr?: string }[] {
+  return grammarExamplesById[id] ?? [];
 }
 
 /** Niveau JLPT (5..1) d'un id de vocabulaire dans l'inventaire, ou null s'il n'y figure pas. */

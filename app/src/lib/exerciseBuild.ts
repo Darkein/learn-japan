@@ -602,14 +602,32 @@ export async function grammarReviewExercise(g: GrammarItem, due: number): Promis
   return (await grammarBuildExercise(g, due)) ?? grammarChoiceExercise(g, due);
 }
 
-/**
- * Reconstruction par tuiles de la phrase d'exemple d'un point de grammaire — le RAPPEL du
- * point en contexte. Null sans phrase exploitable (absente, ou trop courte pour des tuiles).
- */
-export async function grammarBuildExercise(g: GrammarItem, due: number): Promise<BuildExercise | null> {
+/** Une phrase où s'exerce un point de grammaire (son exemple, ou une phrase générée pour lui). */
+export interface PointSentence {
+  ja: string;
+  fr?: string;
+}
+
+/** La phrase d'un exercice de grammaire : celle demandée, à défaut l'exemple du référentiel. */
+function pointSentence(g: GrammarItem, sentence?: PointSentence): PointSentence | null {
+  if (sentence) return sentence;
   const detail = grammarDetail(g.id);
-  if (!detail?.exampleJa) return null;
-  const tokens = await tokenize(detail.exampleJa);
+  return detail?.exampleJa ? { ja: detail.exampleJa, ...(detail.exampleFr ? { fr: detail.exampleFr } : {}) } : null;
+}
+
+/**
+ * Reconstruction par tuiles d'une phrase du point de grammaire — le RAPPEL du point en
+ * contexte. `sentence` : une phrase propre au point (cf. grammarExamples), à défaut son
+ * exemple du référentiel. Null sans phrase exploitable (absente, trop courte).
+ */
+export async function grammarBuildExercise(
+  g: GrammarItem,
+  due: number,
+  sentence?: PointSentence,
+): Promise<BuildExercise | null> {
+  const s = pointSentence(g, sentence);
+  if (!s) return null;
+  const tokens = await tokenize(s.ja);
   const target = toTiles(tokens);
   if (target.length < 2) return null;
   return {
@@ -618,9 +636,9 @@ export async function grammarBuildExercise(g: GrammarItem, due: number): Promise
     track: "grammar",
     id: g.id,
     front: g.name,
-    back: g.rule || detail.ruleFr || "",
-    context: detail.exampleJa,
-    ...(detail.exampleFr ? { contextFr: detail.exampleFr } : {}),
+    back: g.rule || grammarDetail(g.id)?.ruleFr || "",
+    context: s.ja,
+    ...(s.fr ? { contextFr: s.fr } : {}),
     target,
     tokens,
     due,
@@ -628,14 +646,19 @@ export async function grammarBuildExercise(g: GrammarItem, due: number): Promise
 }
 
 /**
- * Dictée de la phrase d'exemple d'un point de grammaire : jouée, texte masqué, reconstruite
- * par tuiles — la PRODUCTION du point (étape Produire, SPEC §5.3). Null sans phrase, ou
- * trop courte/longue pour l'oreille (mêmes bornes que la dictée de vocabulaire).
+ * Dictée d'une phrase du point de grammaire : jouée, texte masqué, reconstruite par
+ * tuiles — la PRODUCTION du point (étape Produire, SPEC §5.3). Même choix de phrase que
+ * `grammarBuildExercise`. Null sans phrase, ou trop courte/longue pour l'oreille (mêmes
+ * bornes que la dictée de vocabulaire).
  */
-export async function grammarDictationExercise(g: GrammarItem, due: number): Promise<BuildExercise | null> {
-  const detail = grammarDetail(g.id);
-  if (!detail?.exampleJa) return null;
-  const tokens = await tokenize(detail.exampleJa);
+export async function grammarDictationExercise(
+  g: GrammarItem,
+  due: number,
+  sentence?: PointSentence,
+): Promise<BuildExercise | null> {
+  const s = pointSentence(g, sentence);
+  if (!s) return null;
+  const tokens = await tokenize(s.ja);
   const target = toTiles(tokens);
   if (target.length < DICTATION_MIN_TILES || target.length > DICTATION_MAX_TILES) return null;
   return {
@@ -647,9 +670,9 @@ export async function grammarDictationExercise(g: GrammarItem, due: number): Pro
     back: target.join(" "),
     due,
     audioOnly: true,
-    audio: { sentence: detail.exampleJa },
-    context: detail.exampleJa,
-    ...(detail.exampleFr ? { contextFr: detail.exampleFr } : {}),
+    audio: { sentence: s.ja },
+    context: s.ja,
+    ...(s.fr ? { contextFr: s.fr } : {}),
     target,
     tokens,
   };
