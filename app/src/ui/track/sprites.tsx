@@ -25,15 +25,32 @@ function pine(x: number, h = 1): ReactNode {
   );
 }
 
-/** Un cèdre, fuseau étagé. */
-function cedar(x: number, top = 12): ReactNode {
+/**
+ * Un cèdre du Japon (sugi) : fuseau étroit aux étages de branches qui retombent, plus large vers
+ * le bas, son tronc au pied. `top` est la cime ; `w` la demi-largeur au pied.
+ */
+function cedar(x: number, top = 12, w = 9, opacity = 0.42): ReactNode {
+  const n = 6;
+  const base = 66;
+  const left: string[] = [];
+  const right: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const y0 = top + ((base - top) * i) / n;
+    const y1 = top + ((base - top) * (i + 1)) / n;
+    const hw = w * (0.3 + (0.7 * (i + 1)) / n);
+    // Chaque étage : la branche part vers l'extérieur et retombe, puis on revient vers le fût.
+    left.push(`L${x - hw * 0.55} ${y0 + 2} Q${x - hw} ${y1 - 3} ${x - hw * 1.05} ${y1}`);
+    right.unshift(`L${x + hw * 1.05} ${y1}`, `Q${x + hw} ${y1 - 3} ${x + hw * 0.55} ${y0 + 2}`);
+  }
   return (
-    <path
-      key={`c${x}`}
-      d={`M${x} 72 L${x - 5} 64 L${x - 3} 64 L${x - 8} 52 L${x - 5} 52 L${x - 9} 38 L${x} ${top} L${x + 9} 38 L${x + 5} 52 L${x + 8} 52 L${x + 3} 64 L${x + 5} 64 Z`}
-      fill="currentColor"
-      fillOpacity={0.42}
-    />
+    <g key={`c${x}`}>
+      <path d={`M${x - 1.2} 72 V${base} H${x + 1.2} V72 Z`} fill="currentColor" fillOpacity={opacity + 0.1} />
+      <path
+        d={`M${x} ${top} ${left.join(" ")} L${x} ${base - 2} ${right.join(" ")} Z`}
+        fill="currentColor"
+        fillOpacity={opacity}
+      />
+    </g>
   );
 }
 
@@ -41,6 +58,63 @@ function waves(y: number, x0 = 0, x1 = 120): ReactNode {
   let d = `M${x0} ${y}`;
   for (let x = x0; x < x1; x += 30) d += ` q7.5 -5 15 0 t15 0`;
   return <path key={`w${y}`} d={d} stroke={W} strokeOpacity={0.55} strokeWidth={1.3} fill="none" />;
+}
+
+/**
+ * Un toit japonais vu de face : égout de `w` px à la hauteur y, faîtage `h` px plus haut, les
+ * coins de l'égout relevés (courbe concave).
+ */
+function roof(cx: number, y: number, w: number, h: number, opacity = 0.5, key?: string): ReactNode {
+  const l = cx - w / 2;
+  const r = cx + w / 2;
+  return (
+    <path
+      key={key ?? `r${cx}:${y}`}
+      d={`M${l} ${y} Q${l + w * 0.16} ${y - h * 0.18} ${cx - w * 0.3} ${y - h} H${cx + w * 0.3} Q${r - w * 0.16} ${y - h * 0.18} ${r} ${y} Z`}
+      fill="currentColor"
+      fillOpacity={opacity}
+    />
+  );
+}
+
+/** Un mur blanc d'étage (château, entrepôt) avec ses fenêtres. */
+function wall(x: number, y: number, w: number, h: number, windows = 0): ReactNode {
+  const out: ReactNode[] = [
+    <rect key="w" x={x} y={y} width={w} height={h} fill={SNOW} stroke="currentColor" strokeOpacity={0.45} strokeWidth={0.8} />,
+  ];
+  for (let i = 0; i < windows; i++) {
+    const wx = x + ((i + 0.5) * w) / windows - 1.5;
+    out.push(<rect key={i} x={wx} y={y + h * 0.35} width={3} height={h * 0.32} fill="currentColor" fillOpacity={0.45} />);
+  }
+  return <g key={`wall${x}:${y}`}>{out}</g>;
+}
+
+/** Un torii vermillon : linteau galbé aux bouts relevés, entretoise, piliers un peu écartés. */
+function toriiShape(cx: number, top: number, w: number, foot: number): ReactNode {
+  const h = foot - top;
+  const pl = cx - w * 0.3;
+  const pr = cx + w * 0.3;
+  return (
+    <g key={`t${cx}`} fill={ACC}>
+      <path d={`M${cx - w / 2} ${top + 3} Q${cx} ${top - 4} ${cx + w / 2} ${top + 3} L${cx + w / 2 - 2} ${top + 6} Q${cx} ${top + 1} ${cx - w / 2 + 2} ${top + 6} Z`} />
+      <rect x={cx - w * 0.42} y={top + 6} width={w * 0.84} height={2.6} />
+      <rect x={cx - w * 0.38} y={top + h * 0.24} width={w * 0.76} height={2.6} />
+      <rect x={cx - 1.4} y={top + 8} width={2.8} height={h * 0.24 - 8} />
+      <path d={`M${pl - 1.6} ${top + 7} L${pl - 3.4} ${foot} H${pl + 1.4} L${pl + 1.6} ${top + 7} Z M${pr - 1.6} ${top + 7} L${pr - 1.4} ${foot} H${pr + 3.4} L${pr + 1.6} ${top + 7} Z`} />
+    </g>
+  );
+}
+
+/** Un lac : rive lointaine et ses collines, l'eau, des roseaux au premier plan. */
+function lakeBase(): ReactNode {
+  return (
+    <g key="lake">
+      <path d="M0 48 Q18 38 36 45 Q58 32 82 43 Q100 36 120 44 V50 H0 Z" fill="currentColor" fillOpacity={0.1} />
+      <path d="M0 50 H120 V68 Q60 74 0 68 Z" fill={W} fillOpacity={0.13} />
+      <path d="M14 56 h18 M70 54 h22 M42 62 h16 M90 63 h14" stroke={W} strokeOpacity={0.4} />
+      <path d="M8 72 q1 -9 -2 -15 M12 72 q0 -11 3 -17 M16 72 q-1 -7 -4 -11 M108 72 q-1 -9 2 -14 M112 72 q0 -7 -3 -10" stroke="currentColor" strokeOpacity={0.45} fill="none" />
+    </g>
+  );
 }
 
 const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
@@ -51,62 +125,116 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     </>
   ),
   ridge: (snowy) => (
+    // Une chaîne de montagnes à l'encre : la chaîne lointaine pâle et ses pics, une écharpe de
+    // brume, puis les contreforts plus sombres piqués de cèdres.
     <>
-      <path d="M0 72 L28 36 L44 50 L66 24 L92 52 L104 44 L120 72 Z" fill="currentColor" fillOpacity={0.09} />
-      {snowy && <path d="M60 30 L66 24 L72 31 L68 33 L64 30 Z M24 41 L28 36 L32 41 Z" fill={SNOW} />}
-      <path d="M0 72 L20 58 L40 64 L64 50 L90 62 L120 54 V72 Z" fill="currentColor" fillOpacity={0.14} />
+      <path
+        d="M0 72 V50 L10 42 L17 44 L29 30 L37 34 L50 17 L58 24 L64 22 L76 34 L84 29 L96 40 L106 36 L120 46 V72 Z"
+        fill="currentColor"
+        fillOpacity={0.08}
+      />
+      {snowy && <path d="M45 23 L50 17 L56 22.5 L53 24 L50 21.5 L47.5 25 Z M25 34 L29 30 L33 32 L30 33.5 Z M81 31.5 L84 29 L87 32 Z" fill={SNOW} />}
+      <path d="M0 58 Q30 52 60 56 Q90 60 120 54 V60 Q90 66 60 62 Q30 58 0 64 Z" fill={BG} fillOpacity={0.55} />
+      <path d="M0 72 V61 Q14 53 28 57 Q40 47 54 53 Q66 59 78 51 Q92 43 104 51 Q112 55 120 53 V72 Z" fill="currentColor" fillOpacity={0.15} />
+      <path d="M38 52 l2 -6 l2 6 Z M46 54 l2 -5 l2 5 Z M86 48 l2 -6 l2 6 Z M94 50 l2 -5 l2 5 Z M100 52 l1.6 -4 l1.6 4 Z" fill="currentColor" fillOpacity={0.22} />
     </>
   ),
   ford: () => (
+    // Le gué à porteurs (kawagoshi) : deux porteurs dans l'eau jusqu'à la taille, l'estrade
+    // sur les épaules, le voyageur assis dessus sous son chapeau.
     <>
-      {waves(50)}
-      {waves(62)}
-      <g stroke="currentColor" strokeOpacity={0.7} strokeWidth={1.4} strokeLinecap="round">
-        <circle cx={60} cy={18} r={2.6} fill="currentColor" fillOpacity={0.7} />
-        <path d="M60 21 v6 M56 24 h8" />
-        <circle cx={60} cy={30} r={2.6} fill="currentColor" fillOpacity={0.7} />
-        <path d="M60 33 v9 M60 42 l-4 8 M60 42 l4 8" />
+      <path d="M0 54 H120 V74 H0 Z" fill={W} fillOpacity={0.14} />
+      <g fill="currentColor" fillOpacity={0.6}>
+        <circle cx={38} cy={38} r={3} />
+        <circle cx={82} cy={38} r={3} />
+        <path d="M35 42 h6 l1 14 h-8 Z M79 42 h6 l1 14 h-8 Z" />
       </g>
+      <rect x={30} y={40} width={60} height={3} fill="currentColor" fillOpacity={0.55} />
+      <path d="M33 43 v4 M87 43 v4" stroke="currentColor" strokeOpacity={0.5} />
+      <path d="M53 40 Q60 30 67 40 Z" fill="currentColor" fillOpacity={0.45} />
+      <circle cx={60} cy={28} r={2.6} fill="currentColor" fillOpacity={0.55} />
+      <path d="M52 27 L60 21 L68 27 Z" fill="currentColor" fillOpacity={0.6} />
+      {waves(58, 0, 120)}
+      {waves(67, 12, 120)}
     </>
   ),
   bridge: () => (
+    // Un pont de bois en arc : tablier épais, garde-corps à balustres, piles plantées dans l'eau.
     <>
-      {waves(74)}
-      <path d="M30 62 V74 M90 62 V74 M60 46 V74" stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.6} />
-      <path d="M6 62 Q60 26 114 62" stroke="currentColor" strokeOpacity={0.65} strokeWidth={3} fill="none" />
-      <path d="M10 54 Q60 19 110 54" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.2} fill="none" />
-      <path d="M24 48 v8 M42 39 v9 M60 36 v9 M78 39 v9 M96 48 v8" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.2} />
+      <path d="M0 64 H120 V74 H0 Z" fill={W} fillOpacity={0.12} />
+      {waves(70, 0, 120)}
+      <path d="M24 55 V72 M42 50 V72 M60 49 V72 M78 50 V72 M96 55 V72" stroke="currentColor" strokeOpacity={0.4} strokeWidth={2} />
+      <path d="M24 62 L42 58 M42 58 L60 62 M60 62 L78 58 M78 58 L96 62" stroke="currentColor" strokeOpacity={0.2} />
+      <path d="M2 60 Q60 30 118 60 L118 64 Q60 35 2 64 Z" fill="currentColor" fillOpacity={0.5} />
+      <path d="M6 53 Q60 24 114 53" stroke="currentColor" strokeOpacity={0.55} strokeWidth={1.3} fill="none" />
+      <path d="M14 51 v7 M28 45 v7 M44 40 v8 M60 38 v8 M76 40 v8 M92 45 v7 M106 51 v7" stroke="currentColor" strokeOpacity={0.5} />
     </>
   ),
   lake: () => (
     <>
-      <ellipse cx={60} cy={58} rx={56} ry={15} fill={W} fillOpacity={0.12} stroke={W} strokeOpacity={0.4} />
-      <path d="M20 58 h14 M84 62 h18 M50 66 h12" stroke={W} strokeOpacity={0.4} />
+      {lakeBase()}
+      <path d="M66 58 h18 l-3 3 h-12 Z" fill="currentColor" fillOpacity={0.4} />
+      <path d="M74 58 V49" stroke="currentColor" strokeOpacity={0.5} />
     </>
   ),
   "lake-torii": () => (
+    // Le torii dans l'eau du lac Ashi : planté dans le lac, son reflet dessous.
     <>
-      <ellipse cx={60} cy={58} rx={56} ry={15} fill={W} fillOpacity={0.12} stroke={W} strokeOpacity={0.4} />
-      <g stroke={ACC} strokeWidth={2.2} strokeLinecap="round" fill="none">
-        <path d="M48 32 Q60 28 72 32" />
-        <path d="M51 37 H69 M53 32 V58 M67 32 V58" />
+      {lakeBase()}
+      {toriiShape(60, 22, 34, 62)}
+      <g opacity={0.25}>
+        <path d="M50 63 V71 M70 63 V71" stroke={ACC} strokeWidth={2.4} />
       </g>
-      <path d="M53 62 V68 M67 62 V68" stroke={ACC} strokeOpacity={0.35} strokeWidth={1.2} />
     </>
   ),
   sea: () => (
+    // La mer à la manière d'Hokusai : une vague qui se dresse et se recourbe en griffes
+    // d'écume, la houle derrière.
     <>
-      <path d="M0 64 Q20 40 36 56 Q30 46 44 46 Q56 46 52 60 Q70 44 86 58 Q80 48 94 48 Q108 48 104 62 L120 64 V74 H0 Z" fill={W} fillOpacity={0.16} stroke={W} strokeOpacity={0.5} strokeWidth={1.2} />
-      <path d="M36 50 q3 -2 6 0 M86 52 q3 -2 6 0" stroke={SNOW} strokeWidth={1.6} fill="none" />
+      <path d="M0 54 H120 V74 H0 Z" fill={W} fillOpacity={0.12} />
+      <path d="M0 60 Q8 52 14 46 Q24 30 44 28 Q60 27 64 38 Q58 33 51 35 Q57 39 55 46 Q48 42 42 46 Q34 52 30 60 Z" fill={W} fillOpacity={0.32} stroke={W} strokeOpacity={0.6} strokeWidth={1.1} />
+      <path d="M44 28 q6 -3 9 2 q3 -3 7 1 q3 -1 4 4" stroke={SNOW} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+      <path d="M70 58 Q80 48 92 50 Q100 51 100 57 Q94 54 90 57 Z" fill={W} fillOpacity={0.25} stroke={W} strokeOpacity={0.5} />
+      {waves(64, 0, 120)}
+      {waves(70, 10, 120)}
     </>
   ),
-  rice: () => (
-    <>
-      <path d="M6 72 L28 40 H114 L100 72 Z" fill={W} fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.25} />
-      <path d="M17 56 H107 M34 40 L24 72 M60 40 L52 72 M86 40 L78 72" stroke="currentColor" strokeOpacity={0.25} />
-      <path d="M40 50 v-4 M46 50 v-4 M70 50 v-4 M76 50 v-4 M36 66 v-4 M42 66 v-4 M64 66 v-4 M90 66 v-4" stroke="currentColor" strokeOpacity={0.35} />
-    </>
-  ),
+  rice: () => {
+    // Des rizières en eau, vues de biais : les planches s'éloignent vers l'horizon, séparées par
+    // leurs diguettes, les jeunes plants en rangs serrés, le ciel qui s'y reflète.
+    const vp = { x: 60, y: 14 };
+    const rows = [40, 48, 58, 72];
+    const at = (x: number, y: number) => vp.x + ((x - vp.x) * (y - vp.y)) / (72 - vp.y);
+    const plots = [-30, 6, 42, 78, 114, 150];
+    let bunds = "";
+    for (const x of plots) bunds += `M${at(x, 40)} 40 L${at(x, 72)} 72 `;
+    for (const y of rows.slice(1, 3)) bunds += `M${at(-30, y)} ${y} H${at(150, y)} `;
+    let shoots = "";
+    rows.slice(0, 3).forEach((y0, r) => {
+      const y1 = rows[r + 1];
+      const lines = 2 + r;
+      for (let i = 1; i <= lines; i++) {
+        const y = y0 + ((y1 - y0) * i) / (lines + 1);
+        const step = 2.5 + r * 1.6;
+        for (let x = at(-30, y) + 2; x < at(150, y) - 2; x += step) shoots += `M${x} ${y} v${-0.8 - r * 0.7}`;
+      }
+    });
+    return (
+      <>
+        <defs>
+          <clipPath id="rice-clip">
+            <path d="M6 46 Q24 39 50 41 Q78 37 104 41 Q116 43 118 50 L116 72 H4 Q0 60 6 46 Z" />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#rice-clip)">
+          <rect x={0} y={40} width={120} height={32} fill={W} fillOpacity={0.12} />
+          <path d="M22 45 h14 M74 53 h16 M36 64 h18" stroke={SNOW} strokeOpacity={0.5} strokeWidth={0.9} />
+          <path d={shoots} stroke="currentColor" strokeOpacity={0.4} strokeWidth={0.7} />
+          <path d={bunds} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.1} fill="none" />
+        </g>
+      </>
+    );
+  },
   tea: () => (
     <g fill="currentColor" fillOpacity={0.2}>
       <path d="M2 72 Q12 62 22 72 Q32 62 42 72 Q52 62 62 72 Q72 62 82 72 Q92 62 102 72 Q112 62 120 70 V72 Z" />
@@ -116,7 +244,16 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
   ),
   pines: () => <>{[pine(24), pine(60, 1.1), pine(96)]}</>,
   pine: () => <>{pine(60, 1.2)}</>,
-  cedars: () => <>{[cedar(22, 14), cedar(48, 10), cedar(74, 16), cedar(100, 12)]}</>,
+  cedars: () => (
+    // Une allée de cèdres : de hauts fuseaux serrés, ceux du fond plus pâles.
+    <>
+      {cedar(34, 14, 8, 0.28)}
+      {cedar(86, 12, 8, 0.28)}
+      {cedar(16, 22, 9)}
+      {cedar(56, 6, 10)}
+      {cedar(104, 18, 9)}
+    </>
+  ),
   bamboo: () => (
     <>
       <path d="M34 72 V8 M48 72 V14 M62 72 V6 M76 72 V12 M90 72 V10" stroke="currentColor" strokeOpacity={0.5} strokeWidth={2} />
@@ -174,9 +311,12 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     </>
   ),
   signpost: () => (
+    // Le poteau indicateur (道標) : pilier de pierre coiffé, gravé, sur son socle.
     <>
-      <rect x={54} y={26} width={12} height={46} fill="currentColor" fillOpacity={0.14} stroke="currentColor" strokeOpacity={0.5} />
-      <path d="M60 32 v4 M58 40 h4 M60 44 v6 M58 54 h4 M60 58 v6" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.2} />
+      <rect x={48} y={67} width={24} height={5} fill="currentColor" fillOpacity={0.22} />
+      <rect x={54} y={20} width={12} height={47} fill="currentColor" fillOpacity={0.14} stroke="currentColor" strokeOpacity={0.5} strokeWidth={0.9} />
+      <path d="M52 20 L60 13 L68 20 Z" fill="currentColor" fillOpacity={0.4} />
+      <path d="M57 26 h6 M60 24 v9 M57 38 h6 M58 42 l4 0 M60 38 v10 M57 54 h6 M60 52 v10" stroke="currentColor" strokeOpacity={0.55} strokeWidth={1.1} />
     </>
   ),
   jizo: () => (
@@ -196,50 +336,81 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     </>
   ),
   teahouse: () => (
+    // Une maison de thé au bord de la route : toit de chaume épais, banc sous l'auvent, et
+    // l'ombrelle rouge plantée devant.
     <>
-      <path d="M30 44 L52 24 H80 L98 44 Z" fill="currentColor" fillOpacity={0.3} />
-      <path d="M36 44 V72 M92 44 V72" stroke="currentColor" strokeOpacity={0.5} strokeWidth={2} />
-      <rect x={44} y={60} width={26} height={4} fill="currentColor" fillOpacity={0.4} />
-      <path d="M16 30 Q28 22 40 30 Z" fill={ACC} fillOpacity={0.8} />
-      <path d="M28 30 V72" stroke="currentColor" strokeOpacity={0.5} />
+      <path d="M24 44 Q32 32 46 22 H76 Q90 32 98 44 Z" fill="currentColor" fillOpacity={0.32} />
+      <path d="M44 26 L38 42 M60 23 V42 M76 26 L82 42" stroke="currentColor" strokeOpacity={0.14} />
+      <path d="M32 44 V72 M90 44 V72" stroke="currentColor" strokeOpacity={0.5} strokeWidth={2} />
+      <rect x={36} y={44} width={50} height={10} fill="currentColor" fillOpacity={0.06} />
+      <rect x={44} y={60} width={34} height={3} fill="currentColor" fillOpacity={0.45} />
+      <path d="M47 63 V70 M75 63 V70" stroke="currentColor" strokeOpacity={0.45} />
+      <path d="M4 34 Q16 22 28 34 Q16 31 4 34 Z" fill={ACC} fillOpacity={0.85} />
+      <path d="M16 31 V72" stroke="currentColor" strokeOpacity={0.5} />
     </>
   ),
   town: (snowy) => (
+    // Une ville-étape : trois maisons de marchands (machiya) côte à côte, un étage bas, l'auvent
+    // au-dessus de la façade à claire-voie, la porte sombre.
     <>
-      <g fill="currentColor" fillOpacity={0.32}>
-        <path d="M6 50 Q22 42 38 50 Z M42 44 Q60 34 78 44 Z M82 50 Q98 42 114 50 Z" />
-      </g>
-      {snowy && <path d="M10 49 Q22 43 34 49 M46 43 Q60 36 74 43 M86 49 Q98 43 110 49" stroke={SNOW} strokeWidth={2.2} fill="none" />}
-      <g fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeOpacity={0.4}>
-        <rect x={10} y={50} width={24} height={22} />
-        <rect x={46} y={44} width={28} height={28} />
-        <rect x={86} y={50} width={24} height={22} />
-      </g>
+      {[4, 43, 82].map((x0) => (
+        <g key={x0}>
+          <path d={`M${x0 - 3} 38 L${x0 + 5} 30 H${x0 + 29} L${x0 + 37} 38 Z`} fill="currentColor" fillOpacity={0.45} />
+          {snowy && <path d={`M${x0 + 5} 30.5 H${x0 + 29}`} stroke={SNOW} strokeWidth={2.4} />}
+          <rect x={x0} y={38} width={34} height={9} fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.8} />
+          <path d={`M${x0 + 6} 41 h6 M${x0 + 22} 41 h6`} stroke="currentColor" strokeOpacity={0.35} strokeWidth={2} />
+          <path d={`M${x0 - 2} 52 L${x0 + 2} 47 H${x0 + 32} L${x0 + 36} 52 Z`} fill="currentColor" fillOpacity={0.4} />
+          <rect x={x0} y={52} width={34} height={20} fill="currentColor" fillOpacity={0.06} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.8} />
+          <path
+            d={Array.from({ length: 8 }, (_, i) => `M${x0 + 3 + i * 1.7} 55 V70`).join(" ") + " " + Array.from({ length: 6 }, (_, i) => `M${x0 + 23 + i * 1.7} 55 V70`).join(" ")}
+            stroke="currentColor"
+            strokeOpacity={0.3}
+            strokeWidth={0.6}
+          />
+          <rect x={x0 + 17} y={56} width={5} height={16} fill="currentColor" fillOpacity={0.3} />
+        </g>
+      ))}
     </>
   ),
   roofs: (snowy) => (
-    // Les toits serrés d'une grande ville, en rangs.
+    // Les toits serrés d'une grande ville, en trois rangs qui s'éloignent : pâles au fond, plus
+    // sombres devant. Dans un rang, les maisons se touchent, sur un même mur.
     <>
-      <g fill="currentColor" fillOpacity={0.22}>
-        <path d="M0 46 L10 38 H30 L40 46 Z M34 40 L46 30 H70 L82 40 Z M76 46 L88 36 H108 L120 46 Z" />
-      </g>
-      <g fill="currentColor" fillOpacity={0.36}>
-        <path d="M8 58 L18 50 H40 L50 58 Z M46 54 L58 44 H80 L92 54 Z M88 58 L98 50 H116 L120 54 V58 Z" />
-      </g>
-      {snowy && <path d="M18 50 H40 M58 44 H80 M98 50 H116" stroke={SNOW} strokeWidth={2.4} />}
-      <g fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeOpacity={0.35}>
-        <rect x={12} y={58} width={34} height={14} />
-        <rect x={52} y={54} width={36} height={18} />
-        <rect x={92} y={58} width={26} height={14} />
-      </g>
+      {[
+        { w: 24, y: 44, h: 6, wall: 6, op: 0.18 },
+        { w: 30, y: 54, h: 7, wall: 8, op: 0.3 },
+        { w: 40, y: 64, h: 8, wall: 8, op: 0.42 },
+      ].map((row, r) => (
+        <g key={r}>
+          <rect x={0} y={row.y} width={120} height={row.wall} fill={BG} />
+          <rect x={0} y={row.y} width={120} height={row.wall} fill="currentColor" fillOpacity={0.06} />
+          <path
+            d={Array.from({ length: Math.ceil(120 / row.w) + 1 }, (_, i) => `M${i * row.w} ${row.y} V${row.y + row.wall}`).join(" ")}
+            stroke="currentColor"
+            strokeOpacity={0.3}
+            strokeWidth={0.7}
+          />
+          {Array.from({ length: Math.ceil(120 / row.w) }, (_, i) => (
+            <g key={i}>
+              <path
+                d={`M${i * row.w - 1} ${row.y + 1} L${i * row.w + row.w * 0.22} ${row.y + 1 - row.h} H${i * row.w + row.w * 0.78} L${(i + 1) * row.w + 1} ${row.y + 1} Z`}
+                fill="currentColor"
+                fillOpacity={row.op}
+              />
+              {snowy && <path d={`M${row.w * 0.2 + i * row.w} ${row.y + 1.4 - row.h} h${row.w * 0.6}`} stroke={SNOW} strokeWidth={2} />}
+            </g>
+          ))}
+        </g>
+      ))}
     </>
   ),
   volcano: (snowy) => (
-    // Un volcan : cône tronqué et son panache (l'Asama).
+    // Un volcan (l'Asama) : large cône aux flancs creusés, cratère ébréché, panache épais.
     <>
-      <path d="M4 72 L46 26 H74 L116 72 Z" fill="currentColor" fillOpacity={0.14} />
-      {snowy && <path d="M38 35 L46 26 H74 L82 35 L72 38 L64 33 L56 39 L48 33 Z" fill={SNOW} />}
-      <path d="M58 24 q-6 -8 2 -12 q8 -4 4 -10 M66 22 q6 -6 0 -12" stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+      <path d="M0 72 Q30 60 42 34 L50 28 L55 31 L62 28 L68 30 L78 34 Q90 60 120 72 Z" fill="currentColor" fillOpacity={0.16} />
+      <path d="M48 33 L38 62 M60 30 L58 66 M72 33 L82 62" stroke="currentColor" strokeOpacity={0.1} strokeWidth={1.2} />
+      {snowy && <path d="M43 36 L50 28 L55 31 L62 28 L68 30 L77 36 L70 39 L63 35 L57 40 L50 35 Z" fill={SNOW} />}
+      <path d="M58 27 Q52 20 58 15 Q64 10 58 4 M64 26 Q70 20 66 14" stroke="currentColor" strokeOpacity={0.3} strokeWidth={3} fill="none" strokeLinecap="round" />
     </>
   ),
   onsen: () => (
@@ -266,11 +437,7 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
       <path d="M92 22 L76 74" stroke="currentColor" strokeOpacity={0.55} strokeWidth={1.3} />
     </>
   ),
-  torii: () => (
-    <g stroke={ACC} strokeWidth={3.4} strokeLinecap="round" fill="none">
-      <path d="M32 22 Q60 15 88 22 M38 31 H82 M44 22 V72 M76 22 V72" />
-    </g>
-  ),
+  torii: () => <>{toriiShape(60, 16, 56, 72)}</>,
   shrine: () => (
     <>
       <path d="M24 40 L60 22 L96 40 Z" fill="currentColor" fillOpacity={0.36} />
@@ -280,30 +447,52 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     </>
   ),
   temple: () => (
+    // Un temple : grand toit à coins relevés sur sa salle à piliers, l'escalier et le socle.
     <>
-      <path d="M14 40 Q30 36 40 24 H80 Q90 36 106 40 Z" fill="currentColor" fillOpacity={0.38} />
-      <rect x={30} y={40} width={60} height={26} fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeOpacity={0.4} />
-      <path d="M44 40 V66 M60 40 V66 M76 40 V66" stroke="currentColor" strokeOpacity={0.3} />
-      <path d="M24 66 H96 V72 H24 Z" fill="currentColor" fillOpacity={0.18} />
+      <rect x={30} y={40} width={60} height={26} fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.4} strokeWidth={0.8} />
+      <path d="M38 40 V66 M50 40 V66 M70 40 V66 M82 40 V66" stroke="currentColor" strokeOpacity={0.3} />
+      <rect x={52} y={48} width={16} height={18} fill="currentColor" fillOpacity={0.22} />
+      {roof(60, 42, 100, 20, 0.42)}
+      <path d="M38 23 H82" stroke="currentColor" strokeOpacity={0.5} strokeWidth={2} />
+      <path d="M22 66 H98 V72 H22 Z" fill="currentColor" fillOpacity={0.18} />
+      <path d="M52 66 h16 M50 69 h20" stroke="currentColor" strokeOpacity={0.3} />
     </>
   ),
-  pagoda: () => (
-    <g transform="translate(46 10)" fill="currentColor" fillOpacity={0.42}>
-      <path d="M13.4 0 h1.2 v6 h-1.2 Z M6 10 Q14 6 22 10 Z M4 19 Q14 14 24 19 Z M2 28 Q14 22 26 28 Z M0 37 Q14 30 28 37 Z M-2 46 Q14 38 30 46 Z" />
-      <rect x={10} y={10} width={8} height={5} />
-      <rect x={9} y={19} width={10} height={5} />
-      <rect x={8} y={28} width={12} height={5} />
-      <rect x={7} y={37} width={14} height={5} />
-      <rect x={6} y={46} width={16} height={16} />
-    </g>
-  ),
+  pagoda: () => {
+    // Une pagode à cinq toits : chaque étage un peu plus étroit, les égouts relevés, la flèche
+    // (sōrin) et ses anneaux au sommet.
+    const tiers = [0, 1, 2, 3, 4].map((i) => {
+      const y = 64 - i * 10;
+      const w = 46 - i * 5;
+      return (
+        <g key={i}>
+          <rect x={60 - (9 - i)} y={y} width={2 * (9 - i)} height={i === 0 ? 4 : 6} fill="currentColor" fillOpacity={0.2} />
+          {roof(60, y, w, 5, 0.5, `p${i}`)}
+        </g>
+      );
+    });
+    return (
+      <>
+        <rect x={44} y={68} width={32} height={4} fill="currentColor" fillOpacity={0.25} />
+        {tiers}
+        <path d="M60 23 V6" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.6} />
+        <path d="M57 10 h6 M57 13 h6 M57 16 h6 M57 19 h6" stroke="currentColor" strokeOpacity={0.5} />
+      </>
+    );
+  },
   castle: () => (
+    // Une ville-château (Himeji, Odawara) : le socle de pierre aux flancs galbés, trois étages
+    // de murs blancs sous des toits aux coins relevés, les shachihoko au faîte.
     <>
-      <path d="M26 72 L34 52 H86 L94 72 Z" fill="currentColor" fillOpacity={0.26} />
-      <rect x={42} y={38} width={36} height={14} fill={SNOW} stroke="currentColor" strokeOpacity={0.45} />
-      <path d="M36 40 Q60 32 84 40 Z" fill="currentColor" fillOpacity={0.5} />
-      <rect x={48} y={24} width={24} height={12} fill={SNOW} stroke="currentColor" strokeOpacity={0.45} />
-      <path d="M42 26 Q60 18 78 26 Z M50 14 Q60 8 70 14 L66 18 H54 Z" fill="currentColor" fillOpacity={0.5} />
+      <path d="M20 72 Q32 68 35 54 H85 Q88 68 100 72 Z" fill="currentColor" fillOpacity={0.24} />
+      <path d="M30 64 H90 M33 58 H87 M48 54 L46 72 M64 54 V72 M80 54 L82 72" stroke="currentColor" strokeOpacity={0.15} />
+      {wall(38, 42, 44, 12, 5)}
+      {roof(60, 43, 60, 7, 0.55)}
+      {wall(44, 30, 32, 10, 3)}
+      {roof(60, 31, 46, 6, 0.55)}
+      {wall(50, 19, 20, 9, 2)}
+      {roof(60, 20, 32, 7, 0.6)}
+      <path d="M51 13 q-1 -3 1 -4 M69 13 q1 -3 -1 -4" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.4} strokeLinecap="round" fill="none" />
     </>
   ),
   boats: () => (
@@ -335,17 +524,22 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     </>
   ),
   vines: () => (
-    <g stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.2}>
-      <path d="M8 46 H112 M8 58 H112 M14 40 V72 M44 40 V72 M74 40 V72 M104 40 V72" />
-      <g fill="currentColor" fillOpacity={0.25} stroke="none">
-        <circle cx={26} cy={50} r={3} />
-        <circle cx={58} cy={50} r={3} />
-        <circle cx={88} cy={50} r={3} />
-        <circle cx={34} cy={62} r={3} />
-        <circle cx={66} cy={62} r={3} />
-        <circle cx={96} cy={62} r={3} />
+    // Les vignes de Kai, en treille haute (tanazukuri) : la tonnelle de feuilles portée par des
+    // piquets, les grappes qui pendent dessous.
+    <>
+      <path d="M14 72 V40 M44 72 V40 M74 72 V40 M104 72 V40" stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.4} />
+      <path d="M4 40 Q12 32 22 37 Q30 30 40 36 Q50 30 58 36 Q68 30 78 36 Q88 30 96 36 Q106 31 116 38 L116 42 H4 Z" fill="currentColor" fillOpacity={0.24} />
+      <g fill="currentColor" fillOpacity={0.4}>
+        {[26, 58, 90].map((x) => (
+          <g key={x}>
+            <circle cx={x - 2.4} cy={45} r={2.2} />
+            <circle cx={x + 2.4} cy={45} r={2.2} />
+            <circle cx={x} cy={48.6} r={2.2} />
+            <circle cx={x} cy={52.2} r={1.8} />
+          </g>
+        ))}
       </g>
-    </g>
+    </>
   ),
   orchard: () => (
     <g>
