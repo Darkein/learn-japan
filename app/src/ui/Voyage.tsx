@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { ROUTES } from "../data/routes";
 import { allLessonProgress } from "../lib/db";
 import { listLessons } from "../lib/lessons";
-import {
-  estimateLessonsToNext,
-  tokaidoStatus,
-  type TokaidoStatus,
-} from "../lib/tokaido";
+import { tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
 import { formatDaysAgo } from "../lib/time";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { ProgressBar } from "./kit/ProgressBar";
@@ -47,11 +43,10 @@ export function Voyage() {
 
   if (!status) return <LoadingScreen />;
 
-  const { pos, levels } = status;
+  const { pos } = status;
   const route = pos.route;
   const stations = route.stations;
   const span = stations.length - 1;
-  const lessonsToNext = estimateLessonsToNext(pos, levels);
   const currentIndex = pos.station.index;
 
   return (
@@ -66,11 +61,11 @@ export function Voyage() {
             </>
           ) : pos.next ? (
             <>
-              {currentIndex} étape{currentIndex > 1 ? "s" : ""} sur {span} — tu es à{" "}
+              {currentIndex} ville{currentIndex > 1 ? "s" : ""} sur {span} — tu es à{" "}
               <span className="font-jp">{pos.station.kanji}</span> {pos.station.romaji}.
             </>
           ) : (
-            <>Tu as atteint {route.arriveFr} — les {span} étapes du {route.name} sont derrière toi.</>
+            <>Tu as atteint {route.arriveFr} — les {span} villes du {route.name} sont derrière toi.</>
           )}
         </p>
         {departedAt && (
@@ -79,10 +74,12 @@ export function Voyage() {
         <ProgressBar value={(pos.position / span) * 100} />
         {pos.next && (
           <p className="text-sm text-muted">
-            Prochaine étape : <span className="font-jp text-text">{pos.next.kanji}</span>{" "}
-            {pos.next.romaji} — {pos.betweenPct} % du chemin
-            {lessonsToNext != null && (
-              <>, encore ~{lessonsToNext} leçon{lessonsToNext > 1 ? "s" : ""}</>
+            Prochaine ville : <span className="font-jp text-text">{pos.next.kanji}</span>{" "}
+            {pos.next.romaji}
+            {pos.stepsToNext != null && (
+              <>
+                {" "}— encore {pos.stepsToNext} étape{pos.stepsToNext > 1 ? "s" : ""} du parcours
+              </>
             )}
             .
           </p>
@@ -117,7 +114,7 @@ export function Voyage() {
                 <span className="font-jp text-text">{r.kanji}</span>
                 <span className={`text-sm ${current ? "text-text" : "text-muted"}`}>{r.name}</span>
                 <span className="ml-auto truncate pl-2 text-xs text-muted">
-                  {done ? "parcourue" : current ? r.tagline : `${r.stations.length - 1} étapes`}
+                  {done ? "parcourue" : current ? r.tagline : `${r.stations.length - 1} villes`}
                 </span>
               </li>
             );

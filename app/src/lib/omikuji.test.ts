@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   _resetDbForTests,
   bumpSrsDaily,
-  getMeta,
   localDateString,
   logReview,
   putStory,
@@ -18,13 +17,13 @@ import {
   drawFor,
   drawOmikuji,
   FORTUNES,
-  fortuneById,
   markOmikujiSeen,
   omikujiProgress,
   shouldOpenOmikuji,
   type OmikujiEnv,
 } from "./omikuji";
 import { newCard, State } from "./srs";
+import { fortuneStamps } from "./tokaido";
 import { PRODUCTION_MIN_DAYS } from "./vocabDrills";
 
 const NOW = new Date("2026-07-05T12:00:00");
@@ -183,17 +182,17 @@ describe("checkOmikuji", () => {
     expect(check?.completedNow).toBe(false);
     expect(check?.rec.completedAt).toBeUndefined();
 
-    // La 5ᵉ déclenche l'accomplissement + bonus Tōkaidō (fixé par la fortune tirée).
-    const expectedBonus = fortuneById(rec.fortune).bonus;
+    // La 5ᵉ déclenche l'accomplissement et pose le tampon de la fortune tirée (SPEC §5c.5).
+    const expected = [{ date: rec.date, fortune: rec.fortune }];
     await logReview({ itemId: "w5", track: "vocab", skill: "production", grade: "good", at: date.getTime() + 5 });
     check = await checkOmikuji(date);
     expect(check?.completedNow).toBe(true);
-    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(expectedBonus);
+    expect(await fortuneStamps()).toEqual(expected);
 
-    // Idempotence : re-vérifier ne re-crédite pas.
+    // Idempotence : re-vérifier ne pose pas un second tampon.
     check = await checkOmikuji(date);
     expect(check?.completedNow).toBe(false);
-    expect(await getMeta<number>("tokaido.bonus")).toBeCloseTo(expectedBonus);
+    expect(await fortuneStamps()).toEqual(expected);
   });
 
   it("les échecs (again) ne comptent pas dans prodOk", async () => {
@@ -221,18 +220,11 @@ describe("catalogue", () => {
     }
   });
 
-  it("chaque fortune a un bonus > 0 (jamais de punition) et un libellé de bonus", () => {
+  it("chaque fortune a un poids de tirage > 0 et son kanji", () => {
     for (const f of FORTUNES) {
-      expect(f.bonus).toBeGreaterThan(0);
       expect(f.weight).toBeGreaterThan(0);
-      expect(f.bonusFr.length).toBeGreaterThan(0);
+      expect(f.kanji.length).toBeGreaterThan(0);
     }
-  });
-
-  it("les bonnes fortunes rapportent plus que les mauvaises", () => {
-    expect(fortuneById("daikichi").bonus).toBeGreaterThan(fortuneById("kichi").bonus);
-    expect(fortuneById("kichi").bonus).toBeGreaterThan(fortuneById("kyo").bonus);
-    expect(fortuneById("daikyo").bonus).toBeLessThanOrEqual(fortuneById("kyo").bonus);
   });
 });
 

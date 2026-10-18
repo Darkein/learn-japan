@@ -20,7 +20,7 @@ export function StationArrival({ arrival, onClose }: Props) {
     <Sheet open onClose={onClose}>
       <div className="flex flex-col items-center gap-4 px-2 py-6 text-center">
         <SectionLabel>
-          {last ? `Terme du ${route.name}` : `${station.index}ᵉ étape · ${route.name}`}
+          {last ? `Terme du ${route.name}` : `Ville ${station.index} · ${route.name}`}
         </SectionLabel>
         <p className="font-jp text-3xl text-text">{station.kanji}</p>
         {/* Trait d'encre révélé sous le nom. */}
@@ -36,7 +36,7 @@ export function StationArrival({ arrival, onClose }: Props) {
           />
         </svg>
         <p className="text-sm text-muted">
-          {last ? "Tu arrives à" : "Tu arrives à l'étape"}{" "}
+          Tu arrives à{" "}
           <span className="text-text">{station.romaji}</span>.
         </p>
         {station.note && <p className="max-w-sm text-sm leading-relaxed text-muted">{station.note}</p>}

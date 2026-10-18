@@ -237,7 +237,7 @@ export function TokaidoStrip({ pos, onOpen }: Props) {
         aria-label={`Voir le voyage sur le ${route.name}`}
       >
         <SectionLabel className="shrink-0 whitespace-nowrap">
-          {route.name} · étape {pos.station.index}/{span}
+          {route.name} · ville {pos.station.index}/{span}
         </SectionLabel>
         <span className="truncate text-xs text-muted">
           <span className="font-jp text-text">{pos.station.kanji}</span> {pos.station.romaji}

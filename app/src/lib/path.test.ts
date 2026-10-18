@@ -7,6 +7,7 @@ import {
   lessonSteps,
   nextStep,
   stepNumber,
+  stepNumberBases,
 } from "./path";
 import { newCard, State } from "./srs";
 
@@ -76,5 +77,21 @@ describe("éléments déjà acquis (dispense des étapes de découverte)", () =>
     const g: GrammarItem = { id: "n5-iru", name: "いる", rule: "", examples: [], tags: [], status: "unknown" };
     expect(isPreAcquiredGrammar(g)).toBe(false);
     expect(isPreAcquiredGrammar({ ...g, card: { ...newCard(), state: State.Review } })).toBe(true);
+  });
+});
+
+describe("stepNumberBases", () => {
+  it("numérote les étapes sur tout le curriculum, sans compter les étapes absentes", () => {
+    const withGrammar = { vocab: ["a"], grammar: ["g"] };
+    const noGrammar = { vocab: ["a"], grammar: [] };
+    const bases = stepNumberBases([
+      { id: "l1", introduces: withGrammar },
+      { id: "l2", introduces: noGrammar },
+      { id: "l3", introduces: withGrammar },
+    ]);
+    expect(bases.get("l1")).toBe(0);
+    expect(bases.get("l2")).toBe(7);
+    // l2 n'a que 6 étapes : l3 commence à la n° 14.
+    expect(bases.get("l3")).toBe(13);
   });
 });

@@ -43,7 +43,6 @@ import type { ComprehensionQuestion } from "./genClient";
 import { grammarDetail, grammarForm } from "./inventory";
 import { answerVariants, normalizeReading, primaryForm } from "./kana";
 import { wordSpeechText } from "./speech";
-import { addTokaidoBonus } from "./tokaido";
 import type { KuromojiToken } from "./tokenizer";
 import { isNearMiss } from "./typo";
 import { effectiveExample } from "./vocab";
@@ -1259,8 +1258,6 @@ export async function submitExam(
       completedAt: prev.completedAt ?? now.getTime(),
       examPassedAt: prev.examPassedAt ?? now.getTime(),
     });
-    // Franchir la barrière fait avancer sur la route (même geste que le défi omikuji).
-    await addTokaidoBonus(EXAM.tokaidoBonus);
   }
 
   return result;
