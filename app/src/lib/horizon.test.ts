@@ -79,7 +79,7 @@ describe("le décor qui défile", () => {
       const b = at(layer, 1100);
       const common = a.find((it) => b.some((j) => j.key === it.key))!;
       const moved = b.find((j) => j.key === common.key)!.x - common.x;
-      expect(moved).toBeCloseTo(layer === "mid" ? 22 : 55, 5);
+      expect(moved).toBeCloseTo(layer === "mid" ? 22 : 42, 5);
       expect(at(layer, 1000)).toEqual(a);
     }
   });

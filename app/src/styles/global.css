@@ -280,9 +280,24 @@
   /* Le papier des repères, qui se dressent sur le sol. */
   --paper: var(--sky-ground);
 }
-/* Le sol sous l'horizon : un replat à peine teinté qui se fond dans le fond de la voie. */
+/* Le sol sous l'horizon : un replat opaque, un peu plus sombre vers le bas de la vitre. */
 .horizon-ground {
-  background: linear-gradient(var(--sky-ground), var(--bg));
+  background: linear-gradient(var(--sky-ground), color-mix(in oklab, var(--text) 9%, var(--sky-low)));
+}
+/* La fenêtre du train : un cadre fin et un léger creux sur la vitre, posé par-dessus le décor ;
+   le rebord jette une ombre sur la voie qui passe dessous. */
+.horizon-frame {
+  box-shadow: 0 8px 10px -10px rgb(0 0 0 / 0.35);
+}
+.horizon-window::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1.5px var(--hairline-strong),
+    inset 0 3px 8px -4px rgb(0 0 0 / 0.25);
 }
 
 /* Le ciel de la voie (ui/track/Sky) : étoiles qui scintillent, brume du matin qui dérive,

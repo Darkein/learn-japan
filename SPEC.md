@@ -1003,11 +1003,16 @@ crête, décor qui défile** (canevas « Ciel séparé — propositions »). Le 
 la voie : il a sa bande, opaque, collée sous le bandeau de leçon, et la voie passe dessous.
 La bande ne contient aucun bouton.
 
+- **La fenêtre du train.** La bande se regarde par une vitre : un cadre fin aux coins arrondis,
+  en retrait de 8 px sur les côtés et en bas, sur le fond de la voie, et dont le rebord jette une
+  ombre légère sur la voie qui passe dessous. Le décor qui glisse de côté est le paysage vu du
+  train ; la voie, dessous, est la carte. Rien ne déborde du cadre.
+
 - **Le panorama du départ.** Tout en haut de la voie, avant la première étape, le ciel est grand
   (280 px) et porte le nom de la route en kanji et son sous-titre. Au défilement, il se replie
   jusqu'à 120 px, et y reste.
 - **Le ciel et le sol.** L'horizon partage la bande : le ciel au-dessus, un sol en dessous, qui
-  prend 40 % de la bande (entre 50 et 112 px) et se fond vers le bas dans le fond de la voie. Les
+  prend 40 % de la bande (entre 50 et 112 px), opaque, un peu plus sombre vers le bas de la vitre. Les
   plans s'étagent sur ce sol, du plus loin (en haut, contre l'horizon) au plus proche (en bas) :
   l'eau des repères se pose sur le sol, devant les monts, jamais sur eux.
 - **Les plans**, du plus loin au plus proche :
@@ -1016,7 +1021,8 @@ La bande ne contient aucun bouton.
      défilé) ;
   3. le **plan moyen** qui défile (monts, forêts, temples), aux 6/10 du sol ;
   4. les **repères** des villes, au quart du sol ;
-  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), au bas de la bande, en
+  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
+     la vitre — une bande de sol vide et calme sépare ce qui glisse vite de la voie — en
      silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
   Les deux plans qui défilent rapetissent quand la bande se replie.
 - **Les repères des villes.**
@@ -1030,7 +1036,7 @@ La bande ne contient aucun bouton.
     sa ville est sur la voie visible.
 - **Le décor qui défile.**
   - Deux plans glissent de côté au fil du défilement, dans le même sens que les repères : le plan
-    moyen à 0,22 px par px défilé, le plan proche à 0,55 px.
+    moyen à 0,22 px par px défilé, le plan proche à 0,42 px.
   - Chaque élément a son rang sur une bande sans fin, d'où se tirent sa place, sa taille et sa
     forme : le décor ne change pas d'une visite à l'autre.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe

@@ -7,11 +7,13 @@ import {
   groundDepth,
   markRaised,
   markX,
+  NEAR_GAP,
   PLANE_AT,
   ridgePath,
   SKY_MAX,
   skyHeight,
   skyMarks,
+  WINDOW_INSET,
   type DriftItem,
 } from "../../lib/horizon";
 import type { RouteScenery, Season } from "../../lib/scenery";
@@ -72,7 +74,8 @@ function Drift({ items, bottom, fill, size = 1 }: { items: DriftItem[]; bottom: 
  * La bande de ciel (SPEC §5c.6b), collée sous le bandeau de leçon : le panorama du départ qui se
  * replie, et le décor qui défile en deux plans ; entre les deux glissent les repères des villes,
  * dont le nom paraît tant que leur ville est sur la voie visible. Sous l'horizon, le sol étage les
- * plans : la crête au fond, puis le plan moyen, les repères, le plan proche en bas.
+ * plans : la crête au fond, puis le plan moyen, les repères, le plan proche en bas. La bande se
+ * regarde par la fenêtre du train : une vitre encadrée, en retrait, qui la sépare de la voie.
  */
 export function Horizon({ layout, sceneries, season, top, track, title }: Props) {
   const sky = useSky(season);
@@ -108,7 +111,9 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
   const marks = useMemo(() => skyMarks(layout, sceneries), [layout, sceneries]);
   const biomes = useMemo(() => biomeTrack(layout, sceneries), [layout, sceneries]);
   const { skyH, pos, visible } = view;
-  const W = layout.width;
+  // La vitre, en retrait du bord de l'écran et du bas de la bande.
+  const W = layout.width - 2 * WINDOW_INSET;
+  const glassH = skyH - WINDOW_INSET;
   const at = (y: number) => biomeAt(biomes, y);
   const mid = driftItems("mid", pos, W, visible / 3, at);
   const ground = groundDepth(skyH);
@@ -120,8 +125,9 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
   const titleOpacity = Math.max(0, 1 - Math.max(0, view.u) / 120);
 
   return (
-    <div data-sky={sky.time} className="sticky z-10" style={{ top, height: skyH, marginBottom: -skyH }}>
-      <Sky sky={sky} height={skyH} ground={ground}>
+    <div data-sky={sky.time} className="horizon-frame sticky z-10 bg-bg" style={{ top, height: skyH, marginBottom: -skyH, padding: `0 ${WINDOW_INSET}px ${WINDOW_INSET}px` }}>
+      <div className="horizon-window relative overflow-hidden rounded-md" style={{ height: glassH }}>
+      <Sky sky={sky} height={glassH} ground={ground}>
         {title && titleOpacity > 0 && (
           <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
             <span className="font-jp text-3xl tracking-widest">{title.kanji}</span>
@@ -153,8 +159,9 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             </span>
           );
         })}
-        <Drift items={near} bottom={ground * PLANE_AT.near} fill="var(--sky-near)" size={size} />
+        <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} />
       </Sky>
+      </div>
     </div>
   );
 }
