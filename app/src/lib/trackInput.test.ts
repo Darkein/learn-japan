@@ -49,13 +49,15 @@ describe("trackInput", () => {
 
 describe("trackRoutes", () => {
   it("le départ et le terminus sont des terminus, les jalons de grandes villes", () => {
-    const tokaido = trackRoutes().find((r) => r.level === 5)!;
+    const tokaido = trackRoutes([]).find((r) => r.level === 5)!;
     expect(tokaido.cities[0].size).toBe("terminus");
     expect(tokaido.cities[54].size).toBe("terminus");
     expect(tokaido.cities[19].size).toBe("grande"); // Fuchū (Shizuoka)
     expect(tokaido.cities[4].size).toBe("ville");
-    const custom = trackRoutes((lv, i) => (lv === 5 && i === 4 ? "village" : undefined));
-    expect(custom.find((r) => r.level === 5)!.cities[4].size).toBe("village");
+    const cities = Array.from({ length: 55 }, () => ({ kana: "" }));
+    cities[4] = { kana: "ほどがや", size: "village", motif: "pine", glyph: "保" } as never;
+    const custom = trackRoutes([{ level: 5, cities }]).find((r) => r.level === 5)!;
+    expect(custom.cities[4]).toMatchObject({ size: "village", kana: "ほどがや", motif: "pine", glyph: "保" });
   });
 });
 

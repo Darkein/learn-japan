@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getCurriculum } from "./curriculum";
 import { lessonSteps } from "./path";
-import { inkBox, placeDecor, seasonOf, type DecorItem, type RouteScenery } from "./scenery";
+import { inkBox, placeDecor, seasonOf, type CityScenery, type DecorItem, type RouteScenery } from "./scenery";
 import { layoutTrack, samplePath, type Box, type TrackLayout } from "./track";
 import { trackInput, type TrackLessonSource } from "./trackInput";
 
@@ -14,13 +14,25 @@ function realLayout(sceneries: RouteScenery[]): TrackLayout {
 }
 
 /** Un Tōkaidō d'essai : paysages variés, repères, une traversée de chaque sorte, Kanbara et Shōno. */
-const TEST_SCENERY: RouteScenery = {
-  level: 5,
-  landmarks: { 0: [{ kind: "bridge" }], 10: [{ kind: "torii" }, { kind: "shrine" }], 14: [{ kind: "fuji", far: true }] },
-  biomes: { 1: "town", 5: "coast", 9: "mountain", 10: "lake", 20: "tea", 24: "river" },
-  crossings: { 7: "bridge", 24: "ford", 42: "ferry" },
-  forced: { 15: "snow", 45: "rain" },
-};
+function testScenery(): RouteScenery {
+  const cities: CityScenery[] = Array.from({ length: 55 }, () => ({ kana: "" }));
+  const set = (i: number, c: Partial<CityScenery>) => (cities[i] = { ...cities[i], ...c });
+  set(0, { marks: [{ kind: "bridge" }] });
+  set(1, { biome: "town" });
+  set(5, { biome: "coast" });
+  set(7, { crossing: "bridge" });
+  set(9, { biome: "mountain", relief: "pass" });
+  set(10, { biome: "lake", marks: [{ kind: "torii" }, { kind: "shrine" }] });
+  set(13, { unique: "fuji-hara" });
+  set(14, { marks: [{ kind: "fuji", far: true }] });
+  set(15, { forced: "snow" });
+  set(20, { biome: "tea" });
+  set(24, { biome: "river", crossing: "ford", unique: "oi-ford" });
+  set(42, { crossing: "ferry" });
+  set(45, { forced: "rain" });
+  return { level: 5, cities };
+}
+const TEST_SCENERY = testScenery();
 
 const LAYOUT = realLayout([TEST_SCENERY]);
 
@@ -93,6 +105,9 @@ describe("placeDecor", () => {
     expect(fuji.far).toBe(true);
     expect(fuji.y).toBeLessThan(city(14).y);
     expect(decor.crossings.map((c) => c.type)).toEqual(["bridge", "ford", "ferry"]);
+    // Les illustrations uniques ont leur place, que rien d'autre ne touche.
+    expect(decor.uniques.map((u) => u.kind)).toEqual(["fuji-hara", "oi-ford"]);
+    for (const u of decor.uniques) for (const it of near) expect(overlaps(boxOf(it), u.box)).toBe(false);
     for (const c of decor.crossings) {
       // La bande d'eau tient dans son tronçon, loin des nœuds et de leurs libellés.
       for (const n of LAYOUT.nodes) expect(Math.abs(n.y - c.y)).toBeGreaterThanOrEqual(n.r + 40);
@@ -119,13 +134,14 @@ describe("placeDecor", () => {
   });
 
   it("suit la saison", () => {
-    const kinds = (s: Parameters<typeof placeDecor>[2]) => new Set(placeDecor(LAYOUT, [], s).items.map((i) => i.kind));
+    const plain = realLayout([]);
+    const kinds = (s: Parameters<typeof placeDecor>[2]) => new Set(placeDecor(plain, [], s).items.map((i) => i.kind));
     expect(kinds("spring").has("sakura")).toBe(true);
     expect(kinds("autumn").has("maple")).toBe(true);
     expect(kinds("rainy").has("hydrangea")).toBe(true);
     const none = kinds("none");
     expect(none.has("sakura") || none.has("maple") || none.has("hydrangea")).toBe(false);
-    expect(placeDecor(LAYOUT, [], "winter").items.every((i) => i.snowy)).toBe(true);
+    expect(placeDecor(plain, [], "winter").items.every((i) => i.snowy)).toBe(true);
   });
 
   it("se calcule vite sur tout le curriculum", () => {

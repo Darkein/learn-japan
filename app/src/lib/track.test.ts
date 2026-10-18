@@ -155,3 +155,50 @@ describe("révision libre au bout du curriculum", () => {
     expect(steps).toHaveLength(21);
   });
 });
+
+describe("places réservées et relief", () => {
+  const long = Array.from({ length: 6 }, (_, i) => lesson(`l${i}`, 5, i + 1));
+  const withReserve = (reserve: TrackRoute["reserve"], relief?: TrackRoute["relief"]) =>
+    layoutTrack(input(long, { routes: [{ ...route(5, 3), reserve, relief }] }));
+
+  it("réserve une bande sans nœud dans le tronçon, et la voie contourne l'illustration", () => {
+    const t = withReserve({ 2: { h: 200, around: true } });
+    const [band] = t.reserved;
+    expect(band).toMatchObject({ level: 5, city: 2, h: 200 });
+    const c1 = t.nodes.find((n) => n.id === "city:5:1")!;
+    const c2 = t.nodes.find((n) => n.id === "city:5:2")!;
+    expect(band.y).toBeGreaterThan(c1.y);
+    expect(band.y + band.h).toBeLessThan(c2.y);
+    for (const n of t.nodes) expect(n.y + n.r <= band.y || n.y - n.r >= band.y + band.h).toBe(true);
+    // Un point de passage au bord ; l'illustration prend l'autre côté, sans toucher la voie.
+    const path = t.paths[0];
+    const way = path.points.find((p) => Math.abs(p.y - (band.y + band.h / 2)) < 1)!;
+    expect(way.x === 52 || way.x === 390 - 52).toBe(true);
+    expect(band.art.w).toBe(390 - 100);
+    expect(way.x < 195 ? band.art.x : band.art.x + band.art.w).toBe(way.x < 195 ? 100 : 290);
+    // Les distances des nœuds suivent toujours le tracé.
+    for (const n of t.nodes.filter((n) => n.level === 5)) {
+      const i = path.points.findIndex((p) => p.x === n.x && p.y === n.y);
+      expect(path.dists[i]).toBe(n.dist);
+    }
+  });
+
+  it("une illustration du départ vient avant la première ville, sur toute la largeur", () => {
+    const t = withReserve({ 0: { h: 180 } });
+    const [band] = t.reserved;
+    const c0 = t.nodes.find((n) => n.id === "city:5:0")!;
+    expect(band).toMatchObject({ city: 0, h: 180, art: { x: 0, w: 390 } });
+    expect(band.y + band.h).toBeLessThan(c0.y - c0.r);
+  });
+
+  it("un col fait des lacets, une plaine étire la voie", () => {
+    const xs = (relief: TrackRoute["relief"]) =>
+      withReserve(undefined, relief).nodes.filter((n) => n.level === 5 && n.kind === "step").slice(0, 8).map((n) => n.x);
+    const spread = (v: number[]) => Math.max(...v) - Math.min(...v);
+    const pass = xs({ 1: "pass", 2: "pass", 3: "pass" });
+    const plain = xs({ 1: "plain", 2: "plain", 3: "plain" });
+    // Lacets : chaque nœud change de côté.
+    for (let i = 1; i < pass.length; i++) expect(Math.sign(pass[i] - 195)).toBe(-Math.sign(pass[i - 1] - 195));
+    expect(spread(plain)).toBeLessThan(spread(xs(undefined)));
+  });
+});

@@ -217,6 +217,38 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
       </g>
     </>
   ),
+  roofs: (snowy) => (
+    // Les toits serrés d'une grande ville, en rangs.
+    <>
+      <g fill="currentColor" fillOpacity={0.22}>
+        <path d="M0 46 L10 38 H30 L40 46 Z M34 40 L46 30 H70 L82 40 Z M76 46 L88 36 H108 L120 46 Z" />
+      </g>
+      <g fill="currentColor" fillOpacity={0.36}>
+        <path d="M8 58 L18 50 H40 L50 58 Z M46 54 L58 44 H80 L92 54 Z M88 58 L98 50 H116 L120 54 V58 Z" />
+      </g>
+      {snowy && <path d="M18 50 H40 M58 44 H80 M98 50 H116" stroke={SNOW} strokeWidth={2.4} />}
+      <g fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeOpacity={0.35}>
+        <rect x={12} y={58} width={34} height={14} />
+        <rect x={52} y={54} width={36} height={18} />
+        <rect x={92} y={58} width={26} height={14} />
+      </g>
+    </>
+  ),
+  volcano: (snowy) => (
+    // Un volcan : cône tronqué et son panache (l'Asama).
+    <>
+      <path d="M4 72 L46 26 H74 L116 72 Z" fill="currentColor" fillOpacity={0.14} />
+      {snowy && <path d="M38 35 L46 26 H74 L82 35 L72 38 L64 33 L56 39 L48 33 Z" fill={SNOW} />}
+      <path d="M58 24 q-6 -8 2 -12 q8 -4 4 -10 M66 22 q6 -6 0 -12" stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+    </>
+  ),
+  onsen: () => (
+    // Une source chaude : le bassin et ses trois volutes de vapeur (♨).
+    <>
+      <ellipse cx={60} cy={64} rx={34} ry={7} fill={W} fillOpacity={0.25} stroke="currentColor" strokeOpacity={0.4} />
+      <path d="M46 52 q-6 -8 0 -16 q6 -8 0 -16 M60 50 q-6 -8 0 -16 q6 -8 0 -16 M74 52 q-6 -8 0 -16 q6 -8 0 -16" stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.8} fill="none" strokeLinecap="round" />
+    </>
+  ),
   gate: () => (
     <>
       <path d="M30 28 H90 L84 22 H36 Z" fill="currentColor" fillOpacity={0.45} />

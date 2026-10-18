@@ -1,6 +1,7 @@
 import { pathD, type TrackPath } from "../../lib/track";
 import { WATER_H, type Decor as DecorData, type DecorCrossing } from "../../lib/scenery";
 import { Sprite } from "./sprites";
+import { UniqueArt } from "./uniques";
 
 interface Props {
   decor: DecorData;
@@ -43,6 +44,7 @@ export function Decor({ decor, paths, width, y0, y1 }: Props) {
   const h = y1 - y0;
   const visible = decor.items.filter((it) => it.y + 80 * it.scale >= y0 - 20 && it.y <= y1 + 20);
   const crossings = decor.crossings.filter((c) => c.y + WATER_H >= y0 && c.y - WATER_H <= y1);
+  const uniques = decor.uniques.filter((u) => u.box.y + u.box.h >= y0 - 20 && u.box.y <= y1 + 20);
   return (
     <svg
       aria-hidden="true"
@@ -57,6 +59,11 @@ export function Decor({ decor, paths, width, y0, y1 }: Props) {
           <Sprite key={`f${i}:${Math.round(it.y)}`} {...it} />
         ))}
       </g>
+      {uniques.map((u) => {
+        const mid = u.box.y + u.box.h / 2;
+        const rail = decor.crossings.find((c) => Math.abs(c.y - mid) < 2)?.x;
+        return <UniqueArt key={`u:${u.kind}:${Math.round(u.box.y)}`} unique={u} railX={rail} />;
+      })}
       {crossings.map((c) => {
         const d = pathAt(paths, c.y);
         const clip = `cross-${Math.round(c.y)}`;
