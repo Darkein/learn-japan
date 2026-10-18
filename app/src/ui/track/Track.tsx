@@ -3,12 +3,23 @@ import { pathD, TRAIN_LENGTH, type TrackLayout, type TrackNode, type TrackSectio
 import { cancelScrollRestore } from "../useHashRoute";
 import { IconLock } from "../kit/Icon";
 import { Rails } from "./Rails";
+import { CityStamp } from "./Stamp";
 import { TrackNodeView } from "./TrackNodeView";
 
 /** Hauteur d'une tranche de rendu : la voie entière ferait des dizaines de milliers de px. */
 const SLICE = 900;
 /** Mémoire de l'arrêt du train vu en dernier (confort par appareil, SPEC §5c.3). */
 const TRAIN_KEY = "track.train";
+/** Mémoire des tampons déjà vus posés, par niveau : les nouveaux s'impriment à l'arrivée. */
+const STAMPS_KEY = "track.stamps";
+
+function readStamps(): Record<number, number> | null {
+  try {
+    return JSON.parse(localStorage.getItem(STAMPS_KEY) ?? "null");
+  } catch {
+    return null;
+  }
+}
 
 interface Props {
   layout: TrackLayout;
@@ -153,6 +164,25 @@ export function Track({ layout, trainColor, bubble, metaOf, onTapNode, renderMar
     };
   }, [layout, current, onSection]);
 
+  // Tampons posés depuis la dernière visite : ils s'impriment quand le train est passé.
+  const seenStamps = useRef(readStamps());
+  const passed = useMemo(() => {
+    const out: Record<number, number> = {};
+    for (const n of layout.nodes) if (n.kind === "city" && n.passed) out[n.level] = Math.max(out[n.level] ?? 0, n.city.index);
+    return out;
+  }, [layout.nodes]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(STAMPS_KEY, JSON.stringify(passed));
+    } catch {
+      // stockage indisponible : les tampons s'affichent simplement posés.
+    }
+  }, [passed]);
+  const isNewStamp = (level: number, index: number) => {
+    const seen = seenStamps.current;
+    return !!seen && index > (seen[level] ?? 0);
+  };
+
   const visibleNodes = useMemo(
     () => layout.nodes.filter((n) => n.y >= view.top - 80 && n.y <= view.bottom + 80),
     [layout.nodes, view],
@@ -198,9 +228,39 @@ export function Track({ layout, trainColor, bubble, metaOf, onTapNode, renderMar
           ),
         )}
 
+      {visibleNodes.map((n) =>
+        n.kind === "city" && n.stamp ? (
+          <span
+            key={`stamp:${n.id}`}
+            className={`pointer-events-none absolute ${isNewStamp(n.level, n.city.index) ? "stamp-pose" : ""}`}
+            style={{ left: n.stamp.x, top: n.stamp.y, animationDelay: `${duration ? duration * 0.8 + 0.45 : 0.3}s` }}
+          >
+            <CityStamp city={n.city} size={n.stamp.w} />
+          </span>
+        ) : null,
+      )}
+
       {visibleNodes.map((n) => (
         <TrackNodeView key={n.id} node={n} width={width} meta={metaOf?.(n)} onTap={onTapNode} />
       ))}
+
+      {paths
+        .filter((p) => p.buffer)
+        .map((p) => {
+          const tail = p.points[p.points.length - 1];
+          if (tail.y < view.top - 100 || tail.y > view.bottom + 100) return null;
+          return (
+            <span
+              key={`buffer:${p.level}`}
+              aria-hidden="true"
+              className="pointer-events-none absolute flex h-[7px] items-center justify-around bg-accent"
+              style={{ left: tail.x - 16, top: tail.y - 2, width: 32 }}
+            >
+              <span className="h-[3px] w-[5px] bg-on-accent" />
+              <span className="h-[3px] w-[5px] bg-on-accent" />
+            </span>
+          );
+        })}
 
       {trainPath && trainDist !== null && train && (
         <div

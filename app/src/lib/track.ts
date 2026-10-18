@@ -28,6 +28,11 @@ export interface TrackLesson {
 
 export type CitySize = "village" | "ville" | "grande" | "terminus";
 
+/** Motif d'un tampon de ville (SPEC §5c.5) : le repère principal de la ville. */
+export type StampMotif =
+  | "castle" | "bridge" | "mountain" | "fuji" | "wave" | "temple" | "shrine" | "lake"
+  | "rice" | "pine" | "town" | "boat" | "gate" | "tea" | "pagoda";
+
 export interface TrackCity {
   index: number;
   kanji: string;
@@ -35,6 +40,10 @@ export interface TrackCity {
   size: CitySize;
   /** Kanji propre au cœur du nœud (sinon celui de sa taille, ui/track/words.ts). */
   glyph?: string;
+  /** Lecture en kana du nom. */
+  kana?: string;
+  /** Motif du tampon (sinon celui de sa taille). */
+  motif?: StampMotif;
 }
 
 export interface TrackRoute {
@@ -92,7 +101,14 @@ export type TrackNode =
       dim: boolean;
     })
   | (NodeBase & { kind: "extra"; extra: ExtraKind; lessonId?: string; state: NodeState; dim: boolean })
-  | (NodeBase & { kind: "city"; city: TrackCity; passed: boolean; next: boolean });
+  | (NodeBase & {
+      kind: "city";
+      city: TrackCity;
+      passed: boolean;
+      next: boolean;
+      /** Tampon posé à côté de la ville passée, du côté libre. */
+      stamp?: Box;
+    });
 
 export type TrackMarker =
   /** Séparateur de leçon, juste au-dessus de son premier nœud. */
@@ -166,6 +182,8 @@ const CURRICULUM_END_H = 220;
 /** Le zigzag : décalage horizontal de chaque nœud, en part de l'amplitude. */
 const ZIGZAG = [0, -0.55, -0.85, -0.55, 0, 0.55, 0.85, 0.55];
 const RADIUS = { village: 22, ville: 28, grande: 32, terminus: 32 } as const;
+/** Côté d'un tampon de ville posé sur la voie. */
+const STAMP = 62;
 
 /** Rayon d'une étape : contrôle carré un peu plus grand, étape à faire plus grande. */
 function stepRadius(step: PathStep, cur: boolean): number {
@@ -336,6 +354,11 @@ export function layoutTrack(input: TrackInput): TrackLayout {
       const node = item.make({ id: "", level, x, y, r: item.r, dist: 0, side: sideFor(x, cx, nextX) });
       node.id =
         node.kind === "step" ? `${node.lessonId}:${node.step}` : node.kind === "city" ? `city:${level}:${node.city.index}` : `${node.extra}:${node.lessonId ?? level}`;
+      if (node.kind === "city" && node.passed && node.city.index > 0) {
+        const s = STAMP;
+        const sx = node.side === "right" ? node.x - node.r - 16 - s : node.x + node.r + 16;
+        node.stamp = { x: Math.max(8, Math.min(width - 8 - s, sx)), y: node.y - s / 2, w: s, h: s };
+      }
       routeNodes.push(node);
       prevCur = (node.kind === "step" || node.kind === "extra") && node.state === "cur";
     });
@@ -401,6 +424,7 @@ export function layoutTrack(input: TrackInput): TrackLayout {
   const keepOut: Box[] = [];
   for (const n of nodes) {
     keepOut.push({ x: n.x - n.r - 24, y: n.y - n.r - 24, w: 2 * n.r + 48, h: 2 * n.r + 48 });
+    if (n.kind === "city" && n.stamp) keepOut.push(n.stamp);
     const lx = n.side === "right" ? n.x + n.r + 8 : n.x - n.r - 8 - LABEL_W;
     keepOut.push({ x: lx, y: n.y - 30, w: LABEL_W, h: 62 });
   }

@@ -46,6 +46,12 @@ describe("layoutTrack", () => {
     expect(ids[ids.length - 1]).toBe("city:5:3");
     const c1 = t.nodes.find((n) => n.id === "city:5:1");
     expect(c1).toMatchObject({ passed: true, next: false });
+    // La ville passée porte son tampon, du côté opposé à son libellé, interdit au décor.
+    const stamp = c1?.kind === "city" ? c1.stamp! : undefined;
+    expect(stamp).toBeDefined();
+    expect(c1!.side === "right" ? stamp!.x + stamp!.w < c1!.x : stamp!.x > c1!.x).toBe(true);
+    expect(t.keepOut).toContainEqual(stamp);
+    expect(t.nodes.find((n) => n.id === "city:5:2")).not.toHaveProperty("stamp");
     expect(t.nodes.find((n) => n.id === "city:5:2")).toMatchObject({ passed: false, next: true });
   });
 

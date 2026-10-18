@@ -135,7 +135,12 @@ export function computeTokaidoPosition(levels: TokaidoLevelStat[]): TokaidoPosit
 
 export interface RouteArrival {
   route: Route;
+  /** La dernière ville franchie, celle que la fiche montre. */
   station: TokaidoStation;
+  /** Les villes franchies avant elle d'un même trajet, citées par la fiche (§5c.5). */
+  others: TokaidoStation[];
+  /** Les chiffres du niveau, pour la célébration du terminus (§5c.7). */
+  totals: { steps: number; lessons: number };
 }
 
 export interface TokaidoStatus {
@@ -191,14 +196,22 @@ export async function tokaidoStatus(lessons: TokaidoLessonLike[]): Promise<Tokai
     if (r.level === level) break;
     const span = r.stations.length - 1;
     if (celebrated[r.level] < span) {
-      return { pos, levels, stamps, newlyArrived: { route: r, station: r.stations[span] } };
+      const others = r.stations.slice(celebrated[r.level] + 1, span).filter((s) => s.index >= 1);
+      const stat = levels.find((s) => s.level === r.level);
+      const totals = { steps: stat?.stepsTotal ?? 0, lessons: stat?.lessonsTotal ?? 0 };
+      return { pos, levels, stamps, newlyArrived: { route: r, station: r.stations[span], others, totals } };
     }
   }
   const floor = Math.floor(pos.position);
   // On ne fête que la dernière ville franchie (pas de rafale après une longue absence).
   const newlyArrived =
     floor > celebrated[level] && floor >= 1
-      ? { route: pos.route, station: pos.route.stations[floor] }
+      ? {
+          route: pos.route,
+          station: pos.route.stations[floor],
+          others: pos.route.stations.slice(Math.max(1, celebrated[level] + 1), floor),
+          totals: { steps: pos.stepsTotal, lessons: levels.find((s) => s.level === level)?.lessonsTotal ?? 0 },
+        }
       : undefined;
   return { pos, levels, stamps, newlyArrived };
 }
