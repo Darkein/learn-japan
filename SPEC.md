@@ -1005,13 +1005,19 @@ La bande ne contient aucun bouton.
 - **Le panorama du départ.** Tout en haut de la voie, avant la première étape, le ciel est grand
   (280 px) et porte le nom de la route en kanji et son sous-titre. Au défilement, il se replie
   jusqu'à 120 px, et y reste.
-- **Les plans du ciel**, du plus loin au plus proche :
-  1. le fond, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
-  2. une crête lointaine, qui défile le plus lentement (0,08 px par px défilé) ;
-  3. le **plan moyen** qui défile (monts, forêts, temples) ;
-  4. les **repères** des villes ;
-  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), en silhouettes de la
-     couleur du fond, posées sur le bas du ciel.
+- **Le ciel et le sol.** L'horizon partage la bande : le ciel au-dessus, un sol en dessous, qui
+  prend 40 % de la bande (entre 50 et 112 px) et se fond vers le bas dans le fond de la voie. Les
+  plans s'étagent sur ce sol, du plus loin (en haut, contre l'horizon) au plus proche (en bas) :
+  l'eau des repères se pose sur le sol, devant les monts, jamais sur eux.
+- **Les plans**, du plus loin au plus proche :
+  1. le fond du ciel, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
+  2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,08 px par px
+     défilé) ;
+  3. le **plan moyen** qui défile (monts, forêts, temples), aux 6/10 du sol ;
+  4. les **repères** des villes, au quart du sol ;
+  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), au bas de la bande, en
+     silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
+  Les deux plans qui défilent rapetissent quand la bande se replie.
 - **Les repères des villes.**
   - Ont un repère : les villes qui ont une illustration unique, et les villes, grandes villes et
     terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.

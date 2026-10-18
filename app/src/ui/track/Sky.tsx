@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Season } from "../../lib/scenery";
 import { moonLitPath, skyAt, type SkyState } from "../../lib/sky";
 
-/** Ce que le ciel garde sous son horizon (la crête lointaine). */
-const CREST = 18;
 
 /** PRNG déterministe (mulberry32) : les étoiles restent à leur place. */
 function rng(seed: number): () => number {
@@ -84,10 +82,11 @@ export function useSky(season: Season): SkyState {
  * Le ciel de la voie (SPEC §5c.6), en haut de la bande d'horizon (§5c.6b), sur son propre fond.
  * Le soleil suit l'heure (à demi caché derrière une crête à l'aube et au crépuscule), la nuit
  * la lune a sa phase réelle et les étoiles scintillent ; brume du matin, oiseaux et pétales
- * selon la saison. `children` se dessine par-dessus, posé sur l'horizon (les repères).
+ * selon la saison. `ground` est la profondeur du sol sous l'horizon ; `children` se dessine
+ * par-dessus (le sol et ses plans).
  */
-export function Sky({ sky, height, children }: { sky: SkyState; height: number; children?: ReactNode }) {
-  const horizon = height - CREST;
+export function Sky({ sky, height, ground, children }: { sky: SkyState; height: number; ground: number; children?: ReactNode }) {
+  const horizon = height - ground;
   const body = sky.sun ?? sky.moon;
   const bodyTop = body ? horizon - 8 - body.alt * Math.max(20, horizon - 30) : 0;
   return (
