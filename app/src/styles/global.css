@@ -243,6 +243,29 @@
   animation: enso-sway 5s ease-in-out infinite;
 }
 
+/* La bande d'horizon (ui/track/Horizon, SPEC §5c.6b) : le ciel a son propre fond, teinté selon
+   l'heure à partir des tokens ; `--sky-low` (le bas du ciel) sert aussi à la brume de l'horizon,
+   `--sky-ridge` à la crête lointaine. */
+[data-sky] {
+  --sky-hi: color-mix(in oklab, var(--accent-2) 15%, var(--bg));
+  --sky-low: color-mix(in oklab, var(--accent-2) 5%, var(--bg));
+}
+[data-sky="dawn"],
+[data-sky="dusk"] {
+  --sky-hi: color-mix(in oklab, var(--accent-2) 12%, var(--bg));
+  --sky-low: color-mix(in oklab, var(--accent) 15%, var(--bg));
+}
+[data-sky="night"] {
+  --sky-hi: color-mix(in oklab, var(--accent-2) 26%, var(--bg));
+  --sky-low: color-mix(in oklab, var(--accent-2) 9%, var(--bg));
+}
+[data-sky] {
+  --sky-ridge: color-mix(in oklab, var(--text) 9%, var(--sky-low));
+}
+.horizon-sky {
+  background: linear-gradient(var(--sky-hi), var(--sky-low));
+}
+
 /* Le ciel de la voie (ui/track/Sky) : étoiles qui scintillent, brume du matin qui dérive,
    oiseaux qui traversent, pétales qui tombent, lucioles. */
 .sky-star {

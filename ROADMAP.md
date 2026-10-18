@@ -126,6 +126,9 @@ le décor réel des cinq routes.**
   saisons du calendrier, tokens de décor.
 - **La route réelle** : données des cinq routes (taille des villes, repères réels, paysages,
   traversées, motifs des tampons) et illustrations uniques.
+- **L'horizon** : le ciel séparé de la voie par une ligne d'horizon, panorama du départ qui se
+  replie, sol en perspective où la voie s'enfonce sans couture, repères des villes qui se
+  lèvent dans le ciel.
 
 **Vérif** : l'accueil s'ouvre sur l'étape à faire ; une étape terminée fait rouler le train
 jusqu'à la suivante ; une ville franchie pose son tampon ; le contrôle final d'un niveau mène au

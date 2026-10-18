@@ -18,7 +18,8 @@ import { claimOmikujiAutoOpen, OmikujiSheet } from "./OmikujiSheet";
 import { StationArrival } from "./StationArrival";
 import { CityFiche } from "./track/CityFiche";
 import { CurriculumEnd, RouteEnd } from "./track/RouteEnd";
-import { Sky } from "./track/Sky";
+import { Horizon } from "./track/Horizon";
+import { BAND_MAX, GROUND, SKY_MIN } from "../lib/horizon";
 import { Track } from "./track/Track";
 import { EXTRA_WORDS, STEP_WORDS } from "./track/words";
 import { useGenJobs } from "./useGenJobs";
@@ -77,6 +78,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
   const [fiche, setFiche] = useState<{ level: number; index: number; stamped: boolean } | null>(null);
   const measure = useRef<HTMLDivElement>(null);
   const banner = useRef<HTMLDivElement>(null);
+  const trackBox = useRef<HTMLDivElement>(null);
   const [bannerH, setBannerH] = useState(64);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
@@ -269,33 +271,49 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
       </div>
 
       <div ref={measure} className="-mx-4 overflow-x-clip">
-        {layout && <Sky season={season} top={bannerH} />}
         {layout && (
-          <Track
+          <Horizon
             layout={layout}
             decor={decor}
+            sceneries={SCENERIES}
+            season={season}
+            top={bannerH}
+            track={trackBox}
             trainColor={(level) => routeForLevel(level).trainColor}
-            bubble={bubble}
-            metaOf={metaOf}
-            onTapNode={tapNode}
-            onSection={onSection}
-            renderMarker={(m) => {
-              if (m.kind === "curriculum-end") return <CurriculumEnd />;
-              if (m.kind !== "route-end") return null;
-              const stat = data.tokaido.levels.find((s) => s.level === m.level);
-              return (
-                <RouteEnd
-                  level={m.level}
-                  nextLevel={m.nextLevel}
-                  reached={m.reached}
-                  totals={{ steps: stat?.stepsTotal ?? 0, lessons: stat?.lessonsTotal ?? 0 }}
-                  onOpenCarnet={onGoVoyage}
-                />
-              );
-            }}
-            backLabel={cur?.kind === "step" ? `Revenir à l'étape ${cur.number}` : undefined}
+            title={{ kanji: routeForLevel(layout.paths[0]?.level ?? 5).kanji, tagline: routeForLevel(layout.paths[0]?.level ?? 5).tagline }}
           />
         )}
+        {/* La place du panorama dépliée, au-dessus du départ de la voie. */}
+        {layout && <div style={{ height: BAND_MAX }} />}
+        <div ref={trackBox}>
+          {layout && (
+            <Track
+              inset={bannerH + SKY_MIN + GROUND}
+              layout={layout}
+              decor={decor}
+              trainColor={(level) => routeForLevel(level).trainColor}
+              bubble={bubble}
+              metaOf={metaOf}
+              onTapNode={tapNode}
+              onSection={onSection}
+              renderMarker={(m) => {
+                if (m.kind === "curriculum-end") return <CurriculumEnd />;
+                if (m.kind !== "route-end") return null;
+                const stat = data.tokaido.levels.find((s) => s.level === m.level);
+                return (
+                  <RouteEnd
+                    level={m.level}
+                    nextLevel={m.nextLevel}
+                    reached={m.reached}
+                    totals={{ steps: stat?.stepsTotal ?? 0, lessons: stat?.lessonsTotal ?? 0 }}
+                    onOpenCarnet={onGoVoyage}
+                  />
+                );
+              }}
+              backLabel={cur?.kind === "step" ? `Revenir à l'étape ${cur.number}` : undefined}
+            />
+          )}
+        </div>
       </div>
 
       {arrival && (

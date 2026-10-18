@@ -754,9 +754,11 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
   (« 印 4 »), la série de jours, l'anneau des étapes du jour (« 2/3 ») et les réglages. Toucher la
   route ou les tampons ouvre le Voyage (§5c.5) ; toucher la série ou l'anneau ouvre les
   Statistiques.
-- **Bandeau de leçon**, collé sous l'en-tête : la leçon visible à l'écran (« Leçon 12 · étapes 78
+- **Bandeau de leçon**, collé en haut de l'écran : la leçon visible à l'écran (« Leçon 12 · étapes 78
   à 84 », son titre) et un bouton pour relire son cours. Il change quand une autre leçon passe
   au centre de l'écran.
+- **La bande d'horizon** (§5c.6b), collée sous le bandeau : le ciel, et le sol où la voie
+  s'enfonce.
 - **La voie** (§5c.2), qui occupe tout le reste de la page.
 - **Ce qui quitte l'accueil** :
   - la bande du Tōkaidō : la voie la remplace, et le Voyage garde la vue d'ensemble ;
@@ -975,8 +977,9 @@ la largeur), qui réserve sa place sur la voie :
 Deux exceptions viennent des estampes : Kanbara reste toujours sous la neige, et Shōno toujours
 sous l'averse.
 
-**Le ciel.** Une couche fixe, derrière la voie, en haut de l'écran : elle rappelle l'heure qu'il
-est.
+**Le ciel.** Il occupe le haut de la bande d'horizon (§5c.6b), séparé de la voie : il rappelle
+l'heure qu'il est.
+- Son fond prend la teinte de l'heure (jour, aube et crépuscule, nuit), dérivée des tokens.
 - Le soleil monte et descend selon l'heure.
 - À l'aube et au crépuscule, il est à demi caché derrière une crête.
 - La nuit, la lune a sa phase réelle et les étoiles scintillent ; c'est la logique de la bande
@@ -985,6 +988,61 @@ est.
 
 **Thèmes.** Clair et sombre partagent les dessins ; seules les couleurs changent, par des tokens de
 décor (DESIGN.md).
+
+### 5c.6b L'horizon
+
+Maquette de référence : **E · Panorama vivant** (canevas « Ciel séparé — propositions »). Le ciel
+ne se mélange plus à la voie : une **ligne d'horizon** les sépare. Au-dessus, le ciel ; dessous,
+le sol, où la voie s'enfonce vers l'horizon. Rien ne franchit cette ligne.
+
+**La bande d'horizon.** Elle est collée sous le bandeau de leçon, opaque, et ne contient aucun
+bouton.
+- En haut, **le ciel** (84 px), sur son propre fond, avec une crête lointaine à sa base.
+- Dessous, **le sol qui fuit** (100 px), où la voie continue sans couture.
+- **Le panorama du départ.** Tout en haut de la voie, avant la première étape, le ciel est grand
+  (240 px) et porte le nom de la route en kanji et son sous-titre. Au défilement, il se replie
+  jusqu'à la bande. Pendant ce repli, la voie ne bouge pas par rapport à l'horizon.
+
+**Le sol qui fuit.** Ce qui passe sous la bande n'est pas coupé : la voie, ses arrêts et son décor
+y sont projetés sur un sol en perspective.
+- **La projection.** Un point situé à une distance d au-dessus du raccord est réduit :
+  - d'un facteur f = 1 / (1 + d / 2Z) en largeur, vers le centre de l'écran ;
+  - d'un facteur f² en hauteur, Z étant la hauteur du sol (100 px).
+
+  L'échelle vaut 1 au raccord, puis les vrais virages de la voie se resserrent d'eux-mêmes vers
+  l'horizon.
+- **Ce qui est posé au sol** s'aplatit et se resserre :
+  - la voie : ballast, traverses et rails, vermillon derrière le train. Les traverses
+    s'effacent quand f < 0,45 ;
+  - les arrêts, en disques couchés (ellipses), selon leur état (fait, à faire, à venir, ville) ;
+  - les séparateurs de leçon ;
+  - l'eau des traversées.
+- **Ce qui est debout** rapetisse d'un facteur f et s'estompe, comme les sprites d'un jeu : les
+  kanji des arrêts, les libellés, le train et le décor. Les libellés s'effacent sous f = 0,8, le
+  reste sous f = 0,6.
+- **Une brume**, de la couleur du bas du ciel, adoucit l'horizon.
+- **Rien n'est ajouté** pour faire la perspective, ni sillons ni rails droits qui convergent :
+  seule la voie réelle la donne.
+
+**Les repères de la route.** Ils se lèvent dans le ciel.
+- **Qui a un repère.** Les villes de la voie qui ont une illustration unique, et les villes,
+  grandes villes et terminus.
+- **Son dessin.** La silhouette du motif de la ville (château, mont, torii, pagode, pont…),
+  tirée du catalogue de sprites, en aplat pâle (règle 5 de la profondeur).
+- **Son mouvement** :
+  - il apparaît, petit, à l'horizon quand sa ville entre à l'écran par le bas ;
+  - il grandit et s'écarte sur le côté à mesure qu'elle monte ;
+  - il atteint sa pleine taille quand elle passe dans le tiers haut de la voie visible ;
+  - puis il rapetisse et s'efface quand elle file vers l'horizon.
+- **Son nom** (kanji · romaji) s'affiche quand il est grand.
+
+**Le défilement.**
+- Tout est calculé image par image à partir de la position de défilement, sans animation en
+  boucle.
+- Le soleil, la lune, les étoiles, la brume du matin, les oiseaux et les pétales gardent leur
+  logique (ci-dessus), dans le ciel seulement.
+- L'ouverture, le bandeau de leçon et le bouton de retour tiennent compte de la bande : l'étape
+  à faire se place au tiers haut de la voie visible, sous l'horizon.
 
 ### 5c.7 Le changement de niveau
 
@@ -1016,9 +1074,11 @@ décor (DESIGN.md).
   - La mise en page (nœuds, tracé, décor) est un calcul pur, mémorisé par bloc de leçons.
   - Le train et les rails animés utilisent `offset-path` et `stroke-dasharray`, sans recalcul de
     mise en page.
+  - La bande d'horizon se recalcule une fois par image de défilement, sur la seule portion de
+    voie qui passe dessous ; le tracé échantillonné est mémorisé avec la mise en page.
 - **Accessibilité.**
   - Chaque nœud est un bouton étiqueté (« Étape 80, grammaire, à faire »).
-  - Le décor, les rails et le train sont `aria-hidden`.
+  - Le décor, les rails, le train et la bande d'horizon sont `aria-hidden`.
   - L'ordre de tabulation suit la voie.
   - Les textes gardent leurs contrastes (DESIGN.md §7), et les animations sont coupées sous
     `prefers-reduced-motion`.
