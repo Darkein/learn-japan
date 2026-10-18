@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
-import { biomeAt, biomeTrack, driftItems, MARK_SPEED, markRaised, markX, SKY_MAX, SKY_MIN, skyHeight, skyMarks } from "./horizon";
+import {
+  biomeAt, biomeTrack, driftItems, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
+  skyHeight, skyMarks,
+} from "./horizon";
 import { lessonSteps } from "./path";
 import { layoutTrack, type TrackLayout } from "./track";
 import { trackInput, type TrackLessonSource } from "./trackInput";
@@ -85,5 +88,15 @@ describe("le décor qui défile", () => {
     for (const it of coast) expect(["boat", "pine"]).toContain(it.kind);
     const town = driftItems("near", 5000, 390, 0, () => "town");
     for (const it of town) expect(["house", "temple"]).toContain(it.kind);
+  });
+});
+
+describe("la crête lointaine", () => {
+  it("glisse lentement, d'un motif qui se répète sans couture", () => {
+    const xs = (d: string) => [...d.matchAll(/L(-?[\d.]+) 4(?!\d)/g)].map((m) => Number(m[1]));
+    const peak = (pos: number) => xs(ridgePath(pos, 390));
+    expect(peak(100)[0] - peak(0)[0]).toBeCloseTo(100 * RIDGE_SPEED, 1);
+    expect(ridgePath(RIDGE_PERIOD / RIDGE_SPEED, 390)).toBe(ridgePath(0, 390));
+    expect(ridgePath(-500, 390)).toMatch(/^M-?[\d.]+ 40/);
   });
 });

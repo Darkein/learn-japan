@@ -66,6 +66,21 @@ export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMar
   return out;
 }
 
+/** La crête lointaine : un motif de `RIDGE_PERIOD` px répété, qui glisse le plus lentement. */
+export const RIDGE_PERIOD = 300;
+export const RIDGE_SPEED = 0.08;
+const RIDGE = "L36 10 L72 20 L114 4 L156 18 L201 8 L246 20 L300 22";
+
+/** Le tracé de la crête lointaine (40 px de haut) sur `width` px, quand la voie est à `pos`. */
+export function ridgePath(pos: number, width: number): string {
+  const shift = (((pos * RIDGE_SPEED) % RIDGE_PERIOD) + RIDGE_PERIOD) % RIDGE_PERIOD;
+  let d = `M${shift - RIDGE_PERIOD} 40 L${shift - RIDGE_PERIOD} 22`;
+  for (let x0 = shift - RIDGE_PERIOD; x0 < width; x0 += RIDGE_PERIOD) {
+    d += " " + RIDGE.replace(/L(-?[\d.]+) /g, (_, x) => `L${Math.round((x0 + Number(x)) * 10) / 10} `);
+  }
+  return `${d} L${width + RIDGE_PERIOD} 22 L${width + RIDGE_PERIOD} 40 Z`;
+}
+
 /** Vitesse des repères : entre le plan moyen et le plan proche du décor qui défile. */
 export const MARK_SPEED = 0.35;
 
