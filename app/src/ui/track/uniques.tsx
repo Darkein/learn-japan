@@ -13,15 +13,13 @@
 
 import type { ReactNode } from "react";
 import { UNIQUES, type DecorUnique, type UniqueKind } from "../../lib/scenery";
-import { Sprite } from "./sprites";
+import { Sprite, tint } from "./sprites";
 
 const W = "var(--accent-2)";
 const SNOW = "var(--decor-snow)";
 const ACC = "var(--accent)";
 const BG = "var(--bg)";
 
-/** L'encre ou l'eau diluée sur le papier, mais opaque : `o` est la part de couleur. */
-const tint = (o: number, c = "currentColor") => `color-mix(in srgb, ${c} ${Math.round(o * 100)}%, var(--bg))`;
 
 /**
  * La même teinte qui se perd dans la brume vers le bas : les monts et les collines n'ont pas
@@ -187,7 +185,7 @@ function reeds(x: number, y: number, s = 1): ReactNode {
 function figure(x: number, y: number, s = 1, hat = true): ReactNode {
   return (
     <g key={`f${x}:${y}`} stroke="currentColor" strokeOpacity={0.65} strokeWidth={1.3 * s} strokeLinecap="round" fill="none">
-      {hat ? <path d={`M${x - 4 * s} ${y - 15 * s} Q${x} ${y - 20 * s} ${x + 4 * s} ${y - 15 * s} Z`} fill="currentColor" fillOpacity={0.6} /> : <circle cx={x} cy={y - 16 * s} r={2 * s} fill="currentColor" fillOpacity={0.6} />}
+      {hat ? <path d={`M${x - 4 * s} ${y - 15 * s} Q${x} ${y - 20 * s} ${x + 4 * s} ${y - 15 * s} Z`} fill={tint(0.6)} /> : <circle cx={x} cy={y - 16 * s} r={2 * s} fill={tint(0.6)} />}
       <path d={`M${x} ${y - 14 * s} V${y - 6 * s} M${x} ${y - 6 * s} l${-3 * s} ${6 * s} M${x} ${y - 6 * s} l${3 * s} ${6 * s} M${x - 3 * s} ${y - 11 * s} H${x + 3 * s}`} />
     </g>
   );
@@ -208,7 +206,7 @@ function pineIsle(x: number, y: number, s = 1): ReactNode {
 function sail(x: number, y: number, s = 1): ReactNode {
   return (
     <g key={`s${x}:${y}`}>
-      <path d={`M${x - 16 * s} ${y - 4 * s} H${x + 16 * s} L${x + 11 * s} ${y + 2 * s} H${x - 11 * s} Z`} fill="currentColor" fillOpacity={0.45} />
+      <path d={`M${x - 16 * s} ${y - 4 * s} H${x + 16 * s} L${x + 11 * s} ${y + 2 * s} H${x - 11 * s} Z`} fill={tint(0.45)} />
       <rect x={x - 8 * s} y={y - 30 * s} width={16 * s} height={22 * s} fill={SNOW} stroke="currentColor" strokeOpacity={0.45} />
       <path d={`M${x} ${y - 32 * s} V${y - 4 * s} M${x - 8 * s} ${y - 23 * s} H${x + 8 * s} M${x - 8 * s} ${y - 16 * s} H${x + 8 * s}`} stroke="currentColor" strokeOpacity={0.45} />
     </g>
@@ -219,7 +217,7 @@ function sail(x: number, y: number, s = 1): ReactNode {
 function punt(x: number, y: number, w = 80): ReactNode {
   return (
     <g key={`p${x}:${y}`}>
-      <path d={`M${x} ${y} H${x + w} L${x + w - 10} ${y + 7} H${x + 8} Z`} fill="currentColor" fillOpacity={0.45} />
+      <path d={`M${x} ${y} H${x + w} L${x + w - 10} ${y + 7} H${x + 8} Z`} fill={tint(0.45)} />
       <path d={`M${x + w - 12} ${y + 12} L${x + w + 14} ${y - 30}`} stroke="currentColor" strokeOpacity={0.5} />
     </g>
   );
@@ -351,8 +349,8 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
         {water(0, 390, 54, 148, 4, "both")}
         <path d="M30 70 Q80 64 120 72 Q80 78 30 70 Z M250 132 Q300 124 350 134 Q300 140 250 132 Z" fill={tint(0.12)} />
         {/* Un palanquin sur une plate-forme, quatre porteurs dans l'eau. */}
-        <rect x={x - 22} y={110} width={44} height={5} fill="currentColor" fillOpacity={0.5} />
-        <path d={`M${x - 12} 110 V96 H${x + 12} V110 M${x - 14} 96 Q${x} 88 ${x + 14} 96`} stroke="currentColor" strokeOpacity={0.6} fill="currentColor" fillOpacity={0.15} />
+        <rect x={x - 22} y={110} width={44} height={5} fill={tint(0.5)} />
+        <path d={`M${x - 12} 110 V96 H${x + 12} V110 M${x - 14} 96 Q${x} 88 ${x + 14} 96`} stroke="currentColor" strokeOpacity={0.6} fill={tint(0.15)} />
         {[x - 18, x - 6, x + 6, x + 18].map((px) => figure(px, 130, 0.9, false))}
         {figure(x - 50, 70, 0.9, false)}
         {figure(x - 40, 74, 0.8)}
@@ -492,7 +490,7 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
         <path d="M20 190 L44 164 M28 192 L52 164" />
         <path d="M48 164 V176 M60 164 V178 M72 164 V178 M84 164 V176" />
       </g>
-      <path d="M20 188 L44 162 H52 L28 192 Z" fill="currentColor" fillOpacity={0.3} />
+      <path d="M20 188 L44 162 H52 L28 192 Z" fill={tint(0.3)} />
       <Sprite kind="temple" x={34} y={112} scale={0.55} snowy={false} />
       <path d="M38 162 H100" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.6} />
       <path d="M50 182 h40 M58 188 h26" stroke={W} strokeOpacity={0.4} />
@@ -502,7 +500,7 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
   fukagawa: () => (
     <>
       {bank(-30, 320, 84, 50, 0.07)}
-      <path d="M90 90 L120 64 H170 L196 90 Z" fill="currentColor" fillOpacity={0.3} />
+      <path d="M90 90 L120 64 H170 L196 90 Z" fill={tint(0.3)} />
       <rect x={104} y={90} width={80} height={30} fill={tint(0.1)} stroke="currentColor" strokeOpacity={0.4} />
       {/* Le bananier (bashō) qui donna son nom au poète. */}
       <g fill={tint(0.26)} stroke="currentColor" strokeOpacity={0.45} strokeWidth={1}>
@@ -630,9 +628,9 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
       <path d="M6 196 Q10 120 20 74 Q30 34 70 26 Q130 18 170 42 Q190 70 160 100 Q130 130 140 196 Q70 204 6 196 Z" fill={mist(0.2)} />
       <Sprite kind="cedars" x={14} y={-12} scale={0.55} snowy={false} />
       <Sprite kind="temple" x={76} y={-8} scale={0.6} snowy={false} />
-      <path d="M58 180 V156 Q72 134 88 156 V180 Z" fill="currentColor" fillOpacity={0.45} />
+      <path d="M58 180 V156 Q72 134 88 156 V180 Z" fill={tint(0.45)} />
       <path d="M50 180 H96" stroke="currentColor" strokeOpacity={0.3} strokeWidth={2} />
-      <g fill="currentColor" fillOpacity={0.5}>
+      <g fill={tint(0.5)}>
         <path d="M170 150 L178 132 L188 128 L196 138 L204 150 Z" />
         <path d="M226 178 L232 162 L242 158 L252 166 L258 178 Z" />
         <path d="M262 128 L268 118 L278 120 L282 128 Z" />
@@ -688,7 +686,7 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
         {[212, 218, 224, 230, 236, 242, 248, 254].map((x, i) => (
           <g key={x}>
             <path d={`M${x + (i % 2 ? 1 : -1)} 198 L${x} 150`} stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.8} />
-            <path d={`M${x - 2} 150 h4 l-2 -5 Z`} fill="currentColor" fillOpacity={0.55} />
+            <path d={`M${x - 2} 150 h4 l-2 -5 Z`} fill={tint(0.55)} />
             <rect x={x - 2.2} y={153} width={4.4} height={7} fill={SNOW} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.6} />
           </g>
         ))}

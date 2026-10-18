@@ -277,6 +277,8 @@
 }
 .horizon-sky {
   background: linear-gradient(var(--sky-hi), var(--sky-low));
+  /* Le papier des repères, qui se dressent sur le sol. */
+  --paper: var(--sky-ground);
 }
 /* Le sol sous l'horizon : un replat à peine teinté qui se fond dans le fond de la voie. */
 .horizon-ground {
