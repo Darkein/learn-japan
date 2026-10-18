@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
-import { BAND_MAX, GROUND, SKY_MAX, SKY_MIN, groundScene, project, sampleTracks, skyHeight, skyMarkPoses, skyMarks } from "./horizon";
+import { biomeAt, biomeTrack, driftItems, markRaised, SKY_MAX, SKY_MIN, skyHeight, skyMarks } from "./horizon";
 import { lessonSteps } from "./path";
 import { layoutTrack, type TrackLayout } from "./track";
 import { trackInput, type TrackLessonSource } from "./trackInput";
@@ -14,88 +14,70 @@ function realLayout(): TrackLayout {
   return layoutTrack(trackInput({ width: 390, lessons: all, stamps: {}, restDone: new Set(), sceneries: SCENERIES }));
 }
 
-describe("la bande d'horizon", () => {
+describe("la bande de ciel", () => {
   it("le panorama se replie au défilement, sans descendre sous la bande repliée", () => {
     expect(skyHeight(-50)).toBe(SKY_MAX);
     expect(skyHeight(0)).toBe(SKY_MAX);
     expect(skyHeight(100)).toBe(SKY_MAX - 100);
     expect(skyHeight(10_000)).toBe(SKY_MIN);
-    expect(BAND_MAX).toBe(SKY_MAX + GROUND);
-  });
-
-  it("projette sans couture : identité sous le raccord, échelle 1 au raccord, puis f décroît", () => {
-    const cB = 1000;
-    const skyH = SKY_MIN;
-    expect(project(100, 1200, cB, skyH, 390)).toEqual({ x: 100, y: skyH + GROUND + 200, f: 1 });
-    const at = project(100, cB, cB, skyH, 390);
-    expect(at.f).toBe(1);
-    expect(at.y).toBe(skyH + GROUND);
-    // Juste au-dessus du raccord, le sol a encore l'échelle du plat (dérivée 1).
-    const just = project(100, cB - 1, cB, skyH, 390);
-    expect(skyH + GROUND - just.y).toBeCloseTo(1, 1);
-    let prev = at;
-    for (const d of [50, 150, 400, 1000, 3000]) {
-      const p = project(100, cB - d, cB, skyH, 390);
-      expect(p.f).toBeLessThan(prev.f);
-      expect(p.y).toBeLessThan(prev.y);
-      expect(p.y).toBeGreaterThan(skyH);
-      // La largeur se resserre vers le centre.
-      expect(Math.abs(p.x - 195)).toBeLessThan(Math.abs(prev.x - 195));
-      prev = p;
-    }
-  });
-
-  it("le tracé échantillonné garde la longueur exacte de la route", () => {
-    const layout = realLayout();
-    const tracks = sampleTracks(layout.paths);
-    for (const [i, t] of tracks.entries()) {
-      expect(t.pts.at(-1)!.d).toBeCloseTo(layout.paths[i].length, 3);
-      for (let k = 1; k < t.pts.length; k++) expect(t.pts[k].d).toBeGreaterThanOrEqual(t.pts[k - 1].d);
-    }
-  });
-
-  it("le sol montre la voie passée sous la bande, ses arrêts couchés et rien au-delà de la profondeur", () => {
-    const layout = realLayout();
-    const tracks = sampleTracks(layout.paths);
-    const cB = 3000;
-    const scene = groundScene(layout, tracks, undefined, cB, SKY_MIN);
-    expect(scene.tracks.length).toBeGreaterThan(0);
-    expect(scene.tracks[0].ballast).toMatch(/^M/);
-    expect(scene.nodes.length).toBeGreaterThan(2);
-    for (const g of scene.nodes) {
-      expect(g.ry).toBeLessThanOrEqual(g.rx + 1e-9);
-      expect(g.y).toBeGreaterThanOrEqual(SKY_MIN);
-      // Les libellés s'effacent avant les kanji, eux-mêmes avant les disques.
-      if (g.label) expect(g.f).toBeGreaterThan(0.8);
-    }
-    const far = groundScene(layout, tracks, undefined, cB, SKY_MIN).nodes.filter((g) => g.node.y < cB - 14 * GROUND);
-    expect(far).toHaveLength(0);
   });
 });
 
 describe("les repères du ciel", () => {
-  it("chaque ville-étape ou ville unique du Tōkaidō a un repère, pas les villages", () => {
+  it("chaque ville-étape ou ville unique a un repère à sa place, pas les villages", () => {
     const layout = realLayout();
     const marks = skyMarks(layout, SCENERIES);
     const cities = layout.nodes.filter((n) => n.kind === "city");
     expect(marks.length).toBeGreaterThan(20);
-    expect(marks.length).toBeLessThanOrEqual(cities.length);
-    const edo = marks.find((m) => m.name.startsWith("日本橋"));
-    expect(edo?.kind).toBe("bridge");
+    expect(marks.length).toBeLessThan(cities.length);
+    expect(marks.find((m) => m.name.startsWith("日本橋"))?.kind).toBe("bridge");
+    for (const m of marks) {
+      expect(m.x).toBeGreaterThan(0.15);
+      expect(m.x).toBeLessThan(0.85);
+    }
   });
 
-  it("grandit quand sa ville monte vers le tiers haut, puis rapetisse vers l'horizon", () => {
-    const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", side: 1 as const };
-    const visible = 480;
-    const size = (cB: number) => skyMarkPoses([mark], cB, visible, SKY_MIN, 390)[0]?.w ?? 0;
-    // La ville est sous l'écran : pas encore de repère.
-    expect(size(2000 - visible - 10)).toBe(0);
-    const entering = size(2000 - visible + 40);
-    const peak = size(2000 - visible / 3);
-    const leaving = size(2000 + 200);
-    expect(entering).toBeGreaterThan(0);
-    expect(peak).toBeGreaterThan(entering);
-    expect(leaving).toBeLessThan(peak);
-    expect(size(2000 + 2000)).toBe(0);
+  it("deux villes qui se suivent lèvent leur repère de côtés opposés", () => {
+    const marks = skyMarks(realLayout(), SCENERIES);
+    for (let i = 1; i < marks.length; i++) {
+      const a = marks[i - 1];
+      const b = marks[i];
+      if (b.y - a.y < 900) expect(a.x < 0.5).not.toBe(b.x < 0.5);
+    }
+  });
+
+  it("un repère est levé tant que sa ville est sur la voie visible", () => {
+    const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.3 };
+    expect(markRaised(mark, 2100, 2600)).toBe(false);
+    expect(markRaised(mark, 1500, 2100)).toBe(true);
+    expect(markRaised(mark, 1200, 1900)).toBe(false);
+  });
+});
+
+describe("le décor qui défile", () => {
+  const plain = () => "rice" as const;
+
+  it("glisse plus vite au plan proche qu'au plan moyen, et reste stable", () => {
+    const at = (layer: "mid" | "near", pos: number) => driftItems(layer, pos, 390, 0, plain);
+    for (const layer of ["mid", "near"] as const) {
+      const a = at(layer, 1000);
+      const b = at(layer, 1100);
+      const common = a.find((it) => b.some((j) => j.key === it.key))!;
+      const moved = b.find((j) => j.key === common.key)!.x - common.x;
+      expect(moved).toBeCloseTo(layer === "mid" ? 22 : 55, 5);
+      expect(at(layer, 1000)).toEqual(a);
+    }
+  });
+
+  it("tire ses silhouettes du paysage du tronçon", () => {
+    const layout = realLayout();
+    const track = biomeTrack(layout, SCENERIES);
+    expect(track.length).toBeGreaterThan(50);
+    expect(biomeAt(track, -100)).toBe(track[0].biome);
+    const coast = driftItems("near", 5000, 390, 0, () => "coast");
+    expect(coast.length).toBeGreaterThan(3);
+    for (const it of coast) expect(["boat", "pine"]).toContain(it.kind);
+    const town = driftItems("near", 5000, 390, 0, () => "town");
+    for (const it of town) expect(["house", "temple"]).toContain(it.kind);
   });
 });

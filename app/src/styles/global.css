@@ -261,6 +261,33 @@
 }
 [data-sky] {
   --sky-ridge: color-mix(in oklab, var(--text) 9%, var(--sky-low));
+  --sky-mid: color-mix(in oklab, var(--text) 16%, var(--sky-low));
+}
+/* Un repère de ville : il se lève derrière la crête quand sa ville arrive sur la voie visible,
+   et y redescend quand elle la quitte. */
+.sky-mark {
+  transform-origin: 50% 100%;
+  transform: translateY(55%) scale(0.55);
+  opacity: 0;
+  transition:
+    transform 450ms cubic-bezier(0.6, 0, 0.8, 0.4),
+    opacity 450ms ease-in;
+}
+.sky-mark-up {
+  transform: none;
+  opacity: 1;
+  transition:
+    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 400ms ease-out;
+}
+.sky-mark-name {
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+}
+.sky-mark-up .sky-mark-name {
+  opacity: 1;
+  transition: opacity 300ms ease-out 300ms;
 }
 .horizon-sky {
   background: linear-gradient(var(--sky-hi), var(--sky-low));
