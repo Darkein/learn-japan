@@ -5,6 +5,7 @@ import {
   DRIFT_PATHS,
   driftItems,
   markRaised,
+  markX,
   SKY_MAX,
   skyHeight,
   skyMarks,
@@ -68,7 +69,7 @@ function Drift({ items, bottom, fill }: { items: DriftItem[]; bottom: number; fi
 /**
  * La bande de ciel (SPEC §5c.6b), collée sous le bandeau de leçon : le panorama du départ qui se
  * replie, les repères des villes qui se lèvent derrière la crête tant que leur ville est sur la
- * voie visible, et le décor qui défile en deux plans. La voie passe dessous, derrière la crête.
+ * voie visible, et le décor qui défile en deux plans ; les repères glissent entre les deux. La voie passe dessous, derrière la crête.
  */
 export function Horizon({ layout, sceneries, season, top, track, title }: Props) {
   const sky = useSky(season);
@@ -132,7 +133,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             <span
               key={m.id}
               className={`sky-mark absolute ${up ? "sky-mark-up" : ""}`}
-              style={{ left: m.x * W - MARK_W / 2, bottom: NEAR_RIDGE - 8, width: MARK_W, height: MARK_H }}
+              style={{ left: markX(m, pos, visible, W) - MARK_W / 2, bottom: NEAR_RIDGE - 8, width: MARK_W, height: MARK_H }}
             >
               <svg width={MARK_W} height={MARK_H} viewBox="0 0 120 80" className="block text-text" style={{ opacity: 0.9 }}>
                 <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />

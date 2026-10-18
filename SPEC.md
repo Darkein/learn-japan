@@ -1009,15 +1009,16 @@ derrière une crête de la couleur du fond. La bande ne contient aucun bouton.
 - **Les repères des villes.**
   - Ont un repère : les villes qui ont une illustration unique, et les villes, grandes villes et
     terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.
-  - Chacun a **sa place fixe** sur l'horizon et sa taille fixe. Deux repères qui se suivent
-    prennent des côtés opposés.
+  - Chacun a sa taille fixe et **glisse avec le décor** : à 0,35 px par px défilé, entre le plan
+    moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
+    au tiers haut de la voie visible, et reste dans la bande tant qu'il est levé.
   - Un repère est là tant que sa ville est sur la voie visible, sous la bande. Il **se lève
     derrière la crête** quand sa ville y arrive (il monte en grandissant, environ 0,7 s) et y
     **redescend** quand elle la quitte (environ 0,45 s). Son nom (kanji · romaji) apparaît
     au-dessus juste après lui.
 - **Le décor qui défile.**
-  - Deux plans glissent de côté au fil du défilement, plus vite que les repères, qui restent
-    fixes : le plan moyen à 0,22 px par px défilé, le plan proche à 0,55 px.
+  - Deux plans glissent de côté au fil du défilement, dans le même sens que les repères : le plan
+    moyen à 0,22 px par px défilé, le plan proche à 0,55 px.
   - Chaque élément a son rang sur une bande sans fin, d'où se tirent sa place, sa taille et sa
     forme : le décor ne change pas d'une visite à l'autre.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe
