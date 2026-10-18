@@ -25,15 +25,32 @@ function pine(x: number, h = 1): ReactNode {
   );
 }
 
-/** Un cèdre, fuseau étagé. */
-function cedar(x: number, top = 12): ReactNode {
+/**
+ * Un cèdre du Japon (sugi) : fuseau étroit aux étages de branches qui retombent, plus large vers
+ * le bas, son tronc au pied. `top` est la cime ; `w` la demi-largeur au pied.
+ */
+function cedar(x: number, top = 12, w = 9, opacity = 0.42): ReactNode {
+  const n = 6;
+  const base = 66;
+  const left: string[] = [];
+  const right: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const y0 = top + ((base - top) * i) / n;
+    const y1 = top + ((base - top) * (i + 1)) / n;
+    const hw = w * (0.3 + (0.7 * (i + 1)) / n);
+    // Chaque étage : la branche part vers l'extérieur et retombe, puis on revient vers le fût.
+    left.push(`L${x - hw * 0.55} ${y0 + 2} Q${x - hw} ${y1 - 3} ${x - hw * 1.05} ${y1}`);
+    right.unshift(`L${x + hw * 1.05} ${y1}`, `Q${x + hw} ${y1 - 3} ${x + hw * 0.55} ${y0 + 2}`);
+  }
   return (
-    <path
-      key={`c${x}`}
-      d={`M${x} 72 L${x - 5} 64 L${x - 3} 64 L${x - 8} 52 L${x - 5} 52 L${x - 9} 38 L${x} ${top} L${x + 9} 38 L${x + 5} 52 L${x + 8} 52 L${x + 3} 64 L${x + 5} 64 Z`}
-      fill="currentColor"
-      fillOpacity={0.42}
-    />
+    <g key={`c${x}`}>
+      <path d={`M${x - 1.2} 72 V${base} H${x + 1.2} V72 Z`} fill="currentColor" fillOpacity={opacity + 0.1} />
+      <path
+        d={`M${x} ${top} ${left.join(" ")} L${x} ${base - 2} ${right.join(" ")} Z`}
+        fill="currentColor"
+        fillOpacity={opacity}
+      />
+    </g>
   );
 }
 
@@ -108,10 +125,18 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     </>
   ),
   ridge: (snowy) => (
+    // Une chaîne de montagnes à l'encre : la chaîne lointaine pâle et ses pics, une écharpe de
+    // brume, puis les contreforts plus sombres piqués de cèdres.
     <>
-      <path d="M0 72 L28 36 L44 50 L66 24 L92 52 L104 44 L120 72 Z" fill="currentColor" fillOpacity={0.09} />
-      {snowy && <path d="M60 30 L66 24 L72 31 L68 33 L64 30 Z M24 41 L28 36 L32 41 Z" fill={SNOW} />}
-      <path d="M0 72 L20 58 L40 64 L64 50 L90 62 L120 54 V72 Z" fill="currentColor" fillOpacity={0.14} />
+      <path
+        d="M0 72 V50 L10 42 L17 44 L29 30 L37 34 L50 17 L58 24 L64 22 L76 34 L84 29 L96 40 L106 36 L120 46 V72 Z"
+        fill="currentColor"
+        fillOpacity={0.08}
+      />
+      {snowy && <path d="M45 23 L50 17 L56 22.5 L53 24 L50 21.5 L47.5 25 Z M25 34 L29 30 L33 32 L30 33.5 Z M81 31.5 L84 29 L87 32 Z" fill={SNOW} />}
+      <path d="M0 58 Q30 52 60 56 Q90 60 120 54 V60 Q90 66 60 62 Q30 58 0 64 Z" fill={BG} fillOpacity={0.55} />
+      <path d="M0 72 V61 Q14 53 28 57 Q40 47 54 53 Q66 59 78 51 Q92 43 104 51 Q112 55 120 53 V72 Z" fill="currentColor" fillOpacity={0.15} />
+      <path d="M38 52 l2 -6 l2 6 Z M46 54 l2 -5 l2 5 Z M86 48 l2 -6 l2 6 Z M94 50 l2 -5 l2 5 Z M100 52 l1.6 -4 l1.6 4 Z" fill="currentColor" fillOpacity={0.22} />
     </>
   ),
   ford: () => (
@@ -174,13 +199,42 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
       {waves(70, 10, 120)}
     </>
   ),
-  rice: () => (
-    <>
-      <path d="M6 72 L28 40 H114 L100 72 Z" fill={W} fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.25} />
-      <path d="M17 56 H107 M34 40 L24 72 M60 40 L52 72 M86 40 L78 72" stroke="currentColor" strokeOpacity={0.25} />
-      <path d="M40 50 v-4 M46 50 v-4 M70 50 v-4 M76 50 v-4 M36 66 v-4 M42 66 v-4 M64 66 v-4 M90 66 v-4" stroke="currentColor" strokeOpacity={0.35} />
-    </>
-  ),
+  rice: () => {
+    // Des rizières en eau, vues de biais : les planches s'éloignent vers l'horizon, séparées par
+    // leurs diguettes, les jeunes plants en rangs serrés, le ciel qui s'y reflète.
+    const vp = { x: 60, y: 14 };
+    const rows = [40, 48, 58, 72];
+    const at = (x: number, y: number) => vp.x + ((x - vp.x) * (y - vp.y)) / (72 - vp.y);
+    const plots = [-30, 6, 42, 78, 114, 150];
+    let bunds = "";
+    for (const x of plots) bunds += `M${at(x, 40)} 40 L${at(x, 72)} 72 `;
+    for (const y of rows.slice(1, 3)) bunds += `M${at(-30, y)} ${y} H${at(150, y)} `;
+    let shoots = "";
+    rows.slice(0, 3).forEach((y0, r) => {
+      const y1 = rows[r + 1];
+      const lines = 2 + r;
+      for (let i = 1; i <= lines; i++) {
+        const y = y0 + ((y1 - y0) * i) / (lines + 1);
+        const step = 2.5 + r * 1.6;
+        for (let x = at(-30, y) + 2; x < at(150, y) - 2; x += step) shoots += `M${x} ${y} v${-0.8 - r * 0.7}`;
+      }
+    });
+    return (
+      <>
+        <defs>
+          <clipPath id="rice-clip">
+            <path d="M6 46 Q24 39 50 41 Q78 37 104 41 Q116 43 118 50 L116 72 H4 Q0 60 6 46 Z" />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#rice-clip)">
+          <rect x={0} y={40} width={120} height={32} fill={W} fillOpacity={0.12} />
+          <path d="M22 45 h14 M74 53 h16 M36 64 h18" stroke={SNOW} strokeOpacity={0.5} strokeWidth={0.9} />
+          <path d={shoots} stroke="currentColor" strokeOpacity={0.4} strokeWidth={0.7} />
+          <path d={bunds} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.1} fill="none" />
+        </g>
+      </>
+    );
+  },
   tea: () => (
     <g fill="currentColor" fillOpacity={0.2}>
       <path d="M2 72 Q12 62 22 72 Q32 62 42 72 Q52 62 62 72 Q72 62 82 72 Q92 62 102 72 Q112 62 120 70 V72 Z" />
@@ -190,7 +244,16 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
   ),
   pines: () => <>{[pine(24), pine(60, 1.1), pine(96)]}</>,
   pine: () => <>{pine(60, 1.2)}</>,
-  cedars: () => <>{[cedar(22, 14), cedar(48, 10), cedar(74, 16), cedar(100, 12)]}</>,
+  cedars: () => (
+    // Une allée de cèdres : de hauts fuseaux serrés, ceux du fond plus pâles.
+    <>
+      {cedar(34, 14, 8, 0.28)}
+      {cedar(86, 12, 8, 0.28)}
+      {cedar(16, 22, 9)}
+      {cedar(56, 6, 10)}
+      {cedar(104, 18, 9)}
+    </>
+  ),
   bamboo: () => (
     <>
       <path d="M34 72 V8 M48 72 V14 M62 72 V6 M76 72 V12 M90 72 V10" stroke="currentColor" strokeOpacity={0.5} strokeWidth={2} />
