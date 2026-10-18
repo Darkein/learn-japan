@@ -3,7 +3,7 @@ import type { Season } from "../../lib/scenery";
 import { moonLitPath, skyAt, type SkyState } from "../../lib/sky";
 
 /** Ce que le ciel garde sous son horizon (la crête lointaine). */
-const CREST = 12;
+const CREST = 18;
 
 /** PRNG déterministe (mulberry32) : les étoiles restent à leur place. */
 function rng(seed: number): () => number {

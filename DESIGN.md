@@ -97,9 +97,9 @@ n'ajoutent que ces tokens.
 | `--decor-water` | `rgba(124,143,192,0.45)` | `rgba(46,67,116,0.45)` | traits de l'eau (fond : même teinte à 0.12) |
 | `--decor-snow` | `#E8E2D4` | `#FFFFFF` | neige, sommets, voiles |
 
-Le ciel de la bande d'horizon (SPEC §5c.6b) n'a pas de token propre : son fond mêle `--accent-2`
-(et `--accent` à l'aube et au crépuscule) à `--bg`, plus soutenu la nuit ; sa crête mêle `--text`
-au bas du ciel.
+La bande de ciel (SPEC §5c.6b) n'a pas de token propre : son fond mêle `--accent-2` (et
+`--accent` à l'aube et au crépuscule) à `--bg`, plus soutenu la nuit ; la crête lointaine et le
+plan moyen mêlent `--text` au bas du ciel ; la crête proche et le plan proche sont en `--bg`.
 
 Couleurs du décor : l'encre partout ; l'indigo pour l'eau et les villes ; le vermillon pour les
 sceaux, le train du Tōkaidō, les torii, le soleil, les érables et les lanternes allumées ; la

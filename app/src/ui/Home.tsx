@@ -19,7 +19,7 @@ import { StationArrival } from "./StationArrival";
 import { CityFiche } from "./track/CityFiche";
 import { CurriculumEnd, RouteEnd } from "./track/RouteEnd";
 import { Horizon } from "./track/Horizon";
-import { BAND_MAX, GROUND, SKY_MIN } from "../lib/horizon";
+import { SKY_MAX, SKY_MIN } from "../lib/horizon";
 import { Track } from "./track/Track";
 import { EXTRA_WORDS, STEP_WORDS } from "./track/words";
 import { useGenJobs } from "./useGenJobs";
@@ -274,21 +274,19 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
         {layout && (
           <Horizon
             layout={layout}
-            decor={decor}
             sceneries={SCENERIES}
             season={season}
             top={bannerH}
             track={trackBox}
-            trainColor={(level) => routeForLevel(level).trainColor}
             title={{ kanji: routeForLevel(layout.paths[0]?.level ?? 5).kanji, tagline: routeForLevel(layout.paths[0]?.level ?? 5).tagline }}
           />
         )}
         {/* La place du panorama dépliée, au-dessus du départ de la voie. */}
-        {layout && <div style={{ height: BAND_MAX }} />}
+        {layout && <div style={{ height: SKY_MAX }} />}
         <div ref={trackBox}>
           {layout && (
             <Track
-              inset={bannerH + SKY_MIN + GROUND}
+              inset={bannerH + SKY_MIN}
               layout={layout}
               decor={decor}
               trainColor={(level) => routeForLevel(level).trainColor}
