@@ -993,8 +993,8 @@ décor (DESIGN.md).
 
 Maquettes de référence : **D · Panorama qui se replie** et **G · Les repères se lèvent derrière la
 crête, décor qui défile** (canevas « Ciel séparé — propositions »). Le ciel ne se mélange plus à
-la voie : il a sa bande, opaque, collée sous le bandeau de leçon, et la voie passe dessous,
-derrière une crête de la couleur du fond. La bande ne contient aucun bouton.
+la voie : il a sa bande, opaque, collée sous le bandeau de leçon, et la voie passe dessous.
+La bande ne contient aucun bouton.
 
 - **Le panorama du départ.** Tout en haut de la voie, avant la première étape, le ciel est grand
   (280 px) et porte le nom de la route en kanji et son sous-titre. Au défilement, il se replie
@@ -1004,12 +1004,12 @@ derrière une crête de la couleur du fond. La bande ne contient aucun bouton.
   2. une crête lointaine ;
   3. le **plan moyen** qui défile (monts, forêts, temples) ;
   4. les **repères** des villes ;
-  5. la **crête proche**, de la couleur du fond, et le **plan proche** qui défile (arbres,
-     champs, maisons, bateaux), en silhouettes de la même couleur.
+  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), en silhouettes de la
+     couleur du fond, posées sur le bas du ciel.
 - **Les repères des villes.**
   - Ont un repère : les villes qui ont une illustration unique, et les villes, grandes villes et
     terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.
-  - Chacun a sa taille fixe et **glisse avec le décor**, derrière la crête proche : à 0,35 px par px défilé, entre le plan
+  - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,35 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
     au tiers haut de la voie visible, et reste dans la bande tant que son nom est affiché.
   - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par un
