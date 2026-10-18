@@ -56,8 +56,14 @@ function cedar(x: number, top = 12, w = 9, opacity = 0.42): ReactNode {
 
 function waves(y: number, x0 = 0, x1 = 120): ReactNode {
   let d = `M${x0} ${y}`;
-  for (let x = x0; x < x1; x += 30) d += ` q7.5 -5 15 0 t15 0`;
+  for (let x = x0; x + 30 <= x1; x += 30) d += ` q7.5 -5 15 0 t15 0`;
   return <path key={`w${y}`} d={d} stroke={W} strokeOpacity={0.55} strokeWidth={1.3} fill="none" />;
+}
+
+/** Une eau de y0 à y1 sur la largeur de la boîte, ses bouts effilés en rive. */
+function pool(y0: number, y1: number, opacity = 0.13): ReactNode {
+  const m = (y0 + y1) / 2;
+  return <path key={`p${y0}`} d={`M2 ${m} Q6 ${y0} 26 ${y0} H94 Q114 ${y0} 118 ${m} Q114 ${y1} 92 ${y1} H28 Q6 ${y1} 2 ${m} Z`} fill={W} fillOpacity={opacity} />;
 }
 
 /**
@@ -109,8 +115,8 @@ function toriiShape(cx: number, top: number, w: number, foot: number): ReactNode
 function lakeBase(): ReactNode {
   return (
     <g key="lake">
-      <path d="M0 48 Q18 38 36 45 Q58 32 82 43 Q100 36 120 44 V50 H0 Z" fill="currentColor" fillOpacity={0.1} />
-      <path d="M0 50 H120 V68 Q60 74 0 68 Z" fill={W} fillOpacity={0.13} />
+      <path d="M4 52 Q12 40 36 45 Q58 32 82 43 Q104 36 116 52 Z" fill="currentColor" fillOpacity={0.1} />
+      <path d="M2 58 Q8 50 30 50 H90 Q112 50 118 57 Q114 68 90 70 Q60 74 30 70 Q6 68 2 58 Z" fill={W} fillOpacity={0.13} />
       <path d="M14 56 h18 M70 54 h22 M42 62 h16 M90 63 h14" stroke={W} strokeOpacity={0.4} />
       <path d="M8 72 q1 -9 -2 -15 M12 72 q0 -11 3 -17 M16 72 q-1 -7 -4 -11 M108 72 q-1 -9 2 -14 M112 72 q0 -7 -3 -10" stroke="currentColor" strokeOpacity={0.45} fill="none" />
     </g>
@@ -129,13 +135,13 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     // brume, puis les contreforts plus sombres piqués de cèdres.
     <>
       <path
-        d="M0 72 V50 L10 42 L17 44 L29 30 L37 34 L50 17 L58 24 L64 22 L76 34 L84 29 L96 40 L106 36 L120 46 V72 Z"
+        d="M0 72 Q4 54 10 42 L17 44 L29 30 L37 34 L50 17 L58 24 L64 22 L76 34 L84 29 L96 40 L106 36 L114 42 Q118 56 120 72 Z"
         fill="currentColor"
         fillOpacity={0.08}
       />
       {snowy && <path d="M45 23 L50 17 L56 22.5 L53 24 L50 21.5 L47.5 25 Z M25 34 L29 30 L33 32 L30 33.5 Z M81 31.5 L84 29 L87 32 Z" fill={SNOW} />}
       <path d="M0 58 Q30 52 60 56 Q90 60 120 54 V60 Q90 66 60 62 Q30 58 0 64 Z" fill={BG} fillOpacity={0.55} />
-      <path d="M0 72 V61 Q14 53 28 57 Q40 47 54 53 Q66 59 78 51 Q92 43 104 51 Q112 55 120 53 V72 Z" fill="currentColor" fillOpacity={0.15} />
+      <path d="M0 72 Q6 58 28 57 Q40 47 54 53 Q66 59 78 51 Q92 43 104 51 Q114 56 120 72 Z" fill="currentColor" fillOpacity={0.15} />
       <path d="M38 52 l2 -6 l2 6 Z M46 54 l2 -5 l2 5 Z M86 48 l2 -6 l2 6 Z M94 50 l2 -5 l2 5 Z M100 52 l1.6 -4 l1.6 4 Z" fill="currentColor" fillOpacity={0.22} />
     </>
   ),
@@ -143,7 +149,7 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     // Le gué à porteurs (kawagoshi) : deux porteurs dans l'eau jusqu'à la taille, l'estrade
     // sur les épaules, le voyageur assis dessus sous son chapeau.
     <>
-      <path d="M0 54 H120 V74 H0 Z" fill={W} fillOpacity={0.14} />
+      {pool(52, 74, 0.14)}
       <g fill="currentColor" fillOpacity={0.6}>
         <circle cx={38} cy={38} r={3} />
         <circle cx={82} cy={38} r={3} />
@@ -154,15 +160,15 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
       <path d="M53 40 Q60 30 67 40 Z" fill="currentColor" fillOpacity={0.45} />
       <circle cx={60} cy={28} r={2.6} fill="currentColor" fillOpacity={0.55} />
       <path d="M52 27 L60 21 L68 27 Z" fill="currentColor" fillOpacity={0.6} />
-      {waves(58, 0, 120)}
-      {waves(67, 12, 120)}
+      {waves(58, 14, 104)}
+      {waves(67, 24, 114)}
     </>
   ),
   bridge: () => (
     // Un pont de bois en arc : tablier épais, garde-corps à balustres, piles plantées dans l'eau.
     <>
-      <path d="M0 64 H120 V74 H0 Z" fill={W} fillOpacity={0.12} />
-      {waves(70, 0, 120)}
+      {pool(62, 76, 0.12)}
+      {waves(70, 16, 106)}
       <path d="M24 55 V72 M42 50 V72 M60 49 V72 M78 50 V72 M96 55 V72" stroke="currentColor" strokeOpacity={0.4} strokeWidth={2} />
       <path d="M24 62 L42 58 M42 58 L60 62 M60 62 L78 58 M78 58 L96 62" stroke="currentColor" strokeOpacity={0.2} />
       <path d="M2 60 Q60 30 118 60 L118 64 Q60 35 2 64 Z" fill="currentColor" fillOpacity={0.5} />
@@ -191,46 +197,38 @@ const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
     // La mer à la manière d'Hokusai : une vague qui se dresse et se recourbe en griffes
     // d'écume, la houle derrière.
     <>
-      <path d="M0 54 H120 V74 H0 Z" fill={W} fillOpacity={0.12} />
+      {pool(54, 76, 0.12)}
       <path d="M0 60 Q8 52 14 46 Q24 30 44 28 Q60 27 64 38 Q58 33 51 35 Q57 39 55 46 Q48 42 42 46 Q34 52 30 60 Z" fill={W} fillOpacity={0.32} stroke={W} strokeOpacity={0.6} strokeWidth={1.1} />
       <path d="M44 28 q6 -3 9 2 q3 -3 7 1 q3 -1 4 4" stroke={SNOW} strokeWidth={1.6} fill="none" strokeLinecap="round" />
       <path d="M70 58 Q80 48 92 50 Q100 51 100 57 Q94 54 90 57 Z" fill={W} fillOpacity={0.25} stroke={W} strokeOpacity={0.5} />
-      {waves(64, 0, 120)}
-      {waves(70, 10, 120)}
+      {waves(64, 6, 96)}
+      {waves(70, 22, 112)}
     </>
   ),
   rice: () => {
-    // Des rizières en eau, vues de biais : les planches s'éloignent vers l'horizon, séparées par
-    // leurs diguettes, les jeunes plants en rangs serrés, le ciel qui s'y reflète.
+    // Des rizières en eau, vues de biais : quelques planches qui s'éloignent vers l'horizon,
+    // séparées par leurs diguettes, des touffes de jeunes plants, le ciel qui s'y reflète.
     const vp = { x: 60, y: 14 };
-    const rows = [40, 48, 58, 72];
     const at = (x: number, y: number) => vp.x + ((x - vp.x) * (y - vp.y)) / (72 - vp.y);
-    const plots = [-30, 6, 42, 78, 114, 150];
     let bunds = "";
-    for (const x of plots) bunds += `M${at(x, 40)} 40 L${at(x, 72)} 72 `;
-    for (const y of rows.slice(1, 3)) bunds += `M${at(-30, y)} ${y} H${at(150, y)} `;
+    for (const x of [-10, 40, 90, 140]) bunds += `M${at(x, 42)} 42 L${at(x, 72)} 72 `;
+    bunds += `M${at(-30, 52)} 52 H${at(150, 52)} `;
     let shoots = "";
-    rows.slice(0, 3).forEach((y0, r) => {
-      const y1 = rows[r + 1];
-      const lines = 2 + r;
-      for (let i = 1; i <= lines; i++) {
-        const y = y0 + ((y1 - y0) * i) / (lines + 1);
-        const step = 2.5 + r * 1.6;
-        for (let x = at(-30, y) + 2; x < at(150, y) - 2; x += step) shoots += `M${x} ${y} v${-0.8 - r * 0.7}`;
-      }
-    });
+    for (const [y, step, h] of [[48, 7, 1.6], [60, 9, 2.4], [67, 10, 3]] as const) {
+      for (let x = at(-30, y) + 4 + (y % 3); x < at(150, y) - 4; x += step) shoots += `M${x - 1} ${y} l1 ${-h} l1 ${h} `;
+    }
     return (
       <>
         <defs>
           <clipPath id="rice-clip">
-            <path d="M6 46 Q24 39 50 41 Q78 37 104 41 Q116 43 118 50 L116 72 H4 Q0 60 6 46 Z" />
+            <path d="M6 50 Q20 41 50 42 Q80 39 106 43 Q118 47 116 56 Q112 70 88 72 Q60 76 28 72 Q2 68 6 50 Z" />
           </clipPath>
         </defs>
         <g clipPath="url(#rice-clip)">
-          <rect x={0} y={40} width={120} height={32} fill={W} fillOpacity={0.12} />
-          <path d="M22 45 h14 M74 53 h16 M36 64 h18" stroke={SNOW} strokeOpacity={0.5} strokeWidth={0.9} />
-          <path d={shoots} stroke="currentColor" strokeOpacity={0.4} strokeWidth={0.7} />
-          <path d={bunds} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.1} fill="none" />
+          <rect x={0} y={38} width={120} height={38} fill={W} fillOpacity={0.12} />
+          <path d="M26 46 h12 M72 57 h14" stroke={SNOW} strokeOpacity={0.4} strokeWidth={0.9} />
+          <path d={shoots} stroke="currentColor" strokeOpacity={0.4} strokeWidth={0.8} fill="none" />
+          <path d={bunds} stroke="currentColor" strokeOpacity={0.24} strokeWidth={1.4} fill="none" />
         </g>
       </>
     );

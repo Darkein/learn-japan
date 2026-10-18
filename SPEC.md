@@ -938,6 +938,12 @@ la largeur), qui réserve sa place sur la voie :
 | Oku no Hosomichi | Edo (Fukagawa, départ de Bashō), Nikkō, Matsushima, Hiraizumi, Yamadera, Kisakata, Ōgaki |
 | Shikoku henro | les tourbillons de Naruto, le cap Muroto, le pont de lianes d'Iya, la pagode de Zentsū-ji, Ōkubo-ji |
 
+Une illustration unique est peinte par plans opaques, du fond vers l'avant : chaque plan cache
+celui qu'il recouvre, sans transparence croisée. Aucun plan ne s'arrête sur un bord droit de sa
+place : les monts se perdent dans la brume à leur pied, les lacs ont leurs rives effilées, la
+terre s'effile. Seuls les bords de la voie (gauche et droite de l'écran) coupent l'eau d'une
+traversée. Les petits éléments du catalogue suivent la même règle : pas de socle rectangulaire.
+
 **Les données de chaque route** (`data/scenery/<route>.ts`, à côté de `data/<route>.ts`) :
 - **pour chaque ville** : sa taille (§5c.4), ses repères réels (élément du catalogue, côté de la
   voie s'il compte, illustration unique éventuelle) et le motif de son tampon ;
