@@ -13,7 +13,7 @@ import { OmikujiSheet } from "./OmikujiSheet";
 import { useNotify } from "./useNotify";
 
 /**
- * Carte omikuji de l'accueil : « Tirer » avant le tirage, jauge du défi ensuite, ligne
+ * Carte omikuji du Voyage (SPEC §5c.1) : « Tirer » avant le tirage, jauge du défi ensuite, ligne
  * calme une fois accompli (jamais un second accent sur l'écran — le bloc révision garde
  * le primary).
  */
@@ -26,7 +26,7 @@ export function OmikujiCard() {
     const result = await checkOmikuji();
     setCheck(result);
     if (result?.completedNow) {
-      notify({ message: "Omikuji accompli — un peu de chemin gagné sur la route." });
+      notify({ message: "Omikuji accompli — son tampon rejoint ton carnet." });
     }
   }
 

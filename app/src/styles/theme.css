@@ -27,6 +27,15 @@
      posé (--text, plein) tranche nettement, assez présent pour montrer où le geste va. */
   --stroke-ghost: rgba(232, 226, 212, 0.15);
 
+  /* Voie de l'accueil et son décor (DESIGN.md « Décor de la voie »). */
+  --ballast: #24201a;
+  --ballast-edge: rgba(232, 226, 212, 0.14);
+  --sleeper: rgba(232, 226, 212, 0.32);
+  --rail: rgba(232, 226, 212, 0.6);
+  --decor-fill: rgba(232, 226, 212, 0.1);
+  --decor-water: rgba(124, 143, 192, 0.45);
+  --decor-snow: #e8e2d4;
+
   color-scheme: dark;
 }
 
@@ -48,6 +57,13 @@
     --state-review: rgba(192, 57, 43, 0.65);
     --ink: rgba(26, 24, 21, 0.6);
     --stroke-ghost: rgba(26, 24, 21, 0.16);
+    --ballast: #ede6d8;
+    --ballast-edge: rgba(26, 24, 21, 0.14);
+    --sleeper: rgba(26, 24, 21, 0.42);
+    --rail: rgba(26, 24, 21, 0.72);
+    --decor-fill: rgba(26, 24, 21, 0.14);
+    --decor-water: rgba(46, 67, 116, 0.45);
+    --decor-snow: #ffffff;
     color-scheme: light;
   }
 }
@@ -68,5 +84,12 @@
   --state-review: rgba(192, 57, 43, 0.65);
   --ink: rgba(26, 24, 21, 0.6);
   --stroke-ghost: rgba(26, 24, 21, 0.16);
+  --ballast: #ede6d8;
+  --ballast-edge: rgba(26, 24, 21, 0.14);
+  --sleeper: rgba(26, 24, 21, 0.42);
+  --rail: rgba(26, 24, 21, 0.72);
+  --decor-fill: rgba(26, 24, 21, 0.14);
+  --decor-water: rgba(46, 67, 116, 0.45);
+  --decor-snow: #ffffff;
   color-scheme: light;
 }

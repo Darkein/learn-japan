@@ -455,14 +455,9 @@ function AppShell() {
       <div key={refreshKey} className={wide ? "" : "mt-6"}>
         {tab === "home" && (
           <Home
-            onOpenStory={openStory}
             onOpenCourse={openCourse}
             onStartReview={startReview}
             onStartFlow={() => navigate(`/flux?from=${encodeURIComponent(currentLocation())}`)}
-            onStartMirror={() =>
-              navigate(`/flux?activite=miroir&from=${encodeURIComponent(currentLocation())}`)
-            }
-            onGoCatalogue={() => navigate("/catalogue")}
             onGoStats={() => navigate(`/stats?from=${encodeURIComponent(currentLocation())}`)}
             onGoVoyage={() => navigate(`/voyage?from=${encodeURIComponent(currentLocation())}`)}
           />

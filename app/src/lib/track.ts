@@ -33,6 +33,8 @@ export interface TrackCity {
   kanji: string;
   romaji: string;
   size: CitySize;
+  /** Kanji propre au cœur du nœud (sinon celui de sa taille, ui/track/words.ts). */
+  glyph?: string;
 }
 
 export interface TrackRoute {
@@ -157,6 +159,8 @@ const LABEL_W = 140;
 /** Écart vertical AVANT un nœud, selon ce qu'il est. */
 const GAP = { step: 108, extra: 108, village: 84, ville: 96, grande: 112, terminus: 120 } as const;
 const LESSON_MARK = 56;
+/** Place gardée sous l'étape à faire, pour que sa bulle ne couvre pas le libellé suivant. */
+const AFTER_CUR = 64;
 const ROUTE_END_H = 470;
 const CURRICULUM_END_H = 220;
 /** Le zigzag : décalage horizontal de chaque nœud, en part de l'amplitude. */
@@ -316,23 +320,24 @@ export function layoutTrack(input: TrackInput): TrackLayout {
 
     // Placement : y cumulé, x en zigzag le long de la route.
     const routeNodes: TrackNode[] = [];
+    let prevCur = false;
     seq.forEach(({ item, marker, section }, i) => {
-      if (marker) {
-        if (section) {
-          const prev = sections[sections.length - 1];
-          if (prev) prev.y1 = y;
-          sections.push({ lessonId: section, level, y0: y, y1: y });
-        }
-        y += LESSON_MARK;
-        markers.push({ ...marker, y: y - LESSON_MARK / 2 } as TrackMarker);
+      const prevY = y;
+      if (marker && section) {
+        const prev = sections[sections.length - 1];
+        if (prev) prev.y1 = y;
+        sections.push({ lessonId: section, level, y0: y, y1: y });
       }
-      y += i === 0 ? 0 : item.gap;
+      // Après l'étape à faire, de la place pour sa bulle ; avant une leçon, son séparateur.
+      y += i === 0 ? 0 : item.gap + (marker ? LESSON_MARK : 0) + (prevCur ? AFTER_CUR : 0);
+      if (marker) markers.push({ ...marker, y: (prevY + y) / 2 } as TrackMarker);
       const x = cx + amp * ZIGZAG[i % ZIGZAG.length];
       const nextX = cx + amp * ZIGZAG[(i + 1) % ZIGZAG.length];
       const node = item.make({ id: "", level, x, y, r: item.r, dist: 0, side: sideFor(x, cx, nextX) });
       node.id =
         node.kind === "step" ? `${node.lessonId}:${node.step}` : node.kind === "city" ? `city:${level}:${node.city.index}` : `${node.extra}:${node.lessonId ?? level}`;
       routeNodes.push(node);
+      prevCur = (node.kind === "step" || node.kind === "extra") && node.state === "cur";
     });
 
     const points = routeNodes.map((n) => ({ x: n.x, y: n.y }));
@@ -376,7 +381,7 @@ export function layoutTrack(input: TrackInput): TrackLayout {
   if (cur) {
     const w = Math.min(BUBBLE_W, width - 32);
     const left = cur.side === "right" ? cur.x + cur.r + 14 : cur.x - cur.r - 14 - w;
-    bubble = { x: Math.max(16, Math.min(width - 16 - w, left)), y: cur.y - 64, w, h: BUBBLE_H };
+    bubble = { x: Math.max(16, Math.min(width - 16 - w, left)), y: cur.y - 56, w, h: BUBBLE_H };
     const path = paths.find((p) => p.level === cur.level);
     if (path && cur.id !== "free-review") {
       const idx = nodes.filter((n) => n.level === cur.level).indexOf(cur);
