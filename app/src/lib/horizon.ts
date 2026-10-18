@@ -1,6 +1,6 @@
 // La bande de ciel de la voie (SPEC §5c.6b) : calcul PUR. Le panorama du départ qui se replie,
-// les repères des villes posés à leur place sur l'horizon (là tant que leur ville est sur la
-// voie visible), et le décor qui défile en deux plans, tiré du paysage du tronçon.
+// le décor qui défile en deux plans, tiré du paysage du tronçon, et entre les deux les repères
+// des villes, qui passent au milieu de l'horizon quand leur ville est au tiers haut de l'écran.
 
 import type { Biome, RouteScenery, SpriteKind, UniqueKind } from "./scenery";
 import type { TrackLayout } from "./track";
@@ -77,7 +77,7 @@ export function markX(mark: SkyMark, pos: number, visible: number, width: number
   return mark.x * width + (pos - (mark.y - visible / 3)) * MARK_SPEED;
 }
 
-/** Un repère est levé tant que sa ville est sur la voie visible, entre `top` et `bottom`. */
+/** Le nom d'un repère paraît tant que sa ville est sur la voie visible, entre `top` et `bottom`. */
 export function markRaised(mark: SkyMark, top: number, bottom: number): boolean {
   return mark.y >= top - 20 && mark.y <= bottom;
 }

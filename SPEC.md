@@ -1009,13 +1009,12 @@ derrière une crête de la couleur du fond. La bande ne contient aucun bouton.
 - **Les repères des villes.**
   - Ont un repère : les villes qui ont une illustration unique, et les villes, grandes villes et
     terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.
-  - Chacun a sa taille fixe et **glisse avec le décor** : à 0,35 px par px défilé, entre le plan
+  - Chacun a sa taille fixe et **glisse avec le décor**, derrière la crête proche : à 0,35 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
-    au tiers haut de la voie visible, et reste dans la bande tant qu'il est levé.
-  - Un repère est là tant que sa ville est sur la voie visible, sous la bande. Il **se lève
-    derrière la crête** quand sa ville y arrive (il monte en grandissant, environ 0,7 s) et y
-    **redescend** quand elle la quitte (environ 0,45 s). Son nom (kanji · romaji) apparaît
-    au-dessus juste après lui.
+    au tiers haut de la voie visible, et reste dans la bande tant que son nom est affiché.
+  - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par un
+    côté et sort par l'autre. Son nom (kanji · romaji) paraît en fondu au-dessus de lui tant que
+    sa ville est sur la voie visible.
 - **Le décor qui défile.**
   - Deux plans glissent de côté au fil du défilement, dans le même sens que les repères : le plan
     moyen à 0,22 px par px défilé, le plan proche à 0,55 px.
@@ -1026,11 +1025,11 @@ derrière une crête de la couleur du fond. La bande ne contient aucun bouton.
     côte, toits et temples en ville…
 - **Le soleil, la lune, les étoiles**, la brume du matin, les oiseaux et les pétales gardent leur
   logique (ci-dessus).
-- **Le défilement.** La bande se recalcule une fois par image de défilement ; seules les
-  apparitions des repères sont animées. L'ouverture, le bandeau de leçon et le bouton de retour
+- **Le défilement.** La bande se recalcule une fois par image de défilement ; seul le nom des
+  repères paraît et s'efface en fondu. L'ouverture, le bandeau de leçon et le bouton de retour
   tiennent compte de la bande : l'étape à faire se place au tiers haut de la voie visible.
-- Sous `prefers-reduced-motion`, les repères paraissent et disparaissent sans mouvement, et les
-  étoiles ne scintillent plus.
+- Sous `prefers-reduced-motion`, le nom des repères paraît sans fondu, et les étoiles ne
+  scintillent plus.
 
 ### 5c.7 Le changement de niveau
 

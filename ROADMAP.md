@@ -127,7 +127,7 @@ le décor réel des cinq routes.**
 - **La route réelle** : données des cinq routes (taille des villes, repères réels, paysages,
   traversées, motifs des tampons) et illustrations uniques.
 - **La bande de ciel** : le ciel séparé de la voie, panorama du départ qui se replie, repères des
-  villes qui se lèvent derrière la crête, décor qui défile en deux plans selon le paysage.
+  villes et décor qui défilent en plans, selon le paysage.
 
 **Vérif** : l'accueil s'ouvre sur l'étape à faire ; une étape terminée fait rouler le train
 jusqu'à la suivante ; une ville franchie pose son tampon ; le contrôle final d'un niveau mène au
