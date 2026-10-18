@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Season } from "../../lib/scenery";
-import { moonLitPath, skyAt } from "../../lib/sky";
+import { moonLitPath, skyAt, type SkyState } from "../../lib/sky";
 
-/** Hauteur du ciel, et de son horizon (où l'astre se couche). */
-const H = 150;
-const HORIZON = 118;
+/** Ce que le ciel garde sous son horizon (la crête lointaine). */
+const CREST = 12;
 
 /** PRNG déterministe (mulberry32) : les étoiles restent à leur place. */
 function rng(seed: number): () => number {
@@ -21,7 +20,8 @@ const STARS = (() => {
   const r = rng(8531);
   return Array.from({ length: 22 }, () => ({
     x: 3 + r() * 94,
-    y: 8 + r() * (HORIZON - 30),
+    /** Part de la hauteur du ciel au-dessus de la crête. */
+    y: 0.06 + r() * 0.74,
     size: 1 + r() * 1.1,
     // Durées et décalages distincts : les étoiles ne scintillent jamais ensemble.
     dur: 2.4 + r() * 4.2,
@@ -36,7 +36,7 @@ const PETALS = (() => {
 
 const FIREFLIES = (() => {
   const r = rng(717);
-  return Array.from({ length: 9 }, () => ({ x: 4 + r() * 92, y: HORIZON - 40 + r() * 36, dur: 2 + r() * 3, delay: -r() * 4 }));
+  return Array.from({ length: 9 }, () => ({ x: 4 + r() * 92, y: 0.55 + r() * 0.4, dur: 2 + r() * 3, delay: -r() * 4 }));
 })();
 
 /** Un oiseau en vol, ailes en V. */
@@ -62,19 +62,14 @@ function Birds({ kind }: { kind: "swallows" | "geese" | "crane" }) {
     );
   }
   return (
-    <svg className="sky-birds absolute" style={{ top: 30, left: 0 }} width={80} height={60} viewBox="-50 -30 80 60" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.3} strokeLinecap="round">
+    <svg className="sky-birds absolute" style={{ top: 10, left: 0 }} width={80} height={60} viewBox="-50 -30 80 60" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.3} strokeLinecap="round">
       {body}
     </svg>
   );
 }
 
-/**
- * Le ciel de la voie (SPEC §5c.6) : une couche collée en haut de l'écran, derrière la voie.
- * Le soleil suit l'heure (à demi caché derrière une crête à l'aube et au crépuscule), la nuit
- * la lune a sa phase réelle et les étoiles scintillent ; brume du matin, oiseaux et pétales
- * selon la saison. Se remet à l'heure chaque minute.
- */
-export function Sky({ season, top = 0 }: { season: Season; /** Hauteur du bandeau collant au-dessus. */ top?: number }) {
+/** L'état du ciel, remis à l'heure chaque minute. */
+export function useSky(season: Season): SkyState {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 60_000);
@@ -82,36 +77,27 @@ export function Sky({ season, top = 0 }: { season: Season; /** Hauteur du bandea
   }, []);
   const minute = Math.floor(now.getTime() / 60_000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const sky = useMemo(() => skyAt(now, season), [minute, season]);
-  const body = sky.sun ?? sky.moon;
-  const bodyTop = body ? HORIZON - 8 - body.alt * (HORIZON - 30) : 0;
-  const tint =
-    sky.time === "dawn" || sky.time === "dusk"
-      ? "linear-gradient(to top, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%)"
-      : sky.time === "night"
-        ? "linear-gradient(to bottom, color-mix(in oklab, var(--accent-2) 10%, transparent), transparent)"
-        : undefined;
+  return useMemo(() => skyAt(now, season), [minute, season]);
+}
 
+/**
+ * Le ciel de la voie (SPEC §5c.6), en haut de la bande d'horizon (§5c.6b), sur son propre fond.
+ * Le soleil suit l'heure (à demi caché derrière une crête à l'aube et au crépuscule), la nuit
+ * la lune a sa phase réelle et les étoiles scintillent ; brume du matin, oiseaux et pétales
+ * selon la saison. `children` se dessine par-dessus, posé sur l'horizon (les repères).
+ */
+export function Sky({ sky, height, children }: { sky: SkyState; height: number; children?: ReactNode }) {
+  const horizon = height - CREST;
+  const body = sky.sun ?? sky.moon;
+  const bodyTop = body ? horizon - 8 - body.alt * Math.max(20, horizon - 30) : 0;
   return (
-    <div
-      aria-hidden="true"
-      data-sky={sky.time}
-      className="pointer-events-none sticky overflow-hidden text-text"
-      style={{
-        top,
-        height: H,
-        marginBottom: -H,
-        background: tint,
-        maskImage: "linear-gradient(#000 70%, transparent)",
-        WebkitMaskImage: "linear-gradient(#000 70%, transparent)",
-      }}
-    >
+    <div aria-hidden="true" data-sky={sky.time} className="horizon-sky absolute inset-x-0 top-0 overflow-hidden text-text" style={{ height }}>
       {sky.stars &&
         STARS.map((s, i) => (
           <span
             key={i}
             className="sky-star"
-            style={{ left: `${s.x}%`, top: s.y, width: s.size, height: s.size, animationDuration: `${s.dur}s`, animationDelay: `${s.delay}s` }}
+            style={{ left: `${s.x}%`, top: 6 + s.y * (horizon - 20), width: s.size, height: s.size, animationDuration: `${s.dur}s`, animationDelay: `${s.delay}s` }}
           />
         ))}
 
@@ -129,16 +115,15 @@ export function Sky({ season, top = 0 }: { season: Season; /** Hauteur du bandea
       )}
       {(sky.time === "dawn" || sky.time === "dusk") && sky.sun && (
         // La crête qui cache à demi le soleil levant ou couchant.
-        <svg className="absolute" style={{ left: `calc(${sky.sun.x * 100}% - 90px)`, top: HORIZON - 34 }} width={180} height={40} viewBox="0 0 180 40">
-          <path d="M0 40 L30 22 L52 30 L88 6 L118 26 L140 18 L180 40 Z" fill="var(--bg)" />
-          <path d="M0 40 L30 22 L52 30 L88 6 L118 26 L140 18 L180 40 Z" fill="currentColor" fillOpacity={0.12} />
+        <svg className="absolute" style={{ left: `calc(${sky.sun.x * 100}% - 90px)`, top: horizon - 34 }} width={180} height={40} viewBox="0 0 180 40">
+          <path d="M0 40 L30 22 L52 30 L88 6 L118 26 L140 18 L180 40 Z" fill="var(--sky-ridge)" />
         </svg>
       )}
 
       {sky.mist && (
         <>
-          <span className="sky-mist absolute" style={{ top: HORIZON - 26, left: "-20%", width: "70%" }} />
-          <span className="sky-mist absolute" style={{ top: HORIZON - 52, left: "40%", width: "60%", animationDelay: "-20s" }} />
+          <span className="sky-mist absolute" style={{ top: horizon - 26, left: "-20%", width: "70%" }} />
+          <span className="sky-mist absolute" style={{ top: horizon - 46, left: "40%", width: "60%", animationDelay: "-20s" }} />
         </>
       )}
 
@@ -157,9 +142,10 @@ export function Sky({ season, top = 0 }: { season: Season; /** Hauteur du bandea
           <span
             key={i}
             className="sky-firefly absolute rounded-full"
-            style={{ left: `${f.x}%`, top: f.y, animationDuration: `${f.dur}s`, animationDelay: `${f.delay}s` }}
+            style={{ left: `${f.x}%`, top: f.y * horizon, animationDuration: `${f.dur}s`, animationDelay: `${f.delay}s` }}
           />
         ))}
+      {children}
     </div>
   );
 }
