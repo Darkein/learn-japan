@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { routeForLevel } from "../data/routes";
+import { SCENERIES } from "../data/scenery";
 import { getMeta, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
 import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/flow";
 import type { Lesson } from "../lib/lessons";
@@ -7,6 +8,7 @@ import { estimateLabel, loadFormDurations, stepPlan } from "../lib/pathPlan";
 import { sessionStats } from "../lib/reviewSession";
 import { goalStreak } from "../lib/stats";
 import { markStationCelebrated, stampTotal, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
+import { placeDecor, seasonOf } from "../lib/scenery";
 import { layoutTrack, type TrackNode, type TrackSection } from "../lib/track";
 import { trackInput } from "../lib/trackInput";
 import { Button } from "./kit/Button";
@@ -16,6 +18,7 @@ import { claimOmikujiAutoOpen, OmikujiSheet } from "./OmikujiSheet";
 import { StationArrival } from "./StationArrival";
 import { CityFiche } from "./track/CityFiche";
 import { CurriculumEnd, RouteEnd } from "./track/RouteEnd";
+import { Sky } from "./track/Sky";
 import { Track } from "./track/Track";
 import { EXTRA_WORDS, STEP_WORDS } from "./track/words";
 import { useGenJobs } from "./useGenJobs";
@@ -73,6 +76,8 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
   const [arrival, setArrival] = useState<RouteArrival | null>(null);
   const [fiche, setFiche] = useState<{ level: number; index: number; stamped: boolean } | null>(null);
   const measure = useRef<HTMLDivElement>(null);
+  const banner = useRef<HTMLDivElement>(null);
+  const [bannerH, setBannerH] = useState(64);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
@@ -101,6 +106,15 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
     });
   }, []);
 
+  // Le ciel se colle sous le bandeau de leçon : sa hauteur suit le bandeau.
+  useEffect(() => {
+    const el = banner.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBannerH(Math.round(el.getBoundingClientRect().height)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data !== null]);
+
   // La voie se met en page à la largeur réelle (bord à bord sur téléphone).
   useEffect(() => {
     const el = measure.current;
@@ -120,9 +134,13 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
         activity: data.activity,
         stamps: data.tokaido.stamps,
         restDone: data.restDone,
+        sceneries: SCENERIES,
       }),
     );
   }, [data, width]);
+  // La saison du jour (date locale) : fixée à l'ouverture de l'accueil.
+  const season = useMemo(() => seasonOf(new Date()), []);
+  const decor = useMemo(() => (layout ? placeDecor(layout, SCENERIES, season) : undefined), [layout, season]);
 
   const lessonById = useMemo(() => new Map(data?.lessons.map((l) => [l.id, l]) ?? []), [data]);
   const onSection = useCallback((s: TrackSection | undefined) => setSection((p) => (p?.lessonId === s?.lessonId ? p : s)), []);
@@ -229,7 +247,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
         </button>
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 border-b border-hairline bg-bg/95 px-4 py-2.5 backdrop-blur-sm">
+      <div ref={banner} className="sticky top-0 z-20 -mx-4 border-b border-hairline bg-bg/95 px-4 py-2.5 backdrop-blur-sm">
         {shown ? (
           <div className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 flex-col">
@@ -251,9 +269,11 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
       </div>
 
       <div ref={measure} className="-mx-4 overflow-x-clip">
+        {layout && <Sky season={season} top={bannerH} />}
         {layout && (
           <Track
             layout={layout}
+            decor={decor}
             trainColor={(level) => routeForLevel(level).trainColor}
             bubble={bubble}
             metaOf={metaOf}

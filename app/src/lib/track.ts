@@ -50,6 +50,9 @@ export interface TrackRoute {
   level: number;
   /** Villes 0..S, dans l'ordre. La 0 est le départ, la S le terminus. */
   cities: TrackCity[];
+  /** Place réservée (px) dans le tronçon qui mène à la ville d'index donné : une traversée,
+      une illustration unique (SPEC §5c.6). La voie s'y allonge, sans nœud. */
+  reserve?: Record<number, number>;
 }
 
 /** Ce qui est À FAIRE maintenant (`pickNext`), traduit en nœud de la voie. */
@@ -163,6 +166,17 @@ export interface TrackLayout {
   /** Zones que le décor ne doit pas couvrir (nœuds, libellés, bulle, séparateurs). */
   keepOut: Box[];
   sections: TrackSection[];
+  /** Les places réservées, où rien d'autre n'est posé. */
+  reserved: TrackReserve[];
+}
+
+/** Une place réservée sur la voie : bande de toute la largeur, du haut `y` sur `h` px. */
+export interface TrackReserve {
+  level: number;
+  /** La ville où mène le tronçon. */
+  city: number;
+  y: number;
+  h: number;
 }
 
 // ---- Gabarit ---------------------------------------------------------------------
@@ -220,6 +234,18 @@ export function segmentLength(a: TrackPoint, b: TrackPoint): number {
   return len;
 }
 
+/** Points échantillonnés le long d'un tracé (pour tenir le décor à distance des rails). */
+export function samplePath(path: TrackPath, perSegment = 12): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  const pts = path.points;
+  for (let i = 1; i < pts.length; i++) {
+    const p = segment(pts[i - 1], pts[i]);
+    for (let k = 0; k < perSegment; k++) out.push(cubicAt(p, k / perSegment));
+  }
+  if (pts.length) out.push(pts[pts.length - 1]);
+  return out;
+}
+
 /** Le `d` SVG d'un tracé, des points `from` à `to` inclus (tout le tracé par défaut). */
 export function pathD(path: TrackPath, from = 0, to = path.points.length - 1): string {
   const pts = path.points;
@@ -262,6 +288,7 @@ export function layoutTrack(input: TrackInput): TrackLayout {
   const markers: TrackMarker[] = [];
   const paths: TrackPath[] = [];
   const sections: TrackSection[] = [];
+  const reserved: TrackReserve[] = [];
   let y = TOP;
 
   const byLevel = new Map<number, TrackLesson[]>();
@@ -290,8 +317,8 @@ export function layoutTrack(input: TrackInput): TrackLayout {
     });
 
     // La suite des nœuds de la route, puis leur placement.
-    const seq: { item: Pending; marker?: TrackMarker; section?: string }[] = [];
-    seq.push({ item: city(route.cities[0]) });
+    const seq: { item: Pending; marker?: TrackMarker; section?: string; cityIndex?: number }[] = [];
+    seq.push({ item: city(route.cities[0]), cityIndex: 0 });
     let levelStep = 0;
     for (const l of levelLessons) {
       const done = doneSet(l);
@@ -321,7 +348,7 @@ export function layoutTrack(input: TrackInput): TrackLayout {
         });
         firstOfLesson = false;
         levelStep++;
-        for (const c of citiesAfter.get(levelStep) ?? []) seq.push({ item: city(c) });
+        for (const c of citiesAfter.get(levelStep) ?? []) seq.push({ item: city(c), cityIndex: c.index });
       }
       // Station de repos toutes les 5 leçons, entre le contrôle et le cours suivant.
       const hasNext = globalIdx + 1 < lessons.length && lessons[globalIdx + 1].level === level;
@@ -334,20 +361,37 @@ export function layoutTrack(input: TrackInput): TrackLayout {
       }
     }
     // Villes sans étape (niveau plus court que sa route) : à la suite, jusqu'au terminus.
-    for (const [at, cs] of citiesAfter) if (at > levelStep) for (const c of cs) seq.push({ item: city(c) });
+    for (const [at, cs] of citiesAfter) if (at > levelStep) for (const c of cs) seq.push({ item: city(c), cityIndex: c.index });
+
+    // Places réservées : dans l'écart le plus central du tronçon qui n'a pas de séparateur.
+    const extraAt = new Map<number, { city: number; h: number }>();
+    for (const [k, h] of Object.entries(route.reserve ?? {})) {
+      const idx = Number(k);
+      const a = seq.findIndex((s) => s.item.kind === "city" && s.cityIndex === idx - 1);
+      const b = seq.findIndex((s) => s.item.kind === "city" && s.cityIndex === idx);
+      if (a < 0 || b <= a) continue;
+      let best = -1;
+      for (let i = a + 1; i <= b; i++) {
+        if (seq[i].marker || extraAt.has(i)) continue;
+        if (best < 0 || Math.abs(i - (a + b + 1) / 2) < Math.abs(best - (a + b + 1) / 2)) best = i;
+      }
+      if (best >= 0) extraAt.set(best, { city: idx, h });
+    }
 
     // Placement : y cumulé, x en zigzag le long de la route.
     const routeNodes: TrackNode[] = [];
     let prevCur = false;
     seq.forEach(({ item, marker, section }, i) => {
       const prevY = y;
+      const extra = extraAt.get(i);
       if (marker && section) {
         const prev = sections[sections.length - 1];
         if (prev) prev.y1 = y;
         sections.push({ lessonId: section, level, y0: y, y1: y });
       }
       // Après l'étape à faire, de la place pour sa bulle ; avant une leçon, son séparateur.
-      y += i === 0 ? 0 : item.gap + (marker ? LESSON_MARK : 0) + (prevCur ? AFTER_CUR : 0);
+      y += i === 0 ? 0 : item.gap + (marker ? LESSON_MARK : 0) + (prevCur ? AFTER_CUR : 0) + (extra?.h ?? 0);
+      if (extra) reserved.push({ level, city: extra.city, y: (prevY + y - extra.h) / 2, h: extra.h });
       if (marker) markers.push({ ...marker, y: (prevY + y) / 2 } as TrackMarker);
       const x = cx + amp * ZIGZAG[i % ZIGZAG.length];
       const nextX = cx + amp * ZIGZAG[(i + 1) % ZIGZAG.length];
@@ -431,7 +475,7 @@ export function layoutTrack(input: TrackInput): TrackLayout {
   for (const m of markers) keepOut.push({ x: 0, y: m.y - 20, w: width, h: m.kind === "lesson" ? 40 : m.height });
   if (bubble) keepOut.push(bubble);
 
-  return { width, height: y + 80, nodes, markers, paths, current: cur, bubble, train, keepOut, sections };
+  return { width, height: y + 80, nodes, markers, paths, current: cur, bubble, train, keepOut, sections, reserved };
 }
 
 function lessonMarker(l: TrackLesson, dim: boolean): TrackMarker {
