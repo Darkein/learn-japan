@@ -30,10 +30,9 @@ interface Props {
 
 /** Hauteur de la barre d'onglets, sous la voie visible. */
 const TABBAR = 64;
-/** Taille d'un repère (boîte 120 × 80 du catalogue), et ce que la crête proche en cache. */
+/** Taille d'un repère (boîte 120 × 80 du catalogue : son pied est vers y = 72). */
 const MARK_W = 92;
 const MARK_H = (MARK_W * 80) / 120;
-const NEAR_RIDGE = 22;
 
 interface View {
   /** Défilement de la bande au-delà de sa place collée. */
@@ -126,7 +125,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             fill="var(--sky-ridge)"
           />
         </svg>
-        <Drift items={mid} bottom={16} fill="var(--sky-mid)" />
+        <Drift items={mid} bottom={4} fill="var(--sky-mid)" />
         {marks.map((m) => {
           const x = markX(m, pos, visible, W);
           if (x < -MARK_W || x > W + MARK_W) return null;
@@ -135,7 +134,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             <span
               key={m.id}
               className={`absolute ${up ? "sky-mark-up" : ""}`}
-              style={{ left: x - MARK_W / 2, bottom: NEAR_RIDGE - 8, width: MARK_W, height: MARK_H }}
+              style={{ left: x - MARK_W / 2, bottom: -MARK_H / 10, width: MARK_W, height: MARK_H }}
             >
               <svg width={MARK_W} height={MARK_H} viewBox="0 0 120 80" className="block text-text" style={{ opacity: 0.9 }}>
                 <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
@@ -146,13 +145,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             </span>
           );
         })}
-        <svg width={W} height={NEAR_RIDGE} viewBox={`0 0 ${W} ${NEAR_RIDGE}`} preserveAspectRatio="none" className="absolute bottom-0 left-0 block">
-          <path
-            d={`M0 ${NEAR_RIDGE} L0 12 Q${W * 0.12} 2 ${W * 0.25} 10 T${W * 0.5} 6 T${W * 0.75} 12 T${W} 4 L${W} ${NEAR_RIDGE} Z`}
-            fill="var(--bg)"
-          />
-        </svg>
-        <Drift items={near} bottom={8} fill="var(--bg)" />
+        <Drift items={near} bottom={0} fill="var(--bg)" />
       </Sky>
     </div>
   );
