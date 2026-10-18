@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
-  biomeAt, biomeTrack, driftItems, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
+  biomeAt, biomeTrack, driftItems, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
   skyHeight, skyMarks,
 } from "./horizon";
 import { lessonSteps } from "./path";
@@ -23,6 +23,12 @@ describe("la bande de ciel", () => {
     expect(skyHeight(0)).toBe(SKY_MAX);
     expect(skyHeight(100)).toBe(SKY_MAX - 100);
     expect(skyHeight(10_000)).toBe(SKY_MIN);
+  });
+
+  it("le sol prend 40 % de la bande, entre 50 et 112 px", () => {
+    expect(groundDepth(SKY_MIN)).toBe(50);
+    expect(groundDepth(200)).toBe(80);
+    expect(groundDepth(SKY_MAX)).toBe(112);
   });
 });
 

@@ -14,6 +14,17 @@ export function skyHeight(u: number): number {
   return Math.max(SKY_MIN, Math.min(SKY_MAX, SKY_MAX - Math.max(0, u)));
 }
 
+/**
+ * Profondeur du sol sous l'horizon, pour un ciel de hauteur `skyH` : la crête lointaine se dresse
+ * sur l'horizon, et les plans s'étagent dessous jusqu'au bas de la bande, le plus proche en bas.
+ */
+export function groundDepth(skyH: number): number {
+  return Math.round(Math.min(112, Math.max(50, skyH * 0.4)));
+}
+
+/** Hauteur de chaque plan au-dessus du bas de la bande, en part de la profondeur du sol. */
+export const PLANE_AT = { ridge: 0.94, mid: 0.6, marks: 0.24, near: 0 } as const;
+
 // ---- Les repères ---------------------------------------------------------------------
 
 /** Le sprite du catalogue qui dessine le repère d'une illustration unique. */
@@ -145,8 +156,8 @@ const DRIFT: Record<Layer, Record<Biome, DriftKind[]>> = {
 
 /** Vitesse (part du défilement), espacement et échelle de chaque plan. */
 const LAYERS: Record<Layer, { speed: number; spacing: number; scale: number }> = {
-  mid: { speed: 0.22, spacing: 44, scale: 1.15 },
-  near: { speed: 0.55, spacing: 40, scale: 1 },
+  mid: { speed: 0.22, spacing: 44, scale: 0.9 },
+  near: { speed: 0.55, spacing: 48, scale: 1.25 },
 };
 
 /** Le paysage de la voie, tronçon par tronçon : la ville où il mène, et son paysage. */

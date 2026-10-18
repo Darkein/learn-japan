@@ -4,8 +4,10 @@ import {
   biomeTrack,
   DRIFT_PATHS,
   driftItems,
+  groundDepth,
   markRaised,
   markX,
+  PLANE_AT,
   ridgePath,
   SKY_MAX,
   skyHeight,
@@ -49,7 +51,7 @@ function sameView(a: View, b: View): boolean {
 }
 
 /** Un plan du décor qui défile : des silhouettes posées sur l'horizon. */
-function Drift({ items, bottom, fill }: { items: DriftItem[]; bottom: number; fill: string }) {
+function Drift({ items, bottom, fill, size = 1 }: { items: DriftItem[]; bottom: number; fill: string; size?: number }) {
   return (
     <>
       {items.map((it) => (
@@ -57,7 +59,7 @@ function Drift({ items, bottom, fill }: { items: DriftItem[]; bottom: number; fi
           key={it.key}
           viewBox="0 0 40 30"
           className="absolute block"
-          style={{ left: it.x - 20 * it.scale, bottom, width: 40 * it.scale, height: 30 * it.scale }}
+          style={{ left: it.x - 20 * it.scale * size, bottom, width: 40 * it.scale * size, height: 30 * it.scale * size }}
         >
           <path d={DRIFT_PATHS[it.kind]} fill={fill} />
         </svg>
@@ -69,7 +71,8 @@ function Drift({ items, bottom, fill }: { items: DriftItem[]; bottom: number; fi
 /**
  * La bande de ciel (SPEC §5c.6b), collée sous le bandeau de leçon : le panorama du départ qui se
  * replie, et le décor qui défile en deux plans ; entre les deux glissent les repères des villes,
- * dont le nom paraît tant que leur ville est sur la voie visible. La voie passe dessous, derrière la crête.
+ * dont le nom paraît tant que leur ville est sur la voie visible. Sous l'horizon, le sol étage les
+ * plans : la crête au fond, puis le plan moyen, les repères, le plan proche en bas.
  */
 export function Horizon({ layout, sceneries, season, top, track, title }: Props) {
   const sky = useSky(season);
@@ -108,22 +111,29 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
   const W = layout.width;
   const at = (y: number) => biomeAt(biomes, y);
   const mid = driftItems("mid", pos, W, visible / 3, at);
-  const near = driftItems("near", pos, W, visible / 3, at);
+  const ground = groundDepth(skyH);
+  // Les plans rapetissent quand le sol s'aplatit (bande repliée).
+  const size = 0.7 + (0.3 * (ground - 50)) / 62;
+  const marked = marks.map((m) => markX(m, pos, visible, W)).filter((x) => x > -MARK_W && x < W + MARK_W);
+  // Devant un repère, le premier plan s'écarte : rien ne le cache.
+  const near = driftItems("near", pos, W, visible / 3, at).filter((it) => marked.every((x) => Math.abs(it.x - x) > MARK_W * 0.45));
   const titleOpacity = Math.max(0, 1 - Math.max(0, view.u) / 120);
 
   return (
     <div data-sky={sky.time} className="sticky z-10" style={{ top, height: skyH, marginBottom: -skyH }}>
-      <Sky sky={sky} height={skyH}>
+      <Sky sky={sky} height={skyH} ground={ground}>
         {title && titleOpacity > 0 && (
           <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
             <span className="font-jp text-3xl tracking-widest">{title.kanji}</span>
             <span className="text-xs uppercase tracking-wide text-muted">{title.tagline}</span>
           </div>
         )}
-        <svg width={W} height={40} viewBox={`0 0 ${W} 40`} className="absolute bottom-0 left-0 block">
+        <svg width={W} height={40} viewBox={`0 0 ${W} 40`} className="absolute left-0 block" style={{ bottom: ground * PLANE_AT.ridge }}>
           <path d={ridgePath(pos, W)} fill="var(--sky-ridge)" />
         </svg>
-        <Drift items={mid} bottom={4} fill="var(--sky-mid)" />
+        {/* Le sol, de l'horizon au bas de la bande : il se fond dans le fond de la voie. */}
+        <div className="horizon-ground absolute inset-x-0 bottom-0" style={{ height: ground }} />
+        <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
         {marks.map((m) => {
           const x = markX(m, pos, visible, W);
           if (x < -MARK_W || x > W + MARK_W) return null;
@@ -132,7 +142,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             <span
               key={m.id}
               className={`absolute ${up ? "sky-mark-up" : ""}`}
-              style={{ left: x - MARK_W / 2, bottom: -MARK_H / 10, width: MARK_W, height: MARK_H }}
+              style={{ left: x - MARK_W / 2, bottom: ground * PLANE_AT.marks - MARK_H / 10, width: MARK_W, height: MARK_H }}
             >
               <svg width={MARK_W} height={MARK_H} viewBox="0 0 120 80" className="block text-text" style={{ opacity: 0.9 }}>
                 <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
@@ -143,7 +153,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             </span>
           );
         })}
-        <Drift items={near} bottom={0} fill="var(--bg)" />
+        <Drift items={near} bottom={ground * PLANE_AT.near} fill="var(--sky-near)" size={size} />
       </Sky>
     </div>
   );

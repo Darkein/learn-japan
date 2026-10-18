@@ -99,7 +99,8 @@ n'ajoutent que ces tokens.
 
 La bande de ciel (SPEC §5c.6b) n'a pas de token propre : son fond mêle `--accent-2` (et
 `--accent` à l'aube et au crépuscule) à `--bg`, plus soutenu la nuit ; la crête lointaine et le
-plan moyen mêlent `--text` au bas du ciel ; le plan proche est en `--bg`.
+plan moyen mêlent `--text` au bas du ciel ; le sol glisse d'un voile de `--text` sur le bas du
+ciel jusqu'à `--bg` ; le plan proche mêle plus de `--text` à `--bg`.
 
 Couleurs du décor : l'encre partout ; l'indigo pour l'eau et les villes ; le vermillon pour les
 sceaux, le train du Tōkaidō, les torii, le soleil, les érables et les lanternes allumées ; la
