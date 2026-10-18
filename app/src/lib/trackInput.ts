@@ -3,9 +3,10 @@
 
 import { ROUTES } from "../data/routes";
 import type { FlowActivity } from "./flow";
-import { reserveOf, type RouteScenery } from "./scenery";
+import { SCENERIES } from "../data/scenery";
+import { reliefOf, reserveOf, type RouteScenery } from "./scenery";
 import { nextStep, stepNumberBases, type PathStep } from "./path";
-import type { CitySize, TrackCity, TrackCurrent, TrackInput, TrackLesson, TrackRoute } from "./track";
+import type { TrackCity, TrackCurrent, TrackInput, TrackLesson, TrackRoute } from "./track";
 
 /** Ce que la voie lit d'une leçon — sous-ensemble de lessons.ts `Lesson`. */
 export interface TrackLessonSource {
@@ -22,25 +23,32 @@ export interface TrackLessonSource {
 }
 
 /**
- * Taille d'une ville (SPEC §5c.4). Les données de décor de chaque route la donnent ville par
- * ville ; à défaut, le départ et le terminus sont des terminus, les jalons (`city`) de grandes
- * villes, les autres des villes.
+ * Les routes telles que la voie les dessine. Les données de décor (data/scenery) donnent, ville
+ * par ville, la taille, la lecture, le motif du tampon, le relief et les places réservées ; à
+ * défaut, le départ et le terminus sont des terminus, les jalons (`city`) de grandes villes, les
+ * autres des villes-étapes.
  */
-export type CitySizeOf = (level: number, index: number) => CitySize | undefined;
-
-export function trackRoutes(sizeOf: CitySizeOf = () => undefined, sceneries: RouteScenery[] = []): TrackRoute[] {
-  return ROUTES.map((r) => ({
-    level: r.level,
-    reserve: reserveOf(sceneries.find((s) => s.level === r.level)),
-    cities: r.stations.map((s, i) => ({
-      index: s.index,
-      kanji: s.kanji,
-      romaji: s.romaji,
-      size:
-        sizeOf(r.level, s.index) ??
-        (i === 0 || i === r.stations.length - 1 ? "terminus" : s.city ? "grande" : "ville"),
-    })),
-  }));
+export function trackRoutes(sceneries: RouteScenery[] = SCENERIES): TrackRoute[] {
+  return ROUTES.map((r) => {
+    const scenery = sceneries.find((s) => s.level === r.level);
+    return {
+      level: r.level,
+      reserve: reserveOf(scenery),
+      relief: reliefOf(scenery),
+      cities: r.stations.map((s, i): TrackCity => {
+        const d = scenery?.cities[s.index];
+        return {
+          index: s.index,
+          kanji: s.kanji,
+          romaji: s.romaji,
+          size: d?.size ?? (i === 0 || i === r.stations.length - 1 ? "terminus" : s.city ? "grande" : "ville"),
+          ...(d?.kana ? { kana: d.kana } : {}),
+          ...(d?.motif ? { motif: d.motif } : {}),
+          ...(d?.glyph ? { glyph: d.glyph } : {}),
+        };
+      }),
+    };
+  });
 }
 
 let defaultRoutes: TrackRoute[] | null = null;
@@ -81,11 +89,10 @@ export function trackInput(args: {
   stamps: Record<number, number>;
   /** Leçons dont la station de repos qui les suit est faite. */
   restDone: Set<string>;
-  sizeOf?: CitySizeOf;
-  /** Le décor des routes : ses traversées et illustrations réservent leur place. */
+  /** Le décor des routes (data/scenery par défaut). */
   sceneries?: RouteScenery[];
 }): TrackInput {
-  const { width, lessons, activity, stamps, restDone, sizeOf, sceneries } = args;
+  const { width, lessons, activity, stamps, restDone, sceneries } = args;
   const firstOpen = lessons.find((l) => !l.completedAt && !l.locked);
   const track: TrackLesson[] = lessons.map((l) => ({
     id: l.id,
@@ -101,7 +108,7 @@ export function trackInput(args: {
   return {
     width,
     lessons: track,
-    routes: trackRoutes(sizeOf, sceneries),
+    routes: trackRoutes(sceneries),
     current: trackCurrent(activity, lessons),
     stamps,
     bases: stepNumberBases(lessons),

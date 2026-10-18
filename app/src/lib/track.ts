@@ -50,9 +50,12 @@ export interface TrackRoute {
   level: number;
   /** Villes 0..S, dans l'ordre. La 0 est le départ, la S le terminus. */
   cities: TrackCity[];
-  /** Place réservée (px) dans le tronçon qui mène à la ville d'index donné : une traversée,
-      une illustration unique (SPEC §5c.6). La voie s'y allonge, sans nœud. */
-  reserve?: Record<number, number>;
+  /** Place réservée dans le tronçon qui mène à la ville d'index donné (0 : avant le départ) :
+      une traversée, une illustration unique (SPEC §5c.6). La voie s'y allonge, sans nœud ;
+      `around` : elle contourne la place par un bord, l'illustration prend le reste. */
+  reserve?: Record<number, { h: number; around?: boolean }>;
+  /** Relief du tronçon qui mène à la ville d'index donné : lacets d'un col, plaine étirée. */
+  relief?: Record<number, "pass" | "plain">;
 }
 
 /** Ce qui est À FAIRE maintenant (`pickNext`), traduit en nœud de la voie. */
@@ -177,6 +180,8 @@ export interface TrackReserve {
   city: number;
   y: number;
   h: number;
+  /** La place de l'illustration : toute la bande, ou le côté que la voie laisse libre. */
+  art: Box;
 }
 
 // ---- Gabarit ---------------------------------------------------------------------
@@ -195,6 +200,15 @@ const ROUTE_END_H = 470;
 const CURRICULUM_END_H = 220;
 /** Le zigzag : décalage horizontal de chaque nœud, en part de l'amplitude. */
 const ZIGZAG = [0, -0.55, -0.85, -0.55, 0, 0.55, 0.85, 0.55];
+/** Abscisse (en part de l'amplitude) du nœud i selon le relief : lacets serrés dans un col,
+    zigzag aplati en plaine. */
+function zigzag(i: number, relief: "pass" | "plain" | undefined): number {
+  if (relief === "pass") return i % 2 ? 0.85 : -0.85;
+  return ZIGZAG[i % ZIGZAG.length] * (relief === "plain" ? 0.55 : 1);
+}
+/** Distance au bord de la voie qui contourne une illustration ; largeur qu'elle lui laisse. */
+const AROUND_X = 52;
+const AROUND_W = 100;
 const RADIUS = { village: 22, ville: 28, grande: 32, terminus: 32 } as const;
 /** Côté d'un tampon de ville posé sur la voie. */
 const STAMP = 62;
@@ -364,9 +378,13 @@ export function layoutTrack(input: TrackInput): TrackLayout {
     for (const [at, cs] of citiesAfter) if (at > levelStep) for (const c of cs) seq.push({ item: city(c), cityIndex: c.index });
 
     // Places réservées : dans l'écart le plus central du tronçon qui n'a pas de séparateur.
-    const extraAt = new Map<number, { city: number; h: number }>();
-    for (const [k, h] of Object.entries(route.reserve ?? {})) {
+    const extraAt = new Map<number, { city: number; h: number; around?: boolean }>();
+    for (const [k, spec] of Object.entries(route.reserve ?? {})) {
       const idx = Number(k);
+      if (idx === 0) {
+        extraAt.set(0, { city: 0, ...spec });
+        continue;
+      }
       const a = seq.findIndex((s) => s.item.kind === "city" && s.cityIndex === idx - 1);
       const b = seq.findIndex((s) => s.item.kind === "city" && s.cityIndex === idx);
       if (a < 0 || b <= a) continue;
@@ -375,11 +393,20 @@ export function layoutTrack(input: TrackInput): TrackLayout {
         if (seq[i].marker || extraAt.has(i)) continue;
         if (best < 0 || Math.abs(i - (a + b + 1) / 2) < Math.abs(best - (a + b + 1) / 2)) best = i;
       }
-      if (best >= 0) extraAt.set(best, { city: idx, h });
+      if (best >= 0) extraAt.set(best, { city: idx, ...spec });
+    }
+    // Le tronçon de chaque nœud : la ville vers laquelle il mène (ou qu'il est).
+    const segOf: number[] = [];
+    let nextCityIdx = 0;
+    for (let i = seq.length - 1; i >= 0; i--) {
+      if (seq[i].cityIndex !== undefined) nextCityIdx = seq[i].cityIndex!;
+      segOf[i] = nextCityIdx;
     }
 
     // Placement : y cumulé, x en zigzag le long de la route.
     const routeNodes: TrackNode[] = [];
+    const points: TrackPoint[] = [];
+    const pointOf: number[] = [];
     let prevCur = false;
     seq.forEach(({ item, marker, section }, i) => {
       const prevY = y;
@@ -390,11 +417,22 @@ export function layoutTrack(input: TrackInput): TrackLayout {
         sections.push({ lessonId: section, level, y0: y, y1: y });
       }
       // Après l'étape à faire, de la place pour sa bulle ; avant une leçon, son séparateur.
-      y += i === 0 ? 0 : item.gap + (marker ? LESSON_MARK : 0) + (prevCur ? AFTER_CUR : 0) + (extra?.h ?? 0);
-      if (extra) reserved.push({ level, city: extra.city, y: (prevY + y - extra.h) / 2, h: extra.h });
+      y += i === 0 ? (extra ? extra.h + 40 : 0) : item.gap + (marker ? LESSON_MARK : 0) + (prevCur ? AFTER_CUR : 0) + (extra?.h ?? 0);
+      const band = extra && (i === 0 ? { y: prevY, h: extra.h } : { y: (prevY + y - extra.h) / 2, h: extra.h });
       if (marker) markers.push({ ...marker, y: (prevY + y) / 2 } as TrackMarker);
-      const x = cx + amp * ZIGZAG[i % ZIGZAG.length];
-      const nextX = cx + amp * ZIGZAG[(i + 1) % ZIGZAG.length];
+      const x = cx + amp * zigzag(i, route.relief?.[segOf[i]]);
+      const nextX = cx + amp * zigzag(i + 1, route.relief?.[segOf[i + 1] ?? segOf[i]]);
+      if (extra && band) {
+        let art: Box = { x: 0, y: band.y, w: width, h: band.h };
+        const prev = routeNodes[routeNodes.length - 1];
+        if (extra.around && prev) {
+          // La voie passe par le bord le plus proche ; l'illustration prend l'autre côté.
+          const left = prev.x + x < 2 * cx;
+          points.push({ x: left ? AROUND_X : width - AROUND_X, y: band.y + band.h / 2 });
+          art = { x: left ? AROUND_W : 0, y: band.y, w: width - AROUND_W, h: band.h };
+        }
+        reserved.push({ level, city: extra.city, ...band, art });
+      }
       const node = item.make({ id: "", level, x, y, r: item.r, dist: 0, side: sideFor(x, cx, nextX) });
       node.id =
         node.kind === "step" ? `${node.lessonId}:${node.step}` : node.kind === "city" ? `city:${level}:${node.city.index}` : `${node.extra}:${node.lessonId ?? level}`;
@@ -403,11 +441,12 @@ export function layoutTrack(input: TrackInput): TrackLayout {
         const sx = node.side === "right" ? node.x - node.r - 16 - s : node.x + node.r + 16;
         node.stamp = { x: Math.max(8, Math.min(width - 8 - s, sx)), y: node.y - s / 2, w: s, h: s };
       }
+      pointOf.push(points.length);
+      points.push({ x: node.x, y: node.y });
       routeNodes.push(node);
       prevCur = (node.kind === "step" || node.kind === "extra") && node.state === "cur";
     });
 
-    const points = routeNodes.map((n) => ({ x: n.x, y: n.y }));
     const isLastLevel = li === levels.length - 1;
     const levelReached = levelLessons.every((l) => l.completed);
     // Après le terminus : un bout de voie jusqu'au butoir.
@@ -415,7 +454,7 @@ export function layoutTrack(input: TrackInput): TrackLayout {
     points.push(tail);
     const dists = [0];
     for (let i = 1; i < points.length; i++) dists.push(dists[i - 1] + segmentLength(points[i - 1], points[i]));
-    routeNodes.forEach((n, i) => (n.dist = dists[i]));
+    routeNodes.forEach((n, i) => (n.dist = dists[pointOf[i]]));
     nodes.push(...routeNodes);
     paths.push({ level, points, dists, length: dists[dists.length - 1], buffer: !isLastLevel || levelReached, painted: 0 });
     y = tail.y;

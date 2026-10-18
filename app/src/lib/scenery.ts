@@ -3,7 +3,7 @@
 // paysage et traversées des tronçons) ; ce module décide où le dessiner sans jamais couvrir
 // un arrêt, un libellé, la bulle ni les rails, de façon stable d'une visite à l'autre.
 
-import type { Box, TrackLayout, TrackNode, TrackPoint } from "./track";
+import type { Box, CitySize, StampMotif, TrackLayout, TrackNode, TrackPoint } from "./track";
 import { samplePath } from "./track";
 
 export type SpriteKind =
@@ -11,13 +11,38 @@ export type SpriteKind =
   | "pines" | "pine" | "cedars" | "bamboo" | "sakura" | "maple" | "hydrangea" | "rain"
   | "ichirizuka" | "signpost" | "jizo" | "lantern" | "teahouse" | "town" | "gate" | "ferry"
   | "torii" | "shrine" | "temple" | "pagoda" | "castle" | "boats" | "kura" | "watermill"
-  | "vines" | "orchard" | "waterfall";
+  | "vines" | "orchard" | "waterfall" | "roofs" | "volcano" | "onsen";
 
 export type Biome =
   | "coast" | "plain" | "rice" | "mountain" | "forest" | "lake" | "river" | "town" | "tea"
   | "orchard" | "vineyard";
 
 export type Season = "spring" | "rainy" | "summer" | "autumn" | "winter" | "none";
+
+/** Les illustrations uniques (SPEC §5c.6) : un lieu remarquable, son propre dessin. */
+export type UniqueKind =
+  | "edo" | "fuji-hara" | "fuji-satta" | "hakone" | "oi-ford" | "hamana" | "miya-ferry" | "kyoto"
+  | "saruhashi" | "kai" | "suwa"
+  | "usui-asama" | "kiso" | "biwa"
+  | "fukagawa" | "nikko" | "matsushima" | "hiraizumi" | "yamadera" | "kisakata" | "ogaki"
+  | "naruto" | "muroto" | "iya" | "zentsuji" | "okuboji";
+
+/**
+ * Place de chaque illustration unique : sa hauteur, et si la voie la contourne (elle prend un
+ * côté) ou la traverse (toute la largeur, la voie passe dessus : un gué, un bac, un pont).
+ */
+export const UNIQUES: Record<UniqueKind, { h: number; around: boolean }> = {
+  edo: { h: 200, around: false }, "fuji-hara": { h: 230, around: true }, "fuji-satta": { h: 210, around: true },
+  hakone: { h: 220, around: true }, "oi-ford": { h: 200, around: false }, hamana: { h: 190, around: false },
+  "miya-ferry": { h: 200, around: false }, kyoto: { h: 220, around: true },
+  saruhashi: { h: 210, around: false }, kai: { h: 210, around: true }, suwa: { h: 200, around: true },
+  "usui-asama": { h: 230, around: true }, kiso: { h: 220, around: true }, biwa: { h: 200, around: true },
+  fukagawa: { h: 200, around: false }, nikko: { h: 220, around: true }, matsushima: { h: 210, around: true },
+  hiraizumi: { h: 200, around: true }, yamadera: { h: 230, around: true }, kisakata: { h: 200, around: true },
+  ogaki: { h: 200, around: true },
+  naruto: { h: 200, around: false }, muroto: { h: 200, around: true }, iya: { h: 210, around: true },
+  zentsuji: { h: 220, around: true }, okuboji: { h: 210, around: true },
+};
 
 /** Un repère réel d'une ville (données de route). */
 export interface Landmark {
@@ -28,17 +53,37 @@ export interface Landmark {
   far?: boolean;
 }
 
-/** Le décor d'une route : repères par ville, paysage et traversée par tronçon. */
+/**
+ * Une ville d'une route et le tronçon qui y MÈNE (depuis la ville précédente), d'après la
+ * géographie réelle (data/scenery/*).
+ */
+export interface CityScenery {
+  /** Lecture du nom en kana. */
+  kana: string;
+  /** Taille (SPEC §5c.4) ; à défaut : terminus aux extrémités, sinon ville-étape. */
+  size?: CitySize;
+  /** Motif du tampon : le repère principal de la ville. */
+  motif?: StampMotif;
+  /** Kanji au cœur du nœud, quand la taille ne le dit pas bien (寺, 山, 関…). */
+  glyph?: string;
+  /** Repères dessinés autour de la ville. */
+  marks?: Landmark[];
+  /** Saison imposée (Kanbara sous la neige, Shōno sous l'averse). */
+  forced?: "snow" | "rain";
+  /** Paysage du tronçon. */
+  biome?: Biome;
+  /** Relief du tronçon : un col fait des lacets, une plaine étire la voie. */
+  relief?: "pass" | "plain";
+  /** L'eau croise la voie sur ce tronçon. */
+  crossing?: "bridge" | "ford" | "ferry";
+  /** Illustration unique du tronçon (pour la ville 0 : avant le départ). */
+  unique?: UniqueKind;
+}
+
+/** Le décor d'une route : une entrée par ville, de 0 au terminus. */
 export interface RouteScenery {
   level: number;
-  /** Repères de la ville d'index donné, dessinés autour d'elle. */
-  landmarks?: Record<number, Landmark[]>;
-  /** Paysage du tronçon qui MÈNE à la ville d'index donné (de la ville précédente à elle). */
-  biomes?: Record<number, Biome>;
-  /** Traversée sur ce même tronçon : l'eau croise la voie. */
-  crossings?: Record<number, "bridge" | "ford" | "ferry">;
-  /** Saison imposée autour d'une ville (Kanbara sous la neige, Shōno sous l'averse). */
-  forced?: Record<number, "snow" | "rain">;
+  cities: CityScenery[];
 }
 
 /** La boîte qu'occupe vraiment le dessin d'un élément (pour les collisions). */
@@ -68,9 +113,16 @@ export interface DecorCrossing {
   x: number;
 }
 
+/** Une illustration unique posée dans sa place réservée. */
+export interface DecorUnique {
+  kind: UniqueKind;
+  box: Box;
+}
+
 export interface Decor {
   items: DecorItem[];
   crossings: DecorCrossing[];
+  uniques: DecorUnique[];
 }
 
 /** Hauteur réservée sur la voie pour une traversée (la bande d'eau et ses rives). */
@@ -79,9 +131,22 @@ export const CROSSING_H = 96;
 export const WATER_H = 40;
 
 /** Les places que le décor d'une route réserve sur la voie, par ville où mène le tronçon. */
-export function reserveOf(scenery: RouteScenery | undefined): Record<number, number> {
-  const out: Record<number, number> = {};
-  for (const k of Object.keys(scenery?.crossings ?? {})) out[Number(k)] = CROSSING_H;
+export function reserveOf(scenery: RouteScenery | undefined): Record<number, { h: number; around?: boolean }> {
+  const out: Record<number, { h: number; around?: boolean }> = {};
+  scenery?.cities.forEach((c, i) => {
+    const u = c.unique ? UNIQUES[c.unique] : undefined;
+    if (u) out[i] = { h: Math.max(u.h, c.crossing ? CROSSING_H : 0), around: u.around && !c.crossing };
+    else if (c.crossing) out[i] = { h: CROSSING_H };
+  });
+  return out;
+}
+
+/** Le relief des tronçons d'une route, par ville où ils mènent. */
+export function reliefOf(scenery: RouteScenery | undefined): Record<number, "pass" | "plain"> {
+  const out: Record<number, "pass" | "plain"> = {};
+  scenery?.cities.forEach((c, i) => {
+    if (c.relief) out[i] = c.relief;
+  });
   return out;
 }
 
@@ -106,7 +171,7 @@ const FILLERS: Record<Biome, SpriteKind[]> = {
   forest: ["cedars", "bamboo", "pine", "jizo"],
   lake: ["lake", "pines", "boats"],
   river: ["watermill", "pines", "rice"],
-  town: ["town", "kura", "lantern", "shrine", "temple"],
+  town: ["town", "kura", "lantern", "roofs", "shrine", "temple"],
   tea: ["tea", "tea", "pine"],
   orchard: ["orchard", "orchard", "pine"],
   vineyard: ["vines", "vines", "pine"],
@@ -201,6 +266,7 @@ export function placeDecor(layout: TrackLayout, sceneries: RouteScenery[], seaso
   for (const b of layout.keepOut) taken.add(b);
   const items: DecorItem[] = [];
   const crossings: DecorCrossing[] = [];
+  const uniques: DecorUnique[] = [];
 
   for (const path of layout.paths) {
     const level = path.level;
@@ -252,20 +318,25 @@ export function placeDecor(layout: TrackLayout, sceneries: RouteScenery[], seaso
     cities.forEach((city, k) => {
       const r = rng(level * 1009 + city.city.index * 7919);
       const prev = cities[k - 1];
-      const forced = scenery?.forced?.[city.city.index];
+      const data = scenery?.cities[city.city.index];
+      const forced = data?.forced;
       const snowy = season === "winter" || forced === "snow";
       const freeSide = city.side === "right" ? "left" : "right";
+      // La place réservée du tronçon : l'illustration unique, la traversée.
+      const band = layout.reserved.find((b) => b.level === level && b.city === city.city.index);
+      if (band && data?.unique) {
+        uniques.push({ kind: data.unique, box: band.art });
+        taken.add(band.art);
+      }
+      if (band && data?.crossing) {
+        const y = band.y + band.h / 2;
+        crossings.push({ type: data.crossing, y, x: railX(samples, y) });
+        taken.add({ x: -width, y: y - WATER_H / 2 - 6, w: 3 * width, h: WATER_H + 12 });
+      }
       if (prev) {
         const y0 = prev.y + 70;
         const y1 = city.y - 70;
-        const crossing = scenery?.crossings?.[city.city.index];
-        const band = crossing && layout.reserved.find((b) => b.level === level && b.city === city.city.index);
-        if (crossing && band) {
-          const y = band.y + band.h / 2;
-          crossings.push({ type: crossing, y, x: railX(samples, y) });
-          taken.add({ x: -width, y: y - WATER_H / 2 - 6, w: 3 * width, h: WATER_H + 12 });
-        }
-        if (scenery?.biomes?.[city.city.index] === "mountain" && y1 > y0) {
+        if (data?.biome === "mountain" && y1 > y0) {
           // Les versants : deux grandes crêtes pâles, une de chaque côté.
           for (const side of ["left", "right"] as const) {
             const scale = 1.5 + r() * 0.6;
@@ -276,7 +347,7 @@ export function placeDecor(layout: TrackLayout, sceneries: RouteScenery[], seaso
       }
 
       // Les repères de la ville, du côté libre, autour d'elle.
-      const marks = scenery?.landmarks?.[city.city.index] ?? [];
+      const marks = data?.marks ?? [];
       marks.forEach((m, i) => {
         const side = m.side ?? (i % 2 ? (freeSide === "left" ? "right" : "left") : freeSide);
         if (m.far) {
@@ -299,11 +370,11 @@ export function placeDecor(layout: TrackLayout, sceneries: RouteScenery[], seaso
       const prev = cities[k - 1];
       if (!prev) return;
       const r = rng(level * 7907 + city.city.index * 104729);
-      const snowy = season === "winter" || scenery?.forced?.[city.city.index] === "snow";
+      const snowy = season === "winter" || scenery?.cities[city.city.index]?.forced === "snow";
       const y0 = prev.y + 70;
       const y1 = city.y - 70;
       if (y1 <= y0) return;
-      const biome = scenery?.biomes?.[city.city.index] ?? "plain";
+      const biome = scenery?.cities[city.city.index]?.biome ?? "plain";
       const pool = FILLERS[biome];
       const n = Math.max(1, Math.round(((y1 - y0) / FILL_PER) * (biome === "town" ? 1.4 : 1)));
       for (let i = 0; i < n; i++) {
@@ -320,5 +391,5 @@ export function placeDecor(layout: TrackLayout, sceneries: RouteScenery[], seaso
 
   // Le lointain d'abord, puis du haut vers le bas : l'ordre de dessin.
   items.sort((a, b) => (a.far === b.far ? a.y - b.y : a.far ? -1 : 1));
-  return { items, crossings };
+  return { items, crossings, uniques };
 }
