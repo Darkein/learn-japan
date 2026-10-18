@@ -1001,7 +1001,7 @@ La bande ne contient aucun bouton.
   jusqu'à 120 px, et y reste.
 - **Les plans du ciel**, du plus loin au plus proche :
   1. le fond, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
-  2. une crête lointaine ;
+  2. une crête lointaine, qui défile le plus lentement (0,08 px par px défilé) ;
   3. le **plan moyen** qui défile (monts, forêts, temples) ;
   4. les **repères** des villes ;
   5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), en silhouettes de la

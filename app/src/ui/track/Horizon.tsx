@@ -6,6 +6,7 @@ import {
   driftItems,
   markRaised,
   markX,
+  ridgePath,
   SKY_MAX,
   skyHeight,
   skyMarks,
@@ -119,11 +120,8 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
             <span className="text-xs uppercase tracking-wide text-muted">{title.tagline}</span>
           </div>
         )}
-        <svg width={W} height={40} viewBox={`0 0 ${W} 40`} preserveAspectRatio="none" className="absolute bottom-0 left-0 block">
-          <path
-            d={`M0 40 L0 22 L${W * 0.12} 10 L${W * 0.24} 20 L${W * 0.38} 4 L${W * 0.52} 18 L${W * 0.67} 8 L${W * 0.82} 20 L${W} 10 L${W} 40 Z`}
-            fill="var(--sky-ridge)"
-          />
+        <svg width={W} height={40} viewBox={`0 0 ${W} 40`} className="absolute bottom-0 left-0 block">
+          <path d={ridgePath(pos, W)} fill="var(--sky-ridge)" />
         </svg>
         <Drift items={mid} bottom={4} fill="var(--sky-mid)" />
         {marks.map((m) => {
