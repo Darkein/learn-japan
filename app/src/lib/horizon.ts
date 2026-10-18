@@ -25,9 +25,10 @@ export function groundDepth(skyH: number): number {
 /** Hauteur de chaque plan au-dessus du bas de la bande, en part de la profondeur du sol. */
 export const PLANE_AT = { ridge: 0.94, mid: 0.6, marks: 0.24, near: 0 } as const;
 
-/** La fenêtre du train : sa marge sur les côtés et en bas, et la bande de sol laissée vide sous le
-    plan proche, pour que rien de rapide ne frôle la voie. */
+/** La fenêtre du train : sa marge sur les côtés et en bas, celle sous le bandeau, et la bande de sol
+    laissée vide sous le plan proche, pour que rien de rapide ne frôle la voie. */
 export const WINDOW_INSET = 8;
+export const WINDOW_TOP = 4;
 export const NEAR_GAP = 10;
 
 // ---- Les repères ---------------------------------------------------------------------
@@ -108,9 +109,13 @@ export function markX(mark: SkyMark, pos: number, visible: number, width: number
   return mark.x * width + (pos - (mark.y - visible / 3)) * MARK_SPEED;
 }
 
-/** Le nom d'un repère paraît tant que sa ville est sur la voie visible, entre `top` et `bottom`. */
+/**
+ * Le nom d'un repère paraît tant que sa ville est à moins d'une demi-voie visible (entre `top` et
+ * `bottom`) de sa place, au tiers haut : il paraît et s'efface au même écart, de part et d'autre.
+ */
 export function markRaised(mark: SkyMark, top: number, bottom: number): boolean {
-  return mark.y >= top - 20 && mark.y <= bottom;
+  const visible = bottom - top;
+  return Math.abs(mark.y - (top + visible / 3)) <= visible / 2;
 }
 
 // ---- Le décor qui défile ---------------------------------------------------------------

@@ -269,11 +269,11 @@
 .sky-mark-name {
   transform: translateX(-50%);
   opacity: 0;
-  transition: opacity 150ms ease-in;
+  transition: opacity 300ms ease-in;
 }
 .sky-mark-up .sky-mark-name {
   opacity: 1;
-  transition: opacity 300ms ease-out 300ms;
+  transition: opacity 300ms ease-out;
 }
 .horizon-sky {
   background: linear-gradient(var(--sky-hi), var(--sky-low));
