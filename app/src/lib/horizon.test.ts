@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
-import { biomeAt, biomeTrack, driftItems, markRaised, SKY_MAX, SKY_MIN, skyHeight, skyMarks } from "./horizon";
+import { biomeAt, biomeTrack, driftItems, MARK_SPEED, markRaised, markX, SKY_MAX, SKY_MIN, skyHeight, skyMarks } from "./horizon";
 import { lessonSteps } from "./path";
 import { layoutTrack, type TrackLayout } from "./track";
 import { trackInput, type TrackLessonSource } from "./trackInput";
@@ -32,17 +32,23 @@ describe("les repères du ciel", () => {
     expect(marks.length).toBeLessThan(cities.length);
     expect(marks.find((m) => m.name.startsWith("日本橋"))?.kind).toBe("bridge");
     for (const m of marks) {
-      expect(m.x).toBeGreaterThan(0.15);
-      expect(m.x).toBeLessThan(0.85);
+      expect(m.x).toBeGreaterThan(0.4);
+      expect(m.x).toBeLessThan(0.7);
     }
   });
 
-  it("deux villes qui se suivent lèvent leur repère de côtés opposés", () => {
-    const marks = skyMarks(realLayout(), SCENERIES);
-    for (let i = 1; i < marks.length; i++) {
-      const a = marks[i - 1];
-      const b = marks[i];
-      if (b.y - a.y < 900) expect(a.x < 0.5).not.toBe(b.x < 0.5);
+  it("un repère glisse avec le défilement, à sa place quand sa ville est au tiers haut, et reste à l'écran", () => {
+    const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.5 };
+    const visible = 590;
+    expect(markX(mark, 2000 - visible / 3, visible, 390)).toBeCloseTo(195);
+    expect(markX(mark, 2100, visible, 390) - markX(mark, 2000, visible, 390)).toBeCloseTo(100 * MARK_SPEED);
+    // De l'entrée de sa ville par le bas à sa sortie par le haut, son centre reste dans la bande.
+    for (const m of skyMarks(realLayout(), SCENERIES).slice(0, 40)) {
+      for (const pos of [m.y - visible, m.y + 20]) {
+        const x = markX(m, pos, visible, 390);
+        expect(x).toBeGreaterThan(0);
+        expect(x).toBeLessThan(390);
+      }
     }
   });
 

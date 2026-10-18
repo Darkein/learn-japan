@@ -39,7 +39,8 @@ export interface SkyMark {
   y: number;
   kind: SpriteKind;
   name: string;
-  /** Sa place sur l'horizon, en part de la largeur (centre du dessin). */
+  /** Sa place sur l'horizon, en part de la largeur, quand sa ville passe au tiers haut de la voie
+      visible ; il glisse autour au fil du défilement (`markX`). */
   x: number;
 }
 
@@ -57,12 +58,23 @@ export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMar
     if (sc?.unique) kind = UNIQUE_SPRITE[sc.unique];
     else if (n.city.size !== "village") kind = MOTIF_SPRITE[n.city.motif ?? sc?.motif ?? ""];
     if (!kind) continue;
-    // Côté alterné d'un repère au suivant ; un léger décalage, stable, par ville.
+    // Décalage alterné d'un repère au suivant, et léger écart stable par ville.
     const i = n.city.index;
-    const x = out.length % 2 ? 0.66 + ((i * 5) % 12) / 100 : 0.22 + ((i * 7) % 12) / 100;
+    const x = (out.length % 2 ? 0.6 : 0.44) + ((i * 7) % 8) / 100;
     out.push({ id: n.id, y: n.y, kind, name: `${n.city.kanji} · ${n.city.romaji}`, x });
   }
   return out;
+}
+
+/** Vitesse des repères : entre le plan moyen et le plan proche du décor qui défile. */
+export const MARK_SPEED = 0.35;
+
+/**
+ * Où est un repère quand la voie est à `pos` (ordonnée de voie du bas du ciel) : à sa place quand
+ * sa ville passe au tiers haut de la voie visible, et il glisse dans le même sens que le décor.
+ */
+export function markX(mark: SkyMark, pos: number, visible: number, width: number): number {
+  return mark.x * width + (pos - (mark.y - visible / 3)) * MARK_SPEED;
 }
 
 /** Un repère est levé tant que sa ville est sur la voie visible, entre `top` et `bottom`. */
