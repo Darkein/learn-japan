@@ -5,6 +5,7 @@ import { listLessons } from "../lib/lessons";
 import { tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
 import { formatDaysAgo } from "../lib/time";
 import { LoadingScreen } from "./kit/LoadingScreen";
+import { OmikujiCard } from "./OmikujiCard";
 import { ProgressBar } from "./kit/ProgressBar";
 import { SectionLabel } from "./kit/SectionLabel";
 
@@ -51,6 +52,7 @@ export function Voyage() {
 
   return (
     <div className="flex flex-col gap-8 pb-10">
+      <OmikujiCard />
       <section className="flex flex-col gap-3">
         <SectionLabel>Ton chemin</SectionLabel>
         <p className="font-serif text-lg">

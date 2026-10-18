@@ -67,6 +67,12 @@ function rememberScroll(): void {
 let restoreFrame = 0;
 let stopRestoreWatch: (() => void) | null = null;
 
+/** Une page qui place elle-même son défilement (la voie de l'accueil, centrée sur l'étape à
+ *  faire) coupe la restauration en cours, qui sinon insisterait jusqu'à l'ancienne position. */
+export function cancelScrollRestore(): void {
+  cancelRestore();
+}
+
 function cancelRestore(): void {
   if (restoreFrame) cancelAnimationFrame(restoreFrame);
   restoreFrame = 0;

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { allStories, deleteStory, type StoryRecord } from "../lib/db";
 import { getCurriculum, lessonsForGrammar } from "../lib/curriculum";
+import { recommendStories, type Recommendation } from "../lib/recommend";
 import { DownloadButton } from "./DownloadButton";
 import { GeneratePanel } from "./GeneratePanel";
 import { Badge } from "./kit/Badge";
 import { Button } from "./kit/Button";
 import { IconArrowRight, IconClose, IconPause, IconPlay } from "./kit/Icon";
 import { LoadingScreen } from "./kit/LoadingScreen";
+import { SectionLabel } from "./kit/SectionLabel";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import { StoryIllustration } from "./StoryIllustration";
 import { useGenJobs } from "./useGenJobs";
@@ -28,6 +30,7 @@ interface Props {
 /** Onglet Histoires : liste seule des histoires enregistrées + panneau de génération. */
 export function Stories({ onOpen }: Props) {
   const [stories, setStories] = useState<StoryRecord[] | null>(null);
+  const [reco, setReco] = useState<Recommendation | null>(null);
   const { dataVersion } = useGenJobs();
   const podcast = usePodcastPlayer();
   const lessonTitles = useMemo(() => {
@@ -37,7 +40,11 @@ export function Stories({ onOpen }: Props) {
   }, []);
 
   async function refresh() {
-    setStories(await allStories());
+    const all = await allStories();
+    setStories(all);
+    // Reco de lecture (venue de l'accueil, SPEC §5c.1) : hors du chemin de rendu, la ligne
+    // apparaît quand elle est prête (tokenisation au premier passage, puis cache).
+    void recommendStories(new Date(), all).then((r) => setReco(r[0] ?? null));
   }
   // Se recharge au montage et dès qu'un contenu change (génération, téléchargement) —
   // même mécanique que Catalogue/Home, sans remount de la vue.
@@ -53,6 +60,24 @@ export function Stories({ onOpen }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {reco && (
+        <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
+          <div className="flex flex-col">
+            <SectionLabel>À lire pour toi</SectionLabel>
+            <span className="text-sm text-muted">
+              « <span className="text-text">{reco.story.title}</span> » — {Math.round(reco.coverage * 100)}% de mots
+              connus
+              {reco.dueHits > 0
+                ? ` · ${reco.dueHits} mot${reco.dueHits > 1 ? "s" : ""} à réviser en contexte`
+                : ""}
+              .
+            </span>
+          </div>
+          <Button className="shrink-0" onClick={() => onOpen(reco.story)}>
+            Lire
+          </Button>
+        </div>
+      )}
       {stories === null ? (
         <LoadingScreen />
       ) : stories.length === 0 ? (

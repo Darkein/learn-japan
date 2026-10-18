@@ -1,282 +1,276 @@
-import { useEffect, useState } from "react";
-import type { StoryRecord } from "../lib/db";
-import { allStories, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
-import { gatherFlowState, pickNext, previewFlow, type FlowActivity, type FlowPreviewStep } from "../lib/flow";
-import { currentMirrorCandidate, type MirrorCandidate } from "../lib/mirror";
-import { recommendStories, type Recommendation } from "../lib/recommend";
-import { listLessons, markUnlockNotified, type Lesson } from "../lib/lessons";
-import { sessionStats, type SessionStats } from "../lib/reviewSession";
-import { goalStreak, type DayGoal } from "../lib/stats";
-import { markStationCelebrated, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
-import { formatDaysAgo, formatMinutes } from "../lib/time";
-import { LessonList } from "./LessonList";
-import { OmikujiCard } from "./OmikujiCard";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { routeForLevel } from "../data/routes";
+import { getMeta, localDateString, recentSrsDaily, type SrsDailyRecord } from "../lib/db";
+import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/flow";
+import type { Lesson } from "../lib/lessons";
+import { estimateLabel, loadFormDurations, stepPlan } from "../lib/pathPlan";
+import { sessionStats } from "../lib/reviewSession";
+import { goalStreak } from "../lib/stats";
+import { markStationCelebrated, stampTotal, tokaidoStatus, type RouteArrival, type TokaidoStatus } from "../lib/tokaido";
+import { layoutTrack, type TrackNode, type TrackSection } from "../lib/track";
+import { trackInput } from "../lib/trackInput";
+import { Button } from "./kit/Button";
+import { IconBook } from "./kit/Icon";
+import { LoadingScreen } from "./kit/LoadingScreen";
 import { claimOmikujiAutoOpen, OmikujiSheet } from "./OmikujiSheet";
 import { StationArrival } from "./StationArrival";
-import { TokaidoStrip } from "./TokaidoStrip";
-import { Button } from "./kit/Button";
-import { Card } from "./kit/Card";
-import { LoadingScreen } from "./kit/LoadingScreen";
-import { ProgressBar } from "./kit/ProgressBar";
-import { SectionLabel } from "./kit/SectionLabel";
-import { LessonPath } from "./LessonPath";
+import { Track } from "./track/Track";
+import { EXTRA_WORDS, STEP_WORDS } from "./track/words";
 import { useGenJobs } from "./useGenJobs";
 import { useSettings } from "./useSettings";
 
 interface Props {
-  onOpenStory: (story: StoryRecord) => void;
   onOpenCourse: (lesson: Lesson) => void;
   onStartReview: () => void;
   onStartFlow: () => void;
-  onStartMirror: () => void;
-  onGoCatalogue: () => void;
   onGoStats: () => void;
   onGoVoyage: () => void;
 }
 
-/** « Au programme : le vocabulaire, puis la grammaire, puis une révision. » */
-function flowPhrase(steps: FlowPreviewStep[]): string {
-  return `Au programme : ${steps.map((s) => s.label).join(", puis ")}.`;
+interface HomeData {
+  lessons: Lesson[];
+  activity: FlowActivity;
+  dueCount: number;
+  daily: SrsDailyRecord[];
+  tokaido: TokaidoStatus;
+  restDone: Set<string>;
+  formMs: Map<string, number>;
 }
 
-function buildDailyStats(stats: SessionStats, daily: SrsDailyRecord[], goal: DayGoal) {
-  const todayStr = localDateString();
-  const today = daily.find((d) => d.date === todayStr) ?? { date: todayStr, introduced: 0, reviewed: 0 };
-  return {
-    // L'objectif du jour se compte en ÉTAPES du parcours (SPEC §5.1).
-    steps: today.steps ?? 0,
-    goal: goal.dailySteps,
-    // Même calcul que le rappel du soir : les deux doivent annoncer le même chiffre.
-    streak: goalStreak(daily, goal, todayStr),
-    dueCount: stats.dueCount,
-    flowMs: today.flowMs ?? 0,
-  };
+/** Flamme de la série de jours (trait du kit, 1.6). */
+function IconFlame() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-3.8 2.5-5 .3 1.6 1 2.6 2 3 .3-3-1-5.5.5-8z" />
+    </svg>
+  );
 }
 
-export function Home({ onOpenStory, onOpenCourse, onStartReview, onStartFlow, onStartMirror, onGoCatalogue, onGoStats, onGoVoyage }: Props) {
-  const [lessons, setLessons] = useState<Lesson[] | null>(null);
-  const [dailyData, setDailyData] = useState<ReturnType<typeof buildDailyStats> | null>(null);
-  const [unlockedLesson, setUnlockedLesson] = useState<Lesson | null>(null);
-  const [tokaido, setTokaido] = useState<TokaidoStatus | null>(null);
-  const [mirror, setMirror] = useState<MirrorCandidate | null>(null);
-  const [reco, setReco] = useState<Recommendation | null>(null);
-  const [flowSteps, setFlowSteps] = useState<FlowPreviewStep[] | null>(null);
-  const [flowNext, setFlowNext] = useState<FlowActivity | null>(null);
-  // Bandelette du jour ouverte d'office au lancement, et clé de remontage de la carte
-  // omikuji (elle porte son propre état : la refermer doit la faire relire la base).
+/** Anneau des étapes du jour sur l'objectif. */
+function StepsRing({ done, goal }: { done: number; goal: number }) {
+  const c = 2 * Math.PI * 7;
+  const f = Math.min(1, goal > 0 ? done / goal : 0);
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+      <circle cx="9" cy="9" r="7" fill="none" stroke="var(--hairline-strong)" strokeWidth="2" />
+      <circle cx="9" cy="9" r="7" fill="none" stroke="var(--accent)" strokeWidth="2" strokeDasharray={`${f * c} ${c}`} transform="rotate(-90 9 9)" />
+    </svg>
+  );
+}
+
+/**
+ * L'accueil : la voie du voyage (SPEC §5c). En haut, la route, les tampons, la série et les
+ * étapes du jour ; puis le bandeau de la leçon visible ; puis la voie, sans fin, centrée sur
+ * l'étape à faire.
+ */
+export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGoVoyage }: Props) {
+  const [data, setData] = useState<HomeData | null>(null);
+  const [width, setWidth] = useState(0);
+  const [section, setSection] = useState<TrackSection | undefined>();
   const [omikujiOpen, setOmikujiOpen] = useState(false);
-  const [omikujiVersion, setOmikujiVersion] = useState(0);
+  const [arrival, setArrival] = useState<RouteArrival | null>(null);
+  const measure = useRef<HTMLDivElement>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
-  const currentLesson = lessons?.find((l) => l.startedAt && !l.completedAt);
-
-  async function refresh() {
-    const [ls, stats, daily, stories] = await Promise.all([
-      listLessons(),
-      sessionStats(),
-      recentSrsDaily(30), // 30 jours : ne plafonne pas la série affichée à 7
-      allStories(),
-    ]);
-    setLessons(ls);
-    setDailyData(buildDailyStats(stats, daily, settings));
-    setTokaido(await tokaidoStatus(ls));
-    setMirror(await currentMirrorCandidate(stories));
-    const newlyUnlocked = ls.find((l) => l.unlockedNaturally);
-    setUnlockedLesson(newlyUnlocked ?? null);
-    // Reco de lecture : calcul potentiellement coûteux (tokenisation au 1er passage, puis
-    // cache) — hors du chemin de rendu, la carte apparaît quand elle est prête.
-    void recommendStories(new Date(), stories).then((r) => setReco(r[0] ?? null));
-    // Prévisualisation du flux : hors chemin critique, la phrase se précise quand prête.
-    void gatherFlowState().then(({ state }) => {
-      setFlowNext(pickNext(state));
-      setFlowSteps(previewFlow(state, 3));
-    });
-  }
 
   useEffect(() => {
-    void refresh();
+    void (async () => {
+      const [{ state, lessons }, stats, daily, formMs] = await Promise.all([
+        gatherFlowState(),
+        sessionStats(),
+        recentSrsDaily(30), // 30 jours : ne plafonne pas la série affichée à 7
+        loadFormDurations(),
+      ]);
+      const tokaido = await tokaidoStatus(lessons);
+      const restDone = new Set<string>();
+      for (let i = 4; i < lessons.length; i += 5) {
+        if ((await getMeta<number>(restKey(lessons[i].id))) != null) restDone.add(lessons[i].id);
+      }
+      setData({ lessons, activity: pickNext(state), dueCount: stats.dueCount, daily, tokaido, restDone, formMs });
+      setArrival(tokaido.newlyArrived ?? null);
+    })();
   }, [dataVersion]);
 
-  // L'omikuji du jour n'est plus une étape du flux d'étude : la bandelette s'ouvre d'
-  // elle-même au lancement de l'app tant qu'elle n'a pas été vue aujourd'hui. Pas vue =
-  // ni tirée, ni simplement présentée (voir `shouldOpenOmikuji`).
+  // L'omikuji du jour s'ouvre d'elle-même au lancement de l'app tant qu'elle n'a pas été vue.
   useEffect(() => {
     void claimOmikujiAutoOpen().then((open) => {
       if (open) setOmikujiOpen(true);
     });
   }, []);
 
-  async function dismissUnlock(lesson: Lesson) {
-    await markUnlockNotified(lesson.id);
-    setUnlockedLesson(null);
-    void refresh();
+  // La voie se met en page à la largeur réelle (bord à bord sur téléphone).
+  useEffect(() => {
+    const el = measure.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(Math.round(el.clientWidth)));
+    ro.observe(el);
+    setWidth(Math.round(el.clientWidth));
+    return () => ro.disconnect();
+  }, [data !== null]);
+
+  const layout = useMemo(() => {
+    if (!data || width < 200) return null;
+    return layoutTrack(
+      trackInput({
+        width,
+        lessons: data.lessons,
+        activity: data.activity,
+        stamps: data.tokaido.stamps,
+        restDone: data.restDone,
+      }),
+    );
+  }, [data, width]);
+
+  const lessonById = useMemo(() => new Map(data?.lessons.map((l) => [l.id, l]) ?? []), [data]);
+  const onSection = useCallback((s: TrackSection | undefined) => setSection((p) => (p?.lessonId === s?.lessonId ? p : s)), []);
+
+  if (!data) return <LoadingScreen />;
+
+  const todayStr = localDateString();
+  const today = data.daily.find((d) => d.date === todayStr);
+  const stepsToday = today?.steps ?? 0;
+  const streak = goalStreak(data.daily, settings, todayStr);
+  const { pos, stamps } = data.tokaido;
+
+  /** Durée annoncée d'une étape (§5.7). */
+  function estimateOf(lessonId: string, step: Lesson["steps"][number]): string | undefined {
+    const l = lessonById.get(lessonId);
+    if (!l) return undefined;
+    const e = stepPlan(l, data!.formMs).find((x) => x.step === step);
+    return e ? estimateLabel(e) : undefined;
   }
 
-  if (!lessons) return <LoadingScreen />;
+  const metaOf = (n: TrackNode): string | undefined => {
+    if (n.kind !== "step" || n.state !== "todo" || n.dim) return undefined;
+    const l = lessonById.get(n.lessonId);
+    const e = l && stepPlan(l, data.formMs).find((x) => x.step === n.step);
+    return e ? `~${e.minutes} min` : undefined;
+  };
 
-  const inProgress = lessons.filter((l) => l.startedAt && !l.completedAt);
-  const next = lessons.find((l) => !l.startedAt && !l.completedAt);
-  const todo = [...inProgress, ...(next ? [next] : [])];
-
-  async function closeArrival(arrival: RouteArrival) {
-    await markStationCelebrated(arrival.route.level, arrival.station.index);
-    setTokaido((t) => (t ? { ...t, newlyArrived: undefined } : t));
+  const cur = layout?.current;
+  let bubble: React.ReactNode = null;
+  if (cur && cur.kind !== "city") {
+    const w = cur.kind === "step" ? STEP_WORDS[cur.step] : EXTRA_WORDS[cur.extra];
+    const lesson = cur.lessonId ? lessonById.get(cur.lessonId) : undefined;
+    const isReview = cur.kind === "extra" || (cur.kind === "step" && cur.step === "review");
+    const detail =
+      cur.kind === "step"
+        ? [lesson ? `Leçon ${lesson.order} · ${lesson.title}` : undefined, estimateOf(cur.lessonId, cur.step)]
+        : [data.activity.title];
+    bubble = (
+      <>
+        <span className="text-xs uppercase tracking-wide text-accent">
+          {cur.kind === "step" ? `Étape ${cur.number} · À faire` : "À faire"}
+        </span>
+        <ruby className="track-ruby font-jp text-xl leading-tight text-text">
+          {w.word}
+          <rt>
+            {w.kana} · {w.fr}
+          </rt>
+        </ruby>
+        {detail.filter(Boolean).map((d) => (
+          <span key={d} className="text-xs text-muted">
+            {d}
+          </span>
+        ))}
+        <Button variant="primary" className="mt-1.5" onClick={onStartFlow}>
+          Commencer
+        </Button>
+        {!isReview && data.dueCount > 0 && (
+          <Button variant="quiet" size="sm" onClick={onStartReview}>
+            Réviser seulement · {data.dueCount} carte{data.dueCount > 1 ? "s" : ""}
+          </Button>
+        )}
+      </>
+    );
   }
+
+  function tapNode(n: TrackNode) {
+    if ((n.kind === "step" || n.kind === "extra") && n.state === "cur") return onStartFlow();
+    if (n.kind === "city") return onGoVoyage();
+    const lesson = n.lessonId ? lessonById.get(n.lessonId) : undefined;
+    if (lesson) onOpenCourse(lesson);
+  }
+
+  const shown = section ? lessonById.get(section.lessonId) : undefined;
+  const bases = layout ? layout.nodes.filter((n) => n.kind === "step" && n.lessonId === shown?.id) : [];
+  const first = bases[0];
+  const last = bases[bases.length - 1];
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h2 className="font-serif text-xl">Aujourd'hui</h2>
-      </header>
-
-      {tokaido && <TokaidoStrip pos={tokaido.pos} onOpen={onGoVoyage} />}
-
-      {tokaido?.newlyArrived && (
-        <StationArrival
-          arrival={tokaido.newlyArrived}
-          onClose={() => void closeArrival(tokaido.newlyArrived!)}
-        />
-      )}
-
-      {dailyData && (
-        <section className="flex flex-col gap-3">
-          <div className="flex gap-4 text-sm">
-            <span className="text-muted">
-              Étapes du jour : <strong className="text-text">{dailyData.steps}</strong> / {dailyData.goal}
-              {dailyData.steps >= dailyData.goal ? " — objectif atteint" : ""}
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between gap-3 pb-3 text-sm text-muted">
+        <button type="button" onClick={onGoVoyage} className="flex cursor-pointer items-center gap-2.5 text-left" aria-label="Le voyage et le carnet de tampons">
+          <span className="font-jp text-base text-text">{pos.route.kanji}</span>
+          <span className="text-xs">
+            {pos.station.index}/{pos.route.stations.length - 1}
+          </span>
+          <span className="flex items-center gap-1 text-xs">
+            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-sm border-[1.5px] border-accent font-jp text-xs leading-none text-accent">
+              印
             </span>
-            {dailyData.streak > 0 && (
-              <span className="text-muted">
-                🔥 <strong className="text-text">{dailyData.streak}</strong> jour{dailyData.streak > 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-          <ProgressBar value={Math.min(100, (dailyData.steps / dailyData.goal) * 100)} />
-          {dailyData.flowMs > 0 && (
-            <span className="text-xs text-muted">
-              {formatMinutes(dailyData.flowMs)} d'étude aujourd'hui
-            </span>
-          )}
-        </section>
-      )}
-
-      {/* Le parcours est TOUJOURS accessible : il y a toujours une étape suivante, qu'il y
-          ait du dû ou non (SPEC §5.1). */}
-      {flowNext && flowNext.kind !== "done" && (
-        <Card accentFlag className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <SectionLabel>Parcours</SectionLabel>
-            <span className="font-serif text-lg text-text">{flowNext.title}</span>
-            {flowSteps?.length ? (
-              <span className="text-sm text-muted">{flowPhrase(flowSteps)}</span>
-            ) : null}
-          </div>
-          {/* Les stations de la leçon en cours : où l'on en est, et ce que coûte la suivante. */}
-          {currentLesson && <LessonPath lesson={currentLesson} />}
-          <div className="flex flex-wrap gap-3">
-            <Button variant="primary" onClick={onStartFlow}>
-              Continuer le parcours
-            </Button>
-            {dailyData && dailyData.dueCount > 0 && (
-              <Button variant="ghost" onClick={onStartReview}>
-                Réviser seulement
-              </Button>
-            )}
-          </div>
-        </Card>
-      )}
-
-      <OmikujiCard key={omikujiVersion} />
-
-      {mirror && (
-        <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
-          <div className="flex flex-col">
-            <SectionLabel>Relecture-miroir</SectionLabel>
-            <span className="text-sm text-muted">
-              Relis « <span className="text-text">{mirror.title}</span> », écrite{" "}
-              {formatDaysAgo(mirror.createdAt)} — mesure le chemin parcouru.
-            </span>
-          </div>
-          <Button className="shrink-0" onClick={onStartMirror}>
-            Relire
-          </Button>
-        </div>
-      )}
-
-      {reco && (
-        <div className="flex items-center justify-between gap-4 border-b border-hairline pb-3">
-          <div className="flex flex-col">
-            <SectionLabel>À lire pour toi</SectionLabel>
-            <span className="text-sm text-muted">
-              « <span className="text-text">{reco.story.title}</span> » —{" "}
-              {Math.round(reco.coverage * 100)}% de mots connus
-              {reco.dueHits > 0
-                ? ` · ${reco.dueHits} mot${reco.dueHits > 1 ? "s" : ""} à réviser en contexte`
-                : ""}
-              .
-            </span>
-          </div>
-          <Button className="shrink-0" onClick={() => onOpenStory(reco.story)}>
-            Lire
-          </Button>
-        </div>
-      )}
-
-      {unlockedLesson && (
-        <Card accentFlag className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <SectionLabel>Nouvelle leçon débloquée</SectionLabel>
-            <span className="font-serif text-lg text-text">{unlockedLesson.title}</span>
-            <span className="text-sm text-muted">Leçon précédente maîtrisée — continuez sur votre lancée !</span>
-          </div>
-          <Button
-            variant="primary"
-            className="shrink-0 whitespace-nowrap"
-            onClick={() => { void dismissUnlock(unlockedLesson); onOpenCourse(unlockedLesson); }}
-          >
-            Voir la leçon →
-          </Button>
-        </Card>
-      )}
-
-      {todo.length > 0 ? (
-        <LessonList lessons={todo} onOpenStory={onOpenStory} onOpenCourse={onOpenCourse} />
-      ) : (
-        <p className="text-muted">
-          Tout est à jour — bravo ! Explore le{" "}
-          <button
-            className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
-            onClick={onGoCatalogue}
-          >
-            catalogue
-          </button>{" "}
-          pour aller plus loin.
-        </p>
-      )}
-
-      <div className="flex flex-wrap gap-6">
-        <button
-          className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
-          onClick={onGoCatalogue}
-        >
-          Voir tout le parcours →
+            {stampTotal(stamps)}
+          </span>
         </button>
-        <button
-          className="cursor-pointer self-start p-0 font-sans text-sm tracking-wide text-muted transition-colors hover:text-accent"
-          onClick={onGoStats}
-        >
-          Statistiques →
+        <button type="button" onClick={onGoStats} className="flex cursor-pointer items-center gap-4" aria-label="Statistiques">
+          <span className="flex items-center gap-1.5" title="Série de jours">
+            <IconFlame />
+            <strong className="font-semibold text-text">{streak}</strong>
+          </span>
+          <span className="flex items-center gap-1.5" title="Étapes du jour">
+            <StepsRing done={stepsToday} goal={settings.dailySteps} />
+            <span>
+              <strong className="font-semibold text-text">{stepsToday}</strong>/{settings.dailySteps}
+            </span>
+          </span>
         </button>
       </div>
 
-      {omikujiOpen && (
-        <OmikujiSheet
+      <div className="sticky top-0 z-20 -mx-4 border-b border-hairline bg-bg/95 px-4 py-2.5 backdrop-blur-sm">
+        {shown ? (
+          <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-xs uppercase tracking-wide text-muted">
+                N{shown.level} · Leçon {shown.order}
+                {first?.kind === "step" && last?.kind === "step" ? ` · étapes ${first.number} à ${last.number}` : ""}
+              </span>
+              <span className="truncate font-serif text-lg">{shown.title}</span>
+            </div>
+            <Button size="icon" onClick={() => onOpenCourse(shown)} aria-label={`Relire le cours de la leçon ${shown.order}`}>
+              <IconBook />
+            </Button>
+          </div>
+        ) : (
+          <span className="font-serif text-lg">
+            {pos.route.name} · {routeForLevel(pos.route.level).tagline}
+          </span>
+        )}
+      </div>
+
+      <div ref={measure} className="-mx-4 overflow-x-clip">
+        {layout && (
+          <Track
+            layout={layout}
+            trainColor={(level) => routeForLevel(level).trainColor}
+            bubble={bubble}
+            metaOf={metaOf}
+            onTapNode={tapNode}
+            onSection={onSection}
+            backLabel={cur?.kind === "step" ? `Revenir à l'étape ${cur.number}` : undefined}
+          />
+        )}
+      </div>
+
+      {arrival && (
+        <StationArrival
+          arrival={arrival}
           onClose={() => {
-            setOmikujiOpen(false);
-            setOmikujiVersion((n) => n + 1);
+            void markStationCelebrated(arrival.route.level, arrival.station.index);
+            setArrival(null);
           }}
         />
       )}
+      {omikujiOpen && <OmikujiSheet onClose={() => setOmikujiOpen(false)} />}
     </div>
   );
 }
