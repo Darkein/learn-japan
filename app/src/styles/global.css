@@ -243,153 +243,10 @@
   animation: enso-sway 5s ease-in-out infinite;
 }
 
-/* Voyage (TokaidoStrip) : le train roule SUR PLACE — le nez reste pile sur l'avancement.
-   Ce sont les traverses qui défilent (vitesse + sol) et des lignes de vitesse sur deux
-   plans (parallaxe = profondeur) ; la caisse tangue doucement, façon locomotive au ralenti. */
-@keyframes rail-scroll {
-  to {
-    stroke-dashoffset: 9.6; /* = somme du dasharray (1.5 + 8.1) : boucle sans saut */
-  }
-}
-@keyframes train-chug {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-0.6px);
-  }
-}
-@keyframes speed-streak {
-  0% {
-    transform: translateX(6px);
-    opacity: 0;
-  }
-  35% {
-    opacity: 0.55;
-  }
-  100% {
-    transform: translateX(-30px);
-    opacity: 0;
-  }
-}
-.rail-sleepers {
-  animation: rail-scroll 0.7s linear infinite;
-}
-.train-chug {
-  animation: train-chug 0.6s ease-in-out infinite;
-}
-.speed-streak {
-  animation: speed-streak 0.9s linear infinite;
-}
-
-/* Décor défilant en parallaxe DERRIÈRE la voie, trois plans pour le relief : montagnes
-   lointaines (lentes, pâles), forêt médiane (contraste moyen) et arbres proches (rapides,
-   contrastés). Silhouettes en mask → la couleur suit le thème via background-color. Ne
-   défile PAS avec le swipe (backdrop) : c'est la profondeur. */
-.decor-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* Hauteur = BAND (cf. TokaidoStrip). Montagnes/arbres restent tuilés sur 32 px ancrés en bas
-     (mask-position bottom) ; seul le ciel remplit toute la hauteur. */
-  height: 48px;
-  pointer-events: none;
-}
-/* Parallaxe : chaque plan décale son mask selon --pf (profondeur : montagnes lentes, arbres
-   proches rapides). --sx = scrollLeft de la bande (posé en JS) → tout suit le drag/inertie.
-   Le fond lointain (ciel + montagnes + villes) ne bouge QUE au scroll ; seuls les arbres
-   (premier plan) ajoutent --drift, une dérive continue animée qui les fait avancer à l'arrêt.
-   Décalage négatif → le décor glisse dans le sens du contenu. */
-@property --drift {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 0px;
-}
-@keyframes decor-drift {
-  to {
-    --drift: 4000px;
-  }
-}
-.decor-scene {
-  animation: decor-drift 240s linear infinite;
-}
-.decor-sky {
-  overflow: hidden;
-  /* Clippé à la crête (mask ciel), défile en phase avec les montagnes → l'astre passe DERRIÈRE. */
-  --pf: 0.15;
-  -webkit-mask-repeat: repeat-x;
-  mask-repeat: repeat-x;
-  -webkit-mask-size: 960px 48px;
-  mask-size: 960px 48px;
-  -webkit-mask-position: calc(var(--sx, 0px) * var(--pf) * -1) bottom;
-  mask-position: calc(var(--sx, 0px) * var(--pf) * -1) bottom;
-}
-.sky-sun,
-.sky-moon {
-  position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-.sky-sun {
-  width: 12px;
-  height: 12px;
-  background: var(--ink);
-  box-shadow: 0 0 4px 1px var(--hairline-strong);
-}
-.sky-moon {
-  width: 11px;
-  height: 11px;
-  /* Teinte encre composée sur un fond couleur ciel → disque OPAQUE (pas de transparence :
-     les étoiles ne transparaissent plus au travers). */
-  background-color: var(--bg);
-  background-image: linear-gradient(var(--ink), var(--ink));
-  overflow: hidden;
-}
-/* Terminateur courbe : disque couleur ciel décalé de --moon-off → vraie lune (croissant/gibbeuse). */
-.sky-moon::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--sky-fill, var(--bg));
-  transform: translateX(var(--moon-off, 4px));
-}
-/* Nuit : le ciel se remplit de --sky-fill et les astres passent en --sky-lit. Par défaut ces
-   vars sont vides → thème SOMBRE inchangé (ciel = fond de page sombre, astres à l'encre). En
-   thème CLAIR (plus bas) on les renseigne, sinon la nuit ressemblerait au jour. */
-.decor-sky.is-night {
-  background-color: var(--sky-fill, transparent);
-}
-.decor-sky.is-night .sky-star {
-  background: var(--sky-lit, var(--ink));
-}
-.decor-sky.is-night .sky-moon {
-  background-color: var(--sky-fill, var(--bg));
-  background-image: linear-gradient(var(--sky-lit, var(--ink)), var(--sky-lit, var(--ink)));
-}
-/* Nuit en thème clair : vars posées sur le CONTENEUR → héritées par le ciel (fond + astres)
-   ET par les villes (éclaircies pour rester lisibles sur le ciel de nuit sombre). */
-:root[data-theme="light"] .decor-scene.is-night {
-  --sky-fill: #2d2920;
-  --sky-lit: #efe8da;
-  --city-night: #a99f8b;
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .decor-scene.is-night {
-  --sky-fill: #2d2920;
-    --sky-lit: #efe8da;
-    --city-night: #a99f8b;
-  }
-}
-.decor-scene.is-night .decor-city {
-  color: var(--city-night, var(--text-muted));
-}
+/* Le ciel de la voie (ui/track/Sky) : étoiles qui scintillent, brume du matin qui dérive,
+   oiseaux qui traversent, pétales qui tombent, lucioles. */
 .sky-star {
   position: absolute;
-  width: 1.5px;
-  height: 1.5px;
   border-radius: 50%;
   background: var(--ink);
   transform: translate(-50%, -50%);
@@ -419,49 +276,45 @@
     opacity: 0.8;
   }
 }
-.decor-mountains {
-  background-color: var(--hairline);
-  --pf: 0.15;
-  -webkit-mask-repeat: repeat-x;
-  mask-repeat: repeat-x;
-  -webkit-mask-size: 960px 32px;
-  mask-size: 960px 32px;
-  -webkit-mask-position: calc(var(--sx, 0px) * var(--pf) * -1) bottom;
-  mask-position: calc(var(--sx, 0px) * var(--pf) * -1) bottom;
+.sky-mist {
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--decor-fill), transparent);
+  filter: blur(3px);
+  animation: mist-drift 60s ease-in-out infinite alternate;
 }
-/* Villes majeures (jalons) en silhouette, entre montagnes et arbres. Chaque ville est calée
-   sur la position de sa station (left = xStation - --sx) : elle apparaît au bon endroit quand
-   on y arrive, ne bouge qu'au scroll, et passe derrière les arbres (ordre DOM). */
-.decor-city {
-  position: absolute;
-  /* Relevée au-dessus de la cime des arbres : seule sa base se glisse derrière eux (occlusion
-     naturelle), sinon les arbres semi-transparents la brouilleraient. */
-  bottom: 5px;
-  transform: translateX(-50%);
-  color: var(--text-muted);
+@keyframes mist-drift {
+  to {
+    transform: translateX(30%);
+  }
 }
-.decor-city svg {
-  display: block;
+.sky-birds {
+  animation: birds-cross 70s linear infinite;
 }
-.decor-trees-far {
-  background-color: var(--hairline-strong);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='190'%20height='32'%3E%3Cpath%20d='M0,27%20Q8,23%2017,26%20Q25,22%2034,26%20Q42,24%2051,27%20Q60,23%2069,26%20Q77,25%2086,27%20Q95,22%20104,26%20Q112,24%20121,27%20Q130,23%20139,26%20Q147,25%20156,27%20Q165,23%20174,26%20Q182,24%20190,27%20L190,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 190px 32px repeat-x;
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='190'%20height='32'%3E%3Cpath%20d='M0,27%20Q8,23%2017,26%20Q25,22%2034,26%20Q42,24%2051,27%20Q60,23%2069,26%20Q77,25%2086,27%20Q95,22%20104,26%20Q112,24%20121,27%20Q130,23%20139,26%20Q147,25%20156,27%20Q165,23%20174,26%20Q182,24%20190,27%20L190,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 190px 32px repeat-x;
-  --pf: 0.4;
-  -webkit-mask-position: calc((var(--sx, 0px) + var(--drift, 0px)) * var(--pf) * -1) bottom;
-  mask-position: calc((var(--sx, 0px) + var(--drift, 0px)) * var(--pf) * -1) bottom;
+@keyframes birds-cross {
+  from {
+    transform: translateX(-90px) translateY(10px);
+  }
+  to {
+    transform: translateX(calc(100vw + 90px)) translateY(-14px);
+  }
 }
-.decor-trees {
-  background-color: var(--ink);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='168'%20height='32'%3E%3Cpath%20d='M0,29%20Q6,26%2012,28%20Q18,25%2025,28%20Q31,27%2037,29%20Q44,25%2051,28%20Q57,27%2063,29%20Q70,25%2077,28%20Q83,27%2089,29%20Q96,25%20103,28%20Q109,27%20115,29%20Q122,25%20129,28%20Q135,27%20141,29%20Q148,26%20155,28%20Q161,27%20168,29%20L168,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 168px 32px repeat-x;
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='168'%20height='32'%3E%3Cpath%20d='M0,29%20Q6,26%2012,28%20Q18,25%2025,28%20Q31,27%2037,29%20Q44,25%2051,28%20Q57,27%2063,29%20Q70,25%2077,28%20Q83,27%2089,29%20Q96,25%20103,28%20Q109,27%20115,29%20Q122,25%20129,28%20Q135,27%20141,29%20Q148,26%20155,28%20Q161,27%20168,29%20L168,32%20L0,32%20Z'%20fill='black'/%3E%3C/svg%3E")
-    left bottom / 168px 32px repeat-x;
-  --pf: 0.7;
-  -webkit-mask-position: calc((var(--sx, 0px) + var(--drift, 0px)) * var(--pf) * -1) bottom;
-  mask-position: calc((var(--sx, 0px) + var(--drift, 0px)) * var(--pf) * -1) bottom;
+.sky-petal {
+  top: -8px;
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+  animation: petal-fall 12s linear infinite;
+}
+@keyframes petal-fall {
+  to {
+    transform: translate(-40px, 180px) rotate(320deg);
+  }
+}
+.sky-firefly {
+  width: 3px;
+  height: 3px;
+  background: var(--accent-2);
+  box-shadow: 0 0 6px 2px color-mix(in oklab, var(--accent-2) 50%, transparent);
+  animation: twinkle 3s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

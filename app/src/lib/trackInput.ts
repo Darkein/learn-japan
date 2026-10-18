@@ -3,6 +3,7 @@
 
 import { ROUTES } from "../data/routes";
 import type { FlowActivity } from "./flow";
+import { reserveOf, type RouteScenery } from "./scenery";
 import { nextStep, stepNumberBases, type PathStep } from "./path";
 import type { CitySize, TrackCity, TrackCurrent, TrackInput, TrackLesson, TrackRoute } from "./track";
 
@@ -27,9 +28,10 @@ export interface TrackLessonSource {
  */
 export type CitySizeOf = (level: number, index: number) => CitySize | undefined;
 
-export function trackRoutes(sizeOf: CitySizeOf = () => undefined): TrackRoute[] {
+export function trackRoutes(sizeOf: CitySizeOf = () => undefined, sceneries: RouteScenery[] = []): TrackRoute[] {
   return ROUTES.map((r) => ({
     level: r.level,
+    reserve: reserveOf(sceneries.find((s) => s.level === r.level)),
     cities: r.stations.map((s, i) => ({
       index: s.index,
       kanji: s.kanji,
@@ -80,8 +82,10 @@ export function trackInput(args: {
   /** Leçons dont la station de repos qui les suit est faite. */
   restDone: Set<string>;
   sizeOf?: CitySizeOf;
+  /** Le décor des routes : ses traversées et illustrations réservent leur place. */
+  sceneries?: RouteScenery[];
 }): TrackInput {
-  const { width, lessons, activity, stamps, restDone, sizeOf } = args;
+  const { width, lessons, activity, stamps, restDone, sizeOf, sceneries } = args;
   const firstOpen = lessons.find((l) => !l.completedAt && !l.locked);
   const track: TrackLesson[] = lessons.map((l) => ({
     id: l.id,
@@ -97,7 +101,7 @@ export function trackInput(args: {
   return {
     width,
     lessons: track,
-    routes: trackRoutes(sizeOf),
+    routes: trackRoutes(sizeOf, sceneries),
     current: trackCurrent(activity, lessons),
     stamps,
     bases: stepNumberBases(lessons),

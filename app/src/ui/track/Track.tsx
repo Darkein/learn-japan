@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { Decor as DecorData } from "../../lib/scenery";
 import { pathD, TRAIN_LENGTH, type TrackLayout, type TrackNode, type TrackSection } from "../../lib/track";
 import { cancelScrollRestore } from "../useHashRoute";
 import { IconLock } from "../kit/Icon";
+import { Decor, Ferries } from "./Decor";
 import { Rails } from "./Rails";
 import { CityStamp } from "./Stamp";
 import { TrackNodeView } from "./TrackNodeView";
@@ -23,6 +25,8 @@ function readStamps(): Record<number, number> | null {
 
 interface Props {
   layout: TrackLayout;
+  /** Le décor placé le long de la voie (lib/scenery). */
+  decor?: DecorData;
   trainColor: (level: number) => string;
   /** Contenu de la bulle de l'étape à faire. */
   bubble?: ReactNode;
@@ -75,7 +79,7 @@ function TrainSprite({ color }: { color: string }) {
  * Toute la voie a sa hauteur, mais seules les tranches proches de l'écran sont rendues.
  * S'ouvre centrée sur l'étape à faire ; le train y roule depuis son dernier arrêt vu.
  */
-export function Track({ layout, trainColor, bubble, metaOf, onTapNode, renderMarker, onSection, backLabel }: Props) {
+export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, renderMarker, onSection, backLabel }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ top: 0, bottom: SLICE * 2 });
   const [curVisible, setCurVisible] = useState(true);
@@ -200,7 +204,9 @@ export function Track({ layout, trainColor, bubble, metaOf, onTapNode, renderMar
 
   return (
     <div ref={box} className="relative" style={{ height: layout.height, width }}>
+      {decor && <Decor decor={decor} paths={paths} width={width} y0={view.top} y1={view.bottom} />}
       <Rails paths={paths} width={width} y0={view.top} y1={view.bottom} painted={painted} duration={duration} />
+      {decor && <Ferries decor={decor} paths={paths} width={width} y0={view.top} y1={view.bottom} />}
 
       {layout.markers
         .filter((m) => m.y >= view.top - 600 && m.y <= view.bottom + 200)
