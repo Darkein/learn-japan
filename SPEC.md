@@ -1030,11 +1030,12 @@ La bande ne contient aucun bouton.
     terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.
   - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,35 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
-    au tiers haut de la voie visible, et reste dans la bande tant que son nom est affiché.
+    au milieu de la voie visible, et reste dans la bande tant que son nom est affiché.
   - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par un
     côté et sort par l'autre. Son nom (kanji · romaji) paraît en fondu au-dessus de lui tant que
-    sa ville est à moins d'une demi-voie visible de sa place (le tiers haut) : il paraît et
-    s'efface au même écart de part et d'autre, avec le même fondu (300 ms).
+    sa ville est sur la voie visible : la voie s'arrête à la fenêtre, et une ville passée sous la
+    bande n'a plus de nom affiché. Sa place étant au milieu, il paraît et s'efface au même écart
+    de part et d'autre, avec le même fondu (300 ms).
 - **Le décor qui défile.**
   - Deux plans glissent de côté au fil du défilement, dans le même sens que les repères : le plan
     moyen à 0,22 px par px défilé, le plan proche à 0,42 px.

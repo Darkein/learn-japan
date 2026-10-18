@@ -1,6 +1,6 @@
 // La bande de ciel de la voie (SPEC §5c.6b) : calcul PUR. Le panorama du départ qui se replie,
 // le décor qui défile en deux plans, tiré du paysage du tronçon, et entre les deux les repères
-// des villes, qui passent au milieu de l'horizon quand leur ville est au tiers haut de l'écran.
+// des villes, qui passent au milieu de l'horizon quand leur ville est au milieu de la voie visible.
 
 import type { Biome, RouteScenery, SpriteKind, UniqueKind } from "./scenery";
 import type { TrackLayout } from "./track";
@@ -56,7 +56,7 @@ export interface SkyMark {
   y: number;
   kind: SpriteKind;
   name: string;
-  /** Sa place sur l'horizon, en part de la largeur, quand sa ville passe au tiers haut de la voie
+  /** Sa place sur l'horizon, en part de la largeur, quand sa ville passe au milieu de la voie
       visible ; il glisse autour au fil du défilement (`markX`). */
   x: number;
 }
@@ -103,19 +103,19 @@ export const MARK_SPEED = 0.35;
 
 /**
  * Où est un repère quand la voie est à `pos` (ordonnée de voie du bas du ciel) : à sa place quand
- * sa ville passe au tiers haut de la voie visible, et il glisse dans le même sens que le décor.
+ * sa ville passe au milieu de la voie visible, et il glisse dans le même sens que le décor.
  */
 export function markX(mark: SkyMark, pos: number, visible: number, width: number): number {
-  return mark.x * width + (pos - (mark.y - visible / 3)) * MARK_SPEED;
+  return mark.x * width + (pos - (mark.y - visible / 2)) * MARK_SPEED;
 }
 
 /**
- * Le nom d'un repère paraît tant que sa ville est à moins d'une demi-voie visible (entre `top` et
- * `bottom`) de sa place, au tiers haut : il paraît et s'efface au même écart, de part et d'autre.
+ * Le nom d'un repère paraît tant que sa ville est sur la voie visible, entre `top` (le bas de la
+ * fenêtre) et `bottom` : la voie s'arrête à la fenêtre, ce qui passe dessous n'est plus là. Sa place
+ * étant au milieu, il paraît et s'efface au même écart, de part et d'autre.
  */
 export function markRaised(mark: SkyMark, top: number, bottom: number): boolean {
-  const visible = bottom - top;
-  return Math.abs(mark.y - (top + visible / 3)) <= visible / 2;
+  return mark.y >= top && mark.y <= bottom;
 }
 
 // ---- Le décor qui défile ---------------------------------------------------------------

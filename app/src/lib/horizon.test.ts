@@ -46,15 +46,14 @@ describe("les repères du ciel", () => {
     }
   });
 
-  it("un repère glisse avec le défilement, à sa place quand sa ville est au tiers haut, et reste à l'écran", () => {
+  it("un repère glisse avec le défilement, à sa place quand sa ville est au milieu, et reste à l'écran", () => {
     const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.5 };
     const visible = 590;
-    expect(markX(mark, 2000 - visible / 3, visible, 390)).toBeCloseTo(195);
+    expect(markX(mark, 2000 - visible / 2, visible, 390)).toBeCloseTo(195);
     expect(markX(mark, 2100, visible, 390) - markX(mark, 2000, visible, 390)).toBeCloseTo(100 * MARK_SPEED);
-    // Tant que son nom est affiché (une demi-voie de part et d'autre de sa place), son centre
-    // reste dans la bande.
+    // Tant que son nom est affiché (sa ville sur la voie visible), son centre reste dans la bande.
     for (const m of skyMarks(realLayout(), SCENERIES).slice(0, 40)) {
-      for (const pos of [m.y - visible / 3 - visible / 2, m.y - visible / 3 + visible / 2]) {
+      for (const pos of [m.y - visible, m.y]) {
         const x = markX(m, pos, visible, 390);
         expect(x).toBeGreaterThan(0);
         expect(x).toBeLessThan(390);
@@ -62,14 +61,14 @@ describe("les repères du ciel", () => {
     }
   });
 
-  it("un repère est levé à moins d'une demi-voie de sa place, autant avant qu'après", () => {
+  it("un repère est levé tant que sa ville est sous la fenêtre, sur la voie visible", () => {
     const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.3 };
-    expect(markRaised(mark, 2100, 2600)).toBe(false);
+    expect(markRaised(mark, 2001, 2600)).toBe(false);
     expect(markRaised(mark, 1500, 2100)).toBe(true);
-    expect(markRaised(mark, 1200, 1900)).toBe(false);
-    // Sa place est atteinte quand top = 2000 − 200 ; il paraît et s'efface à 300 px de part et d'autre.
+    expect(markRaised(mark, 1200, 1999)).toBe(false);
+    // Sa place est au milieu (top = 1700) : il paraît et s'efface à 300 px de part et d'autre.
     const at = (top: number) => markRaised(mark, top, top + 600);
-    expect([at(1500), at(1499), at(2100), at(2101)]).toEqual([true, false, true, false]);
+    expect([at(1400), at(1399), at(2000), at(2001)]).toEqual([true, false, true, false]);
   });
 });
 
