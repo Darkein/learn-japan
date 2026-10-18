@@ -104,6 +104,8 @@ plan moyen mêlent `--text` au bas du ciel ; le plan proche est en `--bg`.
 Couleurs du décor : l'encre partout ; l'indigo pour l'eau et les villes ; le vermillon pour les
 sceaux, le train du Tōkaidō, les torii, le soleil, les érables et les lanternes allumées ; la
 neige en blanc. Aucune autre teinte, même pour les saisons.
+Les plans des illustrations uniques sont l'encre ou l'indigo mêlés à `--bg` (`color-mix`),
+opaques ; le pied des monts glisse de cette teinte à `--bg`.
 
 ### Typographie
 | Token | Valeur |
