@@ -2,10 +2,15 @@ import { useEffect, useState } from "react";
 import { ROUTES } from "../data/routes";
 import { allLessonProgress } from "../lib/db";
 import { listLessons } from "../lib/lessons";
-import { tokaidoStatus, type TokaidoStatus } from "../lib/tokaido";
+import { fortuneById } from "../lib/omikuji";
+import type { OmikujiFortune } from "../lib/db";
+import { fortuneStamps, stampTotal, tokaidoStatus, type FortuneStamp as FortuneRecord, type TokaidoStatus } from "../lib/tokaido";
+import { cityOf } from "../lib/trackInput";
 import { formatDaysAgo } from "../lib/time";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { OmikujiCard } from "./OmikujiCard";
+import { CityFiche } from "./track/CityFiche";
+import { CityStamp, FortuneStamp } from "./track/Stamp";
 import { ProgressBar } from "./kit/ProgressBar";
 import { SectionLabel } from "./kit/SectionLabel";
 
@@ -31,6 +36,8 @@ function Torii({ className = "" }: { className?: string }) {
 export function Voyage() {
   const [status, setStatus] = useState<TokaidoStatus | null>(null);
   const [departedAt, setDepartedAt] = useState<number | null>(null);
+  const [fortunes, setFortunes] = useState<FortuneRecord[]>([]);
+  const [fiche, setFiche] = useState<{ level: number; index: number; stamped: boolean } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -39,12 +46,13 @@ export function Voyage() {
       const progress = await allLessonProgress();
       const starts = progress.map((p) => p.startedAt).filter((t): t is number => !!t);
       setDepartedAt(starts.length ? Math.min(...starts) : null);
+      setFortunes(await fortuneStamps());
     })();
   }, []);
 
   if (!status) return <LoadingScreen />;
 
-  const { pos } = status;
+  const { pos, stamps } = status;
   const route = pos.route;
   const stations = route.stations;
   const span = stations.length - 1;
@@ -85,6 +93,49 @@ export function Voyage() {
             )}
             .
           </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionLabel as="h3" className="block">
+          Mon carnet de tampons · {stampTotal(stamps)}
+        </SectionLabel>
+        {ROUTES.filter((r) => r.level >= route.level || (stamps[r.level] ?? 0) > 0).map((r) => (
+          <div key={r.level} className="flex flex-col gap-2">
+            <span className="text-xs text-muted">
+              <span className="font-jp text-text">{r.kanji}</span> {r.name} · {stamps[r.level] ?? 0}/{r.stations.length - 1}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {r.stations.slice(1).map((s) => {
+                const stamped = s.index <= (stamps[r.level] ?? 0);
+                const city = cityOf(r.level, s.index);
+                return (
+                  <button
+                    key={s.index}
+                    type="button"
+                    className="cursor-pointer p-0"
+                    aria-label={`${s.romaji}${stamped ? ", tampon obtenu" : ", à venir"}`}
+                    onClick={() => setFiche({ level: r.level, index: s.index, stamped })}
+                  >
+                    <CityStamp city={city ?? { kanji: s.kanji, size: "ville", index: s.index }} size={52} empty={!stamped} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {fortunes.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-muted">Tampons de fortune de l'omikuji · {fortunes.length}</span>
+            <div className="flex flex-wrap gap-3">
+              {fortunes.map((f) => (
+                <span key={f.date} className="flex flex-col items-center gap-1" title={f.date}>
+                  <FortuneStamp kanji={fortuneById(f.fortune as OmikujiFortune).kanji} size={48} />
+                  <span className="text-xs text-muted">{f.date.slice(5).replace("-", "/")}</span>
+                </span>
+              ))}
+            </div>
+          </div>
         )}
       </section>
 
@@ -195,6 +246,7 @@ export function Voyage() {
           })}
         </ol>
       </section>
+      {fiche && <CityFiche {...fiche} onClose={() => setFiche(null)} />}
     </div>
   );
 }

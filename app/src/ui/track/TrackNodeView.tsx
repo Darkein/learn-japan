@@ -20,7 +20,8 @@ function wordOf(node: TrackNode): NodeWord | undefined {
 function ariaLabel(node: TrackNode): string {
   if (node.kind === "city") {
     const state = node.passed ? "passée" : node.next ? "prochaine ville" : "à venir";
-    return `Ville ${node.city.index}, ${node.city.romaji}, ${state}`;
+    const what = node.city.index === 0 ? "Départ" : node.city.size === "terminus" ? "Terminus" : `Ville ${node.city.index}`;
+    return `${what}, ${node.city.romaji}, ${state}`;
   }
   const w = wordOf(node)!;
   const state = node.state === "done" ? "faite" : node.state === "cur" ? "à faire" : "à venir";
@@ -108,7 +109,16 @@ export function TrackNodeView({ node, width, meta, onTap }: Props) {
   }
 
   const label = node.kind === "city"
-    ? { word: node.city.kanji, kana: undefined as string | undefined, line: `Ville ${node.city.index} · ${node.city.romaji}` }
+    ? {
+        word: node.city.kanji,
+        kana: node.city.kana,
+        line:
+          node.city.index === 0
+            ? `Départ · ${node.city.romaji}`
+            : node.city.size === "terminus"
+              ? `Terminus · ${node.city.romaji}`
+              : `Ville ${node.city.index} · ${node.city.romaji}`,
+      }
     : (() => {
         const w = wordOf(node)!;
         return { word: w.word, kana: w.kana, line: node.kind === "step" ? `${node.number} · ${w.fr}` : w.fr };

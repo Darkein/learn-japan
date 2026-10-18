@@ -148,6 +148,8 @@ describe("tokaidoStatus (IO)", () => {
     const some = await tokaidoStatus(lessons(5, 67, 10));
     expect(some.newlyArrived?.station.index).toBe(8);
     expect(some.newlyArrived?.route.level).toBe(5);
+    // Une seule fiche : la dernière ville, et les sept franchies avant elle.
+    expect(some.newlyArrived?.others.map((s) => s.index)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(some.stamps[5]).toBe(8);
 
     await markStationCelebrated(5, 8);

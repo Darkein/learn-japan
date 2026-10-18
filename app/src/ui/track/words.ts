@@ -31,6 +31,15 @@ export const EXTRA_WORDS: Record<ExtraKind, NodeWord> = {
   "free-review": { icon: "復", word: "復習", kana: "ふくしゅう", fr: "Révision" },
 };
 
+/** Lecture des noms de route (data/routes.ts `kanji`), par niveau. */
+export const ROUTE_KANA: Record<number, string> = {
+  5: "とうかいどう",
+  4: "こうしゅうかいどう",
+  3: "なかせんどう",
+  2: "おくのほそみち",
+  1: "しこくへんろ",
+};
+
 /** Kanji des départs et terminus des cinq routes. */
 const ENDPOINT_GLYPH: Record<string, string> = {
   Nihonbashi: "橋",

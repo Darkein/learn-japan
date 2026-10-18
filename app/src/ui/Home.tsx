@@ -14,6 +14,8 @@ import { IconBook } from "./kit/Icon";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { claimOmikujiAutoOpen, OmikujiSheet } from "./OmikujiSheet";
 import { StationArrival } from "./StationArrival";
+import { CityFiche } from "./track/CityFiche";
+import { CurriculumEnd, RouteEnd } from "./track/RouteEnd";
 import { Track } from "./track/Track";
 import { EXTRA_WORDS, STEP_WORDS } from "./track/words";
 import { useGenJobs } from "./useGenJobs";
@@ -69,6 +71,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
   const [section, setSection] = useState<TrackSection | undefined>();
   const [omikujiOpen, setOmikujiOpen] = useState(false);
   const [arrival, setArrival] = useState<RouteArrival | null>(null);
+  const [fiche, setFiche] = useState<{ level: number; index: number; stamped: boolean } | null>(null);
   const measure = useRef<HTMLDivElement>(null);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
@@ -187,7 +190,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
 
   function tapNode(n: TrackNode) {
     if ((n.kind === "step" || n.kind === "extra") && n.state === "cur") return onStartFlow();
-    if (n.kind === "city") return onGoVoyage();
+    if (n.kind === "city") return setFiche({ level: n.level, index: n.city.index, stamped: n.passed });
     const lesson = n.lessonId ? lessonById.get(n.lessonId) : undefined;
     if (lesson) onOpenCourse(lesson);
   }
@@ -256,6 +259,20 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
             metaOf={metaOf}
             onTapNode={tapNode}
             onSection={onSection}
+            renderMarker={(m) => {
+              if (m.kind === "curriculum-end") return <CurriculumEnd />;
+              if (m.kind !== "route-end") return null;
+              const stat = data.tokaido.levels.find((s) => s.level === m.level);
+              return (
+                <RouteEnd
+                  level={m.level}
+                  nextLevel={m.nextLevel}
+                  reached={m.reached}
+                  totals={{ steps: stat?.stepsTotal ?? 0, lessons: stat?.lessonsTotal ?? 0 }}
+                  onOpenCarnet={onGoVoyage}
+                />
+              );
+            }}
             backLabel={cur?.kind === "step" ? `Revenir à l'étape ${cur.number}` : undefined}
           />
         )}
@@ -271,6 +288,15 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
         />
       )}
       {omikujiOpen && <OmikujiSheet onClose={() => setOmikujiOpen(false)} />}
+      {fiche && (
+        <CityFiche
+          {...fiche}
+          stepsToGo={
+            !fiche.stamped && fiche.level === pos.route.level && pos.next?.index === fiche.index ? pos.stepsToNext : undefined
+          }
+          onClose={() => setFiche(null)}
+        />
+      )}
     </div>
   );
 }

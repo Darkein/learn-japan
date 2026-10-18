@@ -4,7 +4,7 @@
 import { ROUTES } from "../data/routes";
 import type { FlowActivity } from "./flow";
 import { nextStep, stepNumberBases, type PathStep } from "./path";
-import type { CitySize, TrackCurrent, TrackInput, TrackLesson, TrackRoute } from "./track";
+import type { CitySize, TrackCity, TrackCurrent, TrackInput, TrackLesson, TrackRoute } from "./track";
 
 /** Ce que la voie lit d'une leçon — sous-ensemble de lessons.ts `Lesson`. */
 export interface TrackLessonSource {
@@ -39,6 +39,14 @@ export function trackRoutes(sizeOf: CitySizeOf = () => undefined): TrackRoute[] 
         (i === 0 || i === r.stations.length - 1 ? "terminus" : s.city ? "grande" : "ville"),
     })),
   }));
+}
+
+let defaultRoutes: TrackRoute[] | null = null;
+
+/** Une ville d'une route, telle que la voie la dessine (taille, kanji du nœud, motif). */
+export function cityOf(level: number, index: number): TrackCity | undefined {
+  defaultRoutes ??= trackRoutes();
+  return defaultRoutes.find((r) => r.level === level)?.cities[index];
 }
 
 /** L'activité suivante du flux, traduite en nœud de la voie. */
