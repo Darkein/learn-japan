@@ -100,6 +100,30 @@ function archBridge(x0: number, x1: number, y: number, rise = 18): ReactNode {
   );
 }
 
+/** Un grand arbre à frondaison en nuage (camphrier) : tronc épais et ramifié, houppier lobé. */
+function bigTree(x: number, foot: number, s = 1): ReactNode {
+  const lobes: [number, number, number][] = [
+    [-30, -62, 22], [-8, -76, 26], [20, -70, 24], [36, -54, 18], [-40, -46, 16], [4, -52, 24],
+  ];
+  return (
+    <g key={`tree${x}`}>
+      <path
+        d={`M${x - 7 * s} ${foot} Q${x - 4 * s} ${foot - 30 * s} ${x - 18 * s} ${foot - 46 * s} M${x - 2 * s} ${foot - 30 * s} Q${x + 6 * s} ${foot - 44 * s} ${x + 20 * s} ${foot - 52 * s} M${x + 7 * s} ${foot} Q${x + 3 * s} ${foot - 24 * s} ${x} ${foot - 56 * s}`}
+        stroke="currentColor"
+        strokeOpacity={0.5}
+        strokeWidth={5 * s}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <g fill="currentColor" fillOpacity={0.2}>
+        {lobes.map(([dx, dy, r], i) => (
+          <circle key={i} cx={x + dx * s} cy={foot + dy * s} r={r * s} />
+        ))}
+      </g>
+    </g>
+  );
+}
+
 /** Ce qui s'écarte de la voie : à droite si la voie passe à gauche, et inversement. */
 const away = (rail: number | undefined, left: number, right: number) => (rail !== undefined && rail > 195 ? left : right);
 
@@ -232,19 +256,23 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
       <>
         <path d="M0 0 H390 V76 Q300 66 220 74 T0 70 Z" fill="currentColor" fillOpacity={0.22} />
         <path d="M0 200 H390 V124 Q300 134 220 126 T0 130 Z" fill="currentColor" fillOpacity={0.22} />
-        <path d="M30 20 L50 60 M120 10 L110 66 M290 30 L310 64 M60 190 L80 140 M300 186 L280 134" stroke="currentColor" strokeOpacity={0.25} />
+        {/* Les parois de la gorge, à pic : strates de roche. */}
+        <path d="M0 64 Q60 58 120 66 T240 62 T390 68 M0 52 Q80 46 160 54 T390 50 M0 136 Q70 142 150 134 T390 138 M0 148 Q90 154 190 146 T390 150" stroke="currentColor" strokeOpacity={0.18} fill="none" />
+        <path d="M30 20 L44 64 M120 10 L112 66 M290 30 L304 64 M60 190 L74 136 M300 186 L286 134" stroke="currentColor" strokeOpacity={0.22} />
         <Sprite kind="pines" x={away(rail, 10, 290)} y={-24} scale={0.6} snowy={false} />
         <Sprite kind="cedars" x={away(rail, 30, 270)} y={140} scale={0.55} snowy={false} />
         {water(0, 390, 82, 118, 2)}
-        {/* Les consoles empilées qui portent le pont, de chaque côté de la gorge. */}
-        <g fill="currentColor" fillOpacity={0.5}>
+        {/* Le pont-singe : sans pile, il tient par des consoles de poutres empilées qui avancent
+            chacune un peu plus loin au-dessus du vide, depuis chaque rive. */}
+        <g fill="currentColor">
           {[0, 1, 2, 3].map((k) => (
-            <g key={k}>
-              <rect x={x - 26 + k * 2} y={72 - k * 5} width={52 - k * 4} height={4} />
-              <rect x={x - 26 + k * 2} y={124 + k * 5} width={52 - k * 4} height={4} />
+            <g key={k} fillOpacity={0.1 + k * 0.05} stroke="currentColor" strokeOpacity={0.45} strokeWidth={0.8}>
+              <rect x={x - 22 + k * 1.5} y={58} width={44 - k * 3} height={20 + k * 7} rx={1} />
+              <rect x={x - 22 + k * 1.5} y={142 - 20 - k * 7} width={44 - k * 3} height={20 + k * 7} rx={1} />
             </g>
           ))}
         </g>
+        <path d={`M${x - 22} 58 V78 M${x + 22} 58 V78 M${x - 22} 122 V142 M${x + 22} 122 V142`} stroke="currentColor" strokeOpacity={0.4} />
       </>
     );
   },
@@ -297,20 +325,22 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
   ),
   // Le lac Biwa, le pin de Karasaki, les voiles, les monts Hira au loin.
   biwa: () => (
+    // Le lac Biwa : le mont Hiei au loin, les voiles d'Ōmi, et l'Ukimidō, le pavillon flottant
+    // de Katata, posé sur ses pilotis au bout de sa passerelle.
     <>
-      <path d="M0 60 L60 24 L120 50 L180 20 L240 46 L300 30 V80 H0 Z" fill="currentColor" fillOpacity={0.08} />
-      {water(0, 300, 80, 170, 4)}
-      {sail(150, 120, 0.7)}
-      {sail(220, 104, 0.5)}
-      <g>
-        <path d="M30 196 Q36 160 60 140 Q80 126 110 130" stroke="currentColor" strokeOpacity={0.6} strokeWidth={4} fill="none" strokeLinecap="round" />
-        <g fill="currentColor" fillOpacity={0.35}>
-          <ellipse cx={70} cy={130} rx={30} ry={7} />
-          <ellipse cx={110} cy={124} rx={24} ry={6} />
-          <ellipse cx={40} cy={148} rx={20} ry={6} />
-        </g>
-        <path d="M60 140 v56 M104 130 v66" stroke="currentColor" strokeOpacity={0.4} strokeDasharray="2 4" />
+      {mountain(150, 300, 84, 230, 34, 0.1)}
+      {mountain(0, 160, 84, 70, 50, 0.07)}
+      {water(0, 300, 84, 196, 4)}
+      {sail(170, 124, 0.6)}
+      {sail(236, 104, 0.45)}
+      <g stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.4}>
+        <path d="M20 196 L44 164 M28 196 L52 164" />
+        <path d="M48 164 V176 M60 164 V178 M72 164 V178 M84 164 V176" />
       </g>
+      <path d="M20 192 L44 162 H52 L28 196 Z" fill="currentColor" fillOpacity={0.3} />
+      <Sprite kind="temple" x={34} y={112} scale={0.55} snowy={false} />
+      <path d="M38 162 H100" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.6} />
+      <path d="M44 182 h40 M50 188 h30" stroke={W} strokeOpacity={0.4} />
     </>
   ),
   // Fukagawa : l'ermitage du bananier, la Sumida, la barque du départ de Bashō.
@@ -320,10 +350,14 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
       <path d="M90 90 L120 64 H170 L196 90 Z" fill="currentColor" fillOpacity={0.3} />
       <rect x={104} y={90} width={80} height={30} fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.4} />
       {/* Le bananier (bashō) qui donna son nom au poète. */}
-      <g stroke="currentColor" strokeOpacity={0.55} strokeWidth={1.4} fill="currentColor" fillOpacity={0.18}>
-        <path d="M230 120 V70" fill="none" />
-        <path d="M230 74 Q200 60 196 40 Q220 50 230 74 Z M230 70 Q260 50 270 30 Q250 58 230 70 Z M230 86 Q262 82 280 66 Q262 92 230 86 Z" />
+      <g fill="currentColor" fillOpacity={0.24} stroke="currentColor" strokeOpacity={0.45} strokeWidth={1}>
+        <path d="M226 122 Q224 100 228 82 L234 82 Q236 100 234 122 Z" fillOpacity={0.35} />
+        <path d="M230 84 Q206 76 194 52 Q190 42 200 44 Q216 56 230 84 Z" />
+        <path d="M231 82 Q236 52 252 32 Q260 26 262 34 Q252 60 231 82 Z" />
+        <path d="M232 90 Q258 84 278 66 Q286 62 284 72 Q262 94 232 90 Z" />
+        <path d="M229 92 Q206 96 190 88 Q184 82 192 80 Q210 84 229 92 Z" />
       </g>
+      <path d="M200 50 L212 62 M206 46 L216 60 M254 38 L246 56 M276 70 L260 80" stroke={BG} strokeWidth={1.2} />
       {water(0, 390, 130, 200, 3)}
       <path d="M150 160 H230 L220 168 H160 Z" fill="currentColor" fillOpacity={0.45} />
       {figure(176, 160, 0.9)}
@@ -435,13 +469,24 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
   ),
   // Le cap Muroto : les rochers dans les vagues, la grotte de Kūkai, le temple en haut.
   muroto: () => (
+    // Le cap Muroto : la falaise couverte de forêt où veille le Hotsumisaki-ji, la grotte où
+    // médita Kūkai, les rochers noirs où la vague se brise en écume.
     <>
       <path d="M0 0 H200 Q190 60 150 100 Q120 130 130 200 H0 Z" fill="currentColor" fillOpacity={0.18} />
-      <Sprite kind="temple" x={40} y={6} scale={0.6} snowy={false} />
-      <path d="M70 150 Q80 128 96 150 Z" fill={BG} stroke="currentColor" strokeOpacity={0.5} />
+      <Sprite kind="cedars" x={0} y={10} scale={0.55} snowy={false} />
+      <Sprite kind="temple" x={60} y={8} scale={0.6} snowy={false} />
+      <path d="M58 172 V148 Q72 126 88 148 V172 Z" fill="currentColor" fillOpacity={0.45} />
+      <path d="M50 172 H96" stroke="currentColor" strokeOpacity={0.3} strokeWidth={2} />
       {water(130, 300, 60, 200, 5)}
-      <path d="M180 140 L196 120 L210 140 Z M230 170 L244 150 L260 172 Z" fill="currentColor" fillOpacity={0.3} />
-      <path d="M170 142 q10 -10 22 -2 M222 172 q10 -10 22 -2" stroke={SNOW} strokeWidth={2} fill="none" />
+      <g fill="currentColor" fillOpacity={0.5}>
+        <path d="M170 150 L178 132 L188 128 L196 138 L204 150 Z" />
+        <path d="M226 178 L232 162 L242 158 L252 166 L258 178 Z" />
+        <path d="M262 128 L268 118 L278 120 L282 128 Z" />
+      </g>
+      <g stroke={SNOW} strokeWidth={2} fill="none" strokeLinecap="round">
+        <path d="M162 150 q8 -16 18 -8 q4 -8 10 -2 M216 178 q8 -14 16 -6" />
+        <path d="M206 150 q6 -6 12 0 M260 178 q5 -6 10 0" />
+      </g>
       {figure(110, 196, 0.9)}
     </>
   ),
@@ -463,27 +508,40 @@ const ART: Record<UniqueKind, (rail?: number) => ReactNode> = {
   ),
   // Le Zentsū-ji : la grande pagode à cinq toits et les camphriers.
   zentsuji: () => (
+    // Zentsū-ji, lieu de naissance de Kūkai : la grande pagode à cinq toits entre les camphriers
+    // géants de l'enceinte, le pavillon devant.
     <>
-      <Sprite kind="pagoda" x={80} y={-24} scale={1.5} snowy={false} />
-      <g fill="currentColor" fillOpacity={0.22}>
-        <circle cx={40} cy={120} r={36} />
-        <circle cx={262} cy={116} r={34} />
-      </g>
-      <path d="M40 200 V140 M262 200 V140" stroke="currentColor" strokeOpacity={0.5} strokeWidth={4} />
-      <Sprite kind="temple" x={150} y={120} scale={0.7} snowy={false} />
-      {figure(110, 196, 0.9)}
+      <path d="M0 196 H300 V200 H0 Z" fill="currentColor" fillOpacity={0.1} />
+      {bigTree(56, 196, 1.15)}
+      {bigTree(256, 196, 1)}
+      <Sprite kind="pagoda" x={92} y={-6} scale={1.45} snowy={false} />
+      <Sprite kind="temple" x={150} y={128} scale={0.62} snowy={false} />
+      {figure(118, 196, 0.9)}
     </>
   ),
   // L'Ōkubo-ji : le dernier temple dans la forêt, où l'on laisse son bâton de pèlerin.
   okuboji: () => (
+    // Ōkubo-ji, le dernier des 88 temples : le hall dans les cèdres de la montagne, l'escalier de
+    // pierre, et le râtelier où les pèlerins laissent leur bâton (kongō-zue).
     <>
       <path d="M0 90 L60 30 L120 70 L180 20 L240 60 L300 30 V120 H0 Z" fill="currentColor" fillOpacity={0.1} />
-      <Sprite kind="cedars" x={0} y={60} scale={0.8} snowy={false} />
-      <Sprite kind="cedars" x={200} y={56} scale={0.8} snowy={false} />
-      <Sprite kind="temple" x={90} y={70} scale={0.9} snowy={false} />
-      {/* Les bâtons laissés, en faisceau. */}
-      <path d="M150 200 L144 150 M154 200 L152 148 M158 200 L160 150 M162 200 L168 152" stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.6} />
-      {figure(200, 196, 0.9)}
+      <Sprite kind="cedars" x={0} y={58} scale={0.8} snowy={false} />
+      <Sprite kind="cedars" x={204} y={54} scale={0.8} snowy={false} />
+      <Sprite kind="temple" x={88} y={60} scale={0.95} snowy={false} />
+      <path d="M128 132 h44 M124 140 h52 M120 148 h60 M116 156 h68" stroke="currentColor" strokeOpacity={0.3} strokeWidth={2} />
+      <path d="M112 162 H188 V170 H112 Z" fill="currentColor" fillOpacity={0.08} />
+      {/* Le râtelier : deux montants, une traverse, les bâtons coiffés de leur pointe en stūpa. */}
+      <g>
+        <path d="M206 198 V160 M262 198 V160 M202 168 H266" stroke="currentColor" strokeOpacity={0.55} strokeWidth={2} />
+        {[212, 218, 224, 230, 236, 242, 248, 254].map((x, i) => (
+          <g key={x}>
+            <path d={`M${x + (i % 2 ? 1 : -1)} 198 L${x} 150`} stroke="currentColor" strokeOpacity={0.6} strokeWidth={1.8} />
+            <path d={`M${x - 2} 150 h4 l-2 -5 Z`} fill="currentColor" fillOpacity={0.55} />
+            <rect x={x - 2.2} y={153} width={4.4} height={7} fill={SNOW} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.6} />
+          </g>
+        ))}
+      </g>
+      {figure(182, 196, 0.95)}
     </>
   ),
 };

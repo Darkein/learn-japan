@@ -103,15 +103,27 @@ export function markRaised(mark: SkyMark, top: number, bottom: number): boolean 
 export type DriftKind = "pine" | "cedars" | "hill" | "field" | "temple" | "house" | "bamboo" | "boat" | "tree";
 
 export const DRIFT_PATHS: Record<DriftKind, string> = {
-  pine: "M18 30 h4 v-6 h10 L20 2 L8 24 h10 Z",
-  cedars: "M2 30 L10 6 L18 30 Z M12 30 L20 0 L28 30 Z M22 30 L30 8 L38 30 Z",
+  // Un pin japonais : tronc penché, branches en plateaux.
+  pine:
+    "M19 30 Q16 22 21 16 Q24 12 22 8 L24 8 Q27 13 23.5 17 Q20 23 22 30 Z " +
+    "M5 16 a9 3 0 1 1 18 0 a9 3 0 1 1 -18 0 Z M19 11 a8 2.6 0 1 1 16 0 a8 2.6 0 1 1 -16 0 Z M16 5.5 a6 2.2 0 1 1 12 0 a6 2.2 0 1 1 -12 0 Z",
+  // Des cèdres : fuseaux serrés.
+  cedars: "M2 30 L9 8 L16 30 Z M11 30 L20 0 L29 30 Z M24 30 L31 10 L38 30 Z",
   hill: "M-6 30 Q20 2 46 30 Z",
+  // Des rizières : deux planches de champ et leurs diguettes.
   field: "M0 30 L5 26 L40 26 L35 30 Z M7 24 L11 21 L40 21 L36 24 Z",
-  temple: "M2 15 Q20 4 38 15 L33 15 L33 30 L7 30 L7 15 Z M14 11 Q20 2 26 11 Z",
-  house: "M5 17 L20 8 L35 17 L31 17 L31 30 L9 30 L9 17 Z",
-  bamboo: "M10 30 L11 4 L13 4 L12 30 Z M20 30 L21 1 L23 1 L22 30 Z M30 30 L31 6 L33 6 L32 30 Z",
-  boat: "M6 26 L34 26 L29 30 L11 30 Z M19 26 L20 8 L21 26 Z",
-  tree: "M18 30 L18 20 L22 20 L22 30 Z M9 18 a11 10 0 1 0 22 0 a11 10 0 1 0 -22 0 Z",
+  // Un temple : toit aux coins relevés, et son petit toit au-dessus.
+  temple: "M0 17 Q6 15.5 9 10 H31 Q34 15.5 40 17 Z M8 17 H32 V30 H8 Z M13 10 Q16 7 18 4 H22 Q24 7 27 10 Z",
+  // Une ferme au toit de chaume en croupe.
+  house: "M3 19 Q10 15 14 7 H26 Q30 15 37 19 Z M8 19 H32 V30 H8 Z",
+  // Des bambous et leurs feuilles en touffes.
+  bamboo:
+    "M10 30 L11 4 L13 4 L12 30 Z M20 30 L21 1 L23 1 L22 30 Z M30 30 L31 6 L33 6 L32 30 Z " +
+    "M11 6 L3 8 L11 8.6 Z M22 3 L30 5 L22 5.6 Z M32 8 L39 11 L32 10.6 Z M12 12 L5 15 L12 14.6 Z",
+  // Une barque à voile.
+  boat: "M6 26 L34 26 L29 30 L11 30 Z M19 26 V7 H21 V26 Z M21.5 8 L32 23 H21.5 Z",
+  // Un arbre fruitier : houppier rond sur son tronc.
+  tree: "M18 30 V19 H22 V30 Z M9 16 a11 10 0 1 1 22 0 a11 10 0 1 1 -22 0 Z",
 };
 
 type Layer = "mid" | "near";
