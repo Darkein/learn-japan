@@ -942,7 +942,8 @@ Une illustration unique est peinte par plans opaques, du fond vers l'avant : cha
 celui qu'il recouvre, sans transparence croisée. Aucun plan ne s'arrête sur un bord droit de sa
 place : les monts se perdent dans la brume à leur pied, les lacs ont leurs rives effilées, la
 terre s'effile. Seuls les bords de la voie (gauche et droite de l'écran) coupent l'eau d'une
-traversée. Les petits éléments du catalogue suivent la même règle : pas de socle rectangulaire.
+traversée. Les petits éléments du catalogue suivent la même règle : pas de socle rectangulaire, et des
+aplats opaques (un bâtiment cache ce qu'il recouvre, sur la voie comme dans le ciel).
 
 **Les données de chaque route** (`data/scenery/<route>.ts`, à côté de `data/<route>.ts`) :
 - **pour chaque ville** : sa taille (§5c.4), ses repères réels (élément du catalogue, côté de la

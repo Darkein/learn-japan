@@ -144,7 +144,7 @@ export function Horizon({ layout, sceneries, season, top, track, title }: Props)
               className={`absolute ${up ? "sky-mark-up" : ""}`}
               style={{ left: x - MARK_W / 2, bottom: ground * PLANE_AT.marks - MARK_H / 10, width: MARK_W, height: MARK_H }}
             >
-              <svg width={MARK_W} height={MARK_H} viewBox="0 0 120 80" className="block text-text" style={{ opacity: 0.9 }}>
+              <svg width={MARK_W} height={MARK_H} viewBox="0 0 120 80" className="block text-text">
                 <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
               </svg>
               <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: MARK_H + 6 }}>
