@@ -15,7 +15,7 @@ const TURN_MS = 700;
     la feuille se courbe comme du papier au lieu de tourner d'un bloc. */
 const STRIPS = 8;
 /** Courbure maximale de la feuille (degrés entre la reliure et le bord libre), à mi-course. */
-const CURL = 70;
+const CURL = 110;
 
 type Page =
   | { kind: "route"; route: Route; stations: Route["stations"]; part: number }
@@ -28,7 +28,9 @@ interface Flip {
   lo: number;
   hi: number;
   p: number;
-  /** Sens du mouvement (1 : vers `hi`) : le bord libre mène, la feuille se courbe derrière. */
+  /** Sens du geste qui a soulevé la feuille (1 : vers `hi`) : le bord libre mène, la feuille se
+      courbe derrière. Fixé pour toute la course : une feuille lâchée qui retombe rejoue la même
+      courbure à l'envers. */
   dir: 1 | -1;
 }
 
@@ -120,7 +122,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     const t0 = performance.now();
     const step = (now: number) => {
       const t = clamp01((now - t0) / ms);
-      show({ ...f, dir: target > from ? 1 : -1, p: from + (target - from) * ease(t) });
+      show({ ...f, p: from + (target - from) * ease(t) });
       if (t < 1) raf.current = requestAnimationFrame(step);
       else done();
     };
@@ -165,10 +167,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     }
     d.trail = [...d.trail.filter((s) => e.timeStamp - s.t < 100), { t: e.timeStamp, x: e.clientX }];
-    const p = progress(d, e.clientX);
-    const prev = flipRef.current;
-    const dir = prev && p !== prev.p ? (p > prev.p ? 1 : -1) : d.dir > 0 ? 1 : -1;
-    show({ lo: d.dir > 0 ? spread : spread - 1, hi: d.dir > 0 ? spread + 1 : spread, p, dir });
+    show({ lo: d.dir > 0 ? spread : spread - 1, hi: d.dir > 0 ? spread + 1 : spread, p: progress(d, e.clientX), dir: d.dir });
   };
   const release = (e: PointerEvent, cancel = false) => {
     const d = drag.current;
