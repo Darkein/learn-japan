@@ -332,42 +332,101 @@ function pick<T>(list: T[]): T | undefined {
 }
 
 /**
+ * Une phrase au hasard d'une réserve, de préférence une que l'étape n'a pas encore servie
+ * (`used`, les phrases déjà prises) : deux points d'une même leçon puisent dans les mêmes
+ * exemples, et la même phrase revenait d'un exercice à l'autre.
+ */
+function pickFresh(list: GrammarSentence[], used?: Set<string>): GrammarSentence | undefined {
+  return pick(used ? list.filter((s) => !used.has(s.ja)) : []) ?? pick(list);
+}
+
+/** Les phrases d'une réserve, celles que l'étape n'a pas encore servies d'abord. */
+function freshFirst(list: GrammarSentence[], used?: Set<string>): GrammarSentence[] {
+  return used ? [...list.filter((s) => !used.has(s.ja)), ...list.filter((s) => used.has(s.ja))] : list;
+}
+
+/** La phrase sur laquelle porte un exercice, s'il en a une : son contexte, ou la phrase
+    juste d'une correction (qui n'a pas de face avant). */
+export function exerciseSentence(ex: Exercise): string | undefined {
+  return ex.context ?? (/[。？！]$/.test(ex.back) ? ex.back : undefined);
+}
+
+/** Deux exercices qui ne doivent pas se suivre : même élément, ou même phrase. */
+function sameMatter(a: Exercise, b: Exercise): boolean {
+  if (a.track === b.track && a.id === b.id) return true;
+  const sa = exerciseSentence(a);
+  return !!sa && sa === exerciseSentence(b);
+}
+
+/**
+ * Réordonne une suite d'exercices pour que deux exercices du même élément, ou sur la même
+ * phrase, ne se suivent pas, quand c'est possible : à chaque place, le premier qui ne
+ * reprend pas la matière du précédent (`prev` : celui qui précède la suite). Sinon l'ordre
+ * reste celui reçu.
+ */
+export function spreadApart(list: Exercise[], prev?: Exercise): Exercise[] {
+  const rest = [...list];
+  const out: Exercise[] = [];
+  while (rest.length) {
+    const last = out.at(-1) ?? prev;
+    const i = last ? rest.findIndex((ex) => !sameMatter(last, ex)) : 0;
+    out.push(rest.splice(Math.max(0, i), 1)[0]);
+  }
+  return out;
+}
+
+/**
  * Les exercices de grammaire d'un point À UN NIVEAU (SPEC §5.3), deux par niveau :
  *  1 · reconnaître — le rôle du point en QCM, et son EMPLOI (la particule à remettre) ;
  *  2 · rappeler — une phrase du point à reconstruire, et la CORRECTION (la seule juste) ;
  *  3 · produire — la dictée d'une phrase du point, ou sa reconstruction sans le son.
  * Les phrases sont tirées dans la matière du point (`pointMaterial`) : d'une étape à
  * l'autre, ce n'est pas toujours la même. Un exercice impossible faute de matière cède sa
- * place au premier du niveau, jamais à un exercice d'un autre niveau.
+ * place au premier du niveau, jamais à un exercice d'un autre niveau ; et le premier ne
+ * se répète pas : un niveau 1 sans emploi n'a que sa question de rôle, un niveau 2 sans
+ * reconstruction que sa correction. `used` : les phrases que l'étape a déjà servies, que
+ * le tirage évite tant qu'il en reste d'autres, et où il inscrit les siennes.
  */
 async function grammarAtLevel(
   g: GrammarItem,
   level: PathLevel,
   due: number,
-  ctx: { material: PointMaterial; silent: boolean },
+  ctx: { material: PointMaterial; silent: boolean; used?: Set<string> },
 ): Promise<Exercise[]> {
   const { own, form } = ctx.material;
+  const used = ctx.used;
+  const take = (ex: Exercise | null) => {
+    const sentence = ex && exerciseSentence(ex);
+    if (sentence) used?.add(sentence);
+    return ex;
+  };
+  const numbered = (list: Exercise[]) => list.map((ex, i) => ({ ...ex, key: `${ex.key}.${i}` }));
   if (level === 1) {
     const rule = atLevel(grammarChoiceExercise(g, due), 1, "grammar-rule");
-    const usage = grammarUsageExercise(g, shuffle([...own, ...form]));
-    return [rule, usage ? atLevel({ ...usage, due }, 1, "grammar-usage") : atLevel(grammarChoiceExercise(g, due), 1, "grammar-rule")]
-      .map((ex, i) => ({ ...ex, key: `${ex.key}.${i}` }));
+    const usage = take(grammarUsageExercise(g, freshFirst(shuffle([...own, ...form]), used)));
+    return numbered([rule, ...(usage ? [atLevel({ ...usage, due }, 1, "grammar-usage")] : [])]);
   }
   if (level === 2) {
-    const build = await grammarBuildExercise(g, due, pick(own));
-    const correction = [pick(own), pick(form)].reduce<Exercise | null>(
-      (found, s) => found ?? (s ? grammarCorrectionExercise(g, s) : null),
-      null,
+    const build = take(await grammarBuildExercise(g, due, pickFresh(own, used)));
+    // La correction ne reprend jamais la phrase d'une autre correction de l'étape : ce
+    // serait la même question, aux mêmes quatre phrases.
+    const free = (list: GrammarSentence[]) => list.filter((x) => !used?.has(`correction:${x.ja}`));
+    const correction = take(
+      [pickFresh(free(own), used), pickFresh(free(form), used)].reduce<Exercise | null>(
+        (found, s) => found ?? (s ? grammarCorrectionExercise(g, s) : null),
+        null,
+      ),
     );
+    if (correction) used?.add(`correction:${correction.back}`);
     const out = [
-      build ? atLevel(build, 2, "grammar-build") : atLevel(grammarChoiceExercise(g, due), 2, "grammar-rule"),
+      ...(build ? [atLevel(build, 2, "grammar-build")] : []),
       ...(correction ? [atLevel({ ...correction, due }, 2, "grammar-correction")] : []),
     ];
-    return out.map((ex, i) => ({ ...ex, key: `${ex.key}.${i}` }));
+    return numbered(out.length ? out : [atLevel(grammarChoiceExercise(g, due), 2, "grammar-rule")]);
   }
-  const dictation = ctx.silent ? null : await grammarDictationExercise(g, due, pick(own));
+  const dictation = ctx.silent ? null : take(await grammarDictationExercise(g, due, pickFresh(own, used)));
   if (dictation) return [atLevel(dictation, 3, "grammar-dictation")];
-  const build = await grammarBuildExercise(g, due, pick(own));
+  const build = take(await grammarBuildExercise(g, due, pickFresh(own, used)));
   return [build ? atLevel(build, 3, "grammar-build") : atLevel(grammarChoiceExercise(g, due), 3, "grammar-rule")];
 }
 
@@ -504,8 +563,9 @@ async function buildSessionReview(
   }
 
   // Le tri sert à CHOISIR les cartes de l'étape, pas à dicter l'ordre de passage : sans
-  // mélange, les mêmes mots reviendraient dans la même séquence, étape après étape.
-  const deck = shuffle(out);
+  // mélange, les mêmes mots reviendraient dans la même séquence, étape après étape. Deux
+  // exercices sur la même phrase ne se suivent pas.
+  const deck = spreadApart(shuffle(out));
   await make.flush(deck);
   return deck;
 }
@@ -549,7 +609,7 @@ async function buildSessionRest(lessonIds: string[], now: Date, leeches: Set<str
       out.push((await grammarAtLevel(item.g, level, due, { material: NO_MATERIAL, silent }))[0]);
     }
   }
-  return shuffle(out);
+  return spreadApart(shuffle(out));
 }
 
 /** Donne sa carte FSRS à un élément qui n'en a pas encore : sa PREMIÈRE rencontre en exercice. */
@@ -592,6 +652,8 @@ async function buildSessionStep(
   const words = entry.introduces.vocab.map((id) => byId.get(id)).filter((v): v is VocabItem => !!v);
   const first: Exercise[] = [];
   const second: Exercise[] = [];
+  // Les phrases déjà servies dans l'étape, que les points suivants évitent.
+  const used = new Set<string>();
 
   if (step === "vocab" || step === "produce") {
     for (const v of words) {
@@ -616,7 +678,7 @@ async function buildSessionStep(
       if (step === "grammar" && isPreAcquiredGrammar(g)) continue;
       const due = (await ensureCard(g, now)).due.getTime();
       await putGrammar(g);
-      const ctx = { material: await pointMaterial(g, lessonId), silent };
+      const ctx = { material: await pointMaterial(g, lessonId), silent, used };
       if (step === "grammar") {
         first.push(...(await grammarAtLevel(g, 1, due, ctx)));
         second.push(...(await grammarAtLevel(g, 2, due, ctx)));
@@ -624,7 +686,7 @@ async function buildSessionStep(
         first.push(...(await grammarAtLevel(g, 3, due, ctx)));
         // Deuxième production du point : une de ses phrases à reconstruire (si la dictée
         // a été servie), à défaut un second tour de la même forme.
-        const build = await grammarBuildExercise(g, due, pick(ctx.material.own));
+        const build = await grammarBuildExercise(g, due, pickFresh(ctx.material.own, used));
         if (build && !first.some((ex) => ex.key.startsWith(`grammar:${g.id}#`))) {
           first.push(atLevel(build, 3, "grammar-build"));
         }
@@ -632,7 +694,10 @@ async function buildSessionStep(
     }
   }
 
-  return [...shuffle(first), ...shuffle(second)];
+  // Deux exercices du même élément ou sur la même phrase ne se suivent pas, y compris au
+  // passage d'un niveau à l'autre.
+  const a = spreadApart(shuffle(first));
+  return [...a, ...spreadApart(shuffle(second), a.at(-1))];
 }
 
 async function buildSessionAll(

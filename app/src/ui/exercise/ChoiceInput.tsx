@@ -15,17 +15,19 @@ interface Props {
   onNext: () => void;
 }
 
-/** Au-delà, une option n'est plus une forme à reconnaître mais un texte à lire. */
-const TILE_MAX = 8;
+/** Au-delà, une option n'est plus une forme à reconnaître mais un texte à lire : cinq
+    caractères tiennent sur une ligne d'une demi-largeur en grand (text-3xl), pas plus. */
+const TILE_MAX = 5;
 
 /**
  * Options courtes et japonaises (graphies, lectures) : on compare des FORMES, elles
  * méritent une grille de grandes tuiles. Des règles de grammaire, des sens français ou
- * des lectures longues restent en liste (une option par ligne, pleine largeur) — les
- * serrer en colonnes étroites cassait le texte caractère par caractère à la verticale.
+ * des lectures longues, et les PHRASES (山に猫がいる。), restent en liste (une option par
+ * ligne, pleine largeur) — les serrer en colonnes étroites cassait le texte caractère par
+ * caractère à la verticale.
  */
 function isTileGrid(choices: string[]): boolean {
-  return choices.every((c) => hasJapanese(c) && [...c].length <= TILE_MAX);
+  return choices.every((c) => hasJapanese(c) && [...c].length <= TILE_MAX && !/[。、？！]/.test(c));
 }
 
 /**
