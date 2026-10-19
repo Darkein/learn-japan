@@ -25,7 +25,9 @@ import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
+import { LessonPath } from "./LessonPath";
 import { useFlowClock } from "./useFlowClock";
+import { useNotify } from "./useNotify";
 import { useSettings } from "./useSettings";
 
 type Phase =
@@ -33,7 +35,16 @@ type Phase =
   // Bandelette du jour pas encore vue (entrée directe par la notification) : on la
   // présente avant tout, et le premier bloc n'est choisi qu'une fois refermée.
   | { name: "omikuji" }
-  | { name: "activity"; activity: FlowActivity }
+  | {
+      name: "activity";
+      activity: FlowActivity;
+      /** Numéro du bloc dans la séance : deux blocs du même genre ne partagent pas d'état. */
+      seq: number;
+      /** Leçon de l'étape, pour la bande des stations au-dessus du bloc ; `from` = l'étape
+       *  qu'on vient de finir, d'où glisse le repère. */
+      lesson?: Lesson;
+      from?: PathStep;
+    }
   | {
       name: "checkpoint";
       result: FlowBlockResult | null;
@@ -42,8 +53,6 @@ type Phase =
        *  cours pour en montrer les stations. */
       estimate?: string;
       lesson?: Lesson;
-      /** L'étape de cette leçon qu'on vient de finir, d'où part le repère. */
-      from?: PathStep;
     };
 
 interface Props {
@@ -66,6 +75,8 @@ export function FlowSession({ onExit, forced }: Props) {
   const reviewedAtBlockStart = useRef(0);
   // Contexte de la séance : une relecture-miroir au plus. État de séance UI, jamais persisté.
   const flowCtx = useRef({ mirrorDoneThisFlow: false });
+  const blockSeq = useRef(0);
+  const { notify } = useNotify();
 
   // Réservation de l'ouverture auto mémorisée : un effet rejoué (StrictMode) doit relire la
   // même réponse, pas re-réserver — il obtiendrait `false` et lancerait le flux par-dessus.
@@ -83,7 +94,10 @@ export function FlowSession({ onExit, forced }: Props) {
   function start() {
     setPhase({ name: "loading" });
     void (async () => {
-      const [{ state }, daily] = await Promise.all([gatherFlowState(), getSrsDaily(localDateString())]);
+      const [{ state, lessons }, daily] = await Promise.all([
+        gatherFlowState(),
+        getSrsDaily(localDateString()),
+      ]);
       reviewedAtBlockStart.current = daily?.reviewed ?? 0;
       // Entrée forcée depuis une carte de l'accueil (ex. relecture-miroir).
       const first =
@@ -98,23 +112,41 @@ export function FlowSession({ onExit, forced }: Props) {
       setPhase(
         first.kind === "done"
           ? { name: "checkpoint", result: null, next: first }
-          : { name: "activity", activity: first },
+          : activityPhase(first, lessons),
       );
     })();
   }
 
+  /** Le bloc suivant, avec la bande des stations quand c'est une étape de sa leçon. */
+  function activityPhase(activity: FlowActivity, lessons: Lesson[], finished?: FlowActivity): Phase {
+    const lesson = activity.step ? lessons.find((l) => l.id === activity.lessonId) : undefined;
+    const from = lesson && finished?.step && finished.lessonId === lesson.id ? finished.step : undefined;
+    return {
+      name: "activity",
+      activity,
+      seq: ++blockSeq.current,
+      ...(lesson ? { lesson } : {}),
+      ...(from ? { from } : {}),
+    };
+  }
+
   // Une étape finie ne laisse jamais l'écran en attente : si le bilan échoue (une lecture en
   // base qui lève), le parcours repart de l'état courant plutôt que de rester figé.
-  async function toCheckpoint(finished: FlowActivity) {
+  async function afterBlock(finished: FlowActivity) {
     try {
-      await checkpointAfter(finished);
+      await advanceAfter(finished);
     } catch (e) {
       console.error("Bilan d'étape impossible", e);
       start();
     }
   }
 
-  async function checkpointAfter(finished: FlowActivity) {
+  /**
+   * Bloc fini → crédite la progression puis enchaîne DIRECTEMENT le bloc suivant : chaque
+   * exercice a déjà son écran de fin. Le checkpoint ne reste que s'il a quelque chose à
+   * montrer — le bilan d'une relecture-miroir — ou plus rien à proposer.
+   */
+  async function advanceAfter(finished: FlowActivity) {
     setPhase({ name: "loading" });
     // Après une relecture-miroir : calcule le delta (à l'époque / aujourd'hui) et
     // déclenche le refroidissement de 14 jours AVANT de re-collecter l'état.
@@ -146,13 +178,8 @@ export function FlowSession({ onExit, forced }: Props) {
       lastActivity: finished.kind,
       ...flowCtx.current,
     });
-    const recap = await recapFor(
-      finished,
-      reviewedAtBlockStart.current,
-      omikuji?.completedNow ?? false,
-    );
-    if (mirrorExtra) recap.extra = mirrorExtra;
-    // Une arrivée de station se fête au checkpoint (la progression vient d'être créditée).
+    if (omikuji?.completedNow) notify({ message: "Omikuji accompli — un peu de chemin gagné sur la route." });
+    // Une arrivée de station se fête tout de suite (la progression vient d'être créditée).
     const tokaido = await tokaidoStatus(lessons);
     if (tokaido.newlyArrived) setArrival(tokaido.newlyArrived);
     // Une leçon s'ouvre : on prépare déjà la suivante (cours, première histoire), pour
@@ -163,6 +190,12 @@ export function FlowSession({ onExit, forced }: Props) {
       if (following?.state === "to-generate") void startLessonJob(following);
     }
     const next = pickNext(state);
+    if (!mirrorExtra && next.kind !== "done") {
+      await startNext(next, lessons, finished);
+      return;
+    }
+    const recap = await recapFor(finished, reviewedAtBlockStart.current);
+    if (mirrorExtra) recap.extra = mirrorExtra;
     const lesson = lessons.find((l) => l.id === state.currentLesson?.id);
     setPhase({
       name: "checkpoint",
@@ -170,23 +203,14 @@ export function FlowSession({ onExit, forced }: Props) {
       next,
       estimate: estimateFor(next, lessons, await loadFormDurations()),
       ...(lesson ? { lesson } : {}),
-      ...(lesson && finished.step && finished.lessonId === lesson.id ? { from: finished.step } : {}),
     });
   }
 
-  function startNext(next: FlowActivity) {
-    void getSrsDaily(localDateString()).then((d) => {
-      reviewedAtBlockStart.current = d?.reviewed ?? 0;
-    });
-    setPhase({ name: "activity", activity: next });
+  async function startNext(next: FlowActivity, lessons: Lesson[], finished?: FlowActivity) {
+    const d = await getSrsDaily(localDateString());
+    reviewedAtBlockStart.current = d?.reviewed ?? 0;
+    setPhase(activityPhase(next, lessons, finished));
   }
-
-  // Stable : le compte à rebours du checkpoint ne repart pas à chaque rendu.
-  const checkpointNext = phase.name === "checkpoint" ? phase.next : null;
-  const continueFlow = useCallback(() => {
-    if (checkpointNext) startNext(checkpointNext);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkpointNext]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -207,11 +231,14 @@ export function FlowSession({ onExit, forced }: Props) {
       {phase.name === "omikuji" && <OmikujiSheet onClose={start} />}
 
       {phase.name === "activity" && (
-        <ActivityBlock
-          activity={phase.activity}
-          furigana={settings.furiganaDefault}
-          onDone={() => void toCheckpoint(phase.activity)}
-        />
+        <div key={phase.seq} className="flex flex-col gap-6">
+          {phase.lesson && <LessonPath lesson={phase.lesson} from={phase.from} />}
+          <ActivityBlock
+            activity={phase.activity}
+            furigana={settings.furiganaDefault}
+            onDone={() => void afterBlock(phase.activity)}
+          />
+        </div>
       )}
 
       {phase.name === "checkpoint" && (
@@ -220,9 +247,10 @@ export function FlowSession({ onExit, forced }: Props) {
           next={phase.next}
           estimate={phase.estimate}
           lesson={phase.lesson}
-          from={phase.from}
-          paused={!!arrival}
-          onContinue={continueFlow}
+          onContinue={() => {
+            const next = phase.next;
+            void gatherFlowState().then(({ lessons }) => startNext(next, lessons));
+          }}
           onExit={onExit}
         />
       )}
@@ -263,34 +291,24 @@ function estimateFor(next: FlowActivity, lessons: Lesson[], ms: Map<string, numb
 
 const EMPTY_PLAN = { vocabToLearn: 0, grammarToLearn: 0, vocabCount: 0, grammarCount: 0 };
 
-async function recapFor(
-  activity: FlowActivity,
-  reviewedBefore: number,
-  omikujiDone: boolean,
-): Promise<FlowBlockResult> {
-  const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur la route." : "";
+async function recapFor(activity: FlowActivity, reviewedBefore: number): Promise<FlowBlockResult> {
   const daily = await getSrsDaily(localDateString());
   const answered = Math.max(0, (daily?.reviewed ?? 0) - reviewedBefore);
   const answers = answered > 0 ? ` — ${answered} réponse${answered > 1 ? "s" : ""}.` : ".";
   if (activity.kind === "exam") {
-    return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." + suffix };
+    return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." };
   }
   if (activity.kind === "mirror") {
-    return { kind: activity.kind, recap: "Histoire relue — chaque page recroise tes acquis." + suffix };
+    return { kind: activity.kind, recap: "Histoire relue — chaque page recroise tes acquis." };
   }
   if (activity.step) {
-    return { kind: activity.kind, recap: `Étape validée : ${STEP_LABEL[activity.step]}${answers}` + suffix };
+    return { kind: activity.kind, recap: `Étape validée : ${STEP_LABEL[activity.step]}${answers}` };
   }
   if (activity.kind === "review") {
-    // Une révision insérée ne fait pas avancer la leçon : on le dit, sinon l'écran
-    // suivant (même étape qu'avant) donne l'impression d'avoir piétiné.
-    return {
-      kind: activity.kind,
-      recap: `Révision faite${answers} La leçon reprend où tu l'avais laissée.` + suffix,
-    };
+    return { kind: activity.kind, recap: `Révision faite${answers}` };
   }
   if (activity.kind === "rest") {
-    return { kind: activity.kind, recap: `Station de repos faite${answers}` + suffix };
+    return { kind: activity.kind, recap: `Station de repos faite${answers}` };
   }
   return { kind: activity.kind };
 }

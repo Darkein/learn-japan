@@ -156,18 +156,6 @@
   }
 }
 
-/* Enchaînement automatique du parcours (FlowCheckpoint) : le bouton « Continuer » se
-   remplit pendant le délai. Sous prefers-reduced-motion, la règle globale le laisse vide. */
-.flow-countdown {
-  transform: scaleX(0);
-  animation: flow-countdown linear forwards;
-}
-@keyframes flow-countdown {
-  to {
-    transform: scaleX(1);
-  }
-}
-
 /* Révélation d'un trait d'encre (StationArrival) : le path se dessine (pathLength=1). */
 @keyframes ink-reveal {
   to {

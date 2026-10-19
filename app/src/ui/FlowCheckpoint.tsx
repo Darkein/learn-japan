@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { FlowActivity } from "../lib/flow";
 import type { Lesson } from "../lib/lessons";
-import { STEP_LABEL, type PathStep } from "../lib/path";
 import { LessonPath } from "./LessonPath";
 import { Button } from "./kit/Button";
+import { Card } from "./kit/Card";
 import { SectionLabel } from "./kit/SectionLabel";
 
 export interface FlowBlockResult {
@@ -14,9 +14,6 @@ export interface FlowBlockResult {
   extra?: ReactNode;
 }
 
-/** Délai avant d'enchaîner seul sur l'étape suivante. */
-const AUTO_CONTINUE_MS = 3000;
-
 interface Props {
   result: FlowBlockResult | null;
   next: FlowActivity;
@@ -24,79 +21,45 @@ interface Props {
   estimate?: string;
   /** Leçon en cours : ses stations, pour voir le chemin parcouru. */
   lesson?: Lesson;
-  /** L'étape de la leçon qu'on vient de finir : le repère part de là. */
-  from?: PathStep;
-  /** Suspend l'enchaînement automatique (une arrivée de station est à l'écran). */
-  paused?: boolean;
   onContinue: () => void;
   onExit: () => void;
 }
 
 /**
- * Passage d'une étape à la suivante : une ligne de récap, le repère qui glisse d'une station
- * à l'autre, puis le parcours enchaîne seul — un toucher sur l'écran retient l'enchaînement,
- * et la sortie reste toujours là : la séance n'a pas de fin imposée (SPEC §5.1).
- * Un bilan à lire (delta du miroir) ou l'absence de suite désarment l'enchaînement.
+ * Checkpoint du parcours — seulement quand il a quelque chose à montrer (le bilan d'une
+ * relecture-miroir) ou plus rien à proposer ; sinon les blocs s'enchaînent directement,
+ * chacun ayant son propre écran de fin. Bref récap, UNE seule suggestion pour
+ * continuer, et une sortie toujours disponible — la séance n'a pas de fin imposée, on
+ * s'arrête quand on veut (SPEC §5.1).
  */
-export function FlowCheckpoint({ result, next, estimate, lesson, from, paused, onContinue, onExit }: Props) {
+export function FlowCheckpoint({ result, next, estimate, lesson, onContinue, onExit }: Props) {
   const done = next.kind === "done";
-  const [held, setHeld] = useState(false);
-  const auto = !done && !!result && !result.extra && !held && !paused;
-
-  useEffect(() => {
-    if (!auto) return;
-    const id = window.setTimeout(onContinue, AUTO_CONTINUE_MS);
-    return () => window.clearTimeout(id);
-  }, [auto, onContinue]);
-
-  const inPath = !!(lesson && next.step && next.lessonId === lesson.id);
   return (
-    <div
-      className="flex animate-rise flex-col gap-5"
-      // Toucher hors des boutons = « attends » : on reste sur le checkpoint.
-      onPointerDown={(e) => {
-        if (!(e.target as HTMLElement).closest("button")) setHeld(true);
-      }}
-    >
+    <div className="flex flex-col gap-4">
       {result?.recap && (
-        <p className="m-0 flex gap-2 text-sm text-muted">
-          <span aria-hidden="true" className="text-accent">
-            ✓
-          </span>
-          <span>{result.recap}</span>
-        </p>
+        <Card className="flex flex-col gap-1 py-4">
+          <SectionLabel>Étape accomplie</SectionLabel>
+          <p className="m-0 font-serif text-lg text-text">{result.recap}</p>
+        </Card>
       )}
       {result?.extra}
-      {lesson && <LessonPath lesson={lesson} from={from} />}
-      <div className="flex flex-col gap-1">
-        {!done && <SectionLabel>Ensuite</SectionLabel>}
-        <p className="m-0 font-serif text-lg text-text">
-          {done ? next.reason : inPath && next.step ? STEP_LABEL[next.step] : next.title}
+      {lesson && <LessonPath lesson={lesson} />}
+      <div className="flex flex-col gap-2">
+        <p className="m-0 text-sm text-muted">
+          {next.reason}
+          {/* Une étape de la leçon a déjà son estimation sous les stations. */}
+          {estimate && !done && !(lesson && next.step) ? ` (${estimate})` : ""}
         </p>
-        {!done && (
-          <p className="m-0 text-sm text-muted">
-            {next.reason}
-            {/* Une étape de la leçon a déjà son estimation sous les stations. */}
-            {estimate && !inPath ? ` (${estimate})` : ""}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-3">
-        {!done && (
-          <Button variant="primary" className="relative overflow-hidden" onClick={onContinue}>
-            {auto && (
-              <span
-                aria-hidden="true"
-                className="flow-countdown absolute inset-0 origin-left bg-on-accent/20"
-                style={{ animationDuration: `${AUTO_CONTINUE_MS}ms` }}
-              />
-            )}
-            <span className="relative">Continuer</span>
+        <div className="flex flex-wrap gap-3">
+          {!done && (
+            <Button variant="primary" onClick={onContinue}>
+              Continuer avec : {next.title}
+            </Button>
+          )}
+          <Button variant={done ? "primary" : "ghost"} onClick={onExit}>
+            Arrêter ici
           </Button>
-        )}
-        <Button variant={done ? "primary" : "ghost"} onClick={onExit}>
-          Arrêter ici
-        </Button>
+        </div>
       </div>
     </div>
   );

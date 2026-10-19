@@ -354,8 +354,12 @@ ensuite.
 - **Le flux ne se termine pas de lui-même.** Après chaque étape, il y en a toujours une suivante :
   l'étape suivante de la leçon, ou la première de la leçon d'après. Il n'y a plus de « Terminer
   pour aujourd'hui » imposé, ni de plafond de blocs de renforcement.
-- **Chaque fin d'étape est un point de sortie** (le checkpoint actuel) : on s'arrête quand on veut,
-  et on reprend exactement là où on s'était arrêté, au début de l'étape interrompue.
+- **Chaque fin d'étape est un point de sortie** : l'écran de fin de l'exercice, puis l'étape
+  suivante s'enchaîne directement — sans écran intermédiaire —, la bande des stations au-dessus
+  d'elle, son repère glissant depuis l'étape qu'on vient de finir. « Arrêter » reste dans l'en-tête :
+  on s'arrête quand on veut, et on reprend exactement là où on s'était arrêté, au début de l'étape
+  interrompue. Le checkpoint ne subsiste que pour le bilan d'une relecture-miroir, ou quand il
+  n'y a plus rien à proposer.
 - **L'objectif du jour devient un repère**, compté en **étapes** (défaut : 3, soit environ
   15 minutes). Il nourrit la série de jours, les rappels et l'omikuji ; une fois atteint, on le
   signale et le parcours continue.
