@@ -27,7 +27,7 @@ export function groundDepth(skyH: number): number {
 /**
  * La distance de chaque plan à la vitre, en distances de poteau : vu d'un train qui roule, une
  * chose file d'autant moins vite qu'elle est loin (sa vitesse apparente est l'inverse de sa
- * distance), et le roulis ne secoue que ce qui est proche. Toutes les vitesses en découlent.
+ * distance). Toutes les vitesses en découlent.
  */
 export const PLANE_DIST = {
   ridge: 60, farMarks: 30, far: 20, mid: 8, marks: 4, near: 2.2, sign: 1.2, poles: 1,
@@ -40,11 +40,6 @@ const NEAREST_SPEED = 1.2;
 /** La vitesse d'un plan : les px dont il glisse par px défilé. */
 export function planeSpeed(plane: Plane): number {
   return NEAREST_SPEED / PLANE_DIST[plane];
-}
-
-/** La part du roulis que ressent un plan : entière au ras de la vitre, nulle à l'horizon. */
-export function planeRoll(plane: Plane): number {
-  return Math.round(Math.min(1, PLANE_DIST.poles / PLANE_DIST[plane]) * 100) / 100;
 }
 
 /** Hauteur de chaque plan au-dessus du bas de la bande, en part de la profondeur du sol. */

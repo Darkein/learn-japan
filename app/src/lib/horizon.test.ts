@@ -3,7 +3,7 @@ import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
   biomeAt, biomeTrack, POLE_SPACING, POLE_SPEED, poleXs, signX, stations, SKY_MARGIN, SKY_SPEED, skyShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
-  skyHeight, skyMarks, PLANE_DIST, planeRoll, planeSpeed,
+  skyHeight, skyMarks, PLANE_DIST, planeSpeed,
 } from "./horizon";
 import { lessonSteps } from "./path";
 import { layoutTrack, type TrackLayout } from "./track";
@@ -105,12 +105,6 @@ describe("la profondeur des plans", () => {
     expect(bySpeed).toEqual(["ridge", "farMarks", "far", "mid", "marks", "near", "sign", "poles"]);
     // Les poteaux filent bien plus vite que la crête de l'horizon.
     expect(planeSpeed("poles") / planeSpeed("ridge")).toBeGreaterThan(40);
-  });
-
-  it("ne secoue au roulis que ce qui est proche", () => {
-    expect(planeRoll("poles")).toBe(1);
-    expect(planeRoll("near")).toBeGreaterThan(planeRoll("mid"));
-    expect(planeRoll("ridge")).toBeLessThan(0.05);
   });
 });
 

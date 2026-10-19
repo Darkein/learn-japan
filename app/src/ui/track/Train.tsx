@@ -74,9 +74,10 @@ const STREAKS = Array.from({ length: 14 }, (_, i) => ({
 }));
 
 /**
- * La vitre et l'intérieur du wagon, par-dessus le paysage : un reflet en biais, la pluie qui file
+ * La vitre et l'intérieur du wagon, par-dessus le paysage : un reflet en biais qui glisse avec la
+ * course, la pluie qui file
  * en saison des pluies, le reflet du wagon éclairé la nuit, le store replié en haut et la tablette
- * avec sa tasse de thé, en bas à droite.
+ * avec sa tasse de thé, dont la surface frémit, en bas à droite.
  */
 export function Glass({ rain, night }: { rain: boolean; night: boolean }) {
   return (
@@ -111,7 +112,9 @@ export function Glass({ rain, night }: { rain: boolean; night: boolean }) {
       {/* La tablette sous la vitre, et la tasse de thé posée dessus. */}
       <svg className="absolute bottom-0 right-3" width={46} height={20} viewBox="0 0 46 20">
         <path d="M18 5 h14 l-1.5 11 h-11 Z" fill="var(--surface-2)" stroke="var(--hairline-strong)" strokeWidth={0.8} />
-        <path d="M19 8 h12" stroke="var(--accent-2)" strokeOpacity={0.6} strokeWidth={1.2} />
+        {/* La surface du thé frémit avec le train ; ses rides passent en travers. */}
+        <path className="tea-surface" d="M19 8 Q22 7.4 25 8 T31 8" stroke="var(--accent-2)" strokeOpacity={0.6} strokeWidth={1.2} fill="none" />
+        <path className="tea-ripple" d="M21 9.6 Q25 9 29 9.6" stroke="var(--accent-2)" strokeOpacity={0.35} strokeWidth={0.6} fill="none" />
         <rect x={0} y={16} width={46} height={4} rx={1} fill="var(--surface)" stroke="var(--hairline-strong)" strokeWidth={0.8} />
       </svg>
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import {
   biomeAt,
   biomeTrack,
@@ -9,7 +9,6 @@ import {
   markX,
   NEAR_GAP,
   PLANE_AT,
-  planeRoll,
   ridgePath,
   SKY_MAX,
   SKY_MIN,
@@ -22,7 +21,6 @@ import {
   WINDOW_INSET,
   WINDOW_TOP,
   type DriftItem,
-  type Plane,
   type SkyMark,
 } from "../../lib/horizon";
 import type { RouteScenery, Season } from "../../lib/scenery";
@@ -50,8 +48,6 @@ const MARK_H = (MARK_W * 80) / 120;
 /** Les repères du fond (les monts) sont plus grands : ils dominent le paysage ; comme les plans,
     ils rapetissent quand la bande se replie. */
 const FAR_MARK_SCALE = 1.4;
-/** Ce que le paysage déborde sous la vitre, pour le roulis. */
-const ROLL = 2;
 
 interface View {
   /** Défilement de la voie depuis son ouverture du panorama. */
@@ -64,16 +60,6 @@ interface View {
 
 function sameView(a: View, b: View): boolean {
   return Math.abs(a.u - b.u) < 0.5 && Math.abs(a.pos - b.pos) < 0.5 && Math.abs(a.visible - b.visible) < 1;
-}
-
-/** Un plan du paysage, sur toute la vitre : il ondule avec le roulis, d'autant moins qu'il est
-    loin (`planeRoll`). */
-function Rolling({ plane, children }: { plane: Plane; children: ReactNode }) {
-  return (
-    <div className="horizon-roll absolute inset-0" style={{ ["--roll" as string]: planeRoll(plane) }}>
-      {children}
-    </div>
-  );
 }
 
 /** Un plan du décor qui défile : des silhouettes posées sur l'horizon. */
@@ -192,11 +178,10 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
     <div className="relative z-10 shrink-0" style={{ height: SKY_MIN }} onWheel={(e) => scroller.current?.scrollBy({ top: e.deltaY })}>
       <div data-sky={sky.time} className="horizon-frame pointer-events-none absolute inset-x-0 top-0 bg-bg" style={{ height: skyH, padding: `${WINDOW_TOP}px ${WINDOW_INSET}px ${WINDOW_INSET}px` }}>
         <div className="horizon-window relative overflow-hidden rounded-md" style={{ height: glassH, ["--sky-span" as string]: `${W + 2 * SKY_MARGIN}px` }}>
-          {/* Le paysage roule avec le train, chaque plan selon sa distance ; il déborde un peu sous
-              la vitre, pour que le roulis ne découvre jamais son bord. La vitre et l'intérieur,
-              par-dessus, ne bougent pas. */}
-          <div className="horizon-rolling absolute inset-0">
-            <Sky sky={sky} height={glassH + ROLL} ground={ground + ROLL} width={W} pos={pos}>
+          {/* Le paysage ; la vitre et l'intérieur, par-dessus, portent le mouvement du train : le
+              thé frémit dans la tasse, le reflet glisse sur la vitre. */}
+          <div className="absolute inset-0">
+            <Sky sky={sky} height={glassH} ground={ground} width={W} pos={pos}>
               {title && titleOpacity > 0 && (
                 <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
                   <span className="font-jp text-3xl tracking-widest">{title.kanji}</span>
@@ -208,26 +193,14 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
               </svg>
               {/* Le sol, de l'horizon au bas de la vitre. */}
               <div className="horizon-ground absolute inset-x-0 bottom-0" style={{ height: ground }} />
-              <Rolling plane="farMarks">{marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.far))}</Rolling>
-              <Rolling plane="far">
-                <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
-              </Rolling>
-              <Rolling plane="mid">
-                <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
-              </Rolling>
-              <Rolling plane="marks">{marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}</Rolling>
-              <Rolling plane="near">
-                <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP + ROLL} fill="var(--sky-near)" size={size} />
-              </Rolling>
-              <Rolling plane="poles">
-                <Poles pos={pos} width={W} height={glassH + ROLL} />
-              </Rolling>
+              {marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.far))}
+              <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
+              <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
+              {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
+              <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} />
+              <Poles pos={pos} width={W} height={glassH} />
               {/* Le panneau devant les poteaux : son nom reste lisible quand l'un passe. */}
-              {sign && (
-                <Rolling plane="sign">
-                  <StationSign station={sign.st} x={sign.x} />
-                </Rolling>
-              )}
+              {sign && <StationSign station={sign.st} x={sign.x} />}
             </Sky>
           </div>
           <Glass rain={season === "rainy"} night={sky.time === "night"} />

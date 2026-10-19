@@ -1074,7 +1074,7 @@ la molette y fait défiler la voie.
   - **La profondeur.** Chaque plan a sa distance à la vitre, en distances de poteau : crête 60,
     monts repères 30, plan lointain 20, plan moyen 8, repères 4, plan proche 2,2, panneau de quai
     1,2, poteaux 1. Comme vu d'un vrai train, sa vitesse apparente est l'inverse de sa distance
-    (1,2 px par px défilé pour les poteaux), et le roulis ne secoue que ce qui est proche.
+    (1,2 px par px défilé pour les poteaux).
   - Chaque élément a son rang sur une bande sans fin, d'où se tirent sa place, sa taille et sa
     forme : le décor ne change pas d'une visite à l'autre.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe
@@ -1091,19 +1091,18 @@ la molette y fait défiler la voie.
     à 1 px par px défilé, posé au bas de la vitre : il entre par la droite quand sa ville arrive
     sur la voie visible, passe au milieu quand elle est au milieu, et sort par la gauche quand
     elle passe sous la fenêtre.
-- **Le roulis.** Le paysage ondule doucement sans arrêt, en sinusoïde (aller-retour de 2,4 s),
-  chaque plan à proportion de sa proximité : 1,5 px pour les poteaux, presque rien pour les plans
-  lointains, rien pour le ciel, la crête et le sol. Tous les plans suivent la même onde, même ce
-  qui entre dans la vitre en cours de route (le panneau de quai). Le paysage déborde de 2 px sous
-  la vitre pour n'en jamais découvrir le bord. La vitre et l'intérieur ne bougent pas. Coupé sous
-  `prefers-reduced-motion`.
+- **Le mouvement du train.** Le paysage ne tressaute pas : le mouvement du train se lit à
+  l'intérieur. Le reflet glisse de quelques px sur la vitre, à un rythme lent et irrégulier
+  (11 s), et la surface du thé frémit dans la tasse : elle penche et se redresse au gré des cahots
+  (3,7 s), et une ride la traverse de temps en temps. Coupé sous `prefers-reduced-motion`.
 - **La vitre et l'intérieur**, par-dessus le paysage et fixes :
-  - un reflet en biais, très léger ;
+  - un reflet en biais, très léger, qui glisse un peu ;
   - en saison des pluies, des traînées de pluie qui filent à l'horizontale vers l'arrière du
     train (de droite à gauche), poussées par la course ;
   - la nuit, le reflet du wagon éclairé : la lueur de la lampe et l'ombre des dossiers ;
   - un store replié en haut de la vitre (8 px), sous lequel aucun nom ne passe ;
-  - la tablette sous la vitre, en bas à droite, et une tasse de thé posée dessus.
+  - la tablette sous la vitre, en bas à droite, et une tasse de thé posée dessus, dont la surface
+    frémit.
 - **Le soleil, la lune, les étoiles**, la brume du matin, les oiseaux et les pétales gardent leur
   logique (ci-dessus). Le soleil, la lune et les étoiles restent derrière le paysage ; ce qui vole
   (oiseaux, pétales, lucioles) passe devant les monts et tous les plans. Au défilement, ce qui
