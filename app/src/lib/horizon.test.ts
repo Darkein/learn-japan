@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
-  biomeAt, biomeTrack, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
+  biomeAt, biomeTrack, BIRDS_MARGIN, BIRDS_SPEED, birdsShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
   skyHeight, skyMarks,
 } from "./horizon";
 import { lessonSteps } from "./path";
@@ -123,6 +123,19 @@ describe("le décor qui défile", () => {
     for (const it of coast) expect(["boat", "pine"]).toContain(it.kind);
     const town = driftItems("near", 5000, 390, 0, () => "town");
     for (const it of town) expect(["house", "temple"]).toContain(it.kind);
+  });
+});
+
+describe("les oiseaux", () => {
+  it("glissent avec le plan moyen au défilement, et font le tour de la vitre sans saut", () => {
+    const span = 390 + 2 * BIRDS_MARGIN;
+    expect(birdsShift(100, 390) - birdsShift(0, 390)).toBeCloseTo(100 * BIRDS_SPEED);
+    for (const pos of [-3000, -1, 0, 777, 12_345]) {
+      const x = birdsShift(pos, 390);
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThan(span);
+    }
+    expect(birdsShift(span / BIRDS_SPEED, 390)).toBeCloseTo(0);
   });
 });
 

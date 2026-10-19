@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { BIRDS_MARGIN } from "../../lib/horizon";
 import type { Season } from "../../lib/scenery";
 import { moonLitPath, skyAt, type SkyState } from "../../lib/sky";
 
@@ -42,7 +43,7 @@ function Bird({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
   return <path d={`M${x} ${y} q${3 * s} ${-3 * s} ${6 * s} 0 q${3 * s} ${-3 * s} ${6 * s} 0`} />;
 }
 
-function Birds({ kind }: { kind: "swallows" | "geese" | "crane" }) {
+function Birds({ kind, left }: { kind: "swallows" | "geese" | "crane"; left: number }) {
   let body;
   if (kind === "geese") {
     // Le vol d'oies en V.
@@ -60,7 +61,7 @@ function Birds({ kind }: { kind: "swallows" | "geese" | "crane" }) {
     );
   }
   return (
-    <svg className="sky-birds absolute" style={{ top: 10, left: 0 }} width={80} height={60} viewBox="-50 -30 80 60" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.3} strokeLinecap="round">
+    <svg className="sky-birds absolute" style={{ top: 10, left }} width={80} height={60} viewBox="-50 -30 80 60" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.3} strokeLinecap="round">
       {body}
     </svg>
   );
@@ -83,14 +84,34 @@ export function useSky(season: Season): SkyState {
  * Le soleil suit l'heure (à demi caché derrière une crête à l'aube et au crépuscule), la nuit
  * la lune a sa phase réelle et les étoiles scintillent ; brume du matin, oiseaux et pétales
  * selon la saison. `ground` est la profondeur du sol sous l'horizon ; `children` (le sol et ses
- * plans) se dessine par-dessus le ciel, et ce qui vole par-dessus le tout.
+ * plans) se dessine par-dessus le ciel, et ce qui vole par-dessus le tout. `birds` : le décalage
+ * des oiseaux, qui glissent avec le plan moyen (`birdsShift`), sur une vitre de `width` px.
  */
-export function Sky({ sky, height, ground, children }: { sky: SkyState; height: number; ground: number; children?: ReactNode }) {
+export function Sky({
+  sky,
+  height,
+  ground,
+  width,
+  birds = 0,
+  children,
+}: {
+  sky: SkyState;
+  height: number;
+  ground: number;
+  width: number;
+  birds?: number;
+  children?: ReactNode;
+}) {
   const horizon = height - ground;
   const body = sky.sun ?? sky.moon;
   const bodyTop = body ? horizon - 8 - body.alt * Math.max(20, horizon - 30) : 0;
   return (
-    <div aria-hidden="true" data-sky={sky.time} className="horizon-sky absolute inset-x-0 top-0 overflow-hidden text-text" style={{ height }}>
+    <div
+      aria-hidden="true"
+      data-sky={sky.time}
+      className="horizon-sky absolute inset-x-0 top-0 overflow-hidden text-text"
+      style={{ height, ["--sky-span" as string]: `${width + 2 * BIRDS_MARGIN}px` }}
+    >
       {sky.stars &&
         STARS.map((s, i) => (
           <span
@@ -128,7 +149,13 @@ export function Sky({ sky, height, ground, children }: { sky: SkyState; height: 
 
       {children}
       {/* Ce qui vole passe devant le paysage : les oiseaux, les pétales et les lucioles. */}
-      {sky.birds && <Birds kind={sky.birds} />}
+      {/* Deux volées, un tour de vol l'une de l'autre : quand l'une sort, l'autre entre. */}
+      {sky.birds && (
+        <>
+          <Birds kind={sky.birds} left={birds} />
+          <Birds kind={sky.birds} left={birds - width - 2 * BIRDS_MARGIN} />
+        </>
+      )}
 
       {sky.petals &&
         PETALS.map((p, i) => (

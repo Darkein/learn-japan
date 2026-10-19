@@ -349,12 +349,17 @@
 .sky-birds {
   animation: birds-cross 70s linear infinite;
 }
+/* Un tour de vol fait la vitre et ses marges (`--sky-span`), et revient à sa hauteur : la volée
+   suivante (ui/track/Sky) prend le relais sans saut. */
 @keyframes birds-cross {
   from {
     transform: translateX(-90px) translateY(10px);
   }
+  50% {
+    transform: translateX(calc(var(--sky-span) / 2 - 90px)) translateY(-14px);
+  }
   to {
-    transform: translateX(calc(100vw + 90px)) translateY(-14px);
+    transform: translateX(calc(var(--sky-span) - 90px)) translateY(10px);
   }
 }
 .sky-petal {
