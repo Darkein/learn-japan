@@ -12,7 +12,9 @@ import { SectionLabel } from "./kit/SectionLabel";
 
 interface SummaryEntry {
   card: Exercise;
-  grade: SrsGrade;
+  /** Le nom de l'élément : sa graphie (mot) ou son nom (grammaire), quelle que soit la face
+      servie par l'exercice. Absent si l'élément n'est pas en base. */
+  label?: string;
   mastered: boolean;
   intervalDaysBefore: number;
   intervalDays: number;
@@ -77,6 +79,21 @@ export function blankAnswer(card: Exercise): string {
   return card.back.split("（")[0];
 }
 
+/**
+ * Un élément par ligne : un mot revu plusieurs fois dans la session (sous plusieurs faces)
+ * n'apparaît qu'une fois, avec l'état d'AVANT la session, celui de son premier passage. Le
+ * second passage partait de l'intervalle que le premier venait de poser : le compter seul
+ * l'annonçait « oublié » à côté du même mot « nouveau ».
+ */
+export function groupResults<R extends { card: Exercise; daysBefore: number }>(results: R[]): R[] {
+  const seen = new Map<string, R>();
+  for (const r of results) {
+    const key = `${r.card.track}:${r.card.id}`;
+    if (!seen.has(key)) seen.set(key, r);
+  }
+  return [...seen.values()];
+}
+
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
 export function SessionSummary({
   results,
@@ -105,18 +122,21 @@ export function SessionSummary({
     setSummary(null);
     async function loadSummary() {
       const entries: SummaryEntry[] = [];
-      for (const r of results) {
+      for (const r of groupResults(results)) {
         let fsrsCard: import("ts-fsrs").Card | undefined;
+        let label: string | undefined;
         if (r.card.track === "vocab") {
           const item = await getVocab(r.card.id);
           fsrsCard = item?.card;
+          label = item?.surface;
         } else {
           const item = await getGrammar(r.card.id);
           fsrsCard = item?.card;
+          label = item?.name;
         }
         entries.push({
           card: r.card,
-          grade: r.grade,
+          label,
           mastered: fsrsCard ? isMastered(fsrsCard) : false,
           intervalDaysBefore: r.daysBefore,
           intervalDays: fsrsCard?.scheduled_days ?? 0,
@@ -128,15 +148,16 @@ export function SessionSummary({
   }, [results]);
 
   const missed = results.filter((r) => isMiss(r.grade));
-  const leeches = results.filter((r) => r.card.isLeech);
+  const leeches = groupResults(results).filter((r) => r.card.isLeech);
+  const reviewed = groupResults(results).length;
 
   return (
     <Card className="flex flex-col gap-4 py-6">
       <div>
         <SectionLabel>Bilan</SectionLabel>
         <p className="font-serif text-lg text-text">
-          {title} — {results.length} élément{results.length > 1 ? "s" : ""} revu
-          {results.length > 1 ? "s" : ""}
+          {title} — {reviewed} élément{reviewed > 1 ? "s" : ""} revu
+          {reviewed > 1 ? "s" : ""}
         </p>
         {note && <p className="m-0 text-xs text-muted">{note}</p>}
       </div>
@@ -174,7 +195,7 @@ export function SessionSummary({
                 <li key={entry.card.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-jp text-sm text-text">
-                      <ClozeText text={entry.card.front} fill={blankAnswer(entry.card)} />
+                      {entry.label ?? <ClozeText text={entry.card.front} fill={blankAnswer(entry.card)} />}
                     </span>
                     <div className="flex items-center gap-1.5">
                       {entry.card.isLeech && <Badge>difficile</Badge>}

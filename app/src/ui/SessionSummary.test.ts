@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SRS } from "../lib/config";
 import { PRODUCTION_MIN_DAYS } from "../lib/vocabDrills";
 import type { ChoiceExercise, TypeExercise } from "../lib/exercise";
-import { blankAnswer, summaryBadge } from "./SessionSummary";
+import { blankAnswer, groupResults, summaryBadge } from "./SessionSummary";
 
 /** Entrée de bilan minimale : seuls les champs lus par `summaryBadge`. */
 function entry(over: Partial<Parameters<typeof summaryBadge>[0]> = {}) {
@@ -54,5 +54,27 @@ describe("blankAnswer", () => {
       mode: "choice", key: "k", track: "grammar", id: "g", front: "本＿読む", back: "本を読む", choices: ["は", "を", "に"], answerIndex: 1,
     };
     expect(blankAnswer(ex)).toBe("を");
+  });
+});
+
+describe("groupResults", () => {
+  const card = (id: string, track: "vocab" | "grammar" = "vocab", front = id): TypeExercise => ({
+    mode: "type", key: `${id}:${front}`, track, id, front, back: id, answers: [],
+  });
+
+  it("garde un élément revu deux fois une seule fois, avec son état d'avant la session", () => {
+    const grouped = groupResults([
+      { card: card("大人|おとな", "vocab", "adulte"), daysBefore: 0 },
+      { card: card("男の子|おとこのこ"), daysBefore: 3 },
+      { card: card("大人|おとな", "vocab", "大人"), daysBefore: 1 },
+    ]);
+    expect(grouped.map((r) => [r.card.id, r.daysBefore])).toEqual([
+      ["大人|おとな", 0],
+      ["男の子|おとこのこ", 3],
+    ]);
+  });
+
+  it("distingue un mot et un point de grammaire de même id", () => {
+    expect(groupResults([{ card: card("x"), daysBefore: 0 }, { card: card("x", "grammar"), daysBefore: 0 }])).toHaveLength(2);
   });
 });
