@@ -44,10 +44,8 @@ type Phase =
       name: "checkpoint";
       result: FlowBlockResult | null;
       next: FlowActivity;
-      /** Ce que demande l'activité suivante (« 8 exercices · ~3 min »), et la leçon en
-       *  cours pour en montrer les stations. */
+      /** Ce que demande l'activité suivante (« 8 exercices · ~3 min »). */
       estimate?: string;
-      lesson?: Lesson;
     };
 
 interface Props {
@@ -190,13 +188,11 @@ export function FlowSession({ onExit, forced }: Props) {
     }
     const recap = await recapFor(finished, reviewedAtBlockStart.current);
     if (mirrorExtra) recap.extra = mirrorExtra;
-    const lesson = lessons.find((l) => l.id === state.currentLesson?.id);
     setPhase({
       name: "checkpoint",
       result: recap,
       next,
       estimate: estimateFor(next, lessons, await loadFormDurations()),
-      ...(lesson ? { lesson } : {}),
     });
   }
 
@@ -239,7 +235,6 @@ export function FlowSession({ onExit, forced }: Props) {
           result={phase.result}
           next={phase.next}
           estimate={phase.estimate}
-          lesson={phase.lesson}
           onContinue={() => void startNext(phase.next)}
           onExit={onExit}
         />
