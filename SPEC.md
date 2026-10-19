@@ -1037,12 +1037,12 @@ la molette y fait défiler la voie.
   l'eau des repères se pose sur le sol, devant les monts, jamais sur eux.
 - **Les plans**, du plus loin au plus proche :
   1. le fond du ciel, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
-  2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,08 px par px
+  2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,02 px par px
      défilé) ;
   3. les repères qui sont des monts (le Fuji, l'Asama), tout au fond : posés aux 78/100 du sol,
-     derrière le plan lointain, à 0,1 px par px défilé, plus grands (et rapetissant avec les plans
+     derrière le plan lointain, à 0,04 px par px défilé, plus grands (et rapetissant avec les plans
      quand la bande se replie), opaques ;
-  4. le **plan lointain** qui défile (monts et collines), aux 78/100 du sol, à 0,14 px par px
+  4. le **plan lointain** qui défile (monts et collines), aux 78/100 du sol, à 0,06 px par px
      défilé, à peine plus marqué que la crête ;
   5. le **plan moyen** qui défile (forêts, temples, bosquets), aux 6/10 du sol ;
   6. les autres **repères** des villes (châteaux, torii, ponts, lacs…), au quart du sol ;
@@ -1055,7 +1055,7 @@ la molette y fait défiler la voie.
     repère d'une ville est le sprite de son motif, tiré du catalogue ; celui d'une illustration
     unique porte le nom de son lieu (芦ノ湖 · lac Ashi, et non la ville d'Hakone) et sa place
     est celle du dessin sur la voie : il se lève quand le dessin passe sur la voie visible.
-  - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,35 px par px défilé, entre le plan
+  - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,3 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
     au milieu de la voie visible, et reste dans la bande tant que son nom est affiché.
   - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par la
@@ -1069,8 +1069,12 @@ la molette y fait défiler la voie.
   - Quand on avance sur la voie (elle défile vers le haut), tout ce qui défile dans la vitre file
     de droite à gauche, comme le paysage vu d'un train qui roule.
   - Trois plans glissent de côté au fil du défilement, dans le même sens que les repères, chaque
-    chose sur le plan de sa taille : le plan lointain (monts) à 0,14 px par px défilé, le plan
-    moyen (forêts, temples) à 0,22 px, le plan proche (arbres, maisons) à 0,42 px.
+    chose sur le plan de sa taille : le plan lointain (monts) à 0,06 px par px défilé, le plan
+    moyen (forêts, temples) à 0,15 px, le plan proche (arbres, maisons) à 0,55 px.
+  - **La profondeur.** Chaque plan a sa distance à la vitre, en distances de poteau : crête 60,
+    monts repères 30, plan lointain 20, plan moyen 8, repères 4, plan proche 2,2, panneau de quai
+    1,2, poteaux 1. Comme vu d'un vrai train, sa vitesse apparente est l'inverse de sa distance
+    (1,2 px par px défilé pour les poteaux), et le roulis ne secoue que ce qui est proche.
   - Chaque élément a son rang sur une bande sans fin, d'où se tirent sa place, sa taille et sa
     forme : le décor ne change pas d'une visite à l'autre.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe
@@ -1088,8 +1092,9 @@ la molette y fait défiler la voie.
     sur la voie visible, passe au milieu quand elle est au milieu, et sort par la gauche quand
     elle passe sous la fenêtre.
 - **Le roulis.** Le paysage tressaute sans arrêt au rythme des joints de rail (ta-dam… ta-dam),
-  de 1 px, en 1,6 s ; il déborde de 2 px sous la vitre pour n'en jamais découvrir le bord. La
-  vitre et l'intérieur ne bougent pas. Coupé sous `prefers-reduced-motion`.
+  en 1,6 s, chaque plan à proportion de sa proximité : 1,5 px pour les poteaux, presque rien pour
+  les plans lointains, rien pour le ciel, la crête et le sol ; il déborde de 2 px sous la vitre pour
+  n'en jamais découvrir le bord. La vitre et l'intérieur ne bougent pas. Coupé sous `prefers-reduced-motion`.
 - **La vitre et l'intérieur**, par-dessus le paysage et fixes :
   - un reflet en biais, très léger ;
   - en saison des pluies, des traînées de pluie qui filent à l'horizontale vers l'arrière du
@@ -1101,8 +1106,8 @@ la molette y fait défiler la voie.
   logique (ci-dessus). Le soleil, la lune et les étoiles restent derrière le paysage ; ce qui vole
   (oiseaux, pétales, lucioles) passe devant les monts et tous les plans. Au défilement, ce qui
   passe dans le ciel glisse avec son plan, en plus de son propre mouvement, et fait le tour de la
-  vitre sans saut : la brume avec la crête (0,08 px par px défilé), les oiseaux avec le plan moyen
-  (0,22), les pétales et les lucioles avec le plan proche (0,42). Le soleil, la lune et les
+  vitre sans saut : la brume avec la crête (0,02 px par px défilé), les oiseaux avec le plan moyen
+  (0,15), les pétales et les lucioles avec le plan proche (0,55). Le soleil, la lune et les
   étoiles, à l'infini, ne glissent pas.
 - **Le défilement.** La bande se recalcule une fois par image de défilement ; seul le nom des
   repères paraît et s'efface en fondu. L'ouverture, le bandeau de leçon et le bouton de retour

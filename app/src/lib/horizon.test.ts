@@ -3,7 +3,7 @@ import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
   biomeAt, biomeTrack, POLE_SPACING, POLE_SPEED, poleXs, signX, stations, SKY_MARGIN, SKY_SPEED, skyShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
-  skyHeight, skyMarks,
+  skyHeight, skyMarks, PLANE_DIST, planeRoll, planeSpeed,
 } from "./horizon";
 import { lessonSteps } from "./path";
 import { layoutTrack, type TrackLayout } from "./track";
@@ -96,6 +96,24 @@ describe("les repères du ciel", () => {
   });
 });
 
+describe("la profondeur des plans", () => {
+  const planes = Object.keys(PLANE_DIST) as (keyof typeof PLANE_DIST)[];
+
+  it("fait filer chaque plan à l'inverse de sa distance, le plus proche le plus vite", () => {
+    for (const p of planes) expect(planeSpeed(p) * PLANE_DIST[p]).toBeCloseTo(POLE_SPEED);
+    const bySpeed = [...planes].sort((a, b) => planeSpeed(a) - planeSpeed(b));
+    expect(bySpeed).toEqual(["ridge", "farMarks", "far", "mid", "marks", "near", "sign", "poles"]);
+    // Les poteaux filent bien plus vite que la crête de l'horizon.
+    expect(planeSpeed("poles") / planeSpeed("ridge")).toBeGreaterThan(40);
+  });
+
+  it("ne secoue au roulis que ce qui est proche", () => {
+    expect(planeRoll("poles")).toBe(1);
+    expect(planeRoll("near")).toBeGreaterThan(planeRoll("mid"));
+    expect(planeRoll("ridge")).toBeLessThan(0.05);
+  });
+});
+
 describe("le décor qui défile", () => {
   const plain = () => "rice" as const;
 
@@ -107,7 +125,7 @@ describe("le décor qui défile", () => {
       const common = a.find((it) => b.some((j) => j.key === it.key))!;
       const moved = b.find((j) => j.key === common.key)!.x - common.x;
       // Quand on avance, le paysage file vers la gauche.
-      expect(moved).toBeCloseTo(-{ far: 14, mid: 22, near: 42 }[layer], 5);
+      expect(moved).toBeCloseTo(-100 * planeSpeed(layer), 5);
       expect(at(layer, 1000)).toEqual(a);
     }
   });

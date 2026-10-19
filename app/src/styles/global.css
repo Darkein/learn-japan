@@ -268,7 +268,8 @@
   --sky-pole: color-mix(in oklab, var(--text) 30%, var(--bg));
 }
 /* Le roulis du train : le paysage tressaute au rythme des joints de rail (ta-dam… ta-dam), sans
-   arrêt ; la vitre et l'intérieur, eux, ne bougent pas. Coupé sous prefers-reduced-motion. */
+   arrêt, chaque plan selon sa distance (`--roll`, de 0 à l'horizon à 1 au ras de la vitre) ; la
+   vitre et l'intérieur, eux, ne bougent pas. Coupé sous prefers-reduced-motion. */
 .horizon-roll {
   animation: train-roll 1.6s linear infinite;
 }
@@ -281,10 +282,10 @@
   }
   4%,
   16% {
-    transform: translateY(-1px);
+    transform: translateY(calc(-1.5px * var(--roll, 1)));
   }
   60% {
-    transform: translateY(-0.4px);
+    transform: translateY(calc(-0.6px * var(--roll, 1)));
   }
 }
 /* La vitre : un reflet en biais, et la nuit la lampe du wagon. */

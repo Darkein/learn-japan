@@ -24,6 +24,29 @@ export function groundDepth(skyH: number): number {
   return Math.round(Math.min(112, Math.max(50, skyH * 0.4)));
 }
 
+/**
+ * La distance de chaque plan à la vitre, en distances de poteau : vu d'un train qui roule, une
+ * chose file d'autant moins vite qu'elle est loin (sa vitesse apparente est l'inverse de sa
+ * distance), et le roulis ne secoue que ce qui est proche. Toutes les vitesses en découlent.
+ */
+export const PLANE_DIST = {
+  ridge: 60, farMarks: 30, far: 20, mid: 8, marks: 4, near: 2.2, sign: 1.2, poles: 1,
+} as const;
+export type Plane = keyof typeof PLANE_DIST;
+
+/** Ce que file un poteau, au ras de la vitre, par px défilé. */
+const NEAREST_SPEED = 1.2;
+
+/** La vitesse d'un plan : les px dont il glisse par px défilé. */
+export function planeSpeed(plane: Plane): number {
+  return NEAREST_SPEED / PLANE_DIST[plane];
+}
+
+/** La part du roulis que ressent un plan : entière au ras de la vitre, nulle à l'horizon. */
+export function planeRoll(plane: Plane): number {
+  return Math.round(Math.min(1, PLANE_DIST.poles / PLANE_DIST[plane]) * 100) / 100;
+}
+
 /** Hauteur de chaque plan au-dessus du bas de la bande, en part de la profondeur du sol. */
 export const PLANE_AT = { ridge: 0.94, far: 0.78, mid: 0.6, marks: 0.24, near: 0 } as const;
 
@@ -105,7 +128,7 @@ export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMar
 
 /** La crête lointaine : un motif de `RIDGE_PERIOD` px répété, qui glisse le plus lentement. */
 export const RIDGE_PERIOD = 300;
-export const RIDGE_SPEED = 0.08;
+export const RIDGE_SPEED = planeSpeed("ridge");
 const RIDGE = "L36 10 L72 20 L114 4 L156 18 L201 8 L246 20 L300 22";
 
 /** Le tracé de la crête lointaine (40 px de haut) sur `width` px, quand la voie est à `pos`. */
@@ -120,8 +143,8 @@ export function ridgePath(pos: number, width: number): string {
 
 /** Vitesse des repères : entre le plan moyen et le plan proche du décor qui défile ; les monts du
     fond glissent entre la crête et le plan lointain. */
-export const MARK_SPEED = 0.35;
-export const FAR_MARK_SPEED = 0.1;
+export const MARK_SPEED = planeSpeed("marks");
+export const FAR_MARK_SPEED = planeSpeed("farMarks");
 
 /**
  * Où est un repère quand la voie est à `pos` (ordonnée de voie du bas du ciel) : à sa place quand
@@ -145,7 +168,7 @@ export function markRaised(mark: SkyMark, top: number, bottom: number): boolean 
 // ---- Le premier plan : les poteaux et les gares -----------------------------------------
 
 /** Les poteaux télégraphiques, au ras de la vitre : ce qui file le plus vite. */
-export const POLE_SPEED = 1.2;
+export const POLE_SPEED = planeSpeed("poles");
 export const POLE_SPACING = 240;
 
 /**
@@ -191,7 +214,7 @@ export function stations(layout: TrackLayout): Station[] {
 }
 
 /** Le panneau de quai passe sur le quai, au premier plan, un peu moins vite que les poteaux. */
-export const SIGN_SPEED = 1;
+export const SIGN_SPEED = planeSpeed("sign");
 
 /**
  * Le centre du panneau d'une gare quand la voie est à `pos` : au milieu de la vitre quand sa ville
@@ -210,7 +233,9 @@ export function signX(st: Station, pos: number, visible: number, width: number):
  * lucioles passent tout près, avec le plan proche. Le soleil, la lune et les étoiles, à l'infini,
  * ne glissent pas.
  */
-export const SKY_SPEED = { mist: RIDGE_SPEED, birds: 0.22, petals: 0.42, fireflies: 0.42 } as const;
+export const SKY_SPEED = {
+  mist: RIDGE_SPEED, birds: planeSpeed("mid"), petals: planeSpeed("near"), fireflies: planeSpeed("near"),
+} as const;
 /** La marge où ce qui passe entre et sort de la vitre, de chaque côté. */
 export const SKY_MARGIN = 90;
 
@@ -281,11 +306,11 @@ const DRIFT: Record<Layer, Record<Biome, DriftKind[]>> = {
   },
 };
 
-/** Vitesse (part du défilement), espacement et échelle de chaque plan. */
+/** Vitesse (part du défilement, selon la distance du plan), espacement et échelle de chaque plan. */
 const LAYERS: Record<Layer, { speed: number; spacing: number; scale: number }> = {
-  far: { speed: 0.14, spacing: 70, scale: 1.6 },
-  mid: { speed: 0.22, spacing: 44, scale: 0.9 },
-  near: { speed: 0.42, spacing: 48, scale: 1.25 },
+  far: { speed: planeSpeed("far"), spacing: 70, scale: 1.6 },
+  mid: { speed: planeSpeed("mid"), spacing: 44, scale: 0.9 },
+  near: { speed: planeSpeed("near"), spacing: 48, scale: 1.25 },
 };
 
 /** Le paysage de la voie, tronçon par tronçon : la ville où il mène, et son paysage. */
