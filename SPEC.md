@@ -897,8 +897,10 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 
 - **Le tampon de ville.** Chaque ville atteinte donne son tampon de gare (駅スタンプ) :
   - un contour vermillon à double filet, avec un motif et le nom ;
-  - chaque ville a sa forme, stable et jamais celle de sa voisine : carré, rond, plaque votive
-    (絵馬), octogone, fenêtre en cloche (花頭窓), hexagone ;
+  - chaque ville a sa forme, stable, tirée au hasard et jamais celle des deux villes qui la
+    précèdent : carré, rond, plaque votive (絵馬), octogone, fenêtre en cloche (花頭窓),
+    hexagone, ovale de pièce d'or (小判), carré aux coins rentrés (入隅), fleur (花形),
+    éventail (扇) ;
   - le motif vient du repère principal de la ville (château, mont, vague, pont, temple, lac,
     rizière, pins) ;
   - les grandes villes et les lieux uniques ont un tampon dessiné pour eux.
@@ -912,7 +914,8 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
   - quand plusieurs villes sont franchies d'un coup, une seule fiche s'ouvre : elle montre la
     dernière ville et cite les autres.
 - **Le carnet** est dans le Voyage :
-  - la grille des tampons de chaque route, ceux à venir en pointillés ;
+  - la grille des tampons de chaque route, ceux à venir en simple rond pointillé (la forme reste
+    une surprise) ;
   - toucher un tampon ouvre la fiche de sa ville ;
   - les tampons de fortune de l'omikuji (大吉, 吉…) ont leur page.
 - **Le tampon de fortune.** Le défi de l'omikuji accompli donne le tampon de la fortune du jour,

@@ -27,7 +27,17 @@ export function motifOf(city: Pick<TrackCity, "motif" | "size">): StampMotif {
 }
 
 /** Formes des tampons : chaque ville a la sienne, comme les vrais 駅スタンプ. */
-export type StampShape = "square" | "circle" | "octagon" | "hexagon" | "ema" | "arch";
+export type StampShape =
+  | "square"
+  | "circle"
+  | "octagon"
+  | "hexagon"
+  | "ema"
+  | "arch"
+  | "koban"
+  | "irizumi"
+  | "hana"
+  | "sensu";
 
 /**
  * Contour extérieur et filet intérieur de chaque forme (viewBox 100 × 100), avec l'échelle et le
@@ -63,7 +73,39 @@ const SHAPE: Record<StampShape, { outer: string; inner: string; scale: number; d
     scale: 0.9,
     dy: 0.05,
   },
+  // L'ovale debout de la pièce d'or (小判).
+  koban: {
+    outer: "M50 2 A40 48 0 1 1 50 98 A40 48 0 1 1 50 2 Z",
+    inner: "M50 9 A33 41 0 1 1 50 91 A33 41 0 1 1 50 9 Z",
+    scale: 0.8,
+    dy: 0,
+  },
+  // Le carré aux coins rentrés (入隅).
+  irizumi: {
+    outer: "M14 2 H86 A12 12 0 0 0 98 14 V86 A12 12 0 0 0 86 98 H14 A12 12 0 0 0 2 86 V14 A12 12 0 0 0 14 2 Z",
+    inner:
+      "M19.7 9 H80.3 A19 19 0 0 0 91 19.7 V80.3 A19 19 0 0 0 80.3 91 H19.7 A19 19 0 0 0 9 80.3 V19.7 A19 19 0 0 0 19.7 9 Z",
+    scale: 0.9,
+    dy: 0,
+  },
+  // La fleur à douze pétales (花形), filet intérieur rond.
+  hana: {
+    outer: scallop(12, 43, 12.5),
+    inner: "M50 13 A37 37 0 1 1 50 87 A37 37 0 1 1 50 13 Z",
+    scale: 0.8,
+    dy: 0,
+  },
+  // L'éventail ouvert (扇).
+  sensu: {
+    outer: "M2 18 A70 70 0 0 1 98 18 L72 96 Q50 100 28 96 Z",
+    inner: "M10 23 A63 63 0 0 1 90 23 L67 89 Q50 92 33 89 Z",
+    scale: 0.8,
+    dy: -0.05,
+  },
 };
+
+/** Tampon pas encore obtenu : un simple rond, pour ne pas dévoiler sa forme. */
+const EMPTY = SHAPE.circle;
 
 /** Polygone régulier centré, d'apothème `a` (côtés à `a` du centre), tourné de `rot`, élargi de `squash`. */
 function polygon(n: number, a: number, rot: number, squash = 1): string {
@@ -75,17 +117,37 @@ function polygon(n: number, a: number, rot: number, squash = 1): string {
   return `M${pts.join(" L")} Z`;
 }
 
-const SHAPES: StampShape[] = ["square", "circle", "ema", "octagon", "arch", "hexagon"];
+/** Cercle festonné : `n` lobes en arcs de rayon `r`, posés sur un cercle de rayon `a`. */
+function scallop(n: number, a: number, r: number): string {
+  const pt = (i: number) => {
+    const t = (i * 2 * Math.PI) / n - Math.PI / 2;
+    return `${(50 + a * Math.cos(t)).toFixed(1)} ${(50 + a * Math.sin(t)).toFixed(1)}`;
+  };
+  return `M${pt(0)} ${Array.from({ length: n }, (_, i) => `A${r} ${r} 0 0 1 ${pt(i + 1)}`).join(" ")} Z`;
+}
 
-/** Forme du tampon d'une ville : stable, et jamais la même que celle de sa voisine. */
+const SHAPES = Object.keys(SHAPE) as StampShape[];
+
+/**
+ * Forme du tampon d'une ville : tirée d'un hachage de son index (pas de cycle qui se lirait dans
+ * les colonnes du carnet), stable, et jamais celle d'une des deux villes qui la précèdent.
+ */
 export function shapeOf(city: Pick<TrackCity, "index">): StampShape {
-  return SHAPES[(city.index * 5) % SHAPES.length];
+  const recent: number[] = [];
+  let k = 0;
+  for (let i = 0; i <= city.index; i++) {
+    k = (Math.imul(i + 1, 0x9e3779b1) >>> 16) % SHAPES.length;
+    while (recent.includes(k)) k = (k + 1) % SHAPES.length;
+    recent.unshift(k);
+    recent.length = Math.min(recent.length, 2);
+  }
+  return SHAPES[k];
 }
 
 interface Props {
   city: Pick<TrackCity, "kanji" | "motif" | "size" | "index">;
   size?: number;
-  /** Tampon pas encore obtenu : pointillés d'encre, sans motif. */
+  /** Tampon pas encore obtenu : un rond en pointillés, sans motif. */
   empty?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -97,8 +159,10 @@ interface Props {
  */
 export function CityStamp({ city, size = 62, empty, className = "", style }: Props) {
   const angle = ((city.index * 29) % 13) - 6;
-  const shape = SHAPE[shapeOf(city)];
-  const fontSize = Math.max(12, Math.round(size * 0.21 * shape.scale));
+  const shape = empty ? EMPTY : SHAPE[shapeOf(city)];
+  // Les noms de quatre kanji descendent d'un cran, et plus bas que le corps minimal des autres.
+  const long = city.kanji.length > 3;
+  const fontSize = Math.max(long ? 10 : 12, Math.round(size * 0.21 * shape.scale * (long ? 0.85 : 1)));
   return (
     <span
       className={`relative flex flex-col items-center justify-center gap-px ${empty ? "font-jp text-muted" : "text-accent"} ${className}`}
@@ -116,7 +180,7 @@ export function CityStamp({ city, size = 62, empty, className = "", style }: Pro
         )}
       </svg>
       {empty ? (
-        <span className="relative" style={{ fontSize: city.kanji.length > 3 ? fontSize * 0.85 : fontSize, marginTop: size * shape.dy }}>
+        <span className="relative" style={{ fontSize, marginTop: size * shape.dy }}>
           {city.kanji}
         </span>
       ) : (
@@ -134,7 +198,7 @@ export function CityStamp({ city, size = 62, empty, className = "", style }: Pro
           >
             <path d={MOTIF[motifOf(city)]} />
           </svg>
-          <span className="font-jp font-semibold leading-tight" style={{ fontSize: city.kanji.length > 3 ? fontSize * 0.9 : fontSize }}>
+          <span className="font-jp font-semibold leading-tight" style={{ fontSize }}>
             {city.kanji}
           </span>
         </span>
