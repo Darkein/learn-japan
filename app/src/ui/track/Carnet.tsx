@@ -215,7 +215,9 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
         ]
       : [],
   );
-  const shownSpread = flip ? (flip.target ?? (flip.p > 0.5 ? flip.hi : flip.lo)) : spread;
+  // Le marque-page actif ne change qu'une fois le tour décidé (bouton, marque-page, feuille
+  // lâchée) : une feuille tenue qui hésite autour de la moitié ne le fait pas clignoter.
+  const shownSpread = flip?.target ?? spread;
   const activeMark = marks.filter((m) => m.spread <= shownSpread).pop()?.spread;
 
   if (!pages.length) return null;
@@ -248,9 +250,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       <div
         ref={book}
         className="carnet relative grid grid-cols-2 select-none"
-        // Rien ne déborde du carnet : en se soulevant, une feuille ne passe pas sur les
-        // marque-pages (sinon, retombée, elle les découvre tous d'un coup).
-        style={{ perspective: 1600, touchAction: "pan-y", overflow: "clip" }}
+        style={{ perspective: 1600, touchAction: "pan-y", overflowX: "clip" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={(e) => release(e)}
