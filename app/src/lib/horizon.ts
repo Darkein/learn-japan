@@ -64,7 +64,8 @@ export interface SkyMark {
   /** Ordonnée de la ville sur la voie. */
   y: number;
   kind: SpriteKind;
-  name: string;
+  /** Le nom du lieu d'une illustration unique ; une ville n'en a pas ici : son panneau de quai le dit. */
+  name?: string;
   /** Sa place sur l'horizon, en part de la largeur, quand sa ville passe au milieu de la voie
       visible ; il glisse autour au fil du défilement (`markX`). */
   x: number;
@@ -75,7 +76,7 @@ export interface SkyMark {
 /**
  * Les repères du ciel : les illustrations uniques, à la place de leur dessin sur la voie et sous
  * le nom de leur lieu (le lac Ashi, pas Hakone), et les villes, grandes villes et terminus sans
- * illustration. Deux repères qui se suivent prennent des côtés opposés, pour que deux repères
+ * illustration, sans nom (leur panneau de quai le donne). Deux repères qui se suivent prennent des côtés opposés, pour que deux repères
  * visibles ensemble ne se couvrent pas.
  */
 export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMark[] {
@@ -85,7 +86,7 @@ export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMar
     const sc = sceneries.find((s) => s.level === n.level)?.cities[n.city.index];
     let kind: SpriteKind | undefined;
     let y = n.y;
-    let name = `${n.city.kanji} · ${n.city.romaji}`;
+    let name: string | undefined;
     if (sc?.unique) {
       kind = UNIQUE_SPRITE[sc.unique];
       const band = layout.reserved.find((b) => b.level === n.level && b.city === n.city.index);

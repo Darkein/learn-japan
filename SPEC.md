@@ -1050,10 +1050,12 @@ la molette y fait défiler la voie.
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
     au milieu de la voie visible, et reste dans la bande tant que son nom est affiché.
   - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par la
-    droite et sort par la gauche. Son nom (kanji · romaji) paraît en fondu au-dessus de lui tant que
-    sa ville est sur la voie visible : la voie s'arrête à la fenêtre, et une ville passée sous la
-    bande n'a plus de nom affiché. Sa place étant au milieu, il paraît et s'efface au même écart
-    de part et d'autre, avec le même fondu (300 ms).
+    droite et sort par la gauche. Une ville n'a pas de nom au-dessus de son repère : son panneau
+    de quai le donne. Le repère d'une illustration unique, lui, porte le nom de son lieu
+    (kanji · romaji), qui paraît en fondu au-dessus de lui tant que son dessin est sur la voie
+    visible : la voie s'arrête à la fenêtre, et un dessin passé sous la bande n'a plus de nom
+    affiché. Sa place étant au milieu, il paraît et s'efface au même écart de part et d'autre,
+    avec le même fondu (300 ms).
 - **Le décor qui défile.**
   - Quand on avance sur la voie (elle défile vers le haut), tout ce qui défile dans la vitre file
     de droite à gauche, comme le paysage vu d'un train qui roule.

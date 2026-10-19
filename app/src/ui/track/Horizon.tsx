@@ -160,10 +160,12 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
         <svg width={w} height={h} viewBox="0 0 120 80" className="block text-text">
           <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
         </svg>
-        {/* Le nom au-dessus du dessin, sans passer sous le store. */}
-        <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: Math.min(h + 6, glassH - WINDOW_BLIND - bottom - 20) }}>
-          {m.name}
-        </span>
+        {/* Le nom du lieu au-dessus du dessin, sans passer sous le store. */}
+        {m.name && (
+          <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: Math.min(h + 6, glassH - WINDOW_BLIND - bottom - 20) }}>
+            {m.name}
+          </span>
+        )}
       </span>
     );
   };

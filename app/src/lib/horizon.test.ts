@@ -39,7 +39,12 @@ describe("les repères du ciel", () => {
     const cities = layout.nodes.filter((n) => n.kind === "city");
     expect(marks.length).toBeGreaterThan(20);
     expect(marks.length).toBeLessThan(cities.length);
-    expect(marks.find((m) => m.name.startsWith("日本橋"))?.kind).toBe("bridge");
+    expect(marks.find((m) => m.name?.startsWith("日本橋"))?.kind).toBe("bridge");
+    // Seules les illustrations uniques ont un nom : celui d'une ville est sur son panneau de quai.
+    const named = marks.filter((m) => m.name);
+    expect(named.length).toBeGreaterThan(5);
+    expect(named.length).toBeLessThan(marks.length);
+    expect(marks.find((m) => m.kind === "castle")?.name).toBeUndefined();
     for (const m of marks) {
       expect(m.x).toBeGreaterThan(0.4);
       expect(m.x).toBeLessThan(0.7);
