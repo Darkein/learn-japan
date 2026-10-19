@@ -31,6 +31,9 @@ interface Props {
   /** Libellé de la sortie. Fourni (le parcours : « Continuer »), elle devient le bouton
    *  principal — la suite du parcours, pas un retour en arrière. */
   closeLabel?: string;
+  /** Seconde sortie à côté de « Continuer » (le parcours : « Arrêter ici »). */
+  onStop?: () => void;
+  stopLabel?: string;
   onRestart?: () => void;
   onReplayMissed?: (missed: Exercise[]) => void;
   /** Mention sous le titre : ce que la session a fait (ou non) à la planification. */
@@ -63,7 +66,17 @@ export function summaryBadge(entry: {
 }
 
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
-export function SessionSummary({ results, title, onClose, closeLabel, onRestart, onReplayMissed, note }: Props) {
+export function SessionSummary({
+  results,
+  title,
+  onClose,
+  closeLabel,
+  onStop,
+  stopLabel,
+  onRestart,
+  onReplayMissed,
+  note,
+}: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
   const chimed = useRef(false);
 
@@ -177,6 +190,11 @@ export function SessionSummary({ results, title, onClose, closeLabel, onRestart,
         {onClose && closeLabel && (
           <Button variant="primary" onClick={onClose}>
             {closeLabel}
+          </Button>
+        )}
+        {onStop && stopLabel && (
+          <Button variant="ghost" onClick={onStop}>
+            {stopLabel}
           </Button>
         )}
         {onRestart && (

@@ -15,6 +15,9 @@ interface Props {
   onExit?: () => void;
   /** Libellé de la sortie du bilan (le parcours : « Continuer »), cf. SessionSummary. */
   exitLabel?: string;
+  /** Seconde sortie du bilan, à côté de `exitLabel` (le parcours : « Arrêter ici »). */
+  onStop?: () => void;
+  stopLabel?: string;
   /**
    * Étape du parcours (SPEC §5.5) : les ratés sont REJOUÉS d'office à la fin, jusqu'à être
    * tous réussis — pas de cœurs, pas d'étape « ratée ». La relance n'écrit rien dans le SRS
@@ -25,7 +28,7 @@ interface Props {
 
 type Result = { card: Exercise; grade: SrsGrade; daysBefore: number };
 
-export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
+export function ReviewSession({ opts, onExit, exitLabel, onStop, stopLabel, autoReplay }: Props) {
   const { settings, update } = useSettings();
   // Un nom par entrée : l'étape du parcours (« Vocabulaire », « Produire »…), « Révision »
   // (étape Révision, scope "due") ou « Question » (entraînement libre, scope "all").
@@ -139,6 +142,8 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
         onReplayMissed={autoReplay ? undefined : (missed) => restart(missed)}
         onClose={onExit}
         closeLabel={exitLabel}
+        onStop={onStop}
+        stopLabel={stopLabel}
       />
     );
   }

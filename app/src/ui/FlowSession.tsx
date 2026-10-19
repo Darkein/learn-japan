@@ -4,7 +4,7 @@ import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/fl
 import { checkOmikuji } from "../lib/omikuji";
 import { startLessonJob } from "../lib/genJobs";
 import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
-import { STEP_LABEL, type PathStep } from "../lib/path";
+import { STEP_LABEL } from "../lib/path";
 import { estimateLabel, loadFormDurations, stepPlan } from "../lib/pathPlan";
 import { REST_STEP_SIZE } from "../lib/reviewSession";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
@@ -25,7 +25,6 @@ import { Button } from "./kit/Button";
 import { Card } from "./kit/Card";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
-import { LessonPath } from "./LessonPath";
 import { useFlowClock } from "./useFlowClock";
 import { useNotify } from "./useNotify";
 import { useSettings } from "./useSettings";
@@ -40,10 +39,6 @@ type Phase =
       activity: FlowActivity;
       /** Numéro du bloc dans la séance : deux blocs du même genre ne partagent pas d'état. */
       seq: number;
-      /** Leçon de l'étape, pour la bande des stations au-dessus du bloc ; `from` = l'étape
-       *  qu'on vient de finir, d'où glisse le repère. */
-      lesson?: Lesson;
-      from?: PathStep;
     }
   | {
       name: "checkpoint";
@@ -94,10 +89,7 @@ export function FlowSession({ onExit, forced }: Props) {
   function start() {
     setPhase({ name: "loading" });
     void (async () => {
-      const [{ state, lessons }, daily] = await Promise.all([
-        gatherFlowState(),
-        getSrsDaily(localDateString()),
-      ]);
+      const [{ state }, daily] = await Promise.all([gatherFlowState(), getSrsDaily(localDateString())]);
       reviewedAtBlockStart.current = daily?.reviewed ?? 0;
       // Entrée forcée depuis une carte de l'accueil (ex. relecture-miroir).
       const first =
@@ -112,29 +104,21 @@ export function FlowSession({ onExit, forced }: Props) {
       setPhase(
         first.kind === "done"
           ? { name: "checkpoint", result: null, next: first }
-          : activityPhase(first, lessons),
+          : activityPhase(first),
       );
     })();
   }
 
-  /** Le bloc suivant, avec la bande des stations quand c'est une étape de sa leçon. */
-  function activityPhase(activity: FlowActivity, lessons: Lesson[], finished?: FlowActivity): Phase {
-    const lesson = activity.step ? lessons.find((l) => l.id === activity.lessonId) : undefined;
-    const from = lesson && finished?.step && finished.lessonId === lesson.id ? finished.step : undefined;
-    return {
-      name: "activity",
-      activity,
-      seq: ++blockSeq.current,
-      ...(lesson ? { lesson } : {}),
-      ...(from ? { from } : {}),
-    };
+  function activityPhase(activity: FlowActivity): Phase {
+    return { name: "activity", activity, seq: ++blockSeq.current };
   }
 
   // Une étape finie ne laisse jamais l'écran en attente : si le bilan échoue (une lecture en
   // base qui lève), le parcours repart de l'état courant plutôt que de rester figé.
-  async function afterBlock(finished: FlowActivity) {
+  // `stop` : on quitte depuis le bilan — l'étape est créditée, puis le parcours se ferme.
+  async function afterBlock(finished: FlowActivity, stop = false) {
     try {
-      await advanceAfter(finished);
+      await advanceAfter(finished, stop);
     } catch (e) {
       console.error("Bilan d'étape impossible", e);
       start();
@@ -146,7 +130,7 @@ export function FlowSession({ onExit, forced }: Props) {
    * exercice a déjà son écran de fin. Le checkpoint ne reste que s'il a quelque chose à
    * montrer — le bilan d'une relecture-miroir — ou plus rien à proposer.
    */
-  async function advanceAfter(finished: FlowActivity) {
+  async function advanceAfter(finished: FlowActivity, stop = false) {
     setPhase({ name: "loading" });
     // Après une relecture-miroir : calcule le delta (à l'époque / aujourd'hui) et
     // déclenche le refroidissement de 14 jours AVANT de re-collecter l'état.
@@ -189,9 +173,13 @@ export function FlowSession({ onExit, forced }: Props) {
       const following = i >= 0 ? lessons[i + 1] : undefined;
       if (following?.state === "to-generate") void startLessonJob(following);
     }
+    if (stop) {
+      onExit();
+      return;
+    }
     const next = pickNext(state);
     if (!mirrorExtra && next.kind !== "done") {
-      await startNext(next, lessons, finished);
+      await startNext(next);
       return;
     }
     const recap = await recapFor(finished, reviewedAtBlockStart.current);
@@ -206,10 +194,10 @@ export function FlowSession({ onExit, forced }: Props) {
     });
   }
 
-  async function startNext(next: FlowActivity, lessons: Lesson[], finished?: FlowActivity) {
+  async function startNext(next: FlowActivity) {
     const d = await getSrsDaily(localDateString());
     reviewedAtBlockStart.current = d?.reviewed ?? 0;
-    setPhase(activityPhase(next, lessons, finished));
+    setPhase(activityPhase(next));
   }
 
   return (
@@ -231,14 +219,13 @@ export function FlowSession({ onExit, forced }: Props) {
       {phase.name === "omikuji" && <OmikujiSheet onClose={start} />}
 
       {phase.name === "activity" && (
-        <div key={phase.seq} className="flex flex-col gap-6">
-          {phase.lesson && <LessonPath lesson={phase.lesson} from={phase.from} />}
-          <ActivityBlock
-            activity={phase.activity}
-            furigana={settings.furiganaDefault}
-            onDone={() => void afterBlock(phase.activity)}
-          />
-        </div>
+        <ActivityBlock
+          key={phase.seq}
+          activity={phase.activity}
+          furigana={settings.furiganaDefault}
+          onDone={() => void afterBlock(phase.activity)}
+          onStop={() => void afterBlock(phase.activity, true)}
+        />
       )}
 
       {phase.name === "checkpoint" && (
@@ -247,10 +234,7 @@ export function FlowSession({ onExit, forced }: Props) {
           next={phase.next}
           estimate={phase.estimate}
           lesson={phase.lesson}
-          onContinue={() => {
-            const next = phase.next;
-            void gatherFlowState().then(({ lessons }) => startNext(next, lessons));
-          }}
+          onContinue={() => void startNext(phase.next)}
           onExit={onExit}
         />
       )}
@@ -319,11 +303,15 @@ function ActivityBlock({
   activity,
   furigana,
   onDone,
+  onStop,
 }: {
   activity: FlowActivity;
   furigana: boolean;
   onDone: () => void;
+  /** Quitter depuis le bilan, l'étape une fois créditée. */
+  onStop: () => void;
 }) {
+  const stop = { onStop, stopLabel: "Arrêter ici" };
   switch (activity.kind) {
     case "review":
       return (
@@ -331,12 +319,19 @@ function ActivityBlock({
           opts={{ scope: "due", itemIds: activity.itemIds, lessonId: activity.lessonId }}
           onExit={onDone}
           exitLabel="Continuer"
+          {...stop}
           autoReplay
         />
       );
     case "rest":
       return (
-        <ReviewSession opts={{ scope: "rest", lessonIds: activity.lessonIds }} onExit={onDone} exitLabel="Continuer" autoReplay />
+        <ReviewSession
+          opts={{ scope: "rest", lessonIds: activity.lessonIds }}
+          onExit={onDone}
+          exitLabel="Continuer"
+          {...stop}
+          autoReplay
+        />
       );
     case "vocab":
     case "grammar":
@@ -347,6 +342,7 @@ function ActivityBlock({
           opts={{ scope: "step", lessonId: activity.lessonId, step: activity.kind }}
           onExit={onDone}
           exitLabel="Continuer"
+          {...stop}
           autoReplay
         />
       );
