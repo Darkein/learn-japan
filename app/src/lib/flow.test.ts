@@ -93,7 +93,7 @@ describe("pickNext — révision insérée (le retard ralentit le neuf, il ne le
     const a = pickNext(state({ dueCount: 34, currentLesson: lesson(["course"]) }));
     expect(a.kind).toBe("review");
     expect(a.step).toBeUndefined();
-    expect(a.title).toContain("34 cartes en attente");
+    expect(a.title).toBe("Révision · 10 cartes (34 en retard)");
   });
 
   it("au plus une insertion par étape : juste après une révision, l'étape suit", () => {

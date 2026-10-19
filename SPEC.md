@@ -436,7 +436,9 @@ freiner le neuf, elle remplit les étapes Révision.
   normalement, et fait moins progresser la stabilité qu'une révision à l'échéance.
 - **Révision insérée.** Quand plus de 20 cartes sont dues (plus de deux étapes de retard), le
   parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6),
-  et l'affiche comme telle (« Révision · 34 cartes en attente »). **Au plus une insertion par étape
+  et l'affiche comme telle, avec l'effort réel (« Révision · 10 cartes (34 en retard) ») : un
+  petit 復 sans numéro devant l'étape qu'elle précède, dans la voie, la bande des stations et la
+  liste des étapes de la leçon. **Au plus une insertion par étape
   de contenu**, retenue d'une séance à l'autre (meta `reviewInsert.<leçon>.<étape>`) : quitter
   puis revenir ne la repropose pas, et de nouvelles cartes dues chaque jour ne bloquent jamais
   la leçon — un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais. Faite, elle
@@ -792,7 +794,7 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 | Histoire | oui | 話 | 話 はなし · Histoire |
 | Produire | oui | 書 | 書く かく · Produire |
 | Contrôle | oui | 関 (carré) | 関所 せきしょ · Contrôle |
-| Révision insérée (§5.4) | non | 復 | 復習 ふくしゅう · Révision insérée · 34 cartes |
+| Révision insérée (§5.4) | non | 復 | 復習 ふくしゅう · Révision insérée · 10 cartes (34 en retard) |
 | Révision ciblée (après un contrôle échoué) | non | 復 | 復習 ふくしゅう · Révision ciblée |
 | Station de repos (§5.4) | non | 休 | 休憩 きゅうけい · Station de repos |
 | Ville du voyage | non | selon sa taille (§5c.4) | nom en kanji, lecture, « Ville 5 · Totsuka » |

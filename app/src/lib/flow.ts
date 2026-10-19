@@ -170,7 +170,7 @@ export function pickNext(state: FlowState): FlowActivity {
           kind: "review",
           lessonId: cur.id,
           before: step,
-          title: `Révision · ${s.dueCount} cartes en attente`,
+          title: `Révision · ${REVIEW_STEP_SIZE} cartes (${s.dueCount} en retard)`,
           reason: "Le retard monte : un tour de révision avant la suite de la leçon.",
         };
       }

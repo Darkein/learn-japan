@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { gatherFlowState, pickNext, type FlowActivity } from "../lib/flow";
 import type { Lesson } from "../lib/lessons";
 import { STEP_LABEL, stepNumber, type PathStep } from "../lib/path";
 import { estimateLabel, loadFormDurations, stepPlan, type StepEstimate } from "../lib/pathPlan";
 
 type PathLesson = Pick<
   Lesson,
-  "steps" | "stepsDone" | "nextStep" | "vocabCount" | "grammarCount" | "vocabToLearn" | "grammarToLearn"
+  | "id"
+  | "steps" | "stepsDone" | "nextStep" | "vocabCount" | "grammarCount" | "vocabToLearn" | "grammarToLearn"
 >;
 
 /** Durées mesurées par forme d'exercice (journal), chargées une fois par composant. */
@@ -21,6 +23,37 @@ export function useFormDurations(): Map<string, number> {
 export function usePlan(lesson: PathLesson): StepEstimate[] {
   const ms = useFormDurations();
   return stepPlan(lesson, ms);
+}
+
+/**
+ * La révision insérée qui attend devant la prochaine étape de cette leçon (§5.4), s'il y en
+ * a une : le parcours la propose avant la suite, les stations la montrent à sa place.
+ */
+function usePendingDetour(lessonId: string): FlowActivity | undefined {
+  const [detour, setDetour] = useState<FlowActivity>();
+  useEffect(() => {
+    let live = true;
+    void gatherFlowState().then(({ state }) => {
+      const a = pickNext(state);
+      if (live) setDetour(a.kind === "review" && a.before && a.lessonId === lessonId ? a : undefined);
+    });
+    return () => {
+      live = false;
+    };
+  }, [lessonId]);
+  return detour;
+}
+
+/** Le détour d'une révision insérée : un petit 復 sans numéro, cerclé d'accent (à faire). */
+function Detour() {
+  return (
+    <span
+      aria-hidden="true"
+      className="-mx-px flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-accent bg-bg font-jp text-[8px] leading-none text-accent"
+    >
+      復
+    </span>
+  );
 }
 
 type StepState = "done" | "next" | "todo";
@@ -51,14 +84,15 @@ function Station({ state }: { state: StepState }) {
 export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; variant?: "strip" | "list" }) {
   const plan = usePlan(lesson);
   const estimate = (step: PathStep) => plan.find((e) => e.step === step);
+  const detour = usePendingDetour(lesson.id);
 
   if (variant === "list") {
     return (
       <ol className="m-0 flex list-none flex-col p-0" aria-label="Parcours de la leçon">
-        {lesson.steps.map((step, i) => {
+        {lesson.steps.flatMap((step, i) => {
           const state = stateOf(lesson, step);
           const e = estimate(step);
-          return (
+          const row = (
             <li key={step} className="flex items-center gap-3 border-t border-hairline py-2.5 first:border-t-0">
               <Station state={state} />
               <span className={`flex-1 text-sm ${state === "todo" ? "text-muted" : "text-text"}`}>
@@ -69,6 +103,16 @@ export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; 
               </span>
             </li>
           );
+          if (detour?.before !== step) return [row];
+          // Sans numéro : le détour ne décale pas les étapes de la leçon.
+          return [
+            <li key="detour" className="flex items-center gap-3 border-t border-hairline py-2.5">
+              <Detour />
+              <span className="flex-1 text-sm text-text">Révision insérée</span>
+              <span className="text-xs text-accent">{detour.title.replace(/^Révision · /, "")}</span>
+            </li>,
+            row,
+          ];
         })}
       </ol>
     );
@@ -85,6 +129,11 @@ export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; 
       >
         {lesson.steps.map((step, i) => (
           <span key={step} className={`flex items-center ${i < lesson.steps.length - 1 ? "flex-1" : ""}`}>
+            {detour?.before === step && (
+              <span title={detour.title} className="mr-1 flex items-center">
+                <Detour />
+              </span>
+            )}
             <span title={STEP_LABEL[step]}>
               <Station state={stateOf(lesson, step)} />
             </span>
@@ -97,9 +146,10 @@ export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; 
           </span>
         ))}
       </div>
+      {detour && <span className="text-xs text-accent">D'abord : {detour.title}</span>}
       {next && (
         <span className="text-xs text-muted">
-          Étape {stepNumber(lesson.steps, next)}/{lesson.steps.length} · {STEP_LABEL[next]}
+          {detour ? "Puis : " : ""}Étape {stepNumber(lesson.steps, next)}/{lesson.steps.length} · {STEP_LABEL[next]}
           {e ? ` · ${estimateLabel(e)}` : ""}
         </span>
       )}
