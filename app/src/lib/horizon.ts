@@ -1,6 +1,8 @@
 // La bande de ciel de la voie (SPEC §5c.6b) : calcul PUR. Le panorama du départ qui se replie,
 // le décor qui défile en deux plans, tiré du paysage du tronçon, et entre les deux les repères
 // des villes, qui passent au milieu de l'horizon quand leur ville est au milieu de la voie visible.
+// Quand on avance sur la voie, tout ce qui défile file de droite à gauche, d'autant plus vite que
+// c'est proche.
 
 import { UNIQUE_NAMES, type Biome, type RouteScenery, type SpriteKind, type UniqueKind } from "./scenery";
 import type { TrackLayout } from "./track";
@@ -107,7 +109,7 @@ const RIDGE = "L36 10 L72 20 L114 4 L156 18 L201 8 L246 20 L300 22";
 
 /** Le tracé de la crête lointaine (40 px de haut) sur `width` px, quand la voie est à `pos`. */
 export function ridgePath(pos: number, width: number): string {
-  const shift = (((pos * RIDGE_SPEED) % RIDGE_PERIOD) + RIDGE_PERIOD) % RIDGE_PERIOD;
+  const shift = (((-pos * RIDGE_SPEED) % RIDGE_PERIOD) + RIDGE_PERIOD) % RIDGE_PERIOD;
   let d = `M${shift - RIDGE_PERIOD} 40 L${shift - RIDGE_PERIOD} 22`;
   for (let x0 = shift - RIDGE_PERIOD; x0 < width; x0 += RIDGE_PERIOD) {
     d += " " + RIDGE.replace(/L(-?[\d.]+) /g, (_, x) => `L${Math.round((x0 + Number(x)) * 10) / 10} `);
@@ -122,11 +124,12 @@ export const FAR_MARK_SPEED = 0.1;
 
 /**
  * Où est un repère quand la voie est à `pos` (ordonnée de voie du bas du ciel) : à sa place quand
- * sa ville passe au milieu de la voie visible, et il glisse dans le même sens que le décor.
+ * sa ville passe au milieu de la voie visible, et il glisse dans le même sens que le décor : il
+ * entre par la droite et sort par la gauche.
  */
 export function markX(mark: SkyMark, pos: number, visible: number, width: number): number {
   const speed = mark.depth === "far" ? FAR_MARK_SPEED : MARK_SPEED;
-  return mark.x * width + (pos - (mark.y - visible / 2)) * speed;
+  return mark.x * width - (pos - (mark.y - visible / 2)) * speed;
 }
 
 /**
@@ -149,7 +152,7 @@ export const POLE_SPACING = 240;
  * droite : ceux de la vitre, et un de chaque côté au-delà, pour que les fils entrent et sortent.
  */
 export function poleXs(pos: number, width: number): number[] {
-  const off = (((pos * POLE_SPEED) % POLE_SPACING) + POLE_SPACING) % POLE_SPACING;
+  const off = (((-pos * POLE_SPEED) % POLE_SPACING) + POLE_SPACING) % POLE_SPACING;
   const out: number[] = [];
   for (let x = off - POLE_SPACING; x <= width + POLE_SPACING; x += POLE_SPACING) out.push(x);
   return out;
@@ -191,11 +194,11 @@ export const SIGN_SPEED = 1;
 
 /**
  * Le centre du panneau d'une gare quand la voie est à `pos` : au milieu de la vitre quand sa ville
- * passe au milieu de la voie visible ; il entre quand elle arrive sur la voie et sort quand elle
- * passe sous la fenêtre.
+ * passe au milieu de la voie visible ; il entre par la droite quand elle arrive sur la voie et
+ * sort par la gauche quand elle passe sous la fenêtre.
  */
 export function signX(st: Station, pos: number, visible: number, width: number): number {
-  return width / 2 + (pos - (st.y - visible / 2)) * SIGN_SPEED;
+  return width / 2 - (pos - (st.y - visible / 2)) * SIGN_SPEED;
 }
 
 // ---- Ce qui passe dans le ciel ----------------------------------------------------------
@@ -217,7 +220,7 @@ export const SKY_MARGIN = 90;
  */
 export function skyShift(pos: number, speed: number, width: number): number {
   const span = width + 2 * SKY_MARGIN;
-  return (((pos * speed) % span) + span) % span;
+  return (((-pos * speed) % span) + span) % span;
 }
 
 // ---- Le décor qui défile ---------------------------------------------------------------
@@ -336,7 +339,7 @@ export function driftItems(
     if (hash(i, salt) < 0.3) continue;
     const kinds = DRIFT[layer][biome((i * spacing - width / 2) / speed + ahead)];
     const kind = kinds[Math.floor(hash(i, 7 + salt) * kinds.length)];
-    const x = width - (i * spacing - off) + hash(i, 5 + salt) * spacing * 0.4;
+    const x = i * spacing - off + hash(i, 5 + salt) * spacing * 0.4;
     if (x < -60 || x > width + 60) continue;
     out.push({ key: `${layer}${i}`, kind, x, scale: scale * (0.8 + hash(i, 9 + salt) * 0.45) });
   }

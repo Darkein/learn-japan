@@ -46,18 +46,20 @@ export function Poles({ pos, width, height }: { pos: number; width: number; heig
 export function StationSign({ station, x }: { station: Station; x: number }) {
   return (
     <div className="absolute bottom-0 flex flex-col items-center" style={{ left: x, transform: "translateX(-50%)" }}>
-      <div className="station-sign flex w-28 flex-col items-center overflow-hidden rounded-sm pt-0.5">
-        <span className="font-jp text-[7px] leading-none">{station.kanji}</span>
+      <div className="flex w-28 flex-col items-center rounded-sm border border-hairline-strong bg-surface pt-1 text-text shadow-elev">
+        <span className="font-jp text-[7px] leading-none text-muted">{station.kanji}</span>
         <span className="font-jp text-xs leading-tight tracking-widest">{station.kana}</span>
-        <span className="text-[6px] leading-none tracking-wide">{station.romaji}</span>
-        <div className="station-band mt-0.5 flex w-full justify-between px-1 py-px font-jp text-[6px] leading-none">
+        <span className="text-[6px] uppercase leading-none tracking-wide text-muted">{station.romaji}</span>
+        {/* Le filet vermillon de la ligne, et les gares voisines dessous. */}
+        <span className="mt-1 h-px w-full bg-accent" />
+        <div className="flex w-full justify-between px-1 py-0.5 font-jp text-[6px] leading-none text-muted">
           <span>{station.prev ? `← ${station.prev}` : ""}</span>
           <span>{station.next ? `${station.next} →` : ""}</span>
         </div>
       </div>
       <div className="flex w-20 justify-between">
-        <span className="station-post h-2.5 w-0.5" />
-        <span className="station-post h-2.5 w-0.5" />
+        <span className="h-2.5 w-px bg-hairline-strong" />
+        <span className="h-2.5 w-px bg-hairline-strong" />
       </div>
     </div>
   );

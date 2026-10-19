@@ -61,15 +61,15 @@ describe("les repères du ciel", () => {
     const far = { id: "f", y: 2000, kind: "fuji" as const, name: "x", x: 0.5, depth: "far" as const };
     const near = { ...far, depth: "mid" as const };
     const moved = (m: typeof far | typeof near) => markX(m, 2100, 590, 390) - markX(m, 2000, 590, 390);
-    expect(moved(far)).toBeCloseTo(100 * FAR_MARK_SPEED);
-    expect(moved(far)).toBeLessThan(moved(near));
+    expect(moved(far)).toBeCloseTo(-100 * FAR_MARK_SPEED);
+    expect(Math.abs(moved(far))).toBeLessThan(Math.abs(moved(near)));
   });
 
   it("un repère glisse avec le défilement, à sa place quand sa ville est au milieu, et reste à l'écran", () => {
     const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.5 };
     const visible = 590;
     expect(markX(mark, 2000 - visible / 2, visible, 390)).toBeCloseTo(195);
-    expect(markX(mark, 2100, visible, 390) - markX(mark, 2000, visible, 390)).toBeCloseTo(100 * MARK_SPEED);
+    expect(markX(mark, 2100, visible, 390) - markX(mark, 2000, visible, 390)).toBeCloseTo(-100 * MARK_SPEED);
     // Tant que son nom est affiché (sa ville sur la voie visible), son centre reste dans la bande.
     for (const m of skyMarks(realLayout(), SCENERIES).slice(0, 40)) {
       for (const pos of [m.y - visible, m.y]) {
@@ -101,7 +101,8 @@ describe("le décor qui défile", () => {
       const b = at(layer, 1100);
       const common = a.find((it) => b.some((j) => j.key === it.key))!;
       const moved = b.find((j) => j.key === common.key)!.x - common.x;
-      expect(moved).toBeCloseTo({ far: 14, mid: 22, near: 42 }[layer], 5);
+      // Quand on avance, le paysage file vers la gauche.
+      expect(moved).toBeCloseTo(-{ far: 14, mid: 22, near: 42 }[layer], 5);
       expect(at(layer, 1000)).toEqual(a);
     }
   });
@@ -128,12 +129,12 @@ describe("le décor qui défile", () => {
 
 describe("le premier plan", () => {
   it("les poteaux filent plus vite que tout, régulièrement espacés, et débordent de la vitre", () => {
-    const a = poleXs(1000, 374);
+    const a = poleXs(1005, 374);
     const b = poleXs(1010, 374);
     expect(a[0]).toBeLessThan(0);
     expect(a.at(-1)!).toBeGreaterThan(374);
     for (let i = 1; i < a.length; i++) expect(a[i] - a[i - 1]).toBeCloseTo(POLE_SPACING);
-    expect(b[1] - a[1]).toBeCloseTo(10 * POLE_SPEED);
+    expect(b[1] - a[1]).toBeCloseTo(-5 * POLE_SPEED);
     expect(POLE_SPEED).toBeGreaterThan(SKY_SPEED.petals);
   });
 
@@ -156,8 +157,9 @@ describe("le premier plan", () => {
   it("le panneau passe au milieu de la vitre quand sa ville est au milieu de la voie visible", () => {
     const st = { id: "c", y: 2000, kanji: "", kana: "", romaji: "" };
     expect(signX(st, 2000 - 300, 600, 374)).toBeCloseTo(187);
-    expect(signX(st, 2000 - 600, 600, 374)).toBeLessThan(-100);
-    expect(signX(st, 2000, 600, 374)).toBeGreaterThan(374 + 100);
+    // Il entre par la droite quand sa ville arrive sur la voie, sort par la gauche quand elle part.
+    expect(signX(st, 2000 - 600, 600, 374)).toBeGreaterThan(374 + 100);
+    expect(signX(st, 2000, 600, 374)).toBeLessThan(-100);
   });
 });
 
@@ -165,7 +167,7 @@ describe("ce qui passe dans le ciel", () => {
   it("glisse avec son plan au défilement, et fait le tour de la vitre sans saut", () => {
     const span = 390 + 2 * SKY_MARGIN;
     for (const speed of Object.values(SKY_SPEED)) {
-      expect(skyShift(100, speed, 390) - skyShift(0, speed, 390)).toBeCloseTo(100 * speed);
+      expect(skyShift(200, speed, 390) - skyShift(100, speed, 390)).toBeCloseTo(-100 * speed);
       for (const pos of [-3000, -1, 0, 777, 12_345]) {
         const x = skyShift(pos, speed, 390);
         expect(x).toBeGreaterThanOrEqual(0);
@@ -186,7 +188,7 @@ describe("la crête lointaine", () => {
   it("glisse lentement, d'un motif qui se répète sans couture", () => {
     const xs = (d: string) => [...d.matchAll(/L(-?[\d.]+) 4(?!\d)/g)].map((m) => Number(m[1]));
     const peak = (pos: number) => xs(ridgePath(pos, 390));
-    expect(peak(100)[0] - peak(0)[0]).toBeCloseTo(100 * RIDGE_SPEED, 1);
+    expect(peak(200)[0] - peak(100)[0]).toBeCloseTo(-100 * RIDGE_SPEED, 1);
     expect(ridgePath(RIDGE_PERIOD / RIDGE_SPEED, 390)).toBe(ridgePath(0, 390));
     expect(ridgePath(-500, 390)).toMatch(/^M-?[\d.]+ 40/);
   });

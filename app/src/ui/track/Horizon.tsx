@@ -198,8 +198,9 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
               <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
               {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
               <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP + ROLL} fill="var(--sky-near)" size={size} />
-              {sign && <StationSign station={sign.st} x={sign.x} />}
               <Poles pos={pos} width={W} height={glassH + ROLL} />
+              {/* Le panneau devant les poteaux : son nom reste lisible quand l'un passe. */}
+              {sign && <StationSign station={sign.st} x={sign.x} />}
             </Sky>
           </div>
           <Glass rain={season === "rainy"} night={sky.time === "night"} />

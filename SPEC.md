@@ -1049,12 +1049,14 @@ la molette y fait défiler la voie.
   - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,35 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
     au milieu de la voie visible, et reste dans la bande tant que son nom est affiché.
-  - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par un
-    côté et sort par l'autre. Son nom (kanji · romaji) paraît en fondu au-dessus de lui tant que
+  - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par la
+    droite et sort par la gauche. Son nom (kanji · romaji) paraît en fondu au-dessus de lui tant que
     sa ville est sur la voie visible : la voie s'arrête à la fenêtre, et une ville passée sous la
     bande n'a plus de nom affiché. Sa place étant au milieu, il paraît et s'efface au même écart
     de part et d'autre, avec le même fondu (300 ms).
 - **Le décor qui défile.**
+  - Quand on avance sur la voie (elle défile vers le haut), tout ce qui défile dans la vitre file
+    de droite à gauche, comme le paysage vu d'un train qui roule.
   - Trois plans glissent de côté au fil du défilement, dans le même sens que les repères, chaque
     chose sur le plan de sa taille : le plan lointain (monts) à 0,14 px par px défilé, le plan
     moyen (forêts, temples) à 0,22 px, le plan proche (arbres, maisons) à 0,42 px.
@@ -1066,18 +1068,21 @@ la molette y fait défiler la voie.
 - **Le premier plan, au ras de la vitre** :
   - des **poteaux télégraphiques** et leurs deux fils, tous les 240 px, qui filent plus vite que
     tout (1,2 px par px défilé) ; leur tête passe sous le store, leur pied sous la vitre ;
-  - à chaque ville, le **panneau de quai** (駅名標) de sa gare : une plaque blanche dans les deux
-    thèmes, le nom en kana en grand, son kanji au-dessus et son romaji dessous, et un bandeau
-    indigo avec la gare précédente à gauche et la suivante à droite (de la même route ; rien au
-    départ ni au terminus). Il glisse à 1 px par px défilé, posé au bas de la vitre : il entre
-    quand sa ville arrive sur la voie visible, passe au milieu quand elle est au milieu, et sort
-    quand elle passe sous la fenêtre.
+  - à chaque ville, le **panneau de quai** (駅名標) de sa gare, dans le style de l'app : un panneau
+    `--surface` bordé d'un filet `--hairline-strong`, avec l'ombre `--elev` ; le nom en kana en
+    grand, son kanji au-dessus et son romaji dessous en petites capitales `--text-muted`, puis le
+    filet vermillon de la ligne, et dessous la gare précédente à gauche et la suivante à droite
+    (de la même route ; rien au départ ni au terminus). Ses deux pieds sont des filets. Il glisse
+    à 1 px par px défilé, posé au bas de la vitre : il entre par la droite quand sa ville arrive
+    sur la voie visible, passe au milieu quand elle est au milieu, et sort par la gauche quand
+    elle passe sous la fenêtre.
 - **Le roulis.** Le paysage tressaute sans arrêt au rythme des joints de rail (ta-dam… ta-dam),
   de 1 px, en 1,6 s ; il déborde de 2 px sous la vitre pour n'en jamais découvrir le bord. La
   vitre et l'intérieur ne bougent pas. Coupé sous `prefers-reduced-motion`.
 - **La vitre et l'intérieur**, par-dessus le paysage et fixes :
   - un reflet en biais, très léger ;
-  - en saison des pluies, des traînées de pluie qui filent à l'horizontale, poussées par la course ;
+  - en saison des pluies, des traînées de pluie qui filent à l'horizontale vers l'arrière du
+    train (de droite à gauche), poussées par la course ;
   - la nuit, le reflet du wagon éclairé : la lueur de la lampe et l'ombre des dossiers ;
   - un store replié en haut de la vitre (8 px), sous lequel aucun nom ne passe ;
   - la tablette sous la vitre, en bas à droite, et une tasse de thé posée dessus.
