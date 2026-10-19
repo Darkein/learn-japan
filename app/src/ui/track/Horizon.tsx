@@ -40,7 +40,8 @@ interface Props {
 /** Taille d'un repère (boîte 120 × 80 du catalogue : son pied est vers y = 72). */
 const MARK_W = 92;
 const MARK_H = (MARK_W * 80) / 120;
-/** Les repères du fond (les monts) sont plus grands : ils dominent le paysage. */
+/** Les repères du fond (les monts) sont plus grands : ils dominent le paysage ; comme les plans,
+    ils rapetissent quand la bande se replie. */
 const FAR_MARK_SCALE = 1.4;
 
 interface View {
@@ -132,12 +133,13 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
   const marked = marks.filter((m) => m.depth !== "far").map((m) => markX(m, pos, visible, W)).filter((x) => x > -MARK_W && x < W + MARK_W);
   // Devant un repère, le premier plan s'écarte : rien ne le cache.
   const near = driftItems("near", pos, W, visible / 3, at).filter((it) => marked.every((x) => Math.abs(it.x - x) > MARK_W * 0.45));
-  // Un repère sur son plan : les monts du fond, plus grands, derrière le plan moyen ; le reste devant.
+  // Un repère sur son plan : les monts tout au fond, derrière le plan lointain ; le reste devant le
+  // plan moyen.
   const renderMark = (m: SkyMark, base: number) => {
     const x = markX(m, pos, visible, W);
     if (x < -MARK_W || x > W + MARK_W) return null;
     const up = markRaised(m, pos, pos + visible);
-    const k = m.depth === "far" ? FAR_MARK_SCALE : 1;
+    const k = m.depth === "far" ? FAR_MARK_SCALE * size : 1;
     const w = MARK_W * k;
     const h = MARK_H * k;
     const bottom = base - h / 10;
@@ -178,8 +180,8 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
             </svg>
             {/* Le sol, de l'horizon au bas de la vitre. */}
             <div className="horizon-ground absolute inset-x-0 bottom-0" style={{ height: ground }} />
+            {marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.far))}
             <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
-            {marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.mid))}
             <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
             {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
             <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} />

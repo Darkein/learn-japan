@@ -1030,12 +1030,14 @@ la molette y fait défiler la voie.
   1. le fond du ciel, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
   2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,08 px par px
      défilé) ;
-  3. le **plan lointain** qui défile (monts et collines), aux 78/100 du sol, à 0,14 px par px
-     défilé, à peine plus marqué que la crête ; les repères qui sont des monts (le Fuji, l'Asama)
-     y glissent avec lui, plus grands, posés aux 6/10 du sol, derrière le plan moyen ;
-  4. le **plan moyen** qui défile (forêts, temples, bosquets), aux 6/10 du sol ;
-  5. les autres **repères** des villes (châteaux, torii, ponts, lacs…), au quart du sol ;
-  6. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
+  3. les repères qui sont des monts (le Fuji, l'Asama), tout au fond : posés aux 78/100 du sol,
+     derrière le plan lointain, à 0,1 px par px défilé, plus grands (et rapetissant avec les plans
+     quand la bande se replie), opaques ;
+  4. le **plan lointain** qui défile (monts et collines), aux 78/100 du sol, à 0,14 px par px
+     défilé, à peine plus marqué que la crête ;
+  5. le **plan moyen** qui défile (forêts, temples, bosquets), aux 6/10 du sol ;
+  6. les autres **repères** des villes (châteaux, torii, ponts, lacs…), au quart du sol ;
+  7. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
      la vitre — une bande de sol vide et calme sépare ce qui glisse vite de la voie — en
      silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
   Les plans qui défilent rapetissent quand la bande se replie.

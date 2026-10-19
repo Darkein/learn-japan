@@ -50,7 +50,8 @@ const MOTIF_SPRITE: Partial<Record<string, SpriteKind>> = {
   tea: "tea", pagoda: "pagoda",
 };
 
-/** Le plan d'un repère : les monts au fond, derrière le plan moyen ; le reste devant lui. */
+/** Le plan d'un repère : les monts tout au fond, derrière le plan lointain ; le reste devant le
+    plan moyen. */
 export type MarkDepth = "far" | "mid";
 const FAR_MARKS: ReadonlySet<SpriteKind> = new Set(["fuji", "volcano", "ridge"]);
 
@@ -113,9 +114,9 @@ export function ridgePath(pos: number, width: number): string {
 }
 
 /** Vitesse des repères : entre le plan moyen et le plan proche du décor qui défile ; les monts du
-    fond glissent avec le plan lointain. */
+    fond glissent entre la crête et le plan lointain. */
 export const MARK_SPEED = 0.35;
-export const FAR_MARK_SPEED = 0.14;
+export const FAR_MARK_SPEED = 0.1;
 
 /**
  * Où est un repère quand la voie est à `pos` (ordonnée de voie du bas du ciel) : à sa place quand
