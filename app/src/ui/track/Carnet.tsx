@@ -248,7 +248,9 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       <div
         ref={book}
         className="carnet relative grid grid-cols-2 select-none"
-        style={{ perspective: 1600, touchAction: "pan-y", overflowX: "clip" }}
+        // Rien ne déborde du carnet : en se soulevant, une feuille ne passe pas sur les
+        // marque-pages (sinon, retombée, elle les découvre tous d'un coup).
+        style={{ perspective: 1600, touchAction: "pan-y", overflow: "clip" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={(e) => release(e)}
