@@ -14,10 +14,12 @@ const TURN_MS = 700;
 /** Bandes verticales de la feuille qui tourne : chacune pivote un peu plus que la précédente,
     la feuille se courbe comme du papier au lieu de tourner d'un bloc. */
 const STRIPS = 8;
+/** En cascade, les feuilles se contentent de moins de bandes : moins de pages à monter d'un coup. */
+const CASCADE_STRIPS = 4;
 /** Courbure maximale de la feuille (degrés entre la reliure et le bord libre), à mi-course. */
 const CURL = 110;
 /** Saut lointain (marque-page) : au plus tant de feuilles tournent, l'une après l'autre. */
-const MAX_LEAVES = 4;
+const MAX_LEAVES = 3;
 const LEAF_STAGGER_MS = 110;
 /** Ruban du marque-page de l'omikuji (les routes prennent la couleur de leur train). */
 const FORTUNE_RIBBON = "#6b6255";
@@ -36,6 +38,8 @@ interface Flip {
   hi: number;
   stops: number[];
   p: number;
+  /** Double page visée par un geste fini (bouton, marque-page, feuille lâchée). */
+  target?: number;
   /** Sens du geste qui a soulevé la feuille (1 : vers `hi`) : le bord libre mène, la feuille se
       courbe derrière. Fixé pour toute la course : une feuille lâchée qui retombe rejoue la même
       courbure à l'envers. */
@@ -53,7 +57,8 @@ function reducedMotion(): boolean {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+/** Départ franc, arrivée en douceur : la feuille part dès le toucher et se pose. */
+const ease = (t: number) => 1 - (1 - t) ** 3;
 
 interface Props {
   /** Routes du carnet, dans l'ordre du voyage. */
@@ -127,12 +132,17 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     };
     if (reducedMotion() || Math.abs(target - f.p) < 0.01) return done();
     const from = f.p;
-    const t0 = performance.now();
+    const aim = { ...f, target: target ? f.hi : f.lo };
+    show(aim);
+    // L'horloge part à la première image affichée : le montage des feuilles ne mange pas le
+    // début de la course.
+    let t0 = -1;
     // Une cascade avance d'un pas régulier : chaque feuille a sa propre accélération (leafP).
     const curve = f.stops.length > 2 ? (t: number) => t : ease;
     const step = (now: number) => {
+      if (t0 < 0) t0 = now;
       const t = clamp01((now - t0) / ms);
-      show({ ...f, p: from + (target - from) * curve(t) });
+      show({ ...aim, p: from + (target - from) * curve(t) });
       if (t < 1) raf.current = requestAnimationFrame(step);
       else done();
     };
@@ -205,7 +215,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
         ]
       : [],
   );
-  const shownSpread = flip ? (flip.p > 0.5 ? flip.hi : flip.lo) : spread;
+  const shownSpread = flip ? (flip.target ?? (flip.p > 0.5 ? flip.hi : flip.lo)) : spread;
   const activeMark = marks.filter((m) => m.spread <= shownSpread).pop()?.spread;
 
   if (!pages.length) return null;
@@ -216,7 +226,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
   return (
     <div className="flex flex-col gap-3">
       <div className="relative pt-7">
-      <div className="absolute top-0 right-3 flex items-end gap-1" role="tablist" aria-label="Marque-pages du carnet">
+      <div className="absolute top-0 right-3 z-30 flex items-end gap-1" role="tablist" aria-label="Marque-pages du carnet">
         {marks.map((m) => {
           const active = activeMark === m.spread;
           return (
@@ -289,7 +299,8 @@ interface PageProps {
 /**
  * Les feuilles en mouvement. Une feuille j tourne de la double page stops[j] à stops[j + 1] ;
  * en cascade, chacune part un peu après la précédente (à l'envers en marche arrière). Seules
- * comptent les feuilles en l'air et la feuille du dessus de chaque pile.
+ * comptent les feuilles en l'air et la feuille du dessus de chaque pile ; posée, celle-ci se
+ * dessine à plat, d'une seule page, sans les bandes.
  */
 function Leaves({ flip, pages, pageProps }: { flip: Flip; pages: Page[]; pageProps: PageProps }) {
   const k = flip.stops.length - 1;
@@ -304,15 +315,28 @@ function Leaves({ flip, pages, pageProps }: { flip: Flip; pages: Page[]; pagePro
         if ((p === 0 && j !== topRight) || (p === 1 && j !== topLeft)) return null;
         const a = flip.stops[j];
         const b = flip.stops[j + 1];
+        // À droite, la première feuille est dessus ; à gauche, la dernière posée.
+        const z = p < 0.5 ? k - j : k + 1 + j;
+        if (p === 0 || p === 1) {
+          return (
+            <div key={j} className={`absolute top-0 bottom-0 w-1/2 ${p ? "left-0" : "right-0"}`} style={{ zIndex: z }}>
+              {p ? (
+                <PageView page={pages[2 * b]} side="left" number={2 * b + 1} {...pageProps} />
+              ) : (
+                <PageView page={pages[2 * a + 1]} side="right" number={2 * a + 2} {...pageProps} />
+              )}
+            </div>
+          );
+        }
         return (
           <Leaf
             key={j}
             p={p}
             dir={flip.dir}
-            // À droite, la première feuille est dessus ; à gauche, la dernière posée.
-            z={p < 0.5 ? k - j : k + 1 + j}
-            front={<PageView page={pages[2 * a + 1]} side="right" number={2 * a + 2} {...pageProps} />}
-            back={<PageView page={pages[2 * b]} side="left" number={2 * b + 1} {...pageProps} />}
+            strips={k === 1 ? STRIPS : CASCADE_STRIPS}
+            z={z}
+            front={(col) => <PageView page={pages[2 * a + 1]} side="right" number={2 * a + 2} col={col} {...pageProps} />}
+            back={(col) => <PageView page={pages[2 * b]} side="left" number={2 * b + 1} col={col} {...pageProps} />}
           />
         );
       })}
@@ -325,33 +349,52 @@ function Leaves({ flip, pages, pageProps }: { flip: Flip; pages: Page[]; pagePro
  * précédente. À plat aux deux bouts de la course, courbée au milieu, le bord libre en tête.
  * Recto : une page de droite ; verso : la page de gauche de la double page d'après.
  */
-function Leaf({ p, dir, z, front, back }: { p: number; dir: 1 | -1; z: number; front: ReactNode; back: ReactNode }) {
+function Leaf({
+  p,
+  dir,
+  strips,
+  z,
+  front,
+  back,
+}: {
+  p: number;
+  dir: 1 | -1;
+  strips: number;
+  z: number;
+  /** Contenu d'une face, réduit à la colonne de tampons que couvre la bande. */
+  front: (col: 0 | 1) => ReactNode;
+  back: (col: 0 | 1) => ReactNode;
+}) {
   const theta = 180 * p;
   const curl = Math.sin(p * Math.PI) * CURL * dir;
-  const angles = Array.from({ length: STRIPS }, (_, i) =>
-    Math.min(180, Math.max(0, theta + curl * (i / (STRIPS - 1) - 0.5))),
+  const angles = Array.from({ length: strips }, (_, i) =>
+    Math.min(180, Math.max(0, theta + curl * (i / (strips - 1) - 0.5))),
   );
   // Ombre en dégradé continu d'une bande à l'autre : plus la feuille se détourne, plus elle
   // s'assombrit (recto avant d'être debout, verso après).
   const dark = (a: number, back: boolean) => `rgba(0, 0, 0, ${(((back ? 180 - a : a) / 90) * 0.16).toFixed(3)})`;
   const shade = (i: number, back: boolean) => {
     const a = angles[i];
-    const b = angles[Math.min(i + 1, STRIPS - 1)];
+    const b = angles[Math.min(i + 1, strips - 1)];
     return { background: `linear-gradient(to ${back ? "left" : "right"}, ${dark(a, back)}, ${dark(b, back)})` };
   };
   let node: ReactNode = null;
-  for (let i = STRIPS - 1; i >= 0; i--) {
+  for (let i = strips - 1; i >= 0; i--) {
     const turn = angles[i] - (i ? angles[i - 1] : 0);
     const face = "absolute top-0 bottom-0 left-0 overflow-hidden";
     // Une bande déborde d'un pixel sur la suivante : pas de jour entre elles.
     const faceStyle = { right: -1, backfaceVisibility: "hidden" } as const;
-    const slice = (offset: number) => ({ width: `${STRIPS * 100}%`, left: `${-offset * 100}%` });
+    const slice = (offset: number) => ({ width: `${strips * 100}%`, left: `${-offset * 100}%` });
+    // Une bande ne recopie que la colonne qu'elle couvre, et une face n'est montée qu'à
+    // l'approche du moment où elle se voit (recto avant 90°, verso après) : le travail
+    // s'étale sur la course au lieu de tout peser au départ.
+    const colOf = (offset: number): 0 | 1 => ((offset + 0.5) / strips < 0.5 ? 0 : 1);
     node = (
       <div
         className="absolute top-0 bottom-0"
         style={{
           left: i ? "100%" : 0,
-          width: i ? "100%" : `${100 / STRIPS}%`,
+          width: i ? "100%" : `${100 / strips}%`,
           transformOrigin: "left center",
           transformStyle: "preserve-3d",
           transform: `rotateY(${-turn}deg)`,
@@ -359,13 +402,13 @@ function Leaf({ p, dir, z, front, back }: { p: number; dir: 1 | -1; z: number; f
       >
         <div className={face} style={faceStyle}>
           <div className="absolute top-0 bottom-0" style={slice(i)}>
-            {front}
+            {angles[i] < 100 && front(colOf(i))}
           </div>
           <span className="carnet-shade" style={shade(i, false)} />
         </div>
         <div className={face} style={{ ...faceStyle, transform: "rotateY(180deg)" }}>
-          <div className="absolute top-0 bottom-0" style={slice(STRIPS - 1 - i)}>
-            {back}
+          <div className="absolute top-0 bottom-0" style={slice(strips - 1 - i)}>
+            {angles[i] > 80 && back(colOf(strips - 1 - i))}
           </div>
           <span className="carnet-shade" style={shade(i, true)} />
         </div>
@@ -393,7 +436,15 @@ const PageView = memo(function PageView({
   stamps,
   stampSize,
   onOpenCity,
-}: PageProps & { page: Page; side: "left" | "right"; number: number }) {
+  col,
+}: PageProps & {
+  page: Page;
+  side: "left" | "right";
+  number: number;
+  /** Seule colonne à dessiner (bande d'une feuille qui tourne) ; l'autre garde sa place, vide. */
+  col?: 0 | 1;
+}) {
+  const shown = (i: number) => col === undefined || i % 2 === col;
   // En-tête de la double page : la route à gauche, le compte de ses tampons à droite.
   const head = page.kind === "blank" ? page.of : page;
   const cell = "flex min-w-0 flex-col items-center justify-start gap-1 pt-1";
@@ -419,7 +470,8 @@ const PageView = memo(function PageView({
 
       <div className="grid flex-1 grid-cols-2 gap-x-1 gap-y-2" style={{ gridTemplateRows: `repeat(3, ${stampSize + 40}px)` }}>
         {page.kind === "route" &&
-          page.stations.map((s) => {
+          page.stations.map((s, i) => {
+            if (!shown(i)) return <span key={s.index} />;
             const stamped = s.index <= (stamps[page.route.level] ?? 0);
             const city = cityOf(page.route.level, s.index) ?? { kanji: s.kanji, size: "ville" as const, index: s.index };
             const j = jitter(page.route.level * 100 + s.index);
@@ -442,12 +494,16 @@ const PageView = memo(function PageView({
             );
           })}
         {page.kind === "fortune" &&
-          page.items.map((f) => (
+          page.items.map((f, i) =>
+            !shown(i) ? (
+              <span key={f.date} />
+            ) : (
             <span key={f.date} className={cell} title={f.date}>
               <FortuneStamp kanji={fortuneById(f.fortune as OmikujiFortune).kanji} size={Math.round(stampSize * 0.85)} />
               <span className={caption}>{f.date.slice(5).replace("-", "/")}</span>
             </span>
-          ))}
+            ),
+          )}
       </div>
 
       <span className={`text-xs text-muted tabular-nums ${side === "left" ? "self-start" : "self-end"}`}>{number}</span>
