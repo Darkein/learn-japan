@@ -218,7 +218,7 @@ function PageView({
         )}
       </div>
 
-      <div className={`grid ${page.kind === "route" ? "grid-cols-2" : "grid-cols-3"} border-t border-l border-hairline`}>
+      <div className={`grid ${page.kind === "route" ? "grid-cols-2" : "grid-cols-3"}`}>
         {page.kind === "route"
           ? page.stations.map((s) => {
               const stamped = s.index <= (stamps[page.route.level] ?? 0);
@@ -228,7 +228,7 @@ function PageView({
                 <button
                   key={s.index}
                   type="button"
-                  className="flex h-29 cursor-pointer flex-col items-center justify-center gap-1.5 border-r border-b border-hairline px-1"
+                  className="flex h-29 cursor-pointer flex-col items-center justify-center gap-1.5 px-1"
                   aria-label={`${s.romaji}${stamped ? ", tampon obtenu" : ", à venir"}`}
                   onClick={() => onOpenCity(page.route.level, s.index, stamped)}
                 >
@@ -245,13 +245,13 @@ function PageView({
               );
             })
           : page.items.map((f) => (
-              <span key={f.date} className="flex h-29 flex-col items-center justify-center gap-1 border-r border-b border-hairline px-1" title={f.date}>
+              <span key={f.date} className="flex h-29 flex-col items-center justify-center gap-1 px-1" title={f.date}>
                 <FortuneStamp kanji={fortuneById(f.fortune as OmikujiFortune).kanji} size={52} />
                 <span className="text-xs text-muted">{f.date.slice(5).replace("-", "/")}</span>
               </span>
             ))}
         {filler.map((_, i) => (
-          <span key={`f${i}`} className="h-29 border-r border-b border-hairline" aria-hidden="true" />
+          <span key={`f${i}`} className="h-29" aria-hidden="true" />
         ))}
       </div>
 
