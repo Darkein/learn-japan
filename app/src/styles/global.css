@@ -269,23 +269,33 @@
 }
 /* Le roulis du train : le paysage tressaute au rythme des joints de rail (ta-dam… ta-dam), sans
    arrêt, chaque plan selon sa distance (`--roll`, de 0 à l'horizon à 1 au ras de la vitre) ; la
-   vitre et l'intérieur, eux, ne bougent pas. Coupé sous prefers-reduced-motion. */
-.horizon-roll {
+   vitre et l'intérieur, eux, ne bougent pas. Un seul battement, `--roll-y`, anime le paysage :
+   tous les plans le suivent ensemble, même celui qui entre dans la vitre en cours de route.
+   Coupé sous prefers-reduced-motion. */
+@property --roll-y {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+.horizon-rolling {
   animation: train-roll 1.6s linear infinite;
+}
+.horizon-roll {
+  transform: translateY(calc(var(--roll-y) * var(--roll, 1)));
 }
 @keyframes train-roll {
   0%,
   8%,
   20%,
   100% {
-    transform: translateY(0);
+    --roll-y: 0px;
   }
   4%,
   16% {
-    transform: translateY(calc(-1.5px * var(--roll, 1)));
+    --roll-y: -1.5px;
   }
   60% {
-    transform: translateY(calc(-0.6px * var(--roll, 1)));
+    --roll-y: -0.6px;
   }
 }
 /* La vitre : un reflet en biais, et la nuit la lampe du wagon. */

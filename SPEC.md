@@ -1093,7 +1093,8 @@ la molette y fait défiler la voie.
     elle passe sous la fenêtre.
 - **Le roulis.** Le paysage tressaute sans arrêt au rythme des joints de rail (ta-dam… ta-dam),
   en 1,6 s, chaque plan à proportion de sa proximité : 1,5 px pour les poteaux, presque rien pour
-  les plans lointains, rien pour le ciel, la crête et le sol ; il déborde de 2 px sous la vitre pour
+  les plans lointains, rien pour le ciel, la crête et le sol ; tous les plans battent ensemble, sur
+  un même rythme, même ce qui entre dans la vitre en cours de route (le panneau de quai) ; il déborde de 2 px sous la vitre pour
   n'en jamais découvrir le bord. La vitre et l'intérieur ne bougent pas. Coupé sous `prefers-reduced-motion`.
 - **La vitre et l'intérieur**, par-dessus le paysage et fixes :
   - un reflet en biais, très léger ;

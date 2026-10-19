@@ -195,7 +195,7 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
           {/* Le paysage roule avec le train, chaque plan selon sa distance ; il déborde un peu sous
               la vitre, pour que le roulis ne découvre jamais son bord. La vitre et l'intérieur,
               par-dessus, ne bougent pas. */}
-          <div className="absolute inset-0">
+          <div className="horizon-rolling absolute inset-0">
             <Sky sky={sky} height={glassH + ROLL} ground={ground + ROLL} width={W} pos={pos}>
               {title && titleOpacity > 0 && (
                 <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
