@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
-  biomeAt, biomeTrack, BIRDS_MARGIN, BIRDS_SPEED, birdsShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
+  biomeAt, biomeTrack, SKY_MARGIN, SKY_SPEED, skyShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
   skyHeight, skyMarks,
 } from "./horizon";
 import { lessonSteps } from "./path";
@@ -126,16 +126,24 @@ describe("le décor qui défile", () => {
   });
 });
 
-describe("les oiseaux", () => {
-  it("glissent avec le plan moyen au défilement, et font le tour de la vitre sans saut", () => {
-    const span = 390 + 2 * BIRDS_MARGIN;
-    expect(birdsShift(100, 390) - birdsShift(0, 390)).toBeCloseTo(100 * BIRDS_SPEED);
-    for (const pos of [-3000, -1, 0, 777, 12_345]) {
-      const x = birdsShift(pos, 390);
-      expect(x).toBeGreaterThanOrEqual(0);
-      expect(x).toBeLessThan(span);
+describe("ce qui passe dans le ciel", () => {
+  it("glisse avec son plan au défilement, et fait le tour de la vitre sans saut", () => {
+    const span = 390 + 2 * SKY_MARGIN;
+    for (const speed of Object.values(SKY_SPEED)) {
+      expect(skyShift(100, speed, 390) - skyShift(0, speed, 390)).toBeCloseTo(100 * speed);
+      for (const pos of [-3000, -1, 0, 777, 12_345]) {
+        const x = skyShift(pos, speed, 390);
+        expect(x).toBeGreaterThanOrEqual(0);
+        expect(x).toBeLessThan(span);
+      }
+      expect(skyShift(span / speed, speed, 390)).toBeCloseTo(0);
     }
-    expect(birdsShift(span / BIRDS_SPEED, 390)).toBeCloseTo(0);
+  });
+
+  it("chacun sur son plan : la brume au loin, les oiseaux au milieu, pétales et lucioles tout près", () => {
+    expect(SKY_SPEED.mist).toBeLessThan(SKY_SPEED.birds);
+    expect(SKY_SPEED.birds).toBeLessThan(SKY_SPEED.petals);
+    expect(SKY_SPEED.petals).toBe(SKY_SPEED.fireflies);
   });
 });
 

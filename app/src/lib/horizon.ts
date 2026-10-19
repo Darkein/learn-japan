@@ -136,21 +136,26 @@ export function markRaised(mark: SkyMark, top: number, bottom: number): boolean 
   return mark.y >= top && mark.y <= bottom;
 }
 
-// ---- Les oiseaux ------------------------------------------------------------------------
-
-/** Les oiseaux volent au plan moyen : au défilement, ils glissent avec lui. */
-export const BIRDS_SPEED = 0.22;
-/** La marge où les oiseaux entrent et sortent de la vitre, de chaque côté. */
-export const BIRDS_MARGIN = 90;
+// ---- Ce qui passe dans le ciel ----------------------------------------------------------
 
 /**
- * Le décalage des oiseaux quand la voie est à `pos`, sur une vitre de `width` px. Leur vol fait
- * le tour de la vitre et de ses marges ; le décalage aussi, pour qu'une seconde volée, un tour
- * plus à gauche, prenne le relais sans saut.
+ * Le plan de ce qui passe dans le ciel : au défilement, chacun glisse avec le sien. La brume
+ * traîne sur l'horizon, avec la crête ; les oiseaux volent au plan moyen ; les pétales et les
+ * lucioles passent tout près, avec le plan proche. Le soleil, la lune et les étoiles, à l'infini,
+ * ne glissent pas.
  */
-export function birdsShift(pos: number, width: number): number {
-  const span = width + 2 * BIRDS_MARGIN;
-  return (((pos * BIRDS_SPEED) % span) + span) % span;
+export const SKY_SPEED = { mist: RIDGE_SPEED, birds: 0.22, petals: 0.42, fireflies: 0.42 } as const;
+/** La marge où ce qui passe entre et sort de la vitre, de chaque côté. */
+export const SKY_MARGIN = 90;
+
+/**
+ * Le décalage d'un passage du ciel quand la voie est à `pos`, sur une vitre de `width` px. Il
+ * fait le tour de la vitre et de ses marges : une seconde copie, un tour plus à gauche, prend le
+ * relais sans saut.
+ */
+export function skyShift(pos: number, speed: number, width: number): number {
+  const span = width + 2 * SKY_MARGIN;
+  return (((pos * speed) % span) + span) % span;
 }
 
 // ---- Le décor qui défile ---------------------------------------------------------------

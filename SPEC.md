@@ -1065,8 +1065,11 @@ la molette y fait défiler la voie.
     côte, toits et temples en ville…
 - **Le soleil, la lune, les étoiles**, la brume du matin, les oiseaux et les pétales gardent leur
   logique (ci-dessus). Le soleil, la lune et les étoiles restent derrière le paysage ; ce qui vole
-  (oiseaux, pétales, lucioles) passe devant les monts et tous les plans. Les oiseaux volent au
-  plan moyen : au défilement, ils glissent avec lui (0,22 px par px défilé), en plus de leur vol.
+  (oiseaux, pétales, lucioles) passe devant les monts et tous les plans. Au défilement, ce qui
+  passe dans le ciel glisse avec son plan, en plus de son propre mouvement, et fait le tour de la
+  vitre sans saut : la brume avec la crête (0,08 px par px défilé), les oiseaux avec le plan moyen
+  (0,22), les pétales et les lucioles avec le plan proche (0,42). Le soleil, la lune et les
+  étoiles, à l'infini, ne glissent pas.
 - **Le défilement.** La bande se recalcule une fois par image de défilement ; seul le nom des
   repères paraît et s'efface en fondu. L'ouverture, le bandeau de leçon et le bouton de retour
   tiennent compte de la bande : l'étape à faire se place au tiers haut de la voie visible.

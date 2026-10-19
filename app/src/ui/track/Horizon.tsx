@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type RefObject } from "react";
 import {
   biomeAt,
   biomeTrack,
-  birdsShift,
   DRIFT_PATHS,
   driftItems,
   groundDepth,
@@ -169,7 +168,7 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
     <div className="relative z-10 shrink-0" style={{ height: SKY_MIN }} onWheel={(e) => scroller.current?.scrollBy({ top: e.deltaY })}>
       <div data-sky={sky.time} className="horizon-frame pointer-events-none absolute inset-x-0 top-0 bg-bg" style={{ height: skyH, padding: `${WINDOW_TOP}px ${WINDOW_INSET}px ${WINDOW_INSET}px` }}>
         <div className="horizon-window relative overflow-hidden rounded-md" style={{ height: glassH }}>
-          <Sky sky={sky} height={glassH} ground={ground} width={W} birds={birdsShift(pos, W)}>
+          <Sky sky={sky} height={glassH} ground={ground} width={W} pos={pos}>
             {title && titleOpacity > 0 && (
               <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
                 <span className="font-jp text-3xl tracking-widest">{title.kanji}</span>
