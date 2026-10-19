@@ -1091,11 +1091,12 @@ la molette y fait défiler la voie.
     à 1 px par px défilé, posé au bas de la vitre : il entre par la droite quand sa ville arrive
     sur la voie visible, passe au milieu quand elle est au milieu, et sort par la gauche quand
     elle passe sous la fenêtre.
-- **Le roulis.** Le paysage tressaute sans arrêt au rythme des joints de rail (ta-dam… ta-dam),
-  en 1,6 s, chaque plan à proportion de sa proximité : 1,5 px pour les poteaux, presque rien pour
-  les plans lointains, rien pour le ciel, la crête et le sol ; tous les plans battent ensemble, sur
-  un même rythme, même ce qui entre dans la vitre en cours de route (le panneau de quai) ; il déborde de 2 px sous la vitre pour
-  n'en jamais découvrir le bord. La vitre et l'intérieur ne bougent pas. Coupé sous `prefers-reduced-motion`.
+- **Le roulis.** Le paysage ondule doucement sans arrêt, en sinusoïde (aller-retour de 2,4 s),
+  chaque plan à proportion de sa proximité : 1,5 px pour les poteaux, presque rien pour les plans
+  lointains, rien pour le ciel, la crête et le sol. Tous les plans suivent la même onde, même ce
+  qui entre dans la vitre en cours de route (le panneau de quai). Le paysage déborde de 2 px sous
+  la vitre pour n'en jamais découvrir le bord. La vitre et l'intérieur ne bougent pas. Coupé sous
+  `prefers-reduced-motion`.
 - **La vitre et l'intérieur**, par-dessus le paysage et fixes :
   - un reflet en biais, très léger ;
   - en saison des pluies, des traînées de pluie qui filent à l'horizontale vers l'arrière du

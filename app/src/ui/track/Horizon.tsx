@@ -66,7 +66,7 @@ function sameView(a: View, b: View): boolean {
   return Math.abs(a.u - b.u) < 0.5 && Math.abs(a.pos - b.pos) < 0.5 && Math.abs(a.visible - b.visible) < 1;
 }
 
-/** Un plan du paysage, sur toute la vitre : il tressaute avec le roulis, d'autant moins qu'il est
+/** Un plan du paysage, sur toute la vitre : il ondule avec le roulis, d'autant moins qu'il est
     loin (`planeRoll`). */
 function Rolling({ plane, children }: { plane: Plane; children: ReactNode }) {
   return (
