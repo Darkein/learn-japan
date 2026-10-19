@@ -76,10 +76,8 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
   const [omikujiOpen, setOmikujiOpen] = useState(false);
   const [arrival, setArrival] = useState<RouteArrival | null>(null);
   const [fiche, setFiche] = useState<{ level: number; index: number; stamped: boolean } | null>(null);
-  const measure = useRef<HTMLDivElement>(null);
-  const banner = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
   const trackBox = useRef<HTMLDivElement>(null);
-  const [bannerH, setBannerH] = useState(64);
   const { dataVersion } = useGenJobs();
   const { settings } = useSettings();
 
@@ -108,18 +106,9 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
     });
   }, []);
 
-  // Le ciel se colle sous le bandeau de leçon : sa hauteur suit le bandeau.
+  // La voie se met en page à la largeur réelle de sa zone (bord à bord sur téléphone).
   useEffect(() => {
-    const el = banner.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setBannerH(Math.round(el.getBoundingClientRect().height)));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [data !== null]);
-
-  // La voie se met en page à la largeur réelle (bord à bord sur téléphone).
-  useEffect(() => {
-    const el = measure.current;
+    const el = scroller.current;
     if (!el) return;
     const ro = new ResizeObserver(() => setWidth(Math.round(el.clientWidth)));
     ro.observe(el);
@@ -221,7 +210,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
   const last = bases[bases.length - 1];
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-3 pb-3 text-sm text-muted">
         <button type="button" onClick={onGoVoyage} className="flex cursor-pointer items-center gap-2.5 text-left" aria-label="Le voyage et le carnet de tampons">
           <span className="font-jp text-base text-text">{pos.route.kanji}</span>
@@ -249,7 +238,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
         </button>
       </div>
 
-      <div ref={banner} className="sticky top-0 z-20 -mx-4 border-b border-hairline bg-bg/95 px-4 py-2.5 backdrop-blur-sm">
+      <div className="-mx-4 border-b border-hairline px-4 py-2.5">
         {shown ? (
           <div className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 flex-col">
@@ -264,53 +253,59 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
             </Button>
           </div>
         ) : (
-          <span className="font-serif text-lg">
-            {pos.route.name} · {routeForLevel(pos.route.level).tagline}
-          </span>
+          // Sur deux lignes, comme une leçon : le bandeau garde sa hauteur, la voie ne saute pas.
+          <div className="flex min-h-10 flex-col justify-center">
+            <span className="text-xs uppercase tracking-wide text-muted">{pos.route.name}</span>
+            <span className="truncate font-serif text-lg">{routeForLevel(pos.route.level).tagline}</span>
+          </div>
         )}
       </div>
 
-      <div ref={measure} className="-mx-4 overflow-x-clip">
+      {/* L'écran s'arrête au bandeau : sous lui, la fenêtre du ciel, puis la voie qui défile dans
+          sa propre zone, jusqu'en bas de l'écran. */}
+      <div className="-mx-4 flex min-h-0 flex-1 flex-col">
         {layout && (
           <Horizon
             layout={layout}
             sceneries={SCENERIES}
             season={season}
-            top={bannerH}
+            scroller={scroller}
             track={trackBox}
             title={{ kanji: routeForLevel(layout.paths[0]?.level ?? 5).kanji, tagline: routeForLevel(layout.paths[0]?.level ?? 5).tagline }}
           />
         )}
-        {/* La place du panorama dépliée, au-dessus du départ de la voie. */}
-        {layout && <div style={{ height: SKY_MAX }} />}
-        <div ref={trackBox}>
-          {layout && (
-            <Track
-              inset={bannerH + SKY_MIN}
-              layout={layout}
-              decor={decor}
-              trainColor={(level) => routeForLevel(level).trainColor}
-              bubble={bubble}
-              metaOf={metaOf}
-              onTapNode={tapNode}
-              onSection={onSection}
-              renderMarker={(m) => {
-                if (m.kind === "curriculum-end") return <CurriculumEnd />;
-                if (m.kind !== "route-end") return null;
-                const stat = data.tokaido.levels.find((s) => s.level === m.level);
-                return (
-                  <RouteEnd
-                    level={m.level}
-                    nextLevel={m.nextLevel}
-                    reached={m.reached}
-                    totals={{ steps: stat?.stepsTotal ?? 0, lessons: stat?.lessonsTotal ?? 0 }}
-                    onOpenCarnet={onGoVoyage}
-                  />
-                );
-              }}
-              backLabel={cur?.kind === "step" ? `Revenir à l'étape ${cur.number}` : undefined}
-            />
-          )}
+        <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" style={{ scrollbarGutter: "stable" }}>
+          {/* La place du panorama déplié, que la fenêtre couvre tant qu'elle se replie. */}
+          {layout && <div style={{ height: SKY_MAX - SKY_MIN }} />}
+          <div ref={trackBox}>
+            {layout && (
+              <Track
+                scroller={scroller}
+                layout={layout}
+                decor={decor}
+                trainColor={(level) => routeForLevel(level).trainColor}
+                bubble={bubble}
+                metaOf={metaOf}
+                onTapNode={tapNode}
+                onSection={onSection}
+                renderMarker={(m) => {
+                  if (m.kind === "curriculum-end") return <CurriculumEnd />;
+                  if (m.kind !== "route-end") return null;
+                  const stat = data.tokaido.levels.find((s) => s.level === m.level);
+                  return (
+                    <RouteEnd
+                      level={m.level}
+                      nextLevel={m.nextLevel}
+                      reached={m.reached}
+                      totals={{ steps: stat?.stepsTotal ?? 0, lessons: stat?.lessonsTotal ?? 0 }}
+                      onOpenCarnet={onGoVoyage}
+                    />
+                  );
+                }}
+                backLabel={cur?.kind === "step" ? `Revenir à l'étape ${cur.number}` : undefined}
+              />
+            )}
+          </div>
         </div>
       </div>
 

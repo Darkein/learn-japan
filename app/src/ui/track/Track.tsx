@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { Decor as DecorData } from "../../lib/scenery";
 import { pathD, TRAIN_LENGTH, type TrackLayout, type TrackNode, type TrackSection } from "../../lib/track";
 import { cancelScrollRestore } from "../useHashRoute";
@@ -39,8 +39,9 @@ interface Props {
   onSection?: (s: TrackSection | undefined) => void;
   /** Libellé du bouton de retour à l'étape à faire. */
   backLabel?: string;
-  /** Hauteur collée en haut de l'écran (bandeau, bande d'horizon) : la voie visible est dessous. */
-  inset?: number;
+  /** La zone qui défile : la voie se place et se lit par rapport à elle, qui s'arrête sous la
+      fenêtre du ciel. */
+  scroller: RefObject<HTMLDivElement | null>;
 }
 
 function readTrain(): { level: number; dist: number } | null {
@@ -81,9 +82,15 @@ function TrainSprite({ color }: { color: string }) {
  * Toute la voie a sa hauteur, mais seules les tranches proches de l'écran sont rendues.
  * S'ouvre centrée sur l'étape à faire ; le train y roule depuis son dernier arrêt vu.
  */
-export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, renderMarker, onSection, backLabel, inset = 0 }: Props) {
-  /** Hauteur de l'écran où se place l'étape à faire : le tiers haut de la voie visible. */
-  const anchorY = (vh: number) => inset + (vh - inset) * 0.32;
+export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, renderMarker, onSection, backLabel, scroller }: Props) {
+  /** Hauteur de la zone où se place l'étape à faire : le tiers haut de la voie visible. */
+  const anchorY = (vh: number) => vh * 0.32;
+  /** Le haut de la voie par rapport au haut de la zone visible, et la hauteur de celle-ci. */
+  const frame = () => {
+    const el = scroller.current;
+    if (!el || !box.current) return null;
+    return { el, top: box.current.getBoundingClientRect().top - el.getBoundingClientRect().top, vh: el.clientHeight };
+  };
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ top: 0, bottom: SLICE * 2 });
   const [curVisible, setCurVisible] = useState(true);
@@ -133,23 +140,25 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
   // Ouverture centrée sur l'étape à faire.
   const centered = useRef(false);
   useLayoutEffect(() => {
-    if (centered.current || !box.current) return;
+    const f = frame();
+    if (centered.current || !f) return;
     centered.current = true;
     cancelScrollRestore();
     const target = current ? current.y : 0;
-    const top = box.current.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo(0, Math.max(0, top + target - anchorY(window.innerHeight)));
+    f.el.scrollTo(0, Math.max(0, f.el.scrollTop + f.top + target - anchorY(f.vh)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
   // Tranche visible, bandeau collant, bouton de retour.
   useEffect(() => {
-    let frame = 0;
+    const el = scroller.current;
+    if (!el) return;
+    let raf = 0;
     const update = () => {
-      frame = 0;
-      if (!box.current) return;
-      const top = box.current.getBoundingClientRect().top;
-      const vh = window.innerHeight;
+      raf = 0;
+      const f = frame();
+      if (!f) return;
+      const { top, vh } = f;
       const a = Math.floor((-top - vh) / SLICE) * SLICE;
       const b = Math.ceil((-top + 2 * vh) / SLICE) * SLICE;
       setView((v) => (v.top === a && v.bottom === b ? v : { top: Math.max(0, a), bottom: Math.max(SLICE, b) }));
@@ -157,22 +166,23 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
       onSection?.(layout.sections.find((s) => mid >= s.y0 && mid < s.y1));
       if (current) {
         const y = top + current.y;
-        setCurVisible(y > inset - 20 && y < vh + 40);
+        setCurVisible(y > -20 && y < vh + 40);
       }
     };
     const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(update);
+      if (!raf) raf = requestAnimationFrame(update);
     };
     update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(onScroll);
+    ro.observe(el);
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (frame) cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+      if (raf) cancelAnimationFrame(raf);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, current, onSection, inset]);
+  }, [layout, current, onSection, scroller]);
 
   // Tampons posés depuis la dernière visite : ils s'impriment quand le train est passé.
   const seenStamps = useRef(readStamps());
@@ -203,9 +213,9 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
   }, [train, paths]);
 
   function scrollToCurrent() {
-    if (!box.current || !current) return;
-    const top = box.current.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: top + current.y - anchorY(window.innerHeight), behavior: reducedMotion() ? "auto" : "smooth" });
+    const f = frame();
+    if (!f || !current) return;
+    f.el.scrollTo({ top: f.el.scrollTop + f.top + current.y - anchorY(f.vh), behavior: reducedMotion() ? "auto" : "smooth" });
   }
 
   return (

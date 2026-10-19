@@ -285,7 +285,7 @@
   background: linear-gradient(var(--sky-ground), color-mix(in oklab, var(--text) 9%, var(--sky-low)));
 }
 /* La fenêtre du train : un cadre fin et un léger creux sur la vitre, posé par-dessus le décor ;
-   le rebord jette une ombre sur la voie qui passe dessous. */
+   le rebord jette une ombre sur le haut de la voie, dessous. */
 .horizon-frame {
   box-shadow: 0 8px 10px -10px rgb(0 0 0 / 0.35);
 }

@@ -757,9 +757,10 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 - **Bandeau de leçon**, collé en haut de l'écran : la leçon visible à l'écran (« Leçon 12 · étapes 78
   à 84 », son titre) et un bouton pour relire son cours. Il change quand une autre leçon passe
   au centre de l'écran.
-- **La bande de ciel** (§5c.6b), collée sous le bandeau : le ciel, ses repères et le décor qui
-  défile ; la voie passe dessous.
-- **La voie** (§5c.2), qui occupe tout le reste de la page.
+- **La bande de ciel** (§5c.6b), sous le bandeau : le ciel, ses repères et le décor qui défile.
+- **La voie** (§5c.2), qui occupe tout le reste de l'écran. L'accueil tient dans l'écran : la
+  page ne défile pas, la voie défile dans sa propre zone, du bas de la fenêtre du ciel au bas de
+  l'écran (barre d'onglets, lecteur). Les en-têtes, le bandeau et la fenêtre restent en place.
 - **Ce qui quitte l'accueil** :
   - la bande du Tōkaidō : la voie la remplace, et le Voyage garde la vue d'ensemble ;
   - la carte « Parcours » : la bulle de l'étape à faire la remplace (§5c.2) ;
@@ -1000,12 +1001,19 @@ décor (DESIGN.md).
 
 Maquettes de référence : **D · Panorama qui se replie** et **G · Les repères se lèvent derrière la
 crête, décor qui défile** (canevas « Ciel séparé — propositions »). Le ciel ne se mélange plus à
-la voie : il a sa bande, opaque, collée sous le bandeau de leçon, et la voie passe dessous.
-La bande ne contient aucun bouton.
+la voie : il a sa bande, opaque, sous le bandeau de leçon, et la voie s'arrête à la fenêtre :
+elle défile dans sa propre zone, dessous, et rien d'elle ne passe sous la bande. Tout se mesure
+dans cette zone : le bas de la fenêtre, la voie visible (du bas de la fenêtre au bas de la
+zone), la place de l'étape à faire et le bouton de retour. La bande ne contient aucun bouton :
+la molette y fait défiler la voie.
+
+- **Le repli.** La zone commence par la place du panorama déplié (280 − 120 px), sans voie ; la
+  fenêtre dépliée la couvre et se replie au même pas que la voie monte : le bas de la fenêtre
+  reste collé au départ de la voie, jusqu'à 120 px.
 
 - **La fenêtre du train.** La bande se regarde par une vitre : un cadre fin aux coins arrondis,
-  en retrait de 4 px sous le bandeau et de 8 px sur les côtés et en bas, sur le fond de la voie, et dont le rebord jette une
-  ombre légère sur la voie qui passe dessous. Le décor qui glisse de côté est le paysage vu du
+  en retrait de 4 px sous le bandeau et de 8 px sur les côtés et en bas, et dont le rebord jette
+  une ombre légère sur le haut de la voie. Le décor qui glisse de côté est le paysage vu du
   train ; la voie, dessous, est la carte. Rien ne déborde du cadre.
 
 - **Le panorama du départ.** Tout en haut de la voie, avant la première étape, le ciel est grand

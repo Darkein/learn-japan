@@ -51,13 +51,14 @@ const SHELL = "mx-auto min-h-full max-w-[44rem] px-4 pt-6";
 // d'autant la page) ; `8rem` sert de secours avant la première mesure.
 const PLAYER_HEIGHT = "var(--player-h, 8rem)";
 
-/** Calcule le padding bas du shell selon ce qui flotte par-dessus (nav du bas, lecteur). */
-function shellPadding(navVisible: boolean, playerActive: boolean): string {
+/** Calcule le padding bas du shell selon ce qui flotte par-dessus (nav du bas, lecteur). Sans
+    marge (`flush`), le contenu va jusqu'à eux : la voie de l'accueil, qui défile en elle-même. */
+function shellPadding(navVisible: boolean, playerActive: boolean, flush = false): string {
   const parts = [
     navVisible ? BOTTOM_NAV_HEIGHT : null,
     playerActive ? PLAYER_HEIGHT : null,
     "var(--safe-b)",
-    "1.5rem",
+    flush ? null : "1.5rem",
   ].filter(Boolean);
   return `calc(${parts.join(" + ")})`;
 }
@@ -425,8 +426,9 @@ function AppShell() {
 
   return (
     <div
-      className={`${SHELL} ${tab === "catalogue" ? "min-[60rem]:max-w-[min(76rem,94vw)]" : ""}`}
-      style={{ paddingBottom: shellPadding(!wide, podcast.active) }}
+      // L'accueil tient dans l'écran : la page ne défile pas, la voie défile dans sa zone.
+      className={`${SHELL} ${tab === "catalogue" ? "min-[60rem]:max-w-[min(76rem,94vw)]" : ""} ${tab === "home" ? "flex h-dvh flex-col" : ""}`}
+      style={{ paddingBottom: shellPadding(!wide, podcast.active, tab === "home") }}
     >
       <header className="flex items-baseline justify-between gap-4 border-b border-hairline pb-4">
         <h1 className="font-serif text-xl">
@@ -452,7 +454,7 @@ function AppShell() {
         </nav>
       )}
 
-      <div key={refreshKey} className={wide ? "" : "mt-6"}>
+      <div key={refreshKey} className={`${wide ? "" : "mt-6"} ${tab === "home" ? "flex min-h-0 flex-1 flex-col" : ""}`}>
         {tab === "home" && (
           <Home
             onOpenCourse={openCourse}
@@ -467,10 +469,12 @@ function AppShell() {
         {tab === "catalogue" && <Catalogue onOpenStory={openStory} onOpenCourse={openCourse} />}
       </div>
 
-      <footer className="mt-16 border-t border-hairline pt-4 text-sm leading-relaxed text-muted">
-        Lecteur de japonais extensif et adaptatif, local-first et hors-ligne — furigana et gloss
-        déterministes (kuromoji), révision espacée FSRS.
-      </footer>
+      {tab !== "home" && (
+        <footer className="mt-16 border-t border-hairline pt-4 text-sm leading-relaxed text-muted">
+          Lecteur de japonais extensif et adaptatif, local-first et hors-ligne — furigana et gloss
+          déterministes (kuromoji), révision espacée FSRS.
+        </footer>
+      )}
 
       {!wide && <BottomNav tabs={TABS} active={tab} onNavigate={navigate} />}
     </div>
