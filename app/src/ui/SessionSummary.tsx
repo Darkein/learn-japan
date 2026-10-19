@@ -94,6 +94,11 @@ export function groupResults<R extends { card: Exercise; daysBefore: number }>(r
   return [...seen.values()];
 }
 
+/** Le nom d'un élément au bilan : le sien, ou à défaut sa carte, trou rempli par la réponse. */
+function EntryName({ entry }: { entry: Pick<SummaryEntry, "card" | "label"> }) {
+  return entry.label ?? <ClozeText text={entry.card.front} fill={blankAnswer(entry.card)} />;
+}
+
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
 export function SessionSummary({
   results,
@@ -148,7 +153,8 @@ export function SessionSummary({
   }, [results]);
 
   const missed = results.filter((r) => isMiss(r.grade));
-  const leeches = groupResults(results).filter((r) => r.card.isLeech);
+  // Les éléments difficiles se nomment comme les lignes du bilan : une fois les éléments lus.
+  const leeches = (summary ?? []).filter((e) => e.card.isLeech);
   const reviewed = groupResults(results).length;
 
   return (
@@ -166,9 +172,9 @@ export function SessionSummary({
         <div className="flex flex-col gap-1">
           <SectionLabel>Éléments difficiles</SectionLabel>
           <div className="flex flex-wrap gap-2">
-            {leeches.map((r) => (
-              <Badge key={r.card.key} className="font-jp">
-                <ClozeText text={r.card.front} fill={blankAnswer(r.card)} />
+            {leeches.map((entry) => (
+              <Badge key={entry.card.key} className="font-jp">
+                <EntryName entry={entry} />
               </Badge>
             ))}
           </div>
@@ -195,7 +201,7 @@ export function SessionSummary({
                 <li key={entry.card.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-jp text-sm text-text">
-                      {entry.label ?? <ClozeText text={entry.card.front} fill={blankAnswer(entry.card)} />}
+                      <EntryName entry={entry} />
                     </span>
                     <div className="flex items-center gap-1.5">
                       {entry.card.isLeech && <Badge>difficile</Badge>}
