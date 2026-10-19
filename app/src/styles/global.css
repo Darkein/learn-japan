@@ -189,27 +189,21 @@
   border-right: none;
   border-radius: var(--radius-md) 0 0 var(--radius-md);
   background:
-    linear-gradient(to left, color-mix(in oklab, var(--text) 11%, transparent), transparent 20px),
+    linear-gradient(to left, color-mix(in oklab, var(--text) 8%, transparent), transparent 9px),
     var(--surface);
 }
 .carnet-page-right {
   border-left: none;
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background:
-    linear-gradient(to right, color-mix(in oklab, var(--text) 11%, transparent), transparent 20px),
+    linear-gradient(to right, color-mix(in oklab, var(--text) 8%, transparent), transparent 9px),
     var(--surface);
 }
-/* L'ombre portée sur la feuille qui tourne, plus forte loin de la reliure. */
+/* L'ombre d'une bande de la feuille qui tourne, d'autant plus forte qu'elle se détourne. */
 .carnet-shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
-}
-.carnet-shade-right {
-  background: linear-gradient(to left, color-mix(in oklab, var(--bg) 80%, transparent), transparent);
-}
-.carnet-shade-left {
-  background: linear-gradient(to right, color-mix(in oklab, var(--bg) 80%, transparent), transparent);
 }
 
 @keyframes rise {

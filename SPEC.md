@@ -917,7 +917,7 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
   - un vrai carnet ouvert : deux pages côte à côte reliées au centre, six tampons par page
     (2 × 3, sans grille, le nom de la ville sous chacun) ; chaque route, et les tampons de
     fortune, commencent sur une double page ;
-  - la feuille de droite tourne autour de la reliure. Tirée lentement, elle suit le doigt et,
+  - la feuille de droite tourne autour de la reliure en se courbant comme du papier. Tirée lentement, elle suit le doigt et,
     lâchée, finit sa course ou retombe selon qu'elle a passé la moitié ; un glissé rapide, les
     flèches ou un signet (un par route, un pour l'omikuji) la tournent seuls. Il s'ouvre sur
     la double page du dernier tampon obtenu ;

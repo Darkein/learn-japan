@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import type { Route } from "../../data/routes";
 import type { OmikujiFortune } from "../../lib/db";
 import { fortuneById } from "../../lib/omikuji";
@@ -10,7 +10,12 @@ import { CityStamp, FortuneStamp } from "./Stamp";
 /** Tampons par page (2 × 3). */
 const SLOTS = 6;
 /** Durée d'une page tournée d'un geste (bouton, signet). */
-const TURN_MS = 650;
+const TURN_MS = 700;
+/** Bandes verticales de la feuille qui tourne : chacune pivote un peu plus que la précédente,
+    la feuille se courbe comme du papier au lieu de tourner d'un bloc. */
+const STRIPS = 8;
+/** Courbure maximale de la feuille (degrés entre la reliure et le bord libre), à mi-course. */
+const CURL = 70;
 
 type Page =
   | { kind: "route"; route: Route; stations: Route["stations"]; part: number; parts: number }
@@ -23,6 +28,8 @@ interface Flip {
   lo: number;
   hi: number;
   p: number;
+  /** Sens du mouvement (1 : vers `hi`) : le bord libre mène, la feuille se courbe derrière. */
+  dir: 1 | -1;
 }
 
 function chunk<T>(list: T[], n: number): T[][] {
@@ -92,7 +99,8 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     setWidth(el.clientWidth);
     return () => ro.disconnect();
   }, []);
-  const stampSize = Math.max(44, Math.min(72, Math.floor((width / 2 - 24) / 2) - 12));
+  // Le tampon prend les deux tiers de sa case : la page garde de l'air autour.
+  const stampSize = Math.max(40, Math.min(60, Math.round(((width / 2 - 28) / 2) * 0.66)));
 
   const show = (f: Flip | null) => {
     flipRef.current = f;
@@ -112,7 +120,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     const t0 = performance.now();
     const step = (now: number) => {
       const t = clamp01((now - t0) / ms);
-      show({ ...f, p: from + (target - from) * ease(t) });
+      show({ ...f, dir: target > from ? 1 : -1, p: from + (target - from) * ease(t) });
       if (t < 1) raf.current = requestAnimationFrame(step);
       else done();
     };
@@ -123,7 +131,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     if (flipRef.current || to === spread || to < 0 || to >= spreads) return;
     if (reducedMotion()) return setSpread(to);
     const fwd = to > spread;
-    show(fwd ? { lo: spread, hi: to, p: 0 } : { lo: to, hi: spread, p: 1 });
+    show(fwd ? { lo: spread, hi: to, p: 0, dir: 1 } : { lo: to, hi: spread, p: 1, dir: -1 });
     settle(fwd ? 1 : 0, TURN_MS);
   }
 
@@ -157,7 +165,10 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     }
     d.trail = [...d.trail.filter((s) => e.timeStamp - s.t < 100), { t: e.timeStamp, x: e.clientX }];
-    show({ lo: d.dir > 0 ? spread : spread - 1, hi: d.dir > 0 ? spread + 1 : spread, p: progress(d, e.clientX) });
+    const p = progress(d, e.clientX);
+    const prev = flipRef.current;
+    const dir = prev && p !== prev.p ? (p > prev.p ? 1 : -1) : d.dir > 0 ? 1 : -1;
+    show({ lo: d.dir > 0 ? spread : spread - 1, hi: d.dir > 0 ? spread + 1 : spread, p, dir });
   };
   const release = (e: PointerEvent, cancel = false) => {
     const d = drag.current;
@@ -184,8 +195,6 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
   const left = pages[2 * (flip ? flip.lo : spread)];
   const right = pages[2 * (flip ? flip.hi : spread) + 1];
   const pageProps = { stamps, stampSize, onOpenCity };
-  // L'ombre du pli : nulle à plat, la plus forte quand la feuille est debout.
-  const shade = flip ? Math.sin(flip.p * Math.PI) * 0.55 : 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -226,19 +235,11 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
         <PageView page={left} side="left" number={2 * (flip ? flip.lo : spread) + 1} {...pageProps} />
         <PageView page={right} side="right" number={2 * (flip ? flip.hi : spread) + 2} {...pageProps} />
         {flip && (
-          <div
-            className="absolute top-0 right-0 bottom-0 w-1/2"
-            style={{ transformOrigin: "left center", transformStyle: "preserve-3d", transform: `rotateY(${-180 * flip.p}deg)` }}
-          >
-            <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
-              <PageView page={pages[2 * flip.lo + 1]} side="right" number={2 * flip.lo + 2} {...pageProps} />
-              <span className="carnet-shade carnet-shade-right" style={{ opacity: shade }} />
-            </div>
-            <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-              <PageView page={pages[2 * flip.hi]} side="left" number={2 * flip.hi + 1} {...pageProps} />
-              <span className="carnet-shade carnet-shade-left" style={{ opacity: shade }} />
-            </div>
-          </div>
+          <Leaf
+            flip={flip}
+            front={<PageView page={pages[2 * flip.lo + 1]} side="right" number={2 * flip.lo + 2} {...pageProps} />}
+            back={<PageView page={pages[2 * flip.hi]} side="left" number={2 * flip.hi + 1} {...pageProps} />}
+          />
         )}
       </div>
 
@@ -265,6 +266,66 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
           <IconArrowRight size={20} />
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * La feuille qui tourne : des bandes imbriquées, chacune pivotant autour du bord de la
+ * précédente. À plat aux deux bouts de la course, courbée au milieu, le bord libre en tête.
+ * Recto : la page de droite de `lo` ; verso : la page de gauche de `hi`.
+ */
+function Leaf({ flip, front, back }: { flip: Flip; front: ReactNode; back: ReactNode }) {
+  const theta = 180 * flip.p;
+  const curl = Math.sin(flip.p * Math.PI) * CURL * flip.dir;
+  const angles = Array.from({ length: STRIPS }, (_, i) =>
+    Math.min(180, Math.max(0, theta + curl * (i / (STRIPS - 1) - 0.5))),
+  );
+  // Ombre en dégradé continu d'une bande à l'autre : plus la feuille se détourne, plus elle
+  // s'assombrit (recto avant d'être debout, verso après).
+  const dark = (a: number, back: boolean) => `rgba(0, 0, 0, ${(((back ? 180 - a : a) / 90) * 0.16).toFixed(3)})`;
+  const shade = (i: number, back: boolean) => {
+    const a = angles[i];
+    const b = angles[Math.min(i + 1, STRIPS - 1)];
+    return { background: `linear-gradient(to ${back ? "left" : "right"}, ${dark(a, back)}, ${dark(b, back)})` };
+  };
+  let node: ReactNode = null;
+  for (let i = STRIPS - 1; i >= 0; i--) {
+    const turn = angles[i] - (i ? angles[i - 1] : 0);
+    const face = "absolute top-0 bottom-0 left-0 overflow-hidden";
+    // Une bande déborde d'un pixel sur la suivante : pas de jour entre elles.
+    const faceStyle = { right: -1, backfaceVisibility: "hidden" } as const;
+    const slice = (offset: number) => ({ width: `${STRIPS * 100}%`, left: `${-offset * 100}%` });
+    node = (
+      <div
+        className="absolute top-0 bottom-0"
+        style={{
+          left: i ? "100%" : 0,
+          width: i ? "100%" : `${100 / STRIPS}%`,
+          transformOrigin: "left center",
+          transformStyle: "preserve-3d",
+          transform: `rotateY(${-turn}deg)`,
+        }}
+      >
+        <div className={face} style={faceStyle}>
+          <div className="absolute top-0 bottom-0" style={slice(i)}>
+            {front}
+          </div>
+          <span className="carnet-shade" style={shade(i, false)} />
+        </div>
+        <div className={face} style={{ ...faceStyle, transform: "rotateY(180deg)" }}>
+          <div className="absolute top-0 bottom-0" style={slice(STRIPS - 1 - i)}>
+            {back}
+          </div>
+          <span className="carnet-shade" style={shade(i, true)} />
+        </div>
+        {node}
+      </div>
+    );
+  }
+  return (
+    <div className="absolute top-0 right-0 bottom-0 w-1/2" style={{ transformStyle: "preserve-3d" }}>
+      {node}
     </div>
   );
 }
