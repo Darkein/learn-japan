@@ -1030,12 +1030,15 @@ la molette y fait défiler la voie.
   1. le fond du ciel, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
   2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,08 px par px
      défilé) ;
-  3. le **plan moyen** qui défile (monts, forêts, temples), aux 6/10 du sol ;
-  4. les **repères** des villes, au quart du sol ;
-  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
+  3. le **plan lointain** qui défile (monts et collines), aux 78/100 du sol, à 0,14 px par px
+     défilé, à peine plus marqué que la crête ; les repères qui sont des monts (le Fuji, l'Asama)
+     y glissent avec lui, plus grands, posés aux 6/10 du sol, derrière le plan moyen ;
+  4. le **plan moyen** qui défile (forêts, temples, bosquets), aux 6/10 du sol ;
+  5. les autres **repères** des villes (châteaux, torii, ponts, lacs…), au quart du sol ;
+  6. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
      la vitre — une bande de sol vide et calme sépare ce qui glisse vite de la voie — en
      silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
-  Les deux plans qui défilent rapetissent quand la bande se replie.
+  Les plans qui défilent rapetissent quand la bande se replie.
 - **Les repères des villes.**
   - Ont un repère : les illustrations uniques, et les villes, grandes villes et terminus. Le
     repère d'une ville est le sprite de son motif, tiré du catalogue ; celui d'une illustration
@@ -1050,8 +1053,9 @@ la molette y fait défiler la voie.
     bande n'a plus de nom affiché. Sa place étant au milieu, il paraît et s'efface au même écart
     de part et d'autre, avec le même fondu (300 ms).
 - **Le décor qui défile.**
-  - Deux plans glissent de côté au fil du défilement, dans le même sens que les repères : le plan
-    moyen à 0,22 px par px défilé, le plan proche à 0,42 px.
+  - Trois plans glissent de côté au fil du défilement, dans le même sens que les repères, chaque
+    chose sur le plan de sa taille : le plan lointain (monts) à 0,14 px par px défilé, le plan
+    moyen (forêts, temples) à 0,22 px, le plan proche (arbres, maisons) à 0,42 px.
   - Chaque élément a son rang sur une bande sans fin, d'où se tirent sa place, sa taille et sa
     forme : le décor ne change pas d'une visite à l'autre.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe

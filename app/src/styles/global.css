@@ -261,6 +261,7 @@
 }
 [data-sky] {
   --sky-ridge: color-mix(in oklab, var(--text) 9%, var(--sky-low));
+  --sky-far: color-mix(in oklab, var(--text) 12%, var(--sky-low));
   --sky-mid: color-mix(in oklab, var(--text) 16%, var(--sky-low));
   --sky-ground: color-mix(in oklab, var(--text) 5%, var(--sky-low));
   --sky-near: color-mix(in oklab, var(--text) 22%, var(--bg));

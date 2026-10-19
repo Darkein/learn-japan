@@ -17,6 +17,7 @@ import {
   WINDOW_INSET,
   WINDOW_TOP,
   type DriftItem,
+  type SkyMark,
 } from "../../lib/horizon";
 import type { RouteScenery, Season } from "../../lib/scenery";
 import type { TrackLayout } from "../../lib/track";
@@ -39,6 +40,8 @@ interface Props {
 /** Taille d'un repère (boîte 120 × 80 du catalogue : son pied est vers y = 72). */
 const MARK_W = 92;
 const MARK_H = (MARK_W * 80) / 120;
+/** Les repères du fond (les monts) sont plus grands : ils dominent le paysage. */
+const FAR_MARK_SCALE = 1.4;
 
 interface View {
   /** Défilement de la voie depuis son ouverture du panorama. */
@@ -75,7 +78,8 @@ function Drift({ items, bottom, fill, size = 1 }: { items: DriftItem[]; bottom: 
  * La bande de ciel (SPEC §5c.6b), collée sous le bandeau de leçon : le panorama du départ qui se
  * replie, et le décor qui défile en deux plans ; entre les deux glissent les repères des villes,
  * dont le nom paraît autour de leur place. Sous l'horizon, le sol étage les plans : la crête au
- * fond, puis le plan moyen, les repères, le plan proche en bas. La bande se regarde par la fenêtre
+ * fond, le plan lointain (monts et collines, et les repères qui sont des monts), le plan moyen,
+ * les autres repères, le plan proche en bas. La bande se regarde par la fenêtre
  * du train, une vitre encadrée en retrait ; la voie défile dans sa propre zone, sous la fenêtre.
  */
 export function Horizon({ layout, sceneries, season, scroller, track, title }: Props) {
@@ -120,13 +124,39 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
   const W = layout.width - 2 * WINDOW_INSET;
   const glassH = skyH - WINDOW_TOP - WINDOW_INSET;
   const at = (y: number) => biomeAt(biomes, y);
+  const far = driftItems("far", pos, W, visible / 3, at);
   const mid = driftItems("mid", pos, W, visible / 3, at);
   const ground = groundDepth(skyH);
   // Les plans rapetissent quand le sol s'aplatit (bande repliée).
   const size = 0.7 + (0.3 * (ground - 50)) / 62;
-  const marked = marks.map((m) => markX(m, pos, visible, W)).filter((x) => x > -MARK_W && x < W + MARK_W);
+  const marked = marks.filter((m) => m.depth !== "far").map((m) => markX(m, pos, visible, W)).filter((x) => x > -MARK_W && x < W + MARK_W);
   // Devant un repère, le premier plan s'écarte : rien ne le cache.
   const near = driftItems("near", pos, W, visible / 3, at).filter((it) => marked.every((x) => Math.abs(it.x - x) > MARK_W * 0.45));
+  // Un repère sur son plan : les monts du fond, plus grands, derrière le plan moyen ; le reste devant.
+  const renderMark = (m: SkyMark, base: number) => {
+    const x = markX(m, pos, visible, W);
+    if (x < -MARK_W || x > W + MARK_W) return null;
+    const up = markRaised(m, pos, pos + visible);
+    const k = m.depth === "far" ? FAR_MARK_SCALE : 1;
+    const w = MARK_W * k;
+    const h = MARK_H * k;
+    const bottom = base - h / 10;
+    return (
+      <span
+        key={m.id}
+        className={`absolute ${up ? "sky-mark-up" : ""}`}
+        style={{ left: x - w / 2, bottom, width: w, height: h }}
+      >
+        <svg width={w} height={h} viewBox="0 0 120 80" className="block text-text">
+          <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
+        </svg>
+        {/* Le nom au-dessus du dessin, sans sortir de la vitre. */}
+        <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: Math.min(h + 6, glassH - bottom - 20) }}>
+          {m.name}
+        </span>
+      </span>
+    );
+  };
   const titleOpacity = Math.max(0, 1 - Math.max(0, view.u) / 120);
 
   return (
@@ -148,26 +178,10 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
             </svg>
             {/* Le sol, de l'horizon au bas de la vitre. */}
             <div className="horizon-ground absolute inset-x-0 bottom-0" style={{ height: ground }} />
+            <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
+            {marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.mid))}
             <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
-            {marks.map((m) => {
-              const x = markX(m, pos, visible, W);
-              if (x < -MARK_W || x > W + MARK_W) return null;
-              const up = markRaised(m, pos, pos + visible);
-              return (
-                <span
-                  key={m.id}
-                  className={`absolute ${up ? "sky-mark-up" : ""}`}
-                  style={{ left: x - MARK_W / 2, bottom: ground * PLANE_AT.marks - MARK_H / 10, width: MARK_W, height: MARK_H }}
-                >
-                  <svg width={MARK_W} height={MARK_H} viewBox="0 0 120 80" className="block text-text">
-                    <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
-                  </svg>
-                  <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: MARK_H + 6 }}>
-                    {m.name}
-                  </span>
-                </span>
-              );
-            })}
+            {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
             <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} />
           </Sky>
         </div>

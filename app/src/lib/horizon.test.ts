@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
-  biomeAt, biomeTrack, driftItems, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
+  biomeAt, biomeTrack, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
   skyHeight, skyMarks,
 } from "./horizon";
 import { lessonSteps } from "./path";
@@ -54,6 +54,17 @@ describe("les repères du ciel", () => {
     expect(lake?.y).toBe(band!.art.y + band!.art.h / 2);
   });
 
+  it("un repère qui est un mont glisse au fond, plus lentement que les autres", () => {
+    const marks = skyMarks(realLayout(), SCENERIES);
+    expect(marks.find((m) => m.kind === "fuji")?.depth).toBe("far");
+    expect(marks.find((m) => m.kind === "castle")?.depth).toBe("mid");
+    const far = { id: "f", y: 2000, kind: "fuji" as const, name: "x", x: 0.5, depth: "far" as const };
+    const near = { ...far, depth: "mid" as const };
+    const moved = (m: typeof far | typeof near) => markX(m, 2100, 590, 390) - markX(m, 2000, 590, 390);
+    expect(moved(far)).toBeCloseTo(100 * FAR_MARK_SPEED);
+    expect(moved(far)).toBeLessThan(moved(near));
+  });
+
   it("un repère glisse avec le défilement, à sa place quand sa ville est au milieu, et reste à l'écran", () => {
     const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.5 };
     const visible = 590;
@@ -83,16 +94,23 @@ describe("les repères du ciel", () => {
 describe("le décor qui défile", () => {
   const plain = () => "rice" as const;
 
-  it("glisse plus vite au plan proche qu'au plan moyen, et reste stable", () => {
-    const at = (layer: "mid" | "near", pos: number) => driftItems(layer, pos, 390, 0, plain);
-    for (const layer of ["mid", "near"] as const) {
+  it("glisse d'autant plus vite que le plan est proche, et reste stable", () => {
+    const at = (layer: "far" | "mid" | "near", pos: number) => driftItems(layer, pos, 390, 0, plain);
+    for (const layer of ["far", "mid", "near"] as const) {
       const a = at(layer, 1000);
       const b = at(layer, 1100);
       const common = a.find((it) => b.some((j) => j.key === it.key))!;
       const moved = b.find((j) => j.key === common.key)!.x - common.x;
-      expect(moved).toBeCloseTo(layer === "mid" ? 22 : 42, 5);
+      expect(moved).toBeCloseTo({ far: 14, mid: 22, near: 42 }[layer], 5);
       expect(at(layer, 1000)).toEqual(a);
     }
+  });
+
+  it("pose chaque chose sur le plan de sa taille : les monts au fond, les forêts au milieu", () => {
+    const kinds = (layer: "far" | "mid", biome: "mountain" | "forest") =>
+      new Set(driftItems(layer, 5000, 390, 0, () => biome).map((it) => it.kind));
+    for (const k of kinds("far", "mountain")) expect(["peak", "hill"]).toContain(k);
+    for (const k of kinds("mid", "forest")) expect(["peak", "hill"]).not.toContain(k);
   });
 
   it("tire ses silhouettes du paysage du tronçon", () => {

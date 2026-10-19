@@ -23,7 +23,7 @@ export function groundDepth(skyH: number): number {
 }
 
 /** Hauteur de chaque plan au-dessus du bas de la bande, en part de la profondeur du sol. */
-export const PLANE_AT = { ridge: 0.94, mid: 0.6, marks: 0.24, near: 0 } as const;
+export const PLANE_AT = { ridge: 0.94, far: 0.78, mid: 0.6, marks: 0.24, near: 0 } as const;
 
 /** La fenêtre du train : sa marge sur les côtés et en bas, celle sous le bandeau, et la bande de sol
     laissée vide sous le plan proche, pour que rien de rapide ne frôle la voie. */
@@ -50,6 +50,10 @@ const MOTIF_SPRITE: Partial<Record<string, SpriteKind>> = {
   tea: "tea", pagoda: "pagoda",
 };
 
+/** Le plan d'un repère : les monts au fond, derrière le plan moyen ; le reste devant lui. */
+export type MarkDepth = "far" | "mid";
+const FAR_MARKS: ReadonlySet<SpriteKind> = new Set(["fuji", "volcano", "ridge"]);
+
 export interface SkyMark {
   id: string;
   /** Ordonnée de la ville sur la voie. */
@@ -59,6 +63,8 @@ export interface SkyMark {
   /** Sa place sur l'horizon, en part de la largeur, quand sa ville passe au milieu de la voie
       visible ; il glisse autour au fil du défilement (`markX`). */
   x: number;
+  /** Son plan (par défaut, devant le plan moyen). */
+  depth?: MarkDepth;
 }
 
 /**
@@ -86,7 +92,7 @@ export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMar
     // Décalage alterné d'un repère au suivant, et léger écart stable par ville.
     const i = n.city.index;
     const x = (out.length % 2 ? 0.6 : 0.44) + ((i * 7) % 8) / 100;
-    out.push({ id: n.id, y, kind, name, x });
+    out.push({ id: n.id, y, kind, name, x, depth: FAR_MARKS.has(kind) ? "far" : "mid" });
   }
   return out;
 }
@@ -106,15 +112,18 @@ export function ridgePath(pos: number, width: number): string {
   return `${d} L${width + RIDGE_PERIOD} 22 L${width + RIDGE_PERIOD} 40 Z`;
 }
 
-/** Vitesse des repères : entre le plan moyen et le plan proche du décor qui défile. */
+/** Vitesse des repères : entre le plan moyen et le plan proche du décor qui défile ; les monts du
+    fond glissent avec le plan lointain. */
 export const MARK_SPEED = 0.35;
+export const FAR_MARK_SPEED = 0.14;
 
 /**
  * Où est un repère quand la voie est à `pos` (ordonnée de voie du bas du ciel) : à sa place quand
  * sa ville passe au milieu de la voie visible, et il glisse dans le même sens que le décor.
  */
 export function markX(mark: SkyMark, pos: number, visible: number, width: number): number {
-  return mark.x * width + (pos - (mark.y - visible / 2)) * MARK_SPEED;
+  const speed = mark.depth === "far" ? FAR_MARK_SPEED : MARK_SPEED;
+  return mark.x * width + (pos - (mark.y - visible / 2)) * speed;
 }
 
 /**
@@ -129,9 +138,11 @@ export function markRaised(mark: SkyMark, top: number, bottom: number): boolean 
 // ---- Le décor qui défile ---------------------------------------------------------------
 
 /** Les silhouettes du décor qui défile (boîte 40 × 30, pied en bas). */
-export type DriftKind = "pine" | "cedars" | "hill" | "field" | "temple" | "house" | "bamboo" | "boat" | "tree";
+export type DriftKind = "peak" | "pine" | "cedars" | "hill" | "field" | "temple" | "house" | "bamboo" | "boat" | "tree";
 
 export const DRIFT_PATHS: Record<DriftKind, string> = {
+  // Un mont : deux sommets, le plus haut au milieu, et les versants qui s'adoucissent au pied.
+  peak: "M-8 30 Q4 24 10 14 L14 9 L18 13 L23 3 Q30 16 38 22 Q44 26 48 30 Z",
   // Un pin japonais : tronc penché, branches en plateaux.
   pine:
     "M19 30 Q16 22 21 16 Q24 12 22 8 L24 8 Q27 13 23.5 17 Q20 23 22 30 Z " +
@@ -155,14 +166,23 @@ export const DRIFT_PATHS: Record<DriftKind, string> = {
   tree: "M18 30 V19 H22 V30 Z M9 16 a11 10 0 1 1 22 0 a11 10 0 1 1 -22 0 Z",
 };
 
-type Layer = "mid" | "near";
+type Layer = "far" | "mid" | "near";
 
-/** Ce que chaque paysage fait défiler : au plan moyen (monts, forêts, temples), au plan proche. */
+/**
+ * Ce que chaque paysage fait défiler, par plan, selon la taille des choses : au plan lointain les
+ * monts et les collines, au plan moyen les forêts et les temples, au plan proche les arbres, les
+ * champs, les maisons et les bateaux.
+ */
 const DRIFT: Record<Layer, Record<Biome, DriftKind[]>> = {
+  far: {
+    coast: ["hill"], plain: ["hill"], rice: ["hill"], mountain: ["peak", "peak", "hill"],
+    forest: ["peak", "hill"], lake: ["peak", "hill"], river: ["hill", "peak"], town: ["hill"],
+    tea: ["hill", "peak"], orchard: ["hill"], vineyard: ["peak", "hill"],
+  },
   mid: {
-    coast: ["hill"], plain: ["hill", "cedars"], rice: ["hill", "cedars"], mountain: ["hill", "hill", "cedars"],
-    forest: ["cedars", "hill"], lake: ["hill"], river: ["hill", "temple"], town: ["temple", "hill"],
-    tea: ["hill"], orchard: ["hill", "cedars"], vineyard: ["hill"],
+    coast: ["pine"], plain: ["cedars", "tree"], rice: ["cedars", "tree"], mountain: ["cedars", "cedars", "temple"],
+    forest: ["cedars", "cedars", "bamboo"], lake: ["cedars", "temple"], river: ["cedars", "temple"], town: ["temple", "temple", "cedars"],
+    tea: ["cedars", "tree"], orchard: ["tree", "cedars"], vineyard: ["tree", "cedars"],
   },
   near: {
     coast: ["boat", "pine"], plain: ["field", "house", "pine"], rice: ["field", "field", "house", "pine"],
@@ -174,6 +194,7 @@ const DRIFT: Record<Layer, Record<Biome, DriftKind[]>> = {
 
 /** Vitesse (part du défilement), espacement et échelle de chaque plan. */
 const LAYERS: Record<Layer, { speed: number; spacing: number; scale: number }> = {
+  far: { speed: 0.14, spacing: 70, scale: 1.6 },
   mid: { speed: 0.22, spacing: 44, scale: 0.9 },
   near: { speed: 0.42, spacing: 48, scale: 1.25 },
 };
@@ -223,7 +244,7 @@ export function driftItems(
   biome: (y: number) => Biome,
 ): DriftItem[] {
   const { speed, spacing, scale } = LAYERS[layer];
-  const salt = layer === "mid" ? 1 : 2;
+  const salt = layer === "far" ? 13 : layer === "mid" ? 1 : 2;
   const off = pos * speed;
   const out: DriftItem[] = [];
   for (let i = Math.floor((off - 80) / spacing); i <= Math.ceil((off + width + 80) / spacing); i++) {
