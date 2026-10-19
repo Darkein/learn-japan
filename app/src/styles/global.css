@@ -175,6 +175,65 @@
   animation-delay: inherit;
 }
 
+/* Carnet de tampons (ui/track/Carnet.tsx) : une page de papier, reliée à gauche. */
+.carnet-page {
+  min-height: 100%;
+  background:
+    linear-gradient(to right, color-mix(in oklab, var(--text) 10%, transparent), transparent 22px),
+    var(--surface);
+  box-shadow:
+    var(--elev),
+    inset 1px 0 0 var(--hairline-strong);
+  border: 1px solid var(--hairline);
+  border-left: none;
+}
+
+/* Une page tourne autour de la reliure : vers la gauche en avant, vers la droite en arrière.
+   Ombrée au passage de la tranche ; sa face cachée ne se voit pas. */
+@keyframes page-turn-next {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(-180deg);
+  }
+}
+@keyframes page-turn-prev {
+  from {
+    transform: rotateY(-180deg);
+  }
+  to {
+    transform: rotateY(0deg);
+  }
+}
+@keyframes page-shade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.page-turn-next,
+.page-turn-prev {
+  transform-origin: left center;
+  backface-visibility: hidden;
+  animation: page-turn-next 650ms cubic-bezier(0.45, 0, 0.25, 1) forwards;
+}
+.page-turn-prev {
+  animation-name: page-turn-prev;
+}
+.page-turn-next::after,
+.page-turn-prev::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to left, color-mix(in oklab, var(--bg) 70%, transparent), transparent 70%);
+  animation: page-shade 650ms ease-in-out both;
+}
+
 @keyframes rise {
   from {
     transform: translateY(12px);
