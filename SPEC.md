@@ -915,12 +915,17 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
     dernière ville et cite les autres.
 - **Le carnet** est dans le Voyage :
   - un vrai carnet ouvert : deux pages côte à côte reliées au centre, six tampons par page
-    (2 × 3, sans grille, le nom de la ville sous chacun) ; chaque route, et les tampons de
-    fortune, commencent sur une double page ;
-  - la feuille de droite tourne autour de la reliure en se courbant comme du papier. Tirée lentement, elle suit le doigt et,
-    lâchée, finit sa course ou retombe (le même geste à l'envers) selon qu'elle a passé la moitié ; un glissé rapide, les
-    flèches ou un signet (un par route, un pour l'omikuji) la tournent seuls. Il s'ouvre sur
-    la double page du dernier tampon obtenu ;
+    (2 × 3, sans grille, le nom de la ville sous chacun). Il contient les cinq routes jusqu'à
+    N1, puis les tampons de fortune ; chaque section commence sur une double page, avec la
+    route et son niveau en haut à gauche, et le compte de ses tampons (« 9/54 ») en haut à
+    droite ;
+  - la feuille de droite tourne autour de la reliure en se courbant comme du papier. Tirée
+    lentement, elle suit le doigt et, lâchée, finit sa course ou retombe (le même geste à
+    l'envers) selon qu'elle a passé la moitié ; un glissé rapide ou les flèches la tournent
+    seuls ;
+  - des marque-pages, rubans à la couleur du train de chaque niveau (et un pour l'omikuji),
+    dépassent du haut du carnet : en toucher un fait tourner les pages en cascade jusqu'à sa
+    section. Il s'ouvre sur la double page du dernier tampon obtenu ;
   - les tampons à venir sont un simple rond pointillé (la forme reste une surprise) ;
   - toucher un tampon ouvre la fiche de sa ville ;
   - les tampons de fortune de l'omikuji (大吉, 吉…) ont leur page.

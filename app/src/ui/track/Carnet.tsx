@@ -16,17 +16,25 @@ const TURN_MS = 700;
 const STRIPS = 8;
 /** Courbure maximale de la feuille (degrés entre la reliure et le bord libre), à mi-course. */
 const CURL = 110;
+/** Saut lointain (marque-page) : au plus tant de feuilles tournent, l'une après l'autre. */
+const MAX_LEAVES = 4;
+const LEAF_STAGGER_MS = 110;
+/** Ruban du marque-page de l'omikuji (les routes prennent la couleur de leur train). */
+const FORTUNE_RIBBON = "#6b6255";
 
-type Page =
+type Content =
   | { kind: "route"; route: Route; stations: Route["stations"]; part: number }
-  | { kind: "fortune"; items: FortuneRecord[]; part: number }
-  | { kind: "blank" };
+  | { kind: "fortune"; items: FortuneRecord[]; part: number; count: number };
+/** Une page blanche complète la dernière double page d'une section : elle en garde l'en-tête. */
+type Page = Content | { kind: "blank"; of: Content };
 
-/** Une feuille qui tourne entre la double page `lo` et la double page `hi` : à `p` = 0 elle
-    est à droite (on voit `lo`), à `p` = 1 elle est à gauche (on voit `hi`). */
+/** Des feuilles qui tournent entre la double page `lo` et la double page `hi` : à `p` = 0 elles
+    sont à droite (on voit `lo`), à `p` = 1 à gauche (on voit `hi`). Un saut lointain fait
+    tourner plusieurs feuilles en cascade, par les doubles pages `stops` (de `lo` à `hi`). */
 interface Flip {
   lo: number;
   hi: number;
+  stops: number[];
   p: number;
   /** Sens du geste qui a soulevé la feuille (1 : vers `hi`) : le bord libre mène, la feuille se
       courbe derrière. Fixé pour toute la course : une feuille lâchée qui retombe rejoue la même
@@ -67,16 +75,16 @@ interface Props {
 export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: Props) {
   const pages = useMemo(() => {
     const out: Page[] = [];
-    const section = (list: Page[]) => {
+    const section = (list: Content[]) => {
       out.push(...list);
-      if (list.length % 2) out.push({ kind: "blank" });
+      if (list.length % 2) out.push({ kind: "blank", of: list[list.length - 1] });
     };
     for (const route of routes) {
       const parts = chunk(route.stations.slice(1), SLOTS);
       section(parts.map((stations, part) => ({ kind: "route", route, stations, part })));
     }
     const parts = chunk(fortunes, SLOTS);
-    section(parts.map((items, part) => ({ kind: "fortune", items, part })));
+    section(parts.map((items, part) => ({ kind: "fortune", items, part, count: fortunes.length })));
     return out;
   }, [routes, fortunes]);
   const spreads = pages.length / 2;
@@ -120,9 +128,11 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     if (reducedMotion() || Math.abs(target - f.p) < 0.01) return done();
     const from = f.p;
     const t0 = performance.now();
+    // Une cascade avance d'un pas régulier : chaque feuille a sa propre accélération (leafP).
+    const curve = f.stops.length > 2 ? (t: number) => t : ease;
     const step = (now: number) => {
       const t = clamp01((now - t0) / ms);
-      show({ ...f, p: from + (target - from) * ease(t) });
+      show({ ...f, p: from + (target - from) * curve(t) });
       if (t < 1) raf.current = requestAnimationFrame(step);
       else done();
     };
@@ -133,8 +143,11 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     if (flipRef.current || to === spread || to < 0 || to >= spreads) return;
     if (reducedMotion()) return setSpread(to);
     const fwd = to > spread;
-    show(fwd ? { lo: spread, hi: to, p: 0, dir: 1 } : { lo: to, hi: spread, p: 1, dir: -1 });
-    settle(fwd ? 1 : 0, TURN_MS);
+    const [lo, hi] = fwd ? [spread, to] : [to, spread];
+    const k = Math.min(hi - lo, MAX_LEAVES);
+    const stops = Array.from({ length: k + 1 }, (_, j) => lo + Math.round((j * (hi - lo)) / k));
+    show({ lo, hi, stops, p: fwd ? 0 : 1, dir: fwd ? 1 : -1 });
+    settle(fwd ? 1 : 0, TURN_MS + (k - 1) * LEAF_STAGGER_MS);
   }
 
   // Tirer la feuille : elle suit le doigt ; lâchée, elle tourne ou retombe selon sa position
@@ -167,7 +180,8 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     }
     d.trail = [...d.trail.filter((s) => e.timeStamp - s.t < 100), { t: e.timeStamp, x: e.clientX }];
-    show({ lo: d.dir > 0 ? spread : spread - 1, hi: d.dir > 0 ? spread + 1 : spread, p: progress(d, e.clientX), dir: d.dir });
+    const [lo, hi] = d.dir > 0 ? [spread, spread + 1] : [spread - 1, spread];
+    show({ lo, hi, stops: [lo, hi], p: progress(d, e.clientX), dir: d.dir });
   };
   const release = (e: PointerEvent, cancel = false) => {
     const d = drag.current;
@@ -181,10 +195,14 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     settle(target, 140 + 460 * Math.abs(target - p));
   };
 
-  // Signets : un par route, et un pour l'omikuji.
+  // Marque-pages : un par niveau, à la couleur de son train, et un pour l'omikuji.
   const marks = pages.flatMap((p, i) =>
     p.kind !== "blank" && p.part === 0
-      ? [{ spread: i / 2, label: p.kind === "route" ? p.route.kanji : "おみくじ", key: p.kind === "route" ? p.route.level : "fortune" }]
+      ? [
+          p.kind === "route"
+            ? { spread: i / 2, key: `n${p.route.level}`, label: `N${p.route.level}`, name: p.route.name, color: p.route.trainColor }
+            : { spread: i / 2, key: "fortune", label: "吉", name: "Tampons de fortune", color: FORTUNE_RIBBON },
+        ]
       : [],
   );
   const shownSpread = flip ? (flip.p > 0.5 ? flip.hi : flip.lo) : spread;
@@ -193,29 +211,30 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
   if (!pages.length) return null;
   const left = pages[2 * (flip ? flip.lo : spread)];
   const right = pages[2 * (flip ? flip.hi : spread) + 1];
-  const pageProps = { stamps, stampSize, onOpenCity };
+  const pageProps: PageProps = { stamps, stampSize, onOpenCity };
 
   return (
     <div className="flex flex-col gap-3">
-      {marks.length > 1 && (
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Sections du carnet">
-          {marks.map((m) => (
+      <div className="relative pt-7">
+      <div className="absolute top-0 right-3 flex items-end gap-1" role="tablist" aria-label="Marque-pages du carnet">
+        {marks.map((m) => {
+          const active = activeMark === m.spread;
+          return (
             <button
               key={m.key}
               type="button"
               role="tab"
-              aria-selected={activeMark === m.spread}
+              aria-selected={active}
+              aria-label={m.name}
               onClick={() => go(m.spread)}
-              className={`cursor-pointer rounded-sm border px-2.5 py-1 font-jp text-xs ${
-                activeMark === m.spread ? "border-accent text-accent" : "border-hairline text-muted"
-              }`}
+              className="carnet-ribbon cursor-pointer font-jp"
+              style={{ background: m.color, height: active ? 34 : 24 }}
             >
               {m.label}
             </button>
-          ))}
-        </div>
-      )}
-
+          );
+        })}
+      </div>
       <div
         ref={book}
         className="carnet relative grid grid-cols-2 select-none"
@@ -233,13 +252,8 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       >
         <PageView page={left} side="left" number={2 * (flip ? flip.lo : spread) + 1} {...pageProps} />
         <PageView page={right} side="right" number={2 * (flip ? flip.hi : spread) + 2} {...pageProps} />
-        {flip && (
-          <Leaf
-            flip={flip}
-            front={<PageView page={pages[2 * flip.lo + 1]} side="right" number={2 * flip.lo + 2} {...pageProps} />}
-            back={<PageView page={pages[2 * flip.hi]} side="left" number={2 * flip.hi + 1} {...pageProps} />}
-          />
-        )}
+        {flip && <Leaves flip={flip} pages={pages} pageProps={pageProps} />}
+      </div>
       </div>
 
       <div className="flex items-center justify-between text-muted">
@@ -266,14 +280,54 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
   );
 }
 
+interface PageProps {
+  stamps: Record<number, number>;
+  stampSize: number;
+  onOpenCity: Props["onOpenCity"];
+}
+
+/**
+ * Les feuilles en mouvement. Une feuille j tourne de la double page stops[j] à stops[j + 1] ;
+ * en cascade, chacune part un peu après la précédente (à l'envers en marche arrière). Seules
+ * comptent les feuilles en l'air et la feuille du dessus de chaque pile.
+ */
+function Leaves({ flip, pages, pageProps }: { flip: Flip; pages: Page[]; pageProps: PageProps }) {
+  const k = flip.stops.length - 1;
+  const total = TURN_MS + (k - 1) * LEAF_STAGGER_MS;
+  const leafP = (j: number) => (k === 1 ? flip.p : ease(clamp01((flip.p * total - j * LEAF_STAGGER_MS) / TURN_MS)));
+  const ps = Array.from({ length: k }, (_, j) => leafP(j));
+  const topRight = ps.indexOf(0);
+  const topLeft = ps.lastIndexOf(1);
+  return (
+    <>
+      {ps.map((p, j) => {
+        if ((p === 0 && j !== topRight) || (p === 1 && j !== topLeft)) return null;
+        const a = flip.stops[j];
+        const b = flip.stops[j + 1];
+        return (
+          <Leaf
+            key={j}
+            p={p}
+            dir={flip.dir}
+            // À droite, la première feuille est dessus ; à gauche, la dernière posée.
+            z={p < 0.5 ? k - j : k + 1 + j}
+            front={<PageView page={pages[2 * a + 1]} side="right" number={2 * a + 2} {...pageProps} />}
+            back={<PageView page={pages[2 * b]} side="left" number={2 * b + 1} {...pageProps} />}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 /**
  * La feuille qui tourne : des bandes imbriquées, chacune pivotant autour du bord de la
  * précédente. À plat aux deux bouts de la course, courbée au milieu, le bord libre en tête.
- * Recto : la page de droite de `lo` ; verso : la page de gauche de `hi`.
+ * Recto : une page de droite ; verso : la page de gauche de la double page d'après.
  */
-function Leaf({ flip, front, back }: { flip: Flip; front: ReactNode; back: ReactNode }) {
-  const theta = 180 * flip.p;
-  const curl = Math.sin(flip.p * Math.PI) * CURL * flip.dir;
+function Leaf({ p, dir, z, front, back }: { p: number; dir: 1 | -1; z: number; front: ReactNode; back: ReactNode }) {
+  const theta = 180 * p;
+  const curl = Math.sin(p * Math.PI) * CURL * dir;
   const angles = Array.from({ length: STRIPS }, (_, i) =>
     Math.min(180, Math.max(0, theta + curl * (i / (STRIPS - 1) - 0.5))),
   );
@@ -320,7 +374,7 @@ function Leaf({ flip, front, back }: { flip: Flip; front: ReactNode; back: React
     );
   }
   return (
-    <div className="absolute top-0 right-0 bottom-0 w-1/2" style={{ transformStyle: "preserve-3d" }}>
+    <div className="absolute top-0 right-0 bottom-0 w-1/2" style={{ transformStyle: "preserve-3d", zIndex: z }}>
       {node}
     </div>
   );
@@ -339,21 +393,28 @@ const PageView = memo(function PageView({
   stamps,
   stampSize,
   onOpenCity,
-}: {
-  page: Page;
-  side: "left" | "right";
-  number: number;
-  stamps: Record<number, number>;
-  stampSize: number;
-  onOpenCity: Props["onOpenCity"];
-}) {
+}: PageProps & { page: Page; side: "left" | "right"; number: number }) {
+  // En-tête de la double page : la route à gauche, le compte de ses tampons à droite.
+  const head = page.kind === "blank" ? page.of : page;
   const cell = "flex min-w-0 flex-col items-center justify-start gap-1 pt-1";
-  const caption = "line-clamp-2 text-center text-xs leading-tight text-muted";
+  const caption = "line-clamp-2 max-w-full text-center text-xs leading-tight text-muted [overflow-wrap:anywhere]";
   return (
     <div className={`carnet-page carnet-page-${side} flex h-full flex-col gap-2 px-3 pt-3 pb-2`}>
-      <div className="flex h-5 items-baseline justify-between gap-2 text-xs">
-        {page.kind === "route" && <span className="truncate font-jp text-text">{page.route.kanji}</span>}
-        {page.kind === "fortune" && <span className="truncate font-jp text-text">おみくじ</span>}
+      <div className={`flex h-5 items-baseline gap-2 text-xs ${side === "left" ? "justify-start" : "justify-end"}`}>
+        {side === "left" ? (
+          <span className="truncate">
+            <span className="font-jp text-text">{head.kind === "route" ? head.route.kanji : "おみくじ"}</span>
+            <span className="text-muted"> {head.kind === "route" ? `N${head.route.level}` : ""}</span>
+          </span>
+        ) : head.kind === "route" ? (
+          <span className="text-muted tabular-nums" aria-label={`${stamps[head.route.level] ?? 0} tampons sur ${head.route.stations.length - 1}`}>
+            <span className="text-text">{stamps[head.route.level] ?? 0}</span>/{head.route.stations.length - 1}
+          </span>
+        ) : (
+          <span className="text-muted tabular-nums">
+            <span className="text-text">{head.count}</span> 印
+          </span>
+        )}
       </div>
 
       <div className="grid flex-1 grid-cols-2 gap-x-1 gap-y-2" style={{ gridTemplateRows: `repeat(3, ${stampSize + 40}px)` }}>

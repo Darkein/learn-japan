@@ -98,7 +98,7 @@ export function Voyage() {
           Mon carnet de tampons · {stampTotal(stamps)}
         </SectionLabel>
         <Carnet
-          routes={ROUTES.filter((r) => r.level >= route.level || (stamps[r.level] ?? 0) > 0)}
+          routes={ROUTES}
           stamps={stamps}
           fortunes={fortunes}
           currentLevel={route.level}
