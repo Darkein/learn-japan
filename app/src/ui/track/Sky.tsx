@@ -82,8 +82,8 @@ export function useSky(season: Season): SkyState {
  * Le ciel de la voie (SPEC §5c.6), en haut de la bande d'horizon (§5c.6b), sur son propre fond.
  * Le soleil suit l'heure (à demi caché derrière une crête à l'aube et au crépuscule), la nuit
  * la lune a sa phase réelle et les étoiles scintillent ; brume du matin, oiseaux et pétales
- * selon la saison. `ground` est la profondeur du sol sous l'horizon ; `children` se dessine
- * par-dessus (le sol et ses plans).
+ * selon la saison. `ground` est la profondeur du sol sous l'horizon ; `children` (le sol et ses
+ * plans) se dessine par-dessus le ciel, et ce qui vole par-dessus le tout.
  */
 export function Sky({ sky, height, ground, children }: { sky: SkyState; height: number; ground: number; children?: ReactNode }) {
   const horizon = height - ground;
@@ -126,6 +126,8 @@ export function Sky({ sky, height, ground, children }: { sky: SkyState; height: 
         </>
       )}
 
+      {children}
+      {/* Ce qui vole passe devant le paysage : les oiseaux, les pétales et les lucioles. */}
       {sky.birds && <Birds kind={sky.birds} />}
 
       {sky.petals &&
@@ -144,7 +146,6 @@ export function Sky({ sky, height, ground, children }: { sky: SkyState; height: 
             style={{ left: `${f.x}%`, top: f.y * horizon, animationDuration: `${f.dur}s`, animationDelay: `${f.delay}s` }}
           />
         ))}
-      {children}
     </div>
   );
 }

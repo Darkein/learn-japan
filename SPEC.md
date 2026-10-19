@@ -1064,7 +1064,8 @@ la molette y fait défiler la voie.
     au milieu : rizières et maisons en plaine, cèdres et monts en montagne, bateaux sur la
     côte, toits et temples en ville…
 - **Le soleil, la lune, les étoiles**, la brume du matin, les oiseaux et les pétales gardent leur
-  logique (ci-dessus).
+  logique (ci-dessus). Le soleil, la lune et les étoiles restent derrière le paysage ; ce qui vole
+  (oiseaux, pétales, lucioles) passe devant les monts et tous les plans.
 - **Le défilement.** La bande se recalcule une fois par image de défilement ; seul le nom des
   repères paraît et s'efface en fondu. L'ouverture, le bandeau de leçon et le bouton de retour
   tiennent compte de la bande : l'étape à faire se place au tiers haut de la voie visible.
