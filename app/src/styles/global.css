@@ -265,6 +265,80 @@
   --sky-mid: color-mix(in oklab, var(--text) 16%, var(--sky-low));
   --sky-ground: color-mix(in oklab, var(--text) 5%, var(--sky-low));
   --sky-near: color-mix(in oklab, var(--text) 22%, var(--bg));
+  --sky-pole: color-mix(in oklab, var(--text) 30%, var(--bg));
+}
+/* Le roulis du train : le paysage tressaute au rythme des joints de rail (ta-dam… ta-dam), sans
+   arrêt ; la vitre et l'intérieur, eux, ne bougent pas. Coupé sous prefers-reduced-motion. */
+.horizon-roll {
+  animation: train-roll 1.6s linear infinite;
+}
+@keyframes train-roll {
+  0%,
+  8%,
+  20%,
+  100% {
+    transform: translateY(0);
+  }
+  4%,
+  16% {
+    transform: translateY(-1px);
+  }
+  60% {
+    transform: translateY(-0.4px);
+  }
+}
+/* Le panneau de quai (駅名標) : une plaque blanche dans les deux thèmes (à peine voilée la nuit
+   du thème sombre), l'encre noire, le bandeau des gares voisines en indigo. */
+.station-sign {
+  background: color-mix(in oklab, #f4f1ea 90%, var(--bg));
+  color: #1a1815;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.25);
+}
+.station-band {
+  background: #3f5a96;
+  color: #f4f1ea;
+}
+.station-post {
+  background: var(--sky-pole);
+}
+/* La vitre : un reflet en biais, et la nuit la lampe du wagon. */
+.glass-reflect {
+  background: linear-gradient(
+    115deg,
+    transparent 28%,
+    rgb(255 255 255 / 0.05) 36%,
+    transparent 44%,
+    transparent 58%,
+    rgb(255 255 255 / 0.03) 62%,
+    transparent 66%
+  );
+}
+.glass-lamp {
+  background: radial-gradient(ellipse 40% 50% at 16% 22%, color-mix(in oklab, var(--accent) 12%, transparent), transparent);
+}
+/* La pluie file sur la vitre, poussée par le vent de la course. */
+.glass-rain {
+  left: 0;
+  height: 1px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent-2) 55%, transparent));
+  animation: glass-rain 1.4s linear infinite;
+}
+@keyframes glass-rain {
+  from {
+    transform: translate(-60px, 0);
+  }
+  to {
+    transform: translate(calc(var(--sky-span) - 60px), 14px);
+  }
+}
+/* Le store replié : ses plis, et l'ombre qu'il jette sur la vitre. */
+.window-blind {
+  background: repeating-linear-gradient(
+    var(--surface-2) 0 2px,
+    color-mix(in oklab, var(--surface-2) 70%, var(--bg)) 2px 3px
+  );
+  box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.3);
 }
 /* Le nom d'un repère de ville paraît en fondu tant que sa ville est sur la voie visible. */
 .sky-mark-name {

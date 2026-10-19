@@ -1063,6 +1063,24 @@ la molette y fait défiler la voie.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe
     au milieu : rizières et maisons en plaine, cèdres et monts en montagne, bateaux sur la
     côte, toits et temples en ville…
+- **Le premier plan, au ras de la vitre** :
+  - des **poteaux télégraphiques** et leurs deux fils, tous les 240 px, qui filent plus vite que
+    tout (1,2 px par px défilé) ; leur tête passe sous le store, leur pied sous la vitre ;
+  - à chaque ville, le **panneau de quai** (駅名標) de sa gare : une plaque blanche dans les deux
+    thèmes, le nom en kana en grand, son kanji au-dessus et son romaji dessous, et un bandeau
+    indigo avec la gare précédente à gauche et la suivante à droite (de la même route ; rien au
+    départ ni au terminus). Il glisse à 1 px par px défilé, posé au bas de la vitre : il entre
+    quand sa ville arrive sur la voie visible, passe au milieu quand elle est au milieu, et sort
+    quand elle passe sous la fenêtre.
+- **Le roulis.** Le paysage tressaute sans arrêt au rythme des joints de rail (ta-dam… ta-dam),
+  de 1 px, en 1,6 s ; il déborde de 2 px sous la vitre pour n'en jamais découvrir le bord. La
+  vitre et l'intérieur ne bougent pas. Coupé sous `prefers-reduced-motion`.
+- **La vitre et l'intérieur**, par-dessus le paysage et fixes :
+  - un reflet en biais, très léger ;
+  - en saison des pluies, des traînées de pluie qui filent à l'horizontale, poussées par la course ;
+  - la nuit, le reflet du wagon éclairé : la lueur de la lampe et l'ombre des dossiers ;
+  - un store replié en haut de la vitre (8 px), sous lequel aucun nom ne passe ;
+  - la tablette sous la vitre, en bas à droite, et une tasse de thé posée dessus.
 - **Le soleil, la lune, les étoiles**, la brume du matin, les oiseaux et les pétales gardent leur
   logique (ci-dessus). Le soleil, la lune et les étoiles restent derrière le paysage ; ce qui vole
   (oiseaux, pétales, lucioles) passe devant les monts et tous les plans. Au défilement, ce qui

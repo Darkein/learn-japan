@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
-  biomeAt, biomeTrack, SKY_MARGIN, SKY_SPEED, skyShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
+  biomeAt, biomeTrack, POLE_SPACING, POLE_SPEED, poleXs, signX, stations, SKY_MARGIN, SKY_SPEED, skyShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
   skyHeight, skyMarks,
 } from "./horizon";
 import { lessonSteps } from "./path";
@@ -123,6 +123,41 @@ describe("le décor qui défile", () => {
     for (const it of coast) expect(["boat", "pine"]).toContain(it.kind);
     const town = driftItems("near", 5000, 390, 0, () => "town");
     for (const it of town) expect(["house", "temple"]).toContain(it.kind);
+  });
+});
+
+describe("le premier plan", () => {
+  it("les poteaux filent plus vite que tout, régulièrement espacés, et débordent de la vitre", () => {
+    const a = poleXs(1000, 374);
+    const b = poleXs(1010, 374);
+    expect(a[0]).toBeLessThan(0);
+    expect(a.at(-1)!).toBeGreaterThan(374);
+    for (let i = 1; i < a.length; i++) expect(a[i] - a[i - 1]).toBeCloseTo(POLE_SPACING);
+    expect(b[1] - a[1]).toBeCloseTo(10 * POLE_SPEED);
+    expect(POLE_SPEED).toBeGreaterThan(SKY_SPEED.petals);
+  });
+
+  it("chaque ville a sa gare, avec les gares voisines de sa route sur son panneau", () => {
+    const layout = realLayout();
+    const all = stations(layout);
+    expect(all.length).toBe(layout.nodes.filter((n) => n.kind === "city").length);
+    const nihonbashi = all[0];
+    expect(nihonbashi.kanji).toBe("日本橋");
+    expect(nihonbashi.kana).toBe("にほんばし");
+    expect(nihonbashi.prev).toBeUndefined();
+    expect(nihonbashi.next).toBe(all[1].kana);
+    expect(all[1].prev).toBe("にほんばし");
+    // Au bout d'une route, pas de gare suivante : la route d'après repart de son départ.
+    const end = all.findIndex((s, i) => all[i + 1] && !s.next);
+    expect(end).toBeGreaterThan(0);
+    expect(all[end + 1].prev).toBeUndefined();
+  });
+
+  it("le panneau passe au milieu de la vitre quand sa ville est au milieu de la voie visible", () => {
+    const st = { id: "c", y: 2000, kanji: "", kana: "", romaji: "" };
+    expect(signX(st, 2000 - 300, 600, 374)).toBeCloseTo(187);
+    expect(signX(st, 2000 - 600, 600, 374)).toBeLessThan(-100);
+    expect(signX(st, 2000, 600, 374)).toBeGreaterThan(374 + 100);
   });
 });
 

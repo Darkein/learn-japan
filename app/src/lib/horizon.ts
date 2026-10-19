@@ -30,6 +30,8 @@ export const PLANE_AT = { ridge: 0.94, far: 0.78, mid: 0.6, marks: 0.24, near: 0
 export const WINDOW_INSET = 8;
 export const WINDOW_TOP = 4;
 export const NEAR_GAP = 10;
+/** Le store replié en haut de la vitre : sa hauteur, que rien d'écrit ne doit passer dessous. */
+export const WINDOW_BLIND = 8;
 
 // ---- Les repères ---------------------------------------------------------------------
 
@@ -134,6 +136,66 @@ export function markX(mark: SkyMark, pos: number, visible: number, width: number
  */
 export function markRaised(mark: SkyMark, top: number, bottom: number): boolean {
   return mark.y >= top && mark.y <= bottom;
+}
+
+// ---- Le premier plan : les poteaux et les gares -----------------------------------------
+
+/** Les poteaux télégraphiques, au ras de la vitre : ce qui file le plus vite. */
+export const POLE_SPEED = 1.2;
+export const POLE_SPACING = 240;
+
+/**
+ * Les abscisses des poteaux quand la voie est à `pos`, sur une vitre de `width` px, de gauche à
+ * droite : ceux de la vitre, et un de chaque côté au-delà, pour que les fils entrent et sortent.
+ */
+export function poleXs(pos: number, width: number): number[] {
+  const off = (((pos * POLE_SPEED) % POLE_SPACING) + POLE_SPACING) % POLE_SPACING;
+  const out: number[] = [];
+  for (let x = off - POLE_SPACING; x <= width + POLE_SPACING; x += POLE_SPACING) out.push(x);
+  return out;
+}
+
+/** Une gare de la voie : son nom et ceux de ses voisines, pour son panneau de quai (駅名標). */
+export interface Station {
+  id: string;
+  /** Ordonnée de la ville sur la voie. */
+  y: number;
+  kanji: string;
+  kana: string;
+  romaji: string;
+  prev?: string;
+  next?: string;
+}
+
+/** Les gares de la voie, une par ville, avec la lecture des gares voisines de la même route. */
+export function stations(layout: TrackLayout): Station[] {
+  const cities = layout.nodes.filter((n): n is Extract<typeof n, { kind: "city" }> => n.kind === "city");
+  const read = (c: (typeof cities)[number]["city"]) => c.kana ?? c.romaji;
+  return cities.map((n, i) => {
+    const prev = cities[i - 1];
+    const next = cities[i + 1];
+    return {
+      id: n.id,
+      y: n.y,
+      kanji: n.city.kanji,
+      kana: read(n.city),
+      romaji: n.city.romaji,
+      prev: prev && prev.level === n.level ? read(prev.city) : undefined,
+      next: next && next.level === n.level ? read(next.city) : undefined,
+    };
+  });
+}
+
+/** Le panneau de quai passe sur le quai, au premier plan, un peu moins vite que les poteaux. */
+export const SIGN_SPEED = 1;
+
+/**
+ * Le centre du panneau d'une gare quand la voie est à `pos` : au milieu de la vitre quand sa ville
+ * passe au milieu de la voie visible ; il entre quand elle arrive sur la voie et sort quand elle
+ * passe sous la fenêtre.
+ */
+export function signX(st: Station, pos: number, visible: number, width: number): number {
+  return width / 2 + (pos - (st.y - visible / 2)) * SIGN_SPEED;
 }
 
 // ---- Ce qui passe dans le ciel ----------------------------------------------------------

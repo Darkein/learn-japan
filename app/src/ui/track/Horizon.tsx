@@ -13,7 +13,11 @@ import {
   SKY_MAX,
   SKY_MIN,
   skyHeight,
+  signX,
   skyMarks,
+  SKY_MARGIN,
+  stations,
+  WINDOW_BLIND,
   WINDOW_INSET,
   WINDOW_TOP,
   type DriftItem,
@@ -23,6 +27,7 @@ import type { RouteScenery, Season } from "../../lib/scenery";
 import type { TrackLayout } from "../../lib/track";
 import { Sky, useSky } from "./Sky";
 import { Sprite } from "./sprites";
+import { Glass, Poles, StationSign } from "./Train";
 
 interface Props {
   layout: TrackLayout;
@@ -43,6 +48,8 @@ const MARK_H = (MARK_W * 80) / 120;
 /** Les repères du fond (les monts) sont plus grands : ils dominent le paysage ; comme les plans,
     ils rapetissent quand la bande se replie. */
 const FAR_MARK_SCALE = 1.4;
+/** Ce que le paysage déborde sous la vitre, pour le roulis. */
+const ROLL = 2;
 
 interface View {
   /** Défilement de la voie depuis son ouverture du panorama. */
@@ -120,6 +127,7 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
 
   const marks = useMemo(() => skyMarks(layout, sceneries), [layout, sceneries]);
   const biomes = useMemo(() => biomeTrack(layout, sceneries), [layout, sceneries]);
+  const gares = useMemo(() => stations(layout), [layout]);
   const { skyH, pos, visible } = view;
   // La vitre, en retrait du bandeau, du bord de l'écran et du bas de la bande.
   const W = layout.width - 2 * WINDOW_INSET;
@@ -152,13 +160,15 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
         <svg width={w} height={h} viewBox="0 0 120 80" className="block text-text">
           <Sprite kind={m.kind} x={0} y={0} scale={1} snowy={season === "winter"} />
         </svg>
-        {/* Le nom au-dessus du dessin, sans sortir de la vitre. */}
-        <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: Math.min(h + 6, glassH - bottom - 20) }}>
+        {/* Le nom au-dessus du dessin, sans passer sous le store. */}
+        <span className="sky-mark-name absolute left-1/2 whitespace-nowrap text-xs text-muted" style={{ bottom: Math.min(h + 6, glassH - WINDOW_BLIND - bottom - 20) }}>
           {m.name}
         </span>
       </span>
     );
   };
+  // Le panneau de quai de la gare qui passe, s'il est dans la vitre.
+  const sign = gares.map((st) => ({ st, x: signX(st, pos, visible, W) })).find(({ x }) => Math.abs(x - W / 2) < W / 2 + 80);
   const titleOpacity = Math.max(0, 1 - Math.max(0, view.u) / 120);
 
   return (
@@ -167,25 +177,32 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
     // y fait défiler la voie, et les gestes passent à la zone dessous.
     <div className="relative z-10 shrink-0" style={{ height: SKY_MIN }} onWheel={(e) => scroller.current?.scrollBy({ top: e.deltaY })}>
       <div data-sky={sky.time} className="horizon-frame pointer-events-none absolute inset-x-0 top-0 bg-bg" style={{ height: skyH, padding: `${WINDOW_TOP}px ${WINDOW_INSET}px ${WINDOW_INSET}px` }}>
-        <div className="horizon-window relative overflow-hidden rounded-md" style={{ height: glassH }}>
-          <Sky sky={sky} height={glassH} ground={ground} width={W} pos={pos}>
-            {title && titleOpacity > 0 && (
-              <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
-                <span className="font-jp text-3xl tracking-widest">{title.kanji}</span>
-                <span className="text-xs uppercase tracking-wide text-muted">{title.tagline}</span>
-              </div>
-            )}
-            <svg width={W} height={40} viewBox={`0 0 ${W} 40`} className="absolute left-0 block" style={{ bottom: ground * PLANE_AT.ridge }}>
-              <path d={ridgePath(pos, W)} fill="var(--sky-ridge)" />
-            </svg>
-            {/* Le sol, de l'horizon au bas de la vitre. */}
-            <div className="horizon-ground absolute inset-x-0 bottom-0" style={{ height: ground }} />
-            {marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.far))}
-            <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
-            <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
-            {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
-            <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} />
-          </Sky>
+        <div className="horizon-window relative overflow-hidden rounded-md" style={{ height: glassH, ["--sky-span" as string]: `${W + 2 * SKY_MARGIN}px` }}>
+          {/* Le paysage roule avec le train ; il déborde un peu sous la vitre, pour que le roulis ne
+              découvre jamais son bord. La vitre et l'intérieur, par-dessus, ne bougent pas. */}
+          <div className="horizon-roll absolute inset-0">
+            <Sky sky={sky} height={glassH + ROLL} ground={ground + ROLL} width={W} pos={pos}>
+              {title && titleOpacity > 0 && (
+                <div className="absolute inset-x-0 top-8 flex flex-col items-center gap-1.5 text-text" style={{ opacity: titleOpacity }}>
+                  <span className="font-jp text-3xl tracking-widest">{title.kanji}</span>
+                  <span className="text-xs uppercase tracking-wide text-muted">{title.tagline}</span>
+                </div>
+              )}
+              <svg width={W} height={40} viewBox={`0 0 ${W} 40`} className="absolute left-0 block" style={{ bottom: ground * PLANE_AT.ridge }}>
+                <path d={ridgePath(pos, W)} fill="var(--sky-ridge)" />
+              </svg>
+              {/* Le sol, de l'horizon au bas de la vitre. */}
+              <div className="horizon-ground absolute inset-x-0 bottom-0" style={{ height: ground }} />
+              {marks.filter((m) => m.depth === "far").map((m) => renderMark(m, ground * PLANE_AT.far))}
+              <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
+              <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
+              {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
+              <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP + ROLL} fill="var(--sky-near)" size={size} />
+              {sign && <StationSign station={sign.st} x={sign.x} />}
+              <Poles pos={pos} width={W} height={glassH + ROLL} />
+            </Sky>
+          </div>
+          <Glass rain={season === "rainy"} night={sky.time === "night"} />
         </div>
       </div>
     </div>
