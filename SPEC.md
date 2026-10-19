@@ -896,11 +896,16 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 ### 5c.5 Les tampons
 
 - **Le tampon de ville.** Chaque ville atteinte donne son tampon de gare (駅スタンプ) :
-  - un carré vermillon à double filet, avec un motif et le nom ;
+  - un contour vermillon à double filet, avec un motif et le nom ;
+  - chaque ville a sa forme, stable et jamais celle de sa voisine : carré, rond, plaque votive
+    (絵馬), octogone, fenêtre en cloche (花頭窓), hexagone ;
   - le motif vient du repère principal de la ville (château, mont, vague, pont, temple, lac,
     rizière, pins) ;
   - les grandes villes et les lieux uniques ont un tampon dessiné pour eux.
 - **Sur la voie**, le tampon est posé à côté de sa ville, du côté libre, légèrement de biais.
+  Un tampon obtenu depuis la dernière visite s'y pose sous les yeux (il descend, s'appuie, une
+  onde d'encre s'élargit) : après le passage du train, ou à la fermeture de la fiche d'arrivée
+  qui le cachait.
 - **L'arrivée en gare** (`ui/StationArrival.tsx`) :
   - la fiche montre le tampon qui se pose (révélé à l'encre, sans animation sous
     `prefers-reduced-motion`), puis la note de la ville ;

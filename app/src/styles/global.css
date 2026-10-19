@@ -126,23 +126,53 @@
   letter-spacing: 0.02em;
 }
 
-/* Pose d'un tampon de ville (SPEC §5c.5) : il s'appuie et s'imprime, sans rebond. */
+/* Pose d'un tampon de ville (SPEC §5c.5) : il descend de biais, s'appuie, et une onde d'encre
+   s'élargit un instant autour de lui. */
 @keyframes stamp-pose {
   0% {
     opacity: 0;
-    transform: scale(1.45);
+    transform: scale(1.6) rotate(-8deg);
   }
-  55% {
+  45% {
     opacity: 1;
-    transform: scale(0.95);
+    transform: scale(0.9) rotate(0deg);
+  }
+  70% {
+    transform: scale(1.03);
   }
   100% {
     opacity: 1;
     transform: scale(1);
   }
 }
+@keyframes stamp-ink {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  48% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+/* L'élément doit être positionné (absolute sur la voie, relative dans la fiche). */
 .stamp-pose {
-  animation: stamp-pose 420ms cubic-bezier(0.2, 0, 0.2, 1) both;
+  animation: stamp-pose 620ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+.stamp-pose::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  pointer-events: none;
+  animation: stamp-ink 900ms ease-out both;
+  animation-delay: inherit;
 }
 
 @keyframes rise {

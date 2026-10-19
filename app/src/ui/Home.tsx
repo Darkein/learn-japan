@@ -281,6 +281,7 @@ export function Home({ onOpenCourse, onStartReview, onStartFlow, onGoStats, onGo
             {layout && (
               <Track
                 scroller={scroller}
+                holdStamps={!!arrival || omikujiOpen}
                 layout={layout}
                 decor={decor}
                 trainColor={(level) => routeForLevel(level).trainColor}

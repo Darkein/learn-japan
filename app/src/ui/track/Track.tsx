@@ -42,6 +42,9 @@ interface Props {
   /** La zone qui défile : la voie se place et se lit par rapport à elle, qui s'arrête sous la
       fenêtre du ciel. */
   scroller: RefObject<HTMLDivElement | null>;
+  /** Une fiche couvre la voie (arrivée en gare, omikuji) : les nouveaux tampons attendent
+      qu'elle se ferme pour se poser sous les yeux. */
+  holdStamps?: boolean;
 }
 
 function readTrain(): { level: number; dist: number } | null {
@@ -82,7 +85,7 @@ function TrainSprite({ color }: { color: string }) {
  * Toute la voie a sa hauteur, mais seules les tranches proches de l'écran sont rendues.
  * S'ouvre centrée sur l'étape à faire ; le train y roule depuis son dernier arrêt vu.
  */
-export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, renderMarker, onSection, backLabel, scroller }: Props) {
+export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, renderMarker, onSection, backLabel, scroller, holdStamps }: Props) {
   /** Hauteur de la zone où se place l'étape à faire : le tiers haut de la voie visible. */
   const anchorY = (vh: number) => vh * 0.32;
   /** Le haut de la voie par rapport au haut de la zone visible, et la hauteur de celle-ci. */
@@ -202,6 +205,10 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
     const seen = seenStamps.current;
     return !!seen && index > (seen[level] ?? 0);
   };
+  // Retenus derrière une fiche, ils se posent juste après sa fermeture (le train est arrivé).
+  const heldStamps = useRef(false);
+  if (holdStamps) heldStamps.current = true;
+  const stampDelay = heldStamps.current ? 0.35 : duration ? duration * 0.8 + 0.45 : 0.3;
 
   const visibleNodes = useMemo(
     () => layout.nodes.filter((n) => n.y >= view.top - 80 && n.y <= view.bottom + 80),
@@ -254,8 +261,8 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
         n.kind === "city" && n.stamp ? (
           <span
             key={`stamp:${n.id}`}
-            className={`pointer-events-none absolute ${isNewStamp(n.level, n.city.index) ? "stamp-pose" : ""}`}
-            style={{ left: n.stamp.x, top: n.stamp.y, animationDelay: `${duration ? duration * 0.8 + 0.45 : 0.3}s` }}
+            className={`pointer-events-none absolute ${isNewStamp(n.level, n.city.index) ? (holdStamps ? "opacity-0" : "stamp-pose") : ""}`}
+            style={{ left: n.stamp.x, top: n.stamp.y, animationDelay: `${stampDelay}s` }}
           >
             <CityStamp city={n.city} size={n.stamp.w} />
           </span>
