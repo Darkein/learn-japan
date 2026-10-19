@@ -1048,7 +1048,8 @@ la molette y fait défiler la voie.
   6. les autres **repères** des villes (châteaux, torii, ponts, lacs…), au quart du sol ;
   7. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
      la vitre — une bande de sol vide et calme sépare ce qui glisse vite de la voie — en
-     silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
+     silhouettes plus marquées. Devant un repère, il s'efface en partie, en douceur, jusqu'à 30 % d'opacité au
+     milieu du repère, qui se voit au travers ; rien ne paraît ni ne disparaît d'un coup.
   Les plans qui défilent rapetissent quand la bande se replie.
 - **Les repères des villes.**
   - Ont un repère : les illustrations uniques, et les villes, grandes villes et terminus. Le

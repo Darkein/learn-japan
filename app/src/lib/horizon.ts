@@ -160,6 +160,26 @@ export function markRaised(mark: SkyMark, top: number, bottom: number): boolean 
   return mark.y >= top && mark.y <= bottom;
 }
 
+/** L'opacité du plan proche au plus près du milieu d'un repère. */
+export const MARK_FADE_MIN = 0.3;
+
+/**
+ * L'opacité d'un élément du plan proche à l'abscisse `x`, devant les repères centrés en `marks`
+ * (de largeur `markW`) : opaque loin d'eux, il s'efface en douceur à mesure qu'il approche du
+ * milieu de l'un, jusqu'à `MARK_FADE_MIN`, et se rétablit de même en s'éloignant.
+ */
+export function markFade(x: number, marks: number[], markW: number): number {
+  const reach = markW * 0.75;
+  let k = 1;
+  for (const m of marks) {
+    const d = Math.min(1, Math.abs(x - m) / reach);
+    // Rampe douce (smoothstep) : pas de cassure au bord ni au milieu.
+    const t = d * d * (3 - 2 * d);
+    k = Math.min(k, MARK_FADE_MIN + (1 - MARK_FADE_MIN) * t);
+  }
+  return Math.round(k * 1000) / 1000;
+}
+
 // ---- Le premier plan : les poteaux et les gares -----------------------------------------
 
 /** Les poteaux télégraphiques, au ras de la vitre : ce qui file le plus vite. */

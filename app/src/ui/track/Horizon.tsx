@@ -5,6 +5,7 @@ import {
   DRIFT_PATHS,
   driftItems,
   groundDepth,
+  markFade,
   markRaised,
   markX,
   NEAR_GAP,
@@ -62,8 +63,21 @@ function sameView(a: View, b: View): boolean {
   return Math.abs(a.u - b.u) < 0.5 && Math.abs(a.pos - b.pos) < 0.5 && Math.abs(a.visible - b.visible) < 1;
 }
 
-/** Un plan du décor qui défile : des silhouettes posées sur l'horizon. */
-function Drift({ items, bottom, fill, size = 1 }: { items: DriftItem[]; bottom: number; fill: string; size?: number }) {
+/** Un plan du décor qui défile : des silhouettes posées sur l'horizon, chacune à son opacité
+    (`fade`, opaque par défaut). */
+function Drift({
+  items,
+  bottom,
+  fill,
+  size = 1,
+  fade,
+}: {
+  items: DriftItem[];
+  bottom: number;
+  fill: string;
+  size?: number;
+  fade?: (it: DriftItem) => number;
+}) {
   return (
     <>
       {items.map((it) => (
@@ -71,7 +85,7 @@ function Drift({ items, bottom, fill, size = 1 }: { items: DriftItem[]; bottom: 
           key={it.key}
           viewBox="0 0 40 30"
           className="absolute block"
-          style={{ left: it.x - 20 * it.scale * size, bottom, width: 40 * it.scale * size, height: 30 * it.scale * size }}
+          style={{ left: it.x - 20 * it.scale * size, bottom, width: 40 * it.scale * size, height: 30 * it.scale * size, opacity: fade?.(it) }}
         >
           <path d={DRIFT_PATHS[it.kind]} fill={fill} />
         </svg>
@@ -137,8 +151,10 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
   // Les plans rapetissent quand le sol s'aplatit (bande repliée).
   const size = 0.7 + (0.3 * (ground - 50)) / 62;
   const marked = marks.filter((m) => m.depth !== "far").map((m) => markX(m, pos, visible, W)).filter((x) => x > -MARK_W && x < W + MARK_W);
-  // Devant un repère, le premier plan s'écarte : rien ne le cache.
-  const near = driftItems("near", pos, W, visible / 3, at).filter((it) => marked.every((x) => Math.abs(it.x - x) > MARK_W * 0.45));
+  // Devant un repère, le premier plan s'efface en partie, d'autant plus qu'il est près de son
+  // milieu : le repère se voit au travers, et rien ne paraît ni ne disparaît d'un coup.
+  const near = driftItems("near", pos, W, visible / 3, at);
+  const nearFade = (it: DriftItem) => markFade(it.x, marked, MARK_W);
   // Un repère sur son plan : les monts tout au fond, derrière le plan lointain ; le reste devant le
   // plan moyen.
   const renderMark = (m: SkyMark, base: number) => {
@@ -197,7 +213,7 @@ export function Horizon({ layout, sceneries, season, scroller, track, title }: P
               <Drift items={far} bottom={ground * PLANE_AT.far} fill="var(--sky-far)" size={size} />
               <Drift items={mid} bottom={ground * PLANE_AT.mid} fill="var(--sky-mid)" size={size} />
               {marks.filter((m) => m.depth !== "far").map((m) => renderMark(m, ground * PLANE_AT.marks))}
-              <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} />
+              <Drift items={near} bottom={ground * PLANE_AT.near + NEAR_GAP} fill="var(--sky-near)" size={size} fade={nearFade} />
               <Poles pos={pos} width={W} height={glassH} />
               {/* Le panneau devant les poteaux : son nom reste lisible quand l'un passe. */}
               {sign && <StationSign station={sign.st} x={sign.x} />}

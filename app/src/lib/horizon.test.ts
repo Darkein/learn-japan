@@ -3,7 +3,7 @@ import { SCENERIES } from "../data/scenery";
 import { getCurriculum } from "./curriculum";
 import {
   biomeAt, biomeTrack, POLE_SPACING, POLE_SPEED, poleXs, signX, stations, SKY_MARGIN, SKY_SPEED, skyShift, driftItems, FAR_MARK_SPEED, groundDepth, MARK_SPEED, markRaised, markX, RIDGE_PERIOD, RIDGE_SPEED, ridgePath, SKY_MAX, SKY_MIN,
-  skyHeight, skyMarks, PLANE_DIST, planeSpeed,
+  skyHeight, skyMarks, PLANE_DIST, planeSpeed, markFade, MARK_FADE_MIN,
 } from "./horizon";
 import { lessonSteps } from "./path";
 import { layoutTrack, type TrackLayout } from "./track";
@@ -93,6 +93,23 @@ describe("les repères du ciel", () => {
     // Sa place est au milieu (top = 1700) : il paraît et s'efface à 300 px de part et d'autre.
     const at = (top: number) => markRaised(mark, top, top + 600);
     expect([at(1400), at(1399), at(2000), at(2001)]).toEqual([true, false, true, false]);
+  });
+});
+
+describe("le plan proche devant un repère", () => {
+  it("s'efface en douceur à son approche, sans saut", () => {
+    expect(markFade(500, [100], 92)).toBe(1);
+    expect(markFade(100, [100], 92)).toBe(MARK_FADE_MIN);
+    // De loin au milieu, l'opacité ne fait que décroître, à petits pas.
+    let prev = 1;
+    for (let x = 200; x >= 100; x -= 2) {
+      const k = markFade(x, [100], 92);
+      expect(k).toBeLessThanOrEqual(prev);
+      expect(prev - k).toBeLessThan(0.05);
+      prev = k;
+    }
+    // Le repère le plus proche décide.
+    expect(markFade(100, [100, 400], 92)).toBe(MARK_FADE_MIN);
   });
 });
 
