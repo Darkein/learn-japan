@@ -65,6 +65,18 @@ export function summaryBadge(entry: {
     : { label: "nouveau", variant: "default" };
 }
 
+/**
+ * Ce qui remplit le trou d'une carte à trou, pour la nommer au bilan : la forme attendue
+ * dans la phrase (し pour する dans 「宿題を◯◯ます。」), la bonne particule d'un QCM, ou
+ * le mot de la carte (`back` sans sa lecture entre parenthèses). Le bilan dit ce qu'on a
+ * revu ; reposer la question avec son trou ne le disait pas.
+ */
+export function blankAnswer(card: Exercise): string {
+  if (card.blankForm) return card.blankForm;
+  if (card.mode === "choice") return card.choices[card.answerIndex];
+  return card.back.split("（")[0];
+}
+
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
 export function SessionSummary({
   results,
@@ -135,7 +147,7 @@ export function SessionSummary({
           <div className="flex flex-wrap gap-2">
             {leeches.map((r) => (
               <Badge key={r.card.key} className="font-jp">
-                <ClozeText text={r.card.front} />
+                <ClozeText text={r.card.front} fill={blankAnswer(r.card)} />
               </Badge>
             ))}
           </div>
@@ -162,7 +174,7 @@ export function SessionSummary({
                 <li key={entry.card.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-jp text-sm text-text">
-                      <ClozeText text={entry.card.front} />
+                      <ClozeText text={entry.card.front} fill={blankAnswer(entry.card)} />
                     </span>
                     <div className="flex items-center gap-1.5">
                       {entry.card.isLeech && <Badge>difficile</Badge>}
