@@ -18,8 +18,8 @@ const STRIPS = 8;
 const CURL = 70;
 
 type Page =
-  | { kind: "route"; route: Route; stations: Route["stations"]; part: number; parts: number }
-  | { kind: "fortune"; items: FortuneRecord[]; part: number; parts: number }
+  | { kind: "route"; route: Route; stations: Route["stations"]; part: number }
+  | { kind: "fortune"; items: FortuneRecord[]; part: number }
   | { kind: "blank" };
 
 /** Une feuille qui tourne entre la double page `lo` et la double page `hi` : à `p` = 0 elle
@@ -71,10 +71,10 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
     };
     for (const route of routes) {
       const parts = chunk(route.stations.slice(1), SLOTS);
-      section(parts.map((stations, part) => ({ kind: "route", route, stations, part, parts: parts.length })));
+      section(parts.map((stations, part) => ({ kind: "route", route, stations, part })));
     }
     const parts = chunk(fortunes, SLOTS);
-    section(parts.map((items, part) => ({ kind: "fortune", items, part, parts: parts.length })));
+    section(parts.map((items, part) => ({ kind: "fortune", items, part })));
     return out;
   }, [routes, fortunes]);
   const spreads = pages.length / 2;
@@ -253,9 +253,6 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
         >
           <IconArrowLeft size={20} />
         </button>
-        <span className="text-xs tabular-nums">
-          {2 * shownSpread + 1}–{2 * shownSpread + 2} / {pages.length}
-        </span>
         <button
           type="button"
           className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md disabled:cursor-default disabled:opacity-30"
@@ -356,16 +353,7 @@ const PageView = memo(function PageView({
   return (
     <div className={`carnet-page carnet-page-${side} flex h-full flex-col gap-2 px-3 pt-3 pb-2`}>
       <div className="flex h-5 items-baseline justify-between gap-2 text-xs">
-        {page.kind === "route" && (
-          <>
-            <span className="truncate font-jp text-text">{page.route.kanji}</span>
-            {page.parts > 1 && (
-              <span className="text-muted tabular-nums">
-                {page.part + 1}/{page.parts}
-              </span>
-            )}
-          </>
-        )}
+        {page.kind === "route" && <span className="truncate font-jp text-text">{page.route.kanji}</span>}
         {page.kind === "fortune" && <span className="truncate font-jp text-text">おみくじ</span>}
       </div>
 
