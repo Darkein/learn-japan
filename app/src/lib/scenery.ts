@@ -44,6 +44,36 @@ export const UNIQUES: Record<UniqueKind, { h: number; around: boolean }> = {
   zentsuji: { h: 220, around: true }, okuboji: { h: 210, around: true },
 };
 
+/** Le nom de chaque lieu des illustrations uniques (kanji · romaji), sur la voie et dans le ciel. */
+export const UNIQUE_NAMES: Record<UniqueKind, { kanji: string; romaji: string }> = {
+  edo: { kanji: "日本橋", romaji: "Nihonbashi" },
+  "fuji-hara": { kanji: "浮島ヶ原", romaji: "Ukishima-ga-hara" },
+  "fuji-satta": { kanji: "薩埵峠", romaji: "col de Satta" },
+  hakone: { kanji: "芦ノ湖", romaji: "lac Ashi" },
+  "oi-ford": { kanji: "大井川", romaji: "gué de l'Ōi" },
+  hamana: { kanji: "浜名湖", romaji: "lac Hamana" },
+  "miya-ferry": { kanji: "七里の渡し", romaji: "Shichiri no watashi" },
+  kyoto: { kanji: "京都", romaji: "Kyōto" },
+  saruhashi: { kanji: "猿橋", romaji: "Saruhashi" },
+  kai: { kanji: "甲府盆地", romaji: "bassin de Kai" },
+  suwa: { kanji: "諏訪湖", romaji: "lac Suwa" },
+  "usui-asama": { kanji: "浅間山", romaji: "mont Asama" },
+  kiso: { kanji: "木曽路", romaji: "Kisoji" },
+  biwa: { kanji: "琵琶湖", romaji: "lac Biwa" },
+  fukagawa: { kanji: "芭蕉庵", romaji: "ermitage de Bashō" },
+  nikko: { kanji: "日光", romaji: "Nikkō" },
+  matsushima: { kanji: "松島", romaji: "Matsushima" },
+  hiraizumi: { kanji: "中尊寺", romaji: "Chūson-ji" },
+  yamadera: { kanji: "山寺", romaji: "Yamadera" },
+  kisakata: { kanji: "象潟", romaji: "Kisakata" },
+  ogaki: { kanji: "大垣", romaji: "Ōgaki" },
+  naruto: { kanji: "鳴門", romaji: "tourbillons de Naruto" },
+  muroto: { kanji: "室戸岬", romaji: "cap Muroto" },
+  iya: { kanji: "かずら橋", romaji: "pont de lianes d'Iya" },
+  zentsuji: { kanji: "善通寺", romaji: "Zentsū-ji" },
+  okuboji: { kanji: "大窪寺", romaji: "Ōkubo-ji" },
+};
+
 /** Un repère réel d'une ville (données de route). */
 export interface Landmark {
   kind: SpriteKind;

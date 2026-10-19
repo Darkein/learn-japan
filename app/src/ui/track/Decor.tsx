@@ -62,7 +62,7 @@ export function Decor({ decor, paths, width, y0, y1 }: Props) {
       {uniques.map((u) => {
         const mid = u.box.y + u.box.h / 2;
         const rail = decor.crossings.find((c) => Math.abs(c.y - mid) < 2)?.x;
-        return <UniqueArt key={`u:${u.kind}:${Math.round(u.box.y)}`} unique={u} railX={rail} />;
+        return <UniqueArt key={`u:${u.kind}:${Math.round(u.box.y)}`} unique={u} railX={rail} width={width} />;
       })}
       {crossings.map((c) => {
         const d = pathAt(paths, c.y);

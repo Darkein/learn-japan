@@ -939,6 +939,9 @@ la largeur), qui réserve sa place sur la voie :
 | Oku no Hosomichi | Edo (Fukagawa, départ de Bashō), Nikkō, Matsushima, Hiraizumi, Yamadera, Kisakata, Ōgaki |
 | Shikoku henro | les tourbillons de Naruto, le cap Muroto, le pont de lianes d'Iya, la pagode de Zentsū-ji, Ōkubo-ji |
 
+Une illustration unique porte le nom de son lieu (kanji · romaji), discret, à son pied et du
+côté loin de la voie ; le même nom paraît sur son repère dans la bande de ciel (§5c.6b).
+
 Une illustration unique est peinte par plans opaques, du fond vers l'avant : chaque plan cache
 celui qu'il recouvre, sans transparence croisée. Aucun plan ne s'arrête sur un bord droit de sa
 place : les monts se perdent dans la brume à leur pied, les lacs ont leurs rives effilées, la
@@ -1034,8 +1037,10 @@ la molette y fait défiler la voie.
      silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
   Les deux plans qui défilent rapetissent quand la bande se replie.
 - **Les repères des villes.**
-  - Ont un repère : les villes qui ont une illustration unique, et les villes, grandes villes et
-    terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.
+  - Ont un repère : les illustrations uniques, et les villes, grandes villes et terminus. Le
+    repère d'une ville est le sprite de son motif, tiré du catalogue ; celui d'une illustration
+    unique porte le nom de son lieu (芦ノ湖 · lac Ashi, et non la ville d'Hakone) et sa place
+    est celle du dessin sur la voie : il se lève quand le dessin passe sur la voie visible.
   - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,35 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
     au milieu de la voie visible, et reste dans la bande tant que son nom est affiché.

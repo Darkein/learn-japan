@@ -46,6 +46,14 @@ describe("les repères du ciel", () => {
     }
   });
 
+  it("une illustration unique a son repère, à la place de son dessin et sous le nom de son lieu", () => {
+    const layout = realLayout();
+    const lake = skyMarks(layout, SCENERIES).find((m) => m.name === "芦ノ湖 · lac Ashi");
+    expect(lake?.kind).toBe("lake-torii");
+    const band = layout.reserved.find((b) => `city:${b.level}:${b.city}` === lake?.id);
+    expect(lake?.y).toBe(band!.art.y + band!.art.h / 2);
+  });
+
   it("un repère glisse avec le défilement, à sa place quand sa ville est au milieu, et reste à l'écran", () => {
     const mark = { id: "c", y: 2000, kind: "castle" as const, name: "x", x: 0.5 };
     const visible = 590;

@@ -2,7 +2,7 @@
 // le décor qui défile en deux plans, tiré du paysage du tronçon, et entre les deux les repères
 // des villes, qui passent au milieu de l'horizon quand leur ville est au milieu de la voie visible.
 
-import type { Biome, RouteScenery, SpriteKind, UniqueKind } from "./scenery";
+import { UNIQUE_NAMES, type Biome, type RouteScenery, type SpriteKind, type UniqueKind } from "./scenery";
 import type { TrackLayout } from "./track";
 
 /** Hauteur du ciel : repliée, et grande au départ (le panorama). */
@@ -62,9 +62,10 @@ export interface SkyMark {
 }
 
 /**
- * Les villes de la voie qui ont un repère dans le ciel : celles qui ont une illustration unique,
- * et les villes, grandes villes et terminus. Deux villes qui se suivent prennent des côtés
- * opposés, pour que deux repères visibles ensemble ne se couvrent pas.
+ * Les repères du ciel : les illustrations uniques, à la place de leur dessin sur la voie et sous
+ * le nom de leur lieu (le lac Ashi, pas Hakone), et les villes, grandes villes et terminus sans
+ * illustration. Deux repères qui se suivent prennent des côtés opposés, pour que deux repères
+ * visibles ensemble ne se couvrent pas.
  */
 export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMark[] {
   const out: SkyMark[] = [];
@@ -72,13 +73,20 @@ export function skyMarks(layout: TrackLayout, sceneries: RouteScenery[]): SkyMar
     if (n.kind !== "city") continue;
     const sc = sceneries.find((s) => s.level === n.level)?.cities[n.city.index];
     let kind: SpriteKind | undefined;
-    if (sc?.unique) kind = UNIQUE_SPRITE[sc.unique];
-    else if (n.city.size !== "village") kind = MOTIF_SPRITE[n.city.motif ?? sc?.motif ?? ""];
+    let y = n.y;
+    let name = `${n.city.kanji} · ${n.city.romaji}`;
+    if (sc?.unique) {
+      kind = UNIQUE_SPRITE[sc.unique];
+      const band = layout.reserved.find((b) => b.level === n.level && b.city === n.city.index);
+      if (band) y = band.art.y + band.art.h / 2;
+      const place = UNIQUE_NAMES[sc.unique];
+      name = `${place.kanji} · ${place.romaji}`;
+    } else if (n.city.size !== "village") kind = MOTIF_SPRITE[n.city.motif ?? sc?.motif ?? ""];
     if (!kind) continue;
     // Décalage alterné d'un repère au suivant, et léger écart stable par ville.
     const i = n.city.index;
     const x = (out.length % 2 ? 0.6 : 0.44) + ((i * 7) % 8) / 100;
-    out.push({ id: n.id, y: n.y, kind, name: `${n.city.kanji} · ${n.city.romaji}`, x });
+    out.push({ id: n.id, y, kind, name, x });
   }
   return out;
 }

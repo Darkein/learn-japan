@@ -12,7 +12,7 @@
 // la boîte : les monts retombent à leur pied, l'eau a ses rives, la terre s'effile.
 
 import type { ReactNode } from "react";
-import { UNIQUES, type DecorUnique, type UniqueKind } from "../../lib/scenery";
+import { UNIQUE_NAMES, UNIQUES, type DecorUnique, type UniqueKind } from "../../lib/scenery";
 import { Sprite, tint } from "./sprites";
 
 const W = "var(--accent-2)";
@@ -703,9 +703,9 @@ function viewWidth(kind: UniqueKind): number {
 
 /**
  * Une illustration unique dans sa boîte, à l'échelle (proportions gardées, centrée).
- * `railX` : l'abscisse de la voie qui la traverse, s'il y en a une.
+ * `railX` : l'abscisse de la voie qui la traverse, s'il y en a une ; `width` : la largeur de la voie.
  */
-export function UniqueArt({ unique, railX }: { unique: DecorUnique; railX?: number }) {
+export function UniqueArt({ unique, railX, width }: { unique: DecorUnique; railX?: number; width: number }) {
   const { box, kind } = unique;
   const vw = viewWidth(kind);
   const s = Math.min(box.w / vw, box.h / 200);
@@ -713,11 +713,44 @@ export function UniqueArt({ unique, railX }: { unique: DecorUnique; railX?: numb
   const oy = box.y + (box.h - 200 * s) / 2;
   const rail = railX === undefined ? undefined : (railX - ox) / s;
   return (
+    <>
     <g transform={`translate(${ox.toFixed(1)} ${oy.toFixed(1)}) scale(${s.toFixed(3)})`}>
       <svg width={vw} height={200} overflow="hidden">
         <MistDefs />
         {ART[kind](rail)}
       </svg>
     </g>
+    <PlaceName unique={unique} railX={railX} around={unique.box.w < width} />
+    </>
+  );
+}
+
+/**
+ * Le nom du lieu, gravé au pied de l'illustration, du côté loin de la voie : là où elle la
+ * contourne, le bord extérieur ; là où elle la traverse, la moitié qu'elle laisse libre.
+ */
+function PlaceName({ unique, railX, around }: { unique: DecorUnique; railX?: number; around: boolean }) {
+  const { box, kind } = unique;
+  const name = UNIQUE_NAMES[kind];
+  const left = around ? box.x === 0 : railX !== undefined && railX > box.x + box.w / 2;
+  const right = around ? box.x > 0 : railX !== undefined && !left;
+  const x = left ? box.x + 14 : right ? box.x + box.w - 14 : box.x + box.w / 2;
+  const anchor = left ? "start" : right ? "end" : "middle";
+  return (
+    <text
+      x={x}
+      y={box.y + box.h - 8}
+      textAnchor={anchor}
+      fill="currentColor"
+      fillOpacity={0.7}
+      stroke={BG}
+      strokeWidth={4}
+      strokeLinejoin="round"
+      paintOrder="stroke"
+      fontSize={12}
+    >
+      <tspan className="font-jp" fontSize={14}>{name.kanji}</tspan>
+      <tspan dx={6}>{name.romaji}</tspan>
+    </text>
   );
 }
