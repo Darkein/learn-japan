@@ -52,6 +52,8 @@ export interface FlowActivity {
   /** L'étape que l'activité VALIDE une fois finie ; absente pour une révision insérée,
    *  une révision ciblée ou un miroir, qui ne font pas avancer le parcours. */
   step?: PathStep;
+  /** Révision insérée : l'étape de la leçon devant laquelle elle passe (au plus une fois). */
+  before?: PathStep;
   /** Révision ciblée : les éléments à repasser (les ratés d'un contrôle). */
   itemIds?: string[];
   /** Station de repos : les leçons qu'elle révise. */
@@ -84,6 +86,9 @@ export interface FlowState {
     anyStoryId?: string;
     /** Ratés du dernier contrôle échoué pas encore repassés : la révision ciblée d'abord. */
     retakePending?: string[];
+    /** Une révision a déjà été insérée devant la prochaine étape (persisté, meta
+     *  `insertKey`) : elle ne repasse pas, même d'une séance à l'autre. */
+    reviewInserted?: boolean;
   };
   nextLesson?: { id: string; title: string; ready: boolean };
   /** Station de repos due (SPEC §5.4) : après le contrôle d'une 5e leçon, avant le cours
@@ -120,7 +125,8 @@ const STEP_REASON: Record<PathStep, string> = {
  * ① relecture-miroir, au plus une fois par séance, entre deux étapes ;
  * ② après un contrôle échoué, la révision CIBLÉE de ses ratés, puis le rattrapage ;
  * ③ une révision INSÉRÉE devant une étape de contenu nouveau quand le retard dépasse deux
- *    étapes Révision — au plus une par étape : le neuf ralentit, il ne gèle jamais ;
+ *    étapes Révision — au plus UNE par étape, retenue d'une séance à l'autre : le neuf
+ *    ralentit, il ne gèle jamais, même avec de nouvelles cartes dues chaque jour ;
  * ④ l'étape suivante de la leçon en cours ;
  * ⑤ entre deux leçons, la station de repos quand elle est due (toutes les 5 leçons) ;
  * ⑥ le cours de la prochaine leçon débloquée (il la commence) ;
@@ -154,10 +160,16 @@ export function pickNext(state: FlowState): FlowActivity {
       };
     }
     if (step) {
-      if (CONTENT_STEPS.has(step) && s.dueCount > REVIEW_INSERT_THRESHOLD && s.lastActivity !== "review") {
+      if (
+        CONTENT_STEPS.has(step) &&
+        s.dueCount > REVIEW_INSERT_THRESHOLD &&
+        !cur.reviewInserted &&
+        s.lastActivity !== "review"
+      ) {
         return {
           kind: "review",
           lessonId: cur.id,
+          before: step,
           title: `Révision · ${s.dueCount} cartes en attente`,
           reason: "Le retard monte : un tour de révision avant la suite de la leçon.",
         };
@@ -258,6 +270,7 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
     if (a.step && sim.currentLesson && a.lessonId === sim.currentLesson.id) {
       steps.push({ kind: a.kind, label: PREVIEW_LABEL[a.step] });
       sim.currentLesson.stepsDone.push(a.step);
+      sim.currentLesson.reviewInserted = false; // le marqueur valait pour l'étape faite
       if (a.step === "exam") break; // l'issue du contrôle n'est pas connue d'avance
     } else if (a.kind === "lesson") {
       steps.push({ kind: a.kind, label: "une nouvelle leçon" });
@@ -294,6 +307,11 @@ async function storyReadState(stories: StoryRecord[]): Promise<{ unread?: StoryR
     if (!read) return { unread: s };
   }
   return {};
+}
+
+/** Clé meta d'une révision insérée devant une étape d'une leçon (la valeur est sa date). */
+export function insertKey(lessonId: string, step: PathStep): string {
+  return `reviewInsert.${lessonId}.${step}`;
 }
 
 /** Une station de repos toutes les `REST_EVERY` leçons (SPEC §5.4). */
@@ -346,6 +364,9 @@ export async function gatherFlowState(
   // Après un contrôle échoué, les ratés pas encore repassés commandent la révision ciblée.
   const retake =
     current && current.examAttempts > 0 && !current.examPassed ? await examStatus(current.id) : undefined;
+  const upcoming = current ? nextStep(current.steps, new Set(current.stepsDone)) : undefined;
+  const inserted =
+    current && upcoming ? (await getMeta<number>(insertKey(current.id, upcoming))) != null : false;
   const next = lessons.find((l) => !l.startedAt && !l.completedAt && !l.locked);
   const mirror = await currentMirrorCandidate(stories, now);
   const restDue = current ? undefined : await pendingRest(lessons);
@@ -366,6 +387,7 @@ export async function gatherFlowState(
           unreadStoryTitle: unread ? (unread.titleFr ?? unread.title) : undefined,
           anyStoryId: current.stories[0]?.id,
           ...(retake?.pendingItems.length ? { retakePending: retake.pendingItems } : {}),
+          ...(inserted ? { reviewInserted: true } : {}),
         }
       : undefined,
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,

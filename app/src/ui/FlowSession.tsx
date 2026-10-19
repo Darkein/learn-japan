@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bumpSrsDaily, getSrsDaily, getStory, localDateString, putMeta } from "../lib/db";
-import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/flow";
+import { gatherFlowState, insertKey, pickNext, restKey, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
 import { startLessonJob } from "../lib/genJobs";
 import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
@@ -150,6 +150,12 @@ export function FlowSession({ onExit, forced }: Props) {
     // contrôle, lui, se valide par son admission (lib/lessons.ts), pas par sa remise.
     if (finished.step && finished.lessonId && finished.step !== "exam") {
       await markStepDone(finished.lessonId, finished.step);
+    }
+    // Une révision insérée ne repasse pas devant la même étape, et compte dans l'objectif du
+    // jour : l'exercice a été fait, même si la leçon n'avance pas.
+    if (finished.kind === "review" && finished.before && finished.lessonId) {
+      await putMeta(insertKey(finished.lessonId, finished.before), Date.now());
+      await bumpSrsDaily(localDateString(), { steps: 1 });
     }
     // La station de repos ne se refait pas : elle est marquée faite pour son bloc de leçons.
     if (finished.kind === "rest" && finished.lessonIds?.length) {

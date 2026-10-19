@@ -101,6 +101,15 @@ describe("pickNext — révision insérée (le retard ralentit le neuf, il ne le
     expect(a.step).toBe("vocab");
   });
 
+  it("insertion déjà faite devant cette étape (séance précédente) : l'étape suit, même en retard", () => {
+    const a = pickNext(state({ dueCount: 90, currentLesson: lesson(["course"], { reviewInserted: true }) }));
+    expect(a.step).toBe("vocab");
+  });
+
+  it("la révision insérée nomme l'étape qu'elle précède", () => {
+    expect(pickNext(state({ dueCount: 34, currentLesson: lesson(["course"]) })).before).toBe("vocab");
+  });
+
   it("sous le seuil, aucune insertion", () => {
     expect(pickNext(state({ dueCount: 20, currentLesson: lesson(["course"]) })).step).toBe("vocab");
   });

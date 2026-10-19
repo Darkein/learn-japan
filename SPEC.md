@@ -437,7 +437,10 @@ freiner le neuf, elle remplit les étapes Révision.
 - **Révision insérée.** Quand plus de 20 cartes sont dues (plus de deux étapes de retard), le
   parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6),
   et l'affiche comme telle (« Révision · 34 cartes en attente »). **Au plus une insertion par étape
-  de contenu** : un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais.
+  de contenu**, retenue d'une séance à l'autre (meta `reviewInsert.<leçon>.<étape>`) : quitter
+  puis revenir ne la repropose pas, et de nouvelles cartes dues chaque jour ne bloquent jamais
+  la leçon — un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais. Faite, elle
+  compte dans l'objectif du jour, même si la leçon n'avance pas.
 
 **2. Les rappels portés par les leçons suivantes.** Comme les unités d'un parcours de type
 Duolingo font revenir les mots des précédentes, la leçon N rappelle les éléments de la leçon N−1
