@@ -48,8 +48,30 @@ function Station({ state }: { state: StepState }) {
  *   avec ce qu'elle demande (« Étape 3/7 · Grammaire · 8 exercices · ~3 min »).
  * - `list` (page de la leçon) : toutes les étapes, chacune avec son état et sa durée.
  */
-export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; variant?: "strip" | "list" }) {
+export function LessonPath({
+  lesson,
+  variant = "strip",
+  from,
+}: {
+  lesson: PathLesson;
+  variant?: "strip" | "list";
+  /** `strip` seulement : la station d'où l'on vient (l'étape qu'on vient de finir). Le
+   *  repère de la prochaine étape part de là et glisse jusqu'à elle. */
+  from?: PathStep;
+}) {
   const plan = usePlan(lesson);
+  const n = lesson.steps.length;
+  const fromIdx = from ? lesson.steps.indexOf(from) : -1;
+  const toIdx = lesson.nextStep ? lesson.steps.indexOf(lesson.nextStep) : -1;
+  const travels = variant === "strip" && fromIdx >= 0 && toIdx >= 0 && n > 1;
+  // Le repère se pose d'abord sur la station quittée, puis glisse à la suivante.
+  const [at, setAt] = useState(travels ? fromIdx : toIdx);
+  useEffect(() => {
+    if (!travels) return;
+    setAt(fromIdx);
+    const id = window.setTimeout(() => setAt(toIdx), 250);
+    return () => window.clearTimeout(id);
+  }, [travels, fromIdx, toIdx]);
   const estimate = (step: PathStep) => plan.find((e) => e.step === step);
 
   if (variant === "list") {
@@ -79,14 +101,15 @@ export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; 
   return (
     <div className="flex flex-col gap-2">
       <div
-        className="flex items-center"
+        className="relative flex items-center"
         role="img"
         aria-label={`${lesson.stepsDone.length} étapes faites sur ${lesson.steps.length}`}
       >
         {lesson.steps.map((step, i) => (
           <span key={step} className={`flex items-center ${i < lesson.steps.length - 1 ? "flex-1" : ""}`}>
             <span title={STEP_LABEL[step]}>
-              <Station state={stateOf(lesson, step)} />
+              {/* Le repère mobile tient lieu de station « prochaine » : celle-ci reste en filet. */}
+              <Station state={travels && stateOf(lesson, step) === "next" ? "todo" : stateOf(lesson, step)} />
             </span>
             {i < lesson.steps.length - 1 && (
               <span
@@ -96,6 +119,13 @@ export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; 
             )}
           </span>
         ))}
+        {travels && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1/2 block h-3 w-3 -translate-y-1/2 rounded-full border-2 border-accent bg-bg transition-[left] duration-700"
+            style={{ left: `calc((100% - 0.75rem) * ${at / (n - 1)})` }}
+          />
+        )}
       </div>
       {next && (
         <span className="text-xs text-muted">

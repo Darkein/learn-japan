@@ -4,7 +4,7 @@ import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/fl
 import { checkOmikuji } from "../lib/omikuji";
 import { startLessonJob } from "../lib/genJobs";
 import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
-import { STEP_LABEL } from "../lib/path";
+import { STEP_LABEL, type PathStep } from "../lib/path";
 import { estimateLabel, loadFormDurations, stepPlan } from "../lib/pathPlan";
 import { REST_STEP_SIZE } from "../lib/reviewSession";
 import { markMirrorDone, runMirrorDelta } from "../lib/mirror";
@@ -42,6 +42,8 @@ type Phase =
        *  cours pour en montrer les stations. */
       estimate?: string;
       lesson?: Lesson;
+      /** L'étape de cette leçon qu'on vient de finir, d'où part le repère. */
+      from?: PathStep;
     };
 
 interface Props {
@@ -168,6 +170,7 @@ export function FlowSession({ onExit, forced }: Props) {
       next,
       estimate: estimateFor(next, lessons, await loadFormDurations()),
       ...(lesson ? { lesson } : {}),
+      ...(lesson && finished.step && finished.lessonId === lesson.id ? { from: finished.step } : {}),
     });
   }
 
@@ -177,6 +180,13 @@ export function FlowSession({ onExit, forced }: Props) {
     });
     setPhase({ name: "activity", activity: next });
   }
+
+  // Stable : le compte à rebours du checkpoint ne repart pas à chaque rendu.
+  const checkpointNext = phase.name === "checkpoint" ? phase.next : null;
+  const continueFlow = useCallback(() => {
+    if (checkpointNext) startNext(checkpointNext);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkpointNext]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -210,7 +220,9 @@ export function FlowSession({ onExit, forced }: Props) {
           next={phase.next}
           estimate={phase.estimate}
           lesson={phase.lesson}
-          onContinue={() => startNext(phase.next)}
+          from={phase.from}
+          paused={!!arrival}
+          onContinue={continueFlow}
           onExit={onExit}
         />
       )}
@@ -270,7 +282,12 @@ async function recapFor(
     return { kind: activity.kind, recap: `Étape validée : ${STEP_LABEL[activity.step]}${answers}` + suffix };
   }
   if (activity.kind === "review") {
-    return { kind: activity.kind, recap: `Révision faite${answers}` + suffix };
+    // Une révision insérée ne fait pas avancer la leçon : on le dit, sinon l'écran
+    // suivant (même étape qu'avant) donne l'impression d'avoir piétiné.
+    return {
+      kind: activity.kind,
+      recap: `Révision faite${answers} La leçon reprend où tu l'avais laissée.` + suffix,
+    };
   }
   if (activity.kind === "rest") {
     return { kind: activity.kind, recap: `Station de repos faite${answers}` + suffix };
