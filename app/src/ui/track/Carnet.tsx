@@ -23,6 +23,9 @@ const MAX_LEAVES = 3;
 const LEAF_STAGGER_MS = 110;
 /** Ruban du marque-page de l'omikuji (les routes prennent la couleur de leur train). */
 const FORTUNE_RIBBON = "#6b6255";
+/** Part visible du marque-page actif au-dessus du carnet, et part glissée sous les pages. */
+const RIBBON_SHOWN = 34;
+const RIBBON_TUCK = 12;
 
 type Content =
   | { kind: "route"; route: Route; stations: Route["stations"]; part: number }
@@ -227,8 +230,16 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative pt-7">
-      <div className="absolute top-0 right-3 z-30 flex items-end gap-1" role="tablist" aria-label="Marque-pages du carnet">
+      {/* Les marque-pages sont glissés sous les pages : leur pied passe derrière le carnet
+          (RIBBON_TUCK), et la rangée a une hauteur fixe pour que ce pied ne bouge pas quand
+          un ruban grandit et l'autre rétrécit. */}
+      <div className="relative" style={{ paddingTop: RIBBON_SHOWN }}>
+      <div
+        className="absolute top-0 right-3 flex items-end gap-1"
+        style={{ height: RIBBON_SHOWN + RIBBON_TUCK }}
+        role="tablist"
+        aria-label="Marque-pages du carnet"
+      >
         {marks.map((m) => {
           const active = activeMark === m.spread;
           return (
@@ -240,7 +251,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
               aria-label={m.name}
               onClick={() => go(m.spread)}
               className="carnet-ribbon cursor-pointer font-jp"
-              style={{ background: m.color, height: active ? 34 : 24 }}
+              style={{ background: m.color, height: (active ? RIBBON_SHOWN : RIBBON_SHOWN - 10) + RIBBON_TUCK }}
             >
               {m.label}
             </button>
@@ -249,7 +260,7 @@ export function Carnet({ routes, stamps, fortunes, currentLevel, onOpenCity }: P
       </div>
       <div
         ref={book}
-        className="carnet relative grid grid-cols-2 select-none"
+        className="carnet relative z-10 grid grid-cols-2 select-none"
         style={{ perspective: 1600, touchAction: "pan-y", overflowX: "clip" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
