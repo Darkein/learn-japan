@@ -75,48 +75,14 @@ function Station({ state }: { state: StepState }) {
 }
 
 /**
- * Le parcours d'une leçon (SPEC §5.2) : ses étapes comme les stations d'une route.
- *
- * - `strip` (accueil, checkpoint) : la bande des stations, et sous elle l'étape suivante
- *   avec ce qu'elle demande (« Étape 3/7 · Grammaire · 8 exercices · ~3 min »).
- * - `list` (page de la leçon) : toutes les étapes, chacune avec son état et sa durée.
+ * Le parcours d'une leçon (SPEC §5.2) au checkpoint : la bande des stations, et sous elle
+ * l'étape suivante avec ce qu'elle demande (« Étape 3/7 · Grammaire · 8 exercices · ~3 min »).
+ * La page de la leçon ne la reprend pas : la voie de l'accueil montre déjà le parcours.
  */
-export function LessonPath({ lesson, variant = "strip" }: { lesson: PathLesson; variant?: "strip" | "list" }) {
+export function LessonPath({ lesson }: { lesson: PathLesson }) {
   const plan = usePlan(lesson);
   const estimate = (step: PathStep) => plan.find((e) => e.step === step);
   const detour = usePendingDetour(lesson.id);
-
-  if (variant === "list") {
-    return (
-      <ol className="m-0 flex list-none flex-col p-0" aria-label="Parcours de la leçon">
-        {lesson.steps.flatMap((step, i) => {
-          const state = stateOf(lesson, step);
-          const e = estimate(step);
-          const row = (
-            <li key={step} className="flex items-center gap-3 border-t border-hairline py-2.5 first:border-t-0">
-              <Station state={state} />
-              <span className={`flex-1 text-sm ${state === "todo" ? "text-muted" : "text-text"}`}>
-                {i + 1}. {STEP_LABEL[step]}
-              </span>
-              <span className={`text-xs ${state === "next" ? "text-accent" : "text-muted"}`}>
-                {state === "done" ? "fait" : e ? estimateLabel(e) : ""}
-              </span>
-            </li>
-          );
-          if (detour?.before !== step) return [row];
-          // Sans numéro : le détour ne décale pas les étapes de la leçon.
-          return [
-            <li key="detour" className="flex items-center gap-3 border-t border-hairline py-2.5">
-              <Detour />
-              <span className="flex-1 text-sm text-text">Révision insérée</span>
-              <span className="text-xs text-accent">{detour.title.replace(/^Révision · /, "")}</span>
-            </li>,
-            row,
-          ];
-        })}
-      </ol>
-    );
-  }
 
   const next = lesson.nextStep;
   const e = next ? estimate(next) : undefined;

@@ -437,8 +437,8 @@ freiner le neuf, elle remplit les étapes Révision.
 - **Révision insérée.** Quand plus de 20 cartes sont dues (plus de deux étapes de retard), le
   parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6),
   et l'affiche comme telle, avec l'effort réel (« Révision · 10 cartes (34 en retard) ») : un
-  petit 復 sans numéro devant l'étape qu'elle précède, dans la voie, la bande des stations et la
-  liste des étapes de la leçon. **Au plus une insertion par étape
+  petit 復 sans numéro devant l'étape qu'elle précède, dans la voie et la bande des stations.
+  **Au plus une insertion par étape
   de contenu**, retenue d'une séance à l'autre (meta `reviewInsert.<leçon>.<étape>`) : quitter
   puis revenir ne la repropose pas, et de nouvelles cartes dues chaque jour ne bloquent jamais
   la leçon — un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais. Faite, elle
@@ -1154,7 +1154,8 @@ la molette y fait défiler la voie.
 - `ui/Home.tsx` est réécrit autour de la voie.
 - `ui/TokaidoStrip.tsx` quitte l'accueil ; sa logique du ciel (heure, phase de la lune, étoiles)
   passe dans le décor.
-- `ui/LessonPath.tsx` garde sa variante bande pour le checkpoint.
+- `ui/LessonPath.tsx` ne garde que sa variante bande, pour le checkpoint ; la page de la leçon
+  ne liste plus ses étapes (doublon de la voie de l'accueil).
 - `lib/tokaido.ts` : position par étapes, villes fixées par étape, tampons (§5c.4, §5c.5).
 - `lib/omikuji.ts` et `ui/OmikujiSheet.tsx` : tampon de fortune au lieu du bonus de station ;
   `bonusFr` devient le nom du tampon.
