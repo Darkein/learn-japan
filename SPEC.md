@@ -319,6 +319,13 @@ Deux couches de traduction, et **la couche littérale est prioritaire** (demande
    sont glosés via **JMdict**, les **particules / auxiliaires / copules** (は, が, を, です, た, ね,
    て, から…) via une **table de gloss fixe** maintenue à la main. C'est de la grammaire → réponse
    déterministe, cohérent avec la philosophie « pas de LLM quand il y a une bonne réponse ».
+   **La fiche d'un morphème** (toucher は, に, ている…) reprend cette glose, jamais l'homographe du
+   dictionnaire (歯 « dent »), et nomme son ou ses points de grammaire avec la leçon qui les
+   enseigne et où l'on en est (« に (lieu statique) · Leçon 12 · … — à venir »). Le
+   rapprochement compare la forme du point à celle du token (`lib/morphemeGrammar.ts`) ; une
+   forme à plusieurs emplois les liste tous, sauf quand la catégorie du token tranche (から
+   provenance ou cause, le で de la forme て, いる de 〜ている). Pas de statut « jamais marqué » :
+   un morphème n'est pas suivi en vocabulaire.
 2. **Traduction française fluide (LLM, secondaire)** — pour vérifier le sens global, affichée en
    complément. Tolère l'erreur (jugée par l'utilisateur).
 
