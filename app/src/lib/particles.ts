@@ -88,6 +88,17 @@ export const AUX_VERB_GLOSS: Record<string, string> = {
 };
 
 /** Connecteur particulier : la forme て / で (lien). */
+/**
+ * Particules dont la catégorie IPADIC (`pos_detail_1/pos_detail_2`) départage les emplois que
+ * la table ci-dessus fond en un seul : と de 「はい」と言った n'est ni « et » ni « avec ».
+ */
+export const PARTICLE_ROLE_GLOSS: Record<string, string> = {
+  "と|格助詞|引用": "[citation]",
+  "と|格助詞|一般": "avec",
+  "と|並立助詞": "et",
+  "と|接続助詞": "si/quand",
+};
+
 export const TE_FORMS: Record<string, string> = {
   て: "[lien/te]",
   で: "[lien/te]",

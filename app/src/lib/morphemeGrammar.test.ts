@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { grammarPointsFor } from "./morphemeGrammar";
 import type { KuromojiToken } from "./tokenizer";
 
-function tok(surface: string, pos: string, detail: string, basic = surface): KuromojiToken {
+function tok(surface: string, pos: string, detail: string, basic = surface, detail2 = "*"): KuromojiToken {
   return {
     surface_form: surface,
     pos,
     pos_detail_1: detail,
-    pos_detail_2: "*",
+    pos_detail_2: detail2,
     pos_detail_3: "*",
     conjugated_type: "*",
     conjugated_form: "*",
@@ -34,6 +34,12 @@ describe("grammarPointsFor — le point de grammaire d'un morphème et sa leçon
     expect(ids(tok("から", "助詞", "接続助詞"))).toEqual(["n4-kara-cause"]);
     // 読んで : le で de la て-forme, pas celui du lieu ou du moyen.
     expect(ids(tok("で", "助詞", "接続助詞"))).toEqual(["n5-te-form"]);
+    // と : « avec » (猫と遊ぶ), « et » (猫と犬), condition (春になると) — et la citation
+    // (「はい」と言った), qui n'a pas de point au référentiel : rien plutôt que « avec ».
+    expect(ids(tok("と", "助詞", "格助詞", "と", "一般"))).toEqual(["n5-to-with"]);
+    expect(ids(tok("と", "助詞", "並立助詞"))).toEqual(["n5-to-and"]);
+    expect(ids(tok("と", "助詞", "接続助詞"))).toEqual(["n4-to-conditional"]);
+    expect(ids(tok("と", "助詞", "格助詞", "と", "引用"))).toEqual([]);
     // 〜ている : いる non autonome, pas « exister ».
     expect(ids(tok("いる", "動詞", "非自立"))).toEqual(["n5-teiru-progressive"]);
   });

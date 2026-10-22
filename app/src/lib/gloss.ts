@@ -4,7 +4,7 @@
 // Mots de contenu : glosés via un dictionnaire (sous-ensemble JMdict, en français).
 // Particules / auxiliaires / copule : table fixe (particles.ts). Pas de LLM.
 
-import { AUX_GLOSS, AUX_VERB_GLOSS, PARTICLE_GLOSS, TE_FORMS } from "./particles";
+import { AUX_GLOSS, AUX_VERB_GLOSS, PARTICLE_GLOSS, PARTICLE_ROLE_GLOSS, TE_FORMS } from "./particles";
 import type { KuromojiToken } from "./tokenizer";
 
 /** Dictionnaire de contenu : forme de base → gloss français court. */
@@ -41,7 +41,10 @@ export function glossToken(token: KuromojiToken, dict: ContentDict): GlossSegmen
       if (token.pos_detail_1 === "接続助詞" && TE_FORMS[surface]) {
         return g(TE_FORMS[surface], true);
       }
-      return g(PARTICLE_GLOSS[surface] ?? PARTICLE_GLOSS[token.basic_form] ?? "[particule]", true);
+      const role =
+        PARTICLE_ROLE_GLOSS[`${surface}|${token.pos_detail_1}|${token.pos_detail_2}`] ??
+        PARTICLE_ROLE_GLOSS[`${surface}|${token.pos_detail_1}`];
+      return g(role ?? PARTICLE_GLOSS[surface] ?? PARTICLE_GLOSS[token.basic_form] ?? "[particule]", true);
     }
     case "助動詞":
       return g(AUX_GLOSS[surface] ?? AUX_GLOSS[token.basic_form] ?? "[aux]", true);

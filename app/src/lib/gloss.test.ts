@@ -37,4 +37,12 @@ describe("gloss littéral", () => {
     expect(segs[0]).toMatchObject({ gloss: "chat", grammatical: false });
     expect(segs[1]).toMatchObject({ gloss: "[sujet]", grammatical: true });
   });
+
+  it("glose と selon son emploi : citation, avec, et, condition", () => {
+    const to = (d1: string, d2 = "*") => tok({ surface_form: "と", pos: "助詞", pos_detail_1: d1, pos_detail_2: d2 });
+    expect(glossTokens([to("格助詞", "引用")], dict)[0].gloss).toBe("[citation]");
+    expect(glossTokens([to("格助詞", "一般")], dict)[0].gloss).toBe("avec");
+    expect(glossTokens([to("並立助詞")], dict)[0].gloss).toBe("et");
+    expect(glossTokens([to("接続助詞")], dict)[0].gloss).toBe("si/quand");
+  });
 });

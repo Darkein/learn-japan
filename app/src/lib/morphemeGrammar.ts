@@ -26,15 +26,17 @@ const ALIASES: Record<string, string[]> = {
 };
 
 /**
- * Catégorie IPADIC (`pos_detail_1`) qu'exige un point dont la forme est partagée : c'est elle
- * qui départage から provenance et から cause, と « et » et と condition, いる et 〜ている.
+ * Catégorie IPADIC (`pos_detail_1`, ou `pos_detail_1/pos_detail_2`) qu'exige un point dont la
+ * forme est partagée : c'est elle qui départage から provenance et から cause, と « et », と
+ * « avec » et と condition, いる et 〜ている. Le と de citation (「はい」と言った, 格助詞/引用)
+ * n'en incarne aucun : le référentiel n'a pas de point pour lui.
  */
 const POS_DETAIL: Record<string, string> = {
   "n5-te-form": "接続助詞",
   "n5-kara-from": "格助詞",
   "n4-kara-cause": "接続助詞",
   "n5-to-and": "並立助詞",
-  "n5-to-with": "格助詞",
+  "n5-to-with": "格助詞/一般",
   "n4-to-conditional": "接続助詞",
   "n5-ga-subject": "格助詞",
   "n5-de-place": "格助詞",
@@ -46,6 +48,11 @@ const POS_DETAIL: Record<string, string> = {
   "n5-teiru-progressive": "非自立",
   "n5-te-kudasai": "非自立",
 };
+
+function matchesPos(token: KuromojiToken, pos: string): boolean {
+  const [d1, d2] = pos.split("/");
+  return token.pos_detail_1 === d1 && (d2 === undefined || token.pos_detail_2 === d2);
+}
 
 const JAPANESE_ONLY = /^[぀-ヿ一-鿿]+$/;
 
@@ -81,7 +88,7 @@ export function grammarPointsFor(token: KuromojiToken): MorphemePoint[] {
     for (const g of idx.get(form) ?? []) {
       if (seen.has(g.id)) continue;
       const pos = POS_DETAIL[g.id];
-      if (pos && token.pos_detail_1 !== pos) continue;
+      if (pos && !matchesPos(token, pos)) continue;
       seen.add(g.id);
       points.push({ ...g, lesson: lessonsForGrammar([g.id])[0] });
     }
