@@ -26,6 +26,7 @@ import {
   STEP_LABEL,
   nextStep,
   stepNumber,
+  stepNumberBases,
   type PathStep,
 } from "./path";
 import { sessionStats } from "./reviewSession";
@@ -58,9 +59,9 @@ export interface FlowActivity {
   itemIds?: string[];
   /** Station de repos : les leçons qu'elle révise. */
   lessonIds?: string[];
-  /** Libellé du bouton « Continuer avec : … ». */
+  /** Nom de l'activité (« Continuer avec : … » du checkpoint, voie de l'accueil). */
   title: string;
-  /** Justification courte affichée au checkpoint. */
+  /** Justification courte : au checkpoint, et au-dessus d'un détour (révision, repos). */
   reason: string;
 }
 
@@ -79,6 +80,9 @@ export interface FlowState {
     steps: PathStep[];
     /** Étapes déjà faites. */
     stepsDone: PathStep[];
+    /** Étapes des leçons qui la précèdent : sa première étape porte le n° `stepBase + 1` sur la
+     *  voie (numérotation globale, SPEC §5c.2). */
+    stepBase?: number;
     /** Première histoire de la leçon jamais ouverte (meta storyRead absent). */
     unreadStoryId?: string;
     unreadStoryTitle?: string;
@@ -218,14 +222,15 @@ export function pickNext(state: FlowState): FlowActivity {
 
 /** L'activité d'une étape de la leçon en cours, avec son rang dans le parcours. */
 function stepActivity(cur: NonNullable<FlowState["currentLesson"]>, step: PathStep): FlowActivity {
-  const n = stepNumber(cur.steps, step);
+  // Le numéro de la voie, pas le rang dans la leçon : « Étape 80 » partout où l'étape se nomme.
+  const n = (cur.stepBase ?? 0) + stepNumber(cur.steps, step);
   const storyId = step === "story" ? (cur.unreadStoryId ?? cur.anyStoryId) : undefined;
   return {
     kind: STEP_KIND[step],
     refId: storyId ?? cur.id,
     lessonId: cur.id,
     step,
-    title: `Étape ${n}/${cur.steps.length} · ${STEP_LABEL[step]} — ${cur.title}`,
+    title: `Étape ${n} · ${STEP_LABEL[step]} — ${cur.title}`,
     reason: STEP_REASON[step],
   };
 }
@@ -383,6 +388,7 @@ export async function gatherFlowState(
           title: current.title,
           steps: current.steps,
           stepsDone: current.stepsDone,
+          stepBase: stepNumberBases(lessons).get(current.id) ?? 0,
           unreadStoryId: unread?.id,
           unreadStoryTitle: unread ? (unread.titleFr ?? unread.title) : undefined,
           anyStoryId: current.stories[0]?.id,

@@ -88,9 +88,9 @@ describe("reminderNotification", () => {
   });
 
   it("annonce l'étape suivante du parcours faute d'élément à nommer", () => {
-    const step = { label: "Révision", number: 4, total: 7, lesson: "Les gens autour de moi" };
+    const step = { label: "Révision", number: 81, lesson: "Les gens autour de moi" };
     const n = reminderNotification(0, hint({ items: [], step }), TODAY);
-    expect(n.title).toBe("Étape 4/7 : Révision");
+    expect(n.title).toBe("Étape 81 : Révision");
     expect(n.body).toBe("« Les gens autour de moi » t'attend là où tu l'as laissée.");
     // Un élément dû passe devant : l'accroche par le contenu reste la meilleure.
     expect(reminderNotification(3, hint({ step }), TODAY).title).toBe("Tu te souviens de 「花火」 ?");

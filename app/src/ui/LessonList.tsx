@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { StoryRecord } from "../lib/db";
 import type { Lesson } from "../lib/lessons";
+import { stepNumberBases } from "../lib/path";
 import { CourseDetail } from "./CourseDetail";
 import { LessonCard } from "./LessonCard";
 import { useMediaQuery } from "./useMediaQuery";
@@ -24,6 +25,8 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, split }: Props)
   const effectiveSplit = !!split && wide;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Les numéros d'étape de la voie (numérotation globale) : la liste porte tout le curriculum.
+  const bases = useMemo(() => stepNumberBases(lessons), [lessons]);
   const selected =
     lessons.find((l) => l.id === selectedId) ?? (effectiveSplit ? lessons[0] : undefined);
 
@@ -31,7 +34,7 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, split }: Props)
     return (
       <ol className="list-none">
         {lessons.map((lesson) => (
-          <LessonCard key={lesson.id} lesson={lesson} onOpen={onOpenCourse} />
+          <LessonCard key={lesson.id} lesson={lesson} stepBase={bases.get(lesson.id) ?? 0} onOpen={onOpenCourse} />
         ))}
       </ol>
     );
@@ -44,6 +47,7 @@ export function LessonList({ lessons, onOpenStory, onOpenCourse, split }: Props)
           <LessonCard
             key={lesson.id}
             lesson={lesson}
+            stepBase={bases.get(lesson.id) ?? 0}
             onOpen={(l) => setSelectedId(l.id)}
             selected={selected?.id === lesson.id}
           />

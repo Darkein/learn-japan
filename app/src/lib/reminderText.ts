@@ -78,9 +78,8 @@ export interface ReminderEvent {
 export interface ReminderStep {
   /** Nom de l'étape (« Révision », « Grammaire »…). */
   label: string;
-  /** Rang dans le parcours de la leçon, et nombre d'étapes. */
+  /** Numéro de l'étape sur la voie (numérotation globale, SPEC §5c.2). */
   number: number;
-  total: number;
   /** Titre de la leçon. */
   lesson: string;
 }
@@ -201,7 +200,7 @@ function itemNotification(item: ReminderItem, due: number, streak?: number): Rem
 function stepNotification(step: ReminderStep, streak?: number): ReminderNotification {
   const lesson = clamp(step.lesson);
   return {
-    title: `Étape ${step.number}/${step.total} : ${step.label}`,
+    title: `Étape ${step.number} : ${step.label}`,
     body: body(streak, lesson ? `« ${lesson} » t'attend là où tu l'as laissée.` : "Ta leçon t'attend là où tu l'as laissée."),
   };
 }

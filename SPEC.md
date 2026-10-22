@@ -397,8 +397,11 @@ ensuite.
   Une étape terminée peut toujours être refaite, sans effet sur la répétition espacée (§5.5).
   La page d'une leçon donne en plus un accès libre à son cours, à ses histoires et à
   l'entraînement.
-- **Une jauge par étapes.** La carte de leçon affiche les étapes faites (« 3 / 7 ») au lieu de la
-  part d'éléments stabilisés. La **maîtrise** (intervalle ≥ 21 jours) reste affichée à part, comme
+- **Les étapes se nomment par leur numéro de la voie** (§5c.2), partout : la carte de leçon du
+  Catalogue situe la leçon comme le bandeau de l'accueil (« Étapes 8 à 14 ») et, en cours, nomme
+  l'étape à faire (« À faire : 9 · Vocabulaire ») ; le parcours et les rappels disent « Étape 9 »,
+  plus « 2/7 ». *Remplace la jauge par étapes* (« 3 / 7 », une case par étape), qui doublait la
+  voie avec une autre numérotation. La **maîtrise** (intervalle ≥ 21 jours) reste affichée à part, comme
   objectif à long terme.
 
 ### 5.3 Trois réussites par élément

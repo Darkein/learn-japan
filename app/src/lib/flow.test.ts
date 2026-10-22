@@ -34,11 +34,13 @@ describe("pickNext — le parcours d'une leçon", () => {
     expect(pickNext(state({ currentLesson: lesson(["course", "vocab"]) })).step).toBe("grammar");
   });
 
-  it("annonce le rang de l'étape dans le parcours", () => {
+  it("annonce l'étape sous son numéro de la voie (numérotation globale)", () => {
     const a = pickNext(state({ currentLesson: lesson(["course", "vocab"]) }));
     expect(a.kind).toBe("grammar");
-    expect(a.title).toBe("Étape 3/7 · Grammaire — Les gens autour de moi");
+    expect(a.title).toBe("Étape 3 · Grammaire — Les gens autour de moi");
     expect(a.lessonId).toBe("n5-10");
+    const later = pickNext(state({ currentLesson: lesson(["course", "vocab"], { stepBase: 77 }) }));
+    expect(later.title).toBe("Étape 80 · Grammaire — Les gens autour de moi");
   });
 
   it("une étape créditée hors ordre est sautée, pas refaite", () => {
@@ -67,7 +69,7 @@ describe("pickNext — le parcours d'une leçon", () => {
     const steps = PATH_STEPS.filter((s) => s !== "grammar");
     const a = pickNext(state({ currentLesson: lesson(["course", "vocab"], { steps }) }));
     expect(a.step).toBe("review");
-    expect(a.title).toContain("Étape 3/6");
+    expect(a.title).toContain("Étape 3 · Révision");
   });
 
   it("la leçon en cours passe avant la découverte de la suivante", () => {

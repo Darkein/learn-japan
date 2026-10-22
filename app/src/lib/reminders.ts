@@ -175,8 +175,7 @@ export async function refreshReminderState(reminders: ReminderSettings): Promise
         ? {
             step: {
               label: STEP_LABEL[next.step],
-              number: stepNumber(cur.steps, next.step),
-              total: cur.steps.length,
+              number: (cur.stepBase ?? 0) + stepNumber(cur.steps, next.step),
               lesson: cur.title,
             },
           }

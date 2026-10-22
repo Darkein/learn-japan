@@ -193,8 +193,14 @@ export function ReviewSession({ opts, onExit, exitLabel, onStop, stopLabel, auto
   return (
     <div className="flex flex-col gap-4">
       <span className="text-xs uppercase tracking-wider text-muted">
-        {sessionName} {i + 1} / {cards.length} ·{" "}
-        <span className="text-accent-2">{TRACK_FR[card.track]}</span>
+        {sessionName} {i + 1} / {cards.length}
+        {/* L'étape Vocabulaire (ou Grammaire) se nomme déjà par sa piste. */}
+        {sessionName.toLowerCase() !== TRACK_FR[card.track] && (
+          <>
+            {" · "}
+            <span className="text-accent-2">{TRACK_FR[card.track]}</span>
+          </>
+        )}
       </span>
       {practice && (
         <p className="m-0 text-xs text-muted">{checkup ? PRACTICE_HINT : REPLAY_HINT}</p>
