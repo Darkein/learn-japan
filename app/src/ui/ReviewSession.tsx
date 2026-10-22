@@ -109,9 +109,16 @@ export function ReviewSession({ opts, onExit, exitLabel, onStop, stopLabel, auto
         </p>
         {/* Dans le parcours, une étape vide se valide d'un geste : jamais de cul-de-sac. */}
         {onExit && (
-          <Button variant="primary" className="self-start" onClick={onExit}>
-            Continuer
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={onExit}>
+              Continuer
+            </Button>
+            {onStop && stopLabel && (
+              <Button variant="ghost" onClick={onStop}>
+                {stopLabel}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     );

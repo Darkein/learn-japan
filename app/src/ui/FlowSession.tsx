@@ -56,8 +56,10 @@ interface Props {
 
 /**
  * Session de flux continu : enchaîne les activités choisies par le moteur (lib/flow.ts),
- * avec un checkpoint entre chaque bloc (récap + une suggestion + sortie). ReviewSession et
- * Reader sont embarqués tels quels — l'orchestration vit au-dessus.
+ * directement l'une après l'autre. Chaque bloc finit sur les mêmes deux sorties,
+ * « Continuer » et « Arrêter ici » (SPEC §5.1) ; le checkpoint ne reste que pour le bilan
+ * d'une relecture-miroir ou quand il n'y a plus rien à proposer. ReviewSession, Reader et
+ * ExamSession sont embarqués tels quels — l'orchestration vit au-dessus.
  */
 export function FlowSession({ onExit, forced }: Props) {
   const { settings } = useSettings();
@@ -220,6 +222,8 @@ export function FlowSession({ onExit, forced }: Props) {
 
       {phase.name === "omikuji" && <OmikujiSheet onClose={start} />}
 
+      {phase.name === "activity" && <DetourNote key={`n${phase.seq}`} activity={phase.activity} />}
+
       {phase.name === "activity" && (
         <ActivityBlock
           key={phase.seq}
@@ -300,6 +304,22 @@ async function recapFor(activity: FlowActivity, reviewedBefore: number): Promise
 
 // ---- Rendu d'un bloc d'activité ------------------------------------------------
 
+/**
+ * Un détour hors des étapes de la leçon (révision insérée ou ciblée, station de repos) dit
+ * pourquoi il est là : sans écran entre deux blocs, on passait d'une étape à « Révision 1 / 10 »
+ * sans savoir que la leçon reprendrait ensuite — on croyait avoir piétiné.
+ */
+function DetourNote({ activity }: { activity: FlowActivity }) {
+  if (activity.step || (activity.kind !== "review" && activity.kind !== "rest")) return null;
+  const resumes = activity.before || activity.itemIds ? " La leçon reprend ensuite où tu l'avais laissée." : "";
+  return (
+    <p className="m-0 -mb-2 text-sm text-muted">
+      {activity.reason}
+      {resumes}
+    </p>
+  );
+}
+
 function ActivityBlock({
   activity,
   furigana,
@@ -349,16 +369,19 @@ function ActivityBlock({
       );
     case "read-story":
       return activity.lessonId ? (
-        <StoryStep lessonId={activity.lessonId} storyId={activity.refId} onDone={onDone} />
+        <StoryStep lessonId={activity.lessonId} storyId={activity.refId} onDone={onDone} onStop={onStop} />
       ) : null;
     case "mirror":
+      // La relecture-miroir n'a qu'une sortie : son bilan (le chemin parcouru) vient après.
       return <StoryBlock storyId={activity.refId} onDone={onDone} />;
     case "lesson":
-      return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} />;
+      return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} onStop={onStop} />;
     case "exam":
       // Le contrôle vit dans le flux comme les autres blocs : il porte son en-tête de copie
-      // et sa correction, et rend la main au checkpoint une fois la copie rendue.
-      return activity.refId ? <ExamSession lessonId={activity.refId} onExit={onDone} /> : null;
+      // et sa correction, et sa copie corrigée sort comme un bilan d'étape.
+      return activity.refId ? (
+        <ExamSession lessonId={activity.refId} onExit={onDone} onStop={onStop} />
+      ) : null;
     default:
       return null;
   }
@@ -369,7 +392,17 @@ function ActivityBlock({
  * de toutes). Une leçon sans histoire en reçoit une ICI — téléchargée si elle est
  * pré-générée, générée sinon — plutôt que de renvoyer l'utilisateur hors du parcours.
  */
-function StoryStep({ lessonId, storyId, onDone }: { lessonId: string; storyId?: string; onDone: () => void }) {
+function StoryStep({
+  lessonId,
+  storyId,
+  onDone,
+  onStop,
+}: {
+  lessonId: string;
+  storyId?: string;
+  onDone: () => void;
+  onStop: () => void;
+}) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const reload = useCallback(async () => {
     const l = await getLesson(lessonId);
@@ -381,7 +414,7 @@ function StoryStep({ lessonId, storyId, onDone }: { lessonId: string; storyId?: 
 
   if (!lesson) return <LoadingScreen />;
   const id = storyId && storyId !== lessonId ? storyId : lesson.stories[0]?.id;
-  if (id) return <StoryBlock storyId={id} onDone={onDone} />;
+  if (id) return <StoryBlock storyId={id} onDone={onDone} onStop={onStop} />;
   return <StoryGeneration lesson={lesson} onReload={reload} />;
 }
 
@@ -423,7 +456,7 @@ function StoryGeneration({ lesson, onReload }: { lesson: Lesson; onReload: () =>
   );
 }
 
-function StoryBlock({ storyId, onDone }: { storyId?: string; onDone: () => void }) {
+function StoryBlock({ storyId, onDone, onStop }: { storyId?: string; onDone: () => void; onStop?: () => void }) {
   const [incoming, setIncoming] = useState<IncomingStory | null>(null);
   useEffect(() => {
     if (!storyId) return;
@@ -440,10 +473,10 @@ function StoryBlock({ storyId, onDone }: { storyId?: string; onDone: () => void 
           <p className="m-0 font-serif text-lg text-text">{incoming.title}</p>
         </div>
       )}
-      <Reader incoming={incoming} />
-      <Button variant="ghost" className="self-start" onClick={onDone}>
-        J'ai fini ma lecture
-      </Button>
+      <Reader incoming={incoming} flowExits={{ onContinue: onDone, onStop }} />
+      {/* Le bilan des exercices porte les deux sorties ; ici, la même paire pour qui finit
+          sur la lecture seule. « Exercices », plus haut, reste le geste principal. */}
+      <StepExits onContinue={onDone} onStop={onStop} quiet />
     </div>
   );
 }
@@ -452,10 +485,12 @@ function LessonBlock({
   lessonId,
   furigana,
   onDone,
+  onStop,
 }: {
   lessonId?: string;
   furigana: boolean;
   onDone: () => void;
+  onStop: () => void;
 }) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const reload = useCallback(async () => {
@@ -469,11 +504,11 @@ function LessonBlock({
 
   if (!lessonId) return null;
   if (!lesson) return <LoadingScreen />;
-  return <LessonCourse lesson={lesson} furigana={furigana} onReload={reload} onDone={onDone} />;
+  return <LessonCourse lesson={lesson} furigana={furigana} onReload={reload} onDone={onDone} onStop={onStop} />;
 }
 
 /**
- * Le bloc « Leçon » du flux : le cours, puis « Leçon lue ». Le cours peut manquer (leçon
+ * Le bloc « Leçon » du flux : le cours, puis les deux sorties d'étape. Le cours peut manquer (leçon
  * devenue courante sans passer par sa page, contenu pré-généré non matérialisé) — on le
  * génère ICI plutôt que de renvoyer l'utilisateur hors du flux.
  */
@@ -482,11 +517,13 @@ function LessonCourse({
   furigana,
   onReload,
   onDone,
+  onStop,
 }: {
   lesson: Lesson;
   furigana: boolean;
   onReload: () => Promise<void>;
   onDone: () => void;
+  onStop: () => void;
 }) {
   const { busy, error, progress, label, start, retry } = useLessonGen(lesson);
   const missing = !lesson.framing;
@@ -501,12 +538,12 @@ function LessonCourse({
     wasBusy.current = busy;
   }, [busy, onReload]);
 
-  async function finish() {
+  async function finish(then: () => void) {
     // `markLessonCourseRead` et non `markLessonStarted` : c'est ce jalon qui atteste que la
     // leçon a été ENSEIGNÉE — le flux ne re-proposera pas son cours, et son contrôle peut
     // s'ouvrir une fois une histoire lue (voir lib/flow.ts).
     await markLessonCourseRead(lesson.id);
-    onDone();
+    then();
   }
 
   return (
@@ -538,9 +575,23 @@ function LessonCourse({
           </button>
         </Card>
       )}
-      <Button variant="primary" className="self-start" onClick={() => void finish()}>
-        Leçon lue — continuer
+      <StepExits onContinue={() => void finish(onDone)} onStop={() => void finish(onStop)} />
+    </div>
+  );
+}
+
+/** Les deux sorties d'une étape, comme au bilan des exercices (SessionSummary). */
+function StepExits({ onContinue, onStop, quiet }: { onContinue: () => void; onStop?: () => void; quiet?: boolean }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant={quiet ? "ghost" : "primary"} onClick={onContinue}>
+        Continuer
       </Button>
+      {onStop && (
+        <Button variant={quiet ? "quiet" : "ghost"} onClick={onStop}>
+          Arrêter ici
+        </Button>
+      )}
     </div>
   );
 }

@@ -17,7 +17,7 @@ import { ReaderBarSlot } from "./ReaderPage";
 import { IconArrowRight, IconList, IconPause, IconPlay } from "./kit/Icon";
 import { usePodcastPlayer } from "./usePodcastPlayer";
 import { SectionLabel } from "./kit/SectionLabel";
-import { ReaderExercises } from "./ReaderExercises";
+import { ReaderExercises, type FlowExits } from "./ReaderExercises";
 import { Ruby } from "./Ruby";
 import { StoryIllustration } from "./StoryIllustration";
 import { useSettings } from "./useSettings";
@@ -87,10 +87,13 @@ interface Props {
   /** Rendu en aperçu (couche voisine du carrousel) : neutralise les effets de bord au montage
    * (pas d'enregistrement de rencontres SRS). Le contenu reste rendu à l'identique. */
   preview?: boolean;
+  /** Dans le parcours : le bilan des exercices sort par « Continuer » et « Arrêter ici »,
+   *  comme celui des autres étapes, au lieu de revenir au texte. */
+  flowExits?: FlowExits;
 }
 
 /** Lecteur : phrase analysée, gloss aligné mot-à-mot, lecture audio, suivi de révision. */
-export function Reader({ incoming, preview = false }: Props) {
+export function Reader({ incoming, preview = false, flowExits }: Props) {
   const { settings } = useSettings();
   // Initialisation synchrone depuis le cache d'analyse : si le texte a déjà été analysé (page
   // voisine affichée en aperçu pendant le carrousel), on rend le contenu d'emblée, sans passer
@@ -391,6 +394,7 @@ export function Reader({ incoming, preview = false }: Props) {
                     : undefined
               }
               onClose={() => setExoOpen(false)}
+              flowExits={flowExits}
             />
           )}
 

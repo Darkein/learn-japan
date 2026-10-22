@@ -1,12 +1,12 @@
 // Flux d'étude : le PARCOURS (SPEC §5). L'app enchaîne les étapes de la leçon en cours —
 // cours, vocabulaire, grammaire, révision, histoire, produire, contrôle — puis celles de la
-// leçon suivante, avec un point de sortie à chaque checkpoint. La séance n'a pas de fin
+// leçon suivante, avec un point de sortie à la fin de chaque étape. La séance n'a pas de fin
 // imposée : il y a toujours une étape suivante, on s'arrête quand on veut. L'omikuji du jour
 // n'en fait PAS partie : la bandelette s'ouvre d'elle-même au lancement de l'app (voir
 // lib/omikuji.ts, ui/Home.tsx).
 //
 // RÈGLE DURE : `pickNext` est PURE et DÉTERMINISTE — aucun Math.random, aucun accès IO.
-// Même FlowState → même activité, entre l'accueil et le checkpoint, et dans les tests.
+// Même FlowState → même activité, entre l'accueil et la fin d'une étape, et dans les tests.
 // Tout l'IO vit dans `gatherFlowState` (collecteur mince, non testé unitairement).
 
 import {

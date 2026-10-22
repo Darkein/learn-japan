@@ -357,9 +357,17 @@ ensuite.
 - **Chaque fin d'étape est un point de sortie** : le bilan de l'exercice propose « Continuer »
   (l'étape suivante s'enchaîne directement, sans écran intermédiaire ni bande des stations : on
   reste concentré sur l'exercice) et « Arrêter ici » (l'étape est créditée, le parcours se ferme).
+  Toutes les étapes finissent sur cette même paire : le cours, l'histoire (au bilan de ses
+  exercices, ou sous le texte pour qui s'en tient à la lecture), la copie corrigée du contrôle,
+  une étape vide (« rien à travailler ici »). La couverture du contrôle propose « Arrêter ici »
+  au lieu de « Retour ».
   « Arrêter » reste aussi dans l'en-tête : on s'arrête quand on veut, et on reprend exactement là
-  où on s'était arrêté, au début de l'étape interrompue. Le checkpoint ne subsiste que pour le bilan d'une relecture-miroir, ou quand il
-  n'y a plus rien à proposer.
+  où on s'était arrêté, au début de l'étape interrompue. Le checkpoint ne subsiste que pour le
+  bilan d'une relecture-miroir, ou quand il n'y a plus rien à proposer.
+- **Un détour dit pourquoi il est là.** Une révision insérée, une révision ciblée avant un
+  rattrapage ou une station de repos s'ouvre sur sa raison en une ligne, et, quand la leçon est
+  mise en pause, sur « La leçon reprend ensuite où tu l'avais laissée » : sans écran entre deux
+  blocs, rien d'autre ne le disait.
 - **L'objectif du jour devient un repère**, compté en **étapes** (défaut : 3, soit environ
   15 minutes). Il nourrit la série de jours, les rappels et l'omikuji ; une fois atteint, on le
   signale et le parcours continue.

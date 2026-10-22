@@ -28,6 +28,12 @@ interface Props {
   onExit: () => void;
   /** Ouvre une session de révision (rattrapage : repasser les items ratés). */
   onStartReview?: (opts?: SessionOpts) => void;
+  /**
+   * Dans le parcours : la sortie « Arrêter ici », comme au bilan des autres étapes. La
+   * couverture la montre au lieu de « Retour » — `onExit` y enchaînerait la suite du
+   * parcours, qui reproposerait aussitôt ce même contrôle.
+   */
+  onStop?: () => void;
 }
 
 type Phase = "cover" | "running" | "report";
@@ -37,7 +43,7 @@ type Phase = "cover" | "running" | "report";
  * copie (règles + barème), le sujet (une question à la fois, sans aucune correction), la
  * copie corrigée. Rien n'est noté avant la remise : on peut revenir sur ses réponses.
  */
-export function ExamSession({ lessonId, onExit, onStartReview }: Props) {
+export function ExamSession({ lessonId, onExit, onStartReview, onStop }: Props) {
   const { settings, update } = useSettings();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [status, setStatus] = useState<ExamStatus | null>(null);
@@ -147,6 +153,7 @@ export function ExamSession({ lessonId, onExit, onStartReview }: Props) {
         result={result}
         onExit={onExit}
         onStartReview={onStartReview}
+        onStop={onStop}
       />
     );
   }
@@ -158,7 +165,8 @@ export function ExamSession({ lessonId, onExit, onStartReview }: Props) {
         status={status}
         busy={busy}
         onStart={() => void start()}
-        onExit={onExit}
+        onExit={onStop ?? onExit}
+        exitLabel={onStop ? "Arrêter ici" : "Retour"}
         onStartReview={onStartReview}
       />
     );
@@ -236,6 +244,7 @@ function ExamCover({
   busy,
   onStart,
   onExit,
+  exitLabel,
   onStartReview,
 }: {
   lesson: Lesson;
@@ -243,6 +252,7 @@ function ExamCover({
   busy: boolean;
   onStart: () => void;
   onExit: () => void;
+  exitLabel: string;
   onStartReview?: (opts?: SessionOpts) => void;
 }) {
   // Après un échec, le rattrapage s'ouvre quand les ratés ont été repassés en révision
@@ -338,7 +348,7 @@ function ExamCover({
                 : "Commencer l'épreuve"}
         </Button>
         <Button variant="quiet" onClick={onExit}>
-          Retour
+          {exitLabel}
         </Button>
       </div>
     </div>
