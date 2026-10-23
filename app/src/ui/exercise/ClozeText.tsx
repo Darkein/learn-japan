@@ -35,14 +35,22 @@ function Blank({ wide }: { wide: boolean }) {
   );
 }
 
-/** Texte d'exercice avec ses trous rendus en filets. Sans trou, rend le texte tel quel. */
-export function ClozeText({ text }: { text: string }) {
+/** Texte d'exercice avec ses trous rendus en filets. Sans trou, rend le texte tel quel.
+    `fill` : la réponse, posée dans le trou en accent souligné (le bilan nomme ainsi le mot
+    revu au lieu de reposer la question). */
+export function ClozeText({ text, fill }: { text: string; fill?: string }) {
   if (!hasBlank(text)) return <>{text}</>;
   return (
     <>
       {clozeParts(text).map((part, i) =>
         i % 2 === 1 ? (
-          <Blank key={i} wide={part.startsWith("◯")} />
+          fill ? (
+            <span key={i} className="border-b-2 border-accent text-accent">
+              {fill}
+            </span>
+          ) : (
+            <Blank key={i} wide={part.startsWith("◯")} />
+          )
         ) : (
           <span key={i}>{part}</span>
         ),

@@ -13,6 +13,8 @@ import { usePodcastPlayer } from "./usePodcastPlayer";
 
 interface Props {
   lesson: Lesson;
+  /** Étapes des leçons précédentes : sa première étape est la n° `stepBase + 1` de la voie. */
+  stepBase: number;
   /** Ouvre le cours (panneau latéral en split, page dédiée sinon). */
   onOpen: (lesson: Lesson) => void;
   /** Sélectionne la carte sans la déclencher (mode split). */
@@ -29,7 +31,7 @@ function summarize(lesson: Lesson): string {
   return parts.join(" · ");
 }
 
-export function LessonCard({ lesson, onOpen, selected }: Props) {
+export function LessonCard({ lesson, stepBase, onOpen, selected }: Props) {
   const { job, busy, error, progress, label, retry, dismiss } = useLessonGen(lesson);
   const podcast = usePodcastPlayer();
   const currentTrack = podcast.queue[podcast.queueIndex];
@@ -39,11 +41,13 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
   const ready = lesson.state === "ready";
   const available = ready || lesson.pregenerated;
   const summary = summarize(lesson);
-  // Leçon en cours : c'est ELLE qui porte la jauge — les étapes de son parcours (SPEC §5.2),
-  // une case par étape. La leçon verrouillée juste en dessous n'a pas de barre : le verrou
-  // tombe au contrôle de celle-ci, la jauge d'ici le dit déjà.
+  // La leçon se situe sur la voie comme dans le bandeau de l'accueil (« étapes 78 à 84 ») ; en
+  // cours, elle nomme l'étape à faire sous son numéro de la voie. Plus de jauge à cases : la
+  // voie montre déjà les étapes tamponnées, et le parcours se mesure en étapes faites, pas en
+  // part d'une leçon.
   const inProgress = !!lesson.startedAt && !lesson.completedAt;
-  const done = new Set(lesson.stepsDone);
+  const span = `Étapes ${stepBase + 1} à ${stepBase + lesson.steps.length}`;
+  const todo = lesson.nextStep ? stepBase + lesson.steps.indexOf(lesson.nextStep) + 1 : undefined;
 
   return (
     <li
@@ -105,31 +109,14 @@ export function LessonCard({ lesson, onOpen, selected }: Props) {
             n'est pas réussi
           </p>
         ) : inProgress && !lesson.examPassed ? (
-          <div className="flex flex-col gap-1.5">
-            <div
-              className="flex gap-1"
-              role="img"
-              aria-label={`${lesson.stepsDone.length} étapes faites sur ${lesson.steps.length}`}
-            >
-              {lesson.steps.map((s) => (
-                <div
-                  key={s}
-                  title={STEP_LABEL[s]}
-                  className={`h-2 flex-1 rounded-full ${done.has(s) ? "bg-accent" : "bg-hairline"}`}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between text-xs text-muted">
-              <span>
-                {lesson.stepsDone.length} / {lesson.steps.length} étapes
+          <p className="m-0 flex flex-wrap justify-between gap-x-3 text-xs text-muted">
+            <span>{span}</span>
+            {lesson.nextStep && todo != null && (
+              <span className="text-accent">
+                À faire : {todo} · {STEP_LABEL[lesson.nextStep]}
               </span>
-              {lesson.nextStep && (
-                <span>
-                  {lesson.nextStep === "exam" ? "contrôle ouvert — à passer" : `ensuite : ${STEP_LABEL[lesson.nextStep]}`}
-                </span>
-              )}
-            </div>
-          </div>
+            )}
+          </p>
         ) : lesson.mastery > 0 || lesson.examPassed ? (
           // Contrôle franchi : la jauge des étapes n'a plus d'objet, la MAÎTRISE reprend
           // la main — c'est l'objectif long terme (intervalle ≥ 21 j), et la note du

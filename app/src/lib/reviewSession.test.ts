@@ -7,7 +7,8 @@ import { newCard, State } from "./srs";
 import { SRS } from "./config";
 import { REVIEW_STEP_SIZE } from "./path";
 import { PRODUCTION_MIN_DAYS } from "./vocabDrills";
-import { gradeCard, buildSession, silenceDeck } from "./reviewSession";
+import { gradeCard, buildSession, silenceDeck, spreadApart } from "./reviewSession";
+import type { Exercise } from "./exercise";
 import { vocabTypeExercise } from "./exerciseBuild";
 import { getCurriculumEntry } from "./curriculum";
 import type { KuromojiToken } from "./tokenizer";
@@ -499,11 +500,13 @@ describe("étapes de leçon (scope step)", () => {
     const n2 = deck.filter((ex) => ex.level === 2);
     expect(deck.slice(0, n1.length)).toEqual(n1);
     expect(n1.every((ex) => ex.track === "grammar" && ex.mode === "choice")).toBe(true);
-    // Deux exercices par point au niveau 1 : son rôle, et son emploi quand une phrase s'y
-    // prête — sinon un second QCM de rôle (l'emploi lui-même est testé dans exam.test.ts :
-    // le tokeniseur bouchonné d'ici ne sait pas le placer).
-    expect(n1).toHaveLength(2 * entry().introduces.grammar.length);
-    expect(n1.map((ex) => ex.form)).toContain("grammar-rule");
+    // Au niveau 1, chaque point a son rôle, et son emploi quand une phrase s'y prête —
+    // jamais un second QCM de rôle à sa place : c'était la même question deux fois
+    // (l'emploi lui-même est testé dans exam.test.ts : le tokeniseur bouchonné d'ici ne sait
+    // pas le placer).
+    const rules = n1.filter((ex) => ex.form === "grammar-rule");
+    expect(rules).toHaveLength(entry().introduces.grammar.length);
+    expect(new Set(rules.map((ex) => ex.id)).size).toBe(rules.length);
     expect(n2.map((ex) => ex.form)).toContain("grammar-build");
   });
 
@@ -777,5 +780,28 @@ describe("tirage de la forme d'exercice (un mot, une carte)", () => {
     const session = await buildSession(NOW, { scope: "story", vocabIds: ids });
     expect(session).toHaveLength(SRS.sessionAllCap);
     expect(session.some((c) => c.id === "mot0|mot0" || c.id === "mot1|mot1")).toBe(false);
+  });
+});
+
+describe("spreadApart", () => {
+  const ex = (id: string, context?: string, track: "vocab" | "grammar" = "grammar"): Exercise => ({
+    mode: "choice", key: `${id}:${context ?? ""}`, track, id, front: "", back: "", choices: [], answerIndex: 0, ...(context ? { context } : {}),
+  });
+  const conflict = (a: Exercise, b: Exercise) => (a.track === b.track && a.id === b.id) || (!!a.context && a.context === b.context);
+
+  it("ne fait pas se suivre deux exercices du même élément ni sur la même phrase", () => {
+    const list = [ex("a", "山に猫がいる。"), ex("b", "山に猫がいる。"), ex("a"), ex("c"), ex("b")];
+    const out = spreadApart(list);
+    expect(out).toHaveLength(list.length);
+    for (let i = 1; i < out.length; i++) expect(conflict(out[i - 1], out[i])).toBe(false);
+  });
+
+  it("tient compte de l'exercice qui précède la suite", () => {
+    expect(spreadApart([ex("a"), ex("b")], ex("a"))[0].id).toBe("b");
+  });
+
+  it("garde l'ordre quand rien ne peut s'écarter", () => {
+    const list = [ex("a"), ex("a", "x")];
+    expect(spreadApart(list)).toEqual(list);
   });
 });

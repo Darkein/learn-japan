@@ -6,7 +6,6 @@ import { mentionFor } from "../lib/exam";
 import { findBlockForSegment, parseBlocks } from "../lib/lessonMarkdown";
 import { markLessonCourseRead, markLessonStarted, type Lesson } from "../lib/lessons";
 import type { SessionOpts } from "../lib/reviewSession";
-import { LessonPath } from "./LessonPath";
 import { activeTrackIndex, trackEntries, type PodcastSegment } from "../lib/podcastScript";
 import { DownloadButton } from "./DownloadButton";
 import { GenProgress } from "./GenProgress";
@@ -174,15 +173,6 @@ export function CourseDetail({
           activeSegment={curSeg?.chapter === "cours" ? curSeg : null}
           follow={podcast.playing && podcast.autoNavigate}
         />
-
-        {/* Le parcours de la leçon (SPEC §5.2) : ses étapes, faites ou à venir, et ce que
-            chacune demande. Le parcours lui-même se suit depuis l'accueil. */}
-        {!lesson.completedAt && (
-          <section className="flex flex-col gap-2">
-            <SectionLabel as="h3">Parcours de la leçon</SectionLabel>
-            <LessonPath lesson={lesson} variant="list" />
-          </section>
-        )}
 
         {/* Deux gestes distincts, et il ne faut pas les confondre : l'ENTRAÎNEMENT (corrigé
             au fil de l'eau, auto-noté, à volonté) et le CONTRÔLE (une épreuve notée, qui

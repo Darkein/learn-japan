@@ -12,6 +12,8 @@ interface Props {
   result: ExamResult;
   onExit: () => void;
   onStartReview?: (opts?: SessionOpts) => void;
+  /** Dans le parcours : « Continuer » mène à la suite quelle que soit la note, « Arrêter ici » à côté. */
+  onStop?: () => void;
 }
 
 const VERDICT_MARK: Record<QuestionResult["verdict"], string> = {
@@ -26,7 +28,7 @@ const VERDICT_MARK: Record<QuestionResult["verdict"], string> = {
  * apparaît. Les réponses ont déjà été replanifiées en SRS par `submitExam` : une question
  * ratée revient d'elle-même dans les révisions.
  */
-export function ExamReport({ lesson, result, onExit, onStartReview }: Props) {
+export function ExamReport({ lesson, result, onExit, onStartReview, onStop }: Props) {
   const missed = result.results.filter((r) => r.verdict !== "correct");
   // `lesson` a été chargée AVANT cette copie : elle dit donc si la barrière était déjà
   // franchie. Repasser un contrôle réussi ne peut pas le défaire — une copie ratée
@@ -109,8 +111,13 @@ export function ExamReport({ lesson, result, onExit, onStartReview }: Props) {
 
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="primary" onClick={onExit}>
-          {result.passed || wasPassed ? "Continuer" : "Retour à la leçon"}
+          {result.passed || wasPassed || onStop ? "Continuer" : "Retour à la leçon"}
         </Button>
+        {onStop && (
+          <Button variant="ghost" onClick={onStop}>
+            Arrêter ici
+          </Button>
+        )}
         {!result.passed && onStartReview && missed.length > 0 && (
           <Button
             onClick={() =>

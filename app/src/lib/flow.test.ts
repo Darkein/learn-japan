@@ -34,11 +34,13 @@ describe("pickNext — le parcours d'une leçon", () => {
     expect(pickNext(state({ currentLesson: lesson(["course", "vocab"]) })).step).toBe("grammar");
   });
 
-  it("annonce le rang de l'étape dans le parcours", () => {
+  it("annonce l'étape sous son numéro de la voie (numérotation globale)", () => {
     const a = pickNext(state({ currentLesson: lesson(["course", "vocab"]) }));
     expect(a.kind).toBe("grammar");
-    expect(a.title).toBe("Étape 3/7 · Grammaire — Les gens autour de moi");
+    expect(a.title).toBe("Étape 3 · Grammaire — Les gens autour de moi");
     expect(a.lessonId).toBe("n5-10");
+    const later = pickNext(state({ currentLesson: lesson(["course", "vocab"], { stepBase: 77 }) }));
+    expect(later.title).toBe("Étape 80 · Grammaire — Les gens autour de moi");
   });
 
   it("une étape créditée hors ordre est sautée, pas refaite", () => {
@@ -67,7 +69,7 @@ describe("pickNext — le parcours d'une leçon", () => {
     const steps = PATH_STEPS.filter((s) => s !== "grammar");
     const a = pickNext(state({ currentLesson: lesson(["course", "vocab"], { steps }) }));
     expect(a.step).toBe("review");
-    expect(a.title).toContain("Étape 3/6");
+    expect(a.title).toContain("Étape 3 · Révision");
   });
 
   it("la leçon en cours passe avant la découverte de la suivante", () => {
@@ -93,12 +95,21 @@ describe("pickNext — révision insérée (le retard ralentit le neuf, il ne le
     const a = pickNext(state({ dueCount: 34, currentLesson: lesson(["course"]) }));
     expect(a.kind).toBe("review");
     expect(a.step).toBeUndefined();
-    expect(a.title).toContain("34 cartes en attente");
+    expect(a.title).toBe("Révision · 10 cartes (34 en retard)");
   });
 
   it("au plus une insertion par étape : juste après une révision, l'étape suit", () => {
     const a = pickNext(state({ dueCount: 90, currentLesson: lesson(["course"]), lastActivity: "review" }));
     expect(a.step).toBe("vocab");
+  });
+
+  it("insertion déjà faite devant cette étape (séance précédente) : l'étape suit, même en retard", () => {
+    const a = pickNext(state({ dueCount: 90, currentLesson: lesson(["course"], { reviewInserted: true }) }));
+    expect(a.step).toBe("vocab");
+  });
+
+  it("la révision insérée nomme l'étape qu'elle précède", () => {
+    expect(pickNext(state({ dueCount: 34, currentLesson: lesson(["course"]) })).before).toBe("vocab");
   });
 
   it("sous le seuil, aucune insertion", () => {

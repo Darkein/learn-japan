@@ -27,6 +27,14 @@ interface Props {
   /** Points de grammaire de la leçon (mêmes index pour ids/labels) ; absent hors leçon. */
   grammar?: { ids: string[]; labels: string[] };
   onClose: () => void;
+  /** Dans le parcours : les sorties du bilan d'étape. */
+  flowExits?: FlowExits;
+}
+
+/** Les deux sorties du bilan d'une étape du parcours (cf. ReviewSession). */
+export interface FlowExits {
+  onContinue: () => void;
+  onStop?: () => void;
 }
 
 /** Taille maximale du deck d'exercices d'une histoire. */
@@ -62,7 +70,7 @@ async function sentenceExercisesOrNone(
  * besoin de la traduction alignée propre au Lecteur. Terminée par le Bilan partagé
  * (`SessionSummary`, factorisé depuis l'Échauffement).
  */
-export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose }: Props) {
+export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose, flowExits }: Props) {
   const [fullDeck, setFullDeck] = useState<Exercise[] | null>(null);
   const [deck, setDeck] = useState<Exercise[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,9 +150,14 @@ export function ReaderExercises({ storyId, text, level, tokens, grammar, onClose
         results={results}
         title="Exercices terminés"
         note={practice ? REPLAY_SUMMARY : undefined}
-        onRestart={() => restart()}
+        // Dans le parcours, l'histoire se refait depuis la page de la leçon ; seuls les ratés
+        // se rejouent ici, en entraînement.
+        onRestart={flowExits ? undefined : () => restart()}
         onReplayMissed={(missed) => restart(missed)}
-        onClose={onClose}
+        onClose={flowExits?.onContinue ?? onClose}
+        closeLabel={flowExits ? "Continuer" : undefined}
+        onStop={flowExits?.onStop}
+        stopLabel={flowExits ? "Arrêter ici" : undefined}
       />,
     );
   }

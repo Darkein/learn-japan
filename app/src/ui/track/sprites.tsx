@@ -131,7 +131,7 @@ function lakeBase(): ReactNode {
 const SPRITES: Record<SpriteKind, (snowy: boolean) => ReactNode> = {
   fuji: () => (
     <>
-      <path d="M8 72 L48 22 Q60 12 72 22 L112 72 Z" fill={W} fillOpacity={0.16} />
+      <path d="M8 72 L48 22 Q60 12 72 22 L112 72 Z" fill={tint(0.16, W)} />
       <path d="M40 32 L48 22 Q60 12 72 22 L80 32 L72 37 L66 31 L60 38 L54 31 L48 37 Z" fill={SNOW} stroke={W} strokeOpacity={0.35} strokeWidth={0.8} />
     </>
   ),

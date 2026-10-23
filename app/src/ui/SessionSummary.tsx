@@ -12,7 +12,9 @@ import { SectionLabel } from "./kit/SectionLabel";
 
 interface SummaryEntry {
   card: Exercise;
-  grade: SrsGrade;
+  /** Le nom de l'élément : sa graphie (mot) ou son nom (grammaire), quelle que soit la face
+      servie par l'exercice. Absent si l'élément n'est pas en base. */
+  label?: string;
   mastered: boolean;
   intervalDaysBefore: number;
   intervalDays: number;
@@ -31,6 +33,9 @@ interface Props {
   /** Libellé de la sortie. Fourni (le parcours : « Continuer »), elle devient le bouton
    *  principal — la suite du parcours, pas un retour en arrière. */
   closeLabel?: string;
+  /** Seconde sortie à côté de « Continuer » (le parcours : « Arrêter ici »). */
+  onStop?: () => void;
+  stopLabel?: string;
   onRestart?: () => void;
   onReplayMissed?: (missed: Exercise[]) => void;
   /** Mention sous le titre : ce que la session a fait (ou non) à la planification. */
@@ -62,8 +67,50 @@ export function summaryBadge(entry: {
     : { label: "nouveau", variant: "default" };
 }
 
+/**
+ * Ce qui remplit le trou d'une carte à trou, pour la nommer au bilan : la forme attendue
+ * dans la phrase (し pour する dans 「宿題を◯◯ます。」), la bonne particule d'un QCM, ou
+ * le mot de la carte (`back` sans sa lecture entre parenthèses). Le bilan dit ce qu'on a
+ * revu ; reposer la question avec son trou ne le disait pas.
+ */
+export function blankAnswer(card: Exercise): string {
+  if (card.blankForm) return card.blankForm;
+  if (card.mode === "choice") return card.choices[card.answerIndex];
+  return card.back.split("（")[0];
+}
+
+/**
+ * Un élément par ligne : un mot revu plusieurs fois dans la session (sous plusieurs faces)
+ * n'apparaît qu'une fois, avec l'état d'AVANT la session, celui de son premier passage. Le
+ * second passage partait de l'intervalle que le premier venait de poser : le compter seul
+ * l'annonçait « oublié » à côté du même mot « nouveau ».
+ */
+export function groupResults<R extends { card: Exercise; daysBefore: number }>(results: R[]): R[] {
+  const seen = new Map<string, R>();
+  for (const r of results) {
+    const key = `${r.card.track}:${r.card.id}`;
+    if (!seen.has(key)) seen.set(key, r);
+  }
+  return [...seen.values()];
+}
+
+/** Le nom d'un élément au bilan : le sien, ou à défaut sa carte, trou rempli par la réponse. */
+function EntryName({ entry }: { entry: Pick<SummaryEntry, "card" | "label"> }) {
+  return entry.label ?? <ClozeText text={entry.card.front} fill={blankAnswer(entry.card)} />;
+}
+
 /** Bilan de fin de session (Échauffement, Exercices du lecteur) : score, maîtrise, relances. */
-export function SessionSummary({ results, title, onClose, closeLabel, onRestart, onReplayMissed, note }: Props) {
+export function SessionSummary({
+  results,
+  title,
+  onClose,
+  closeLabel,
+  onStop,
+  stopLabel,
+  onRestart,
+  onReplayMissed,
+  note,
+}: Props) {
   const [summary, setSummary] = useState<SummaryEntry[] | null>(null);
   const chimed = useRef(false);
 
@@ -80,18 +127,21 @@ export function SessionSummary({ results, title, onClose, closeLabel, onRestart,
     setSummary(null);
     async function loadSummary() {
       const entries: SummaryEntry[] = [];
-      for (const r of results) {
+      for (const r of groupResults(results)) {
         let fsrsCard: import("ts-fsrs").Card | undefined;
+        let label: string | undefined;
         if (r.card.track === "vocab") {
           const item = await getVocab(r.card.id);
           fsrsCard = item?.card;
+          label = item?.surface;
         } else {
           const item = await getGrammar(r.card.id);
           fsrsCard = item?.card;
+          label = item?.name;
         }
         entries.push({
           card: r.card,
-          grade: r.grade,
+          label,
           mastered: fsrsCard ? isMastered(fsrsCard) : false,
           intervalDaysBefore: r.daysBefore,
           intervalDays: fsrsCard?.scheduled_days ?? 0,
@@ -103,15 +153,17 @@ export function SessionSummary({ results, title, onClose, closeLabel, onRestart,
   }, [results]);
 
   const missed = results.filter((r) => isMiss(r.grade));
-  const leeches = results.filter((r) => r.card.isLeech);
+  // Les éléments difficiles se nomment comme les lignes du bilan : une fois les éléments lus.
+  const leeches = (summary ?? []).filter((e) => e.card.isLeech);
+  const reviewed = groupResults(results).length;
 
   return (
     <Card className="flex flex-col gap-4 py-6">
       <div>
         <SectionLabel>Bilan</SectionLabel>
         <p className="font-serif text-lg text-text">
-          {title} — {results.length} élément{results.length > 1 ? "s" : ""} revu
-          {results.length > 1 ? "s" : ""}
+          {title} — {reviewed} élément{reviewed > 1 ? "s" : ""} revu
+          {reviewed > 1 ? "s" : ""}
         </p>
         {note && <p className="m-0 text-xs text-muted">{note}</p>}
       </div>
@@ -120,9 +172,9 @@ export function SessionSummary({ results, title, onClose, closeLabel, onRestart,
         <div className="flex flex-col gap-1">
           <SectionLabel>Éléments difficiles</SectionLabel>
           <div className="flex flex-wrap gap-2">
-            {leeches.map((r) => (
-              <Badge key={r.card.key} className="font-jp">
-                <ClozeText text={r.card.front} />
+            {leeches.map((entry) => (
+              <Badge key={entry.card.key} className="font-jp">
+                <EntryName entry={entry} />
               </Badge>
             ))}
           </div>
@@ -149,7 +201,7 @@ export function SessionSummary({ results, title, onClose, closeLabel, onRestart,
                 <li key={entry.card.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-jp text-sm text-text">
-                      <ClozeText text={entry.card.front} />
+                      <EntryName entry={entry} />
                     </span>
                     <div className="flex items-center gap-1.5">
                       {entry.card.isLeech && <Badge>difficile</Badge>}
@@ -177,6 +229,11 @@ export function SessionSummary({ results, title, onClose, closeLabel, onRestart,
         {onClose && closeLabel && (
           <Button variant="primary" onClick={onClose}>
             {closeLabel}
+          </Button>
+        )}
+        {onStop && stopLabel && (
+          <Button variant="ghost" onClick={onStop}>
+            {stopLabel}
           </Button>
         )}
         {onRestart && (

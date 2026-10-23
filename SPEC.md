@@ -319,6 +319,25 @@ Deux couches de traduction, et **la couche littérale est prioritaire** (demande
    sont glosés via **JMdict**, les **particules / auxiliaires / copules** (は, が, を, です, た, ね,
    て, から…) via une **table de gloss fixe** maintenue à la main. C'est de la grammaire → réponse
    déterministe, cohérent avec la philosophie « pas de LLM quand il y a une bonne réponse ».
+   **La fiche d'un mot** nomme le ou les points de grammaire qu'il porte dans sa phrase, avec la
+   leçon qui les enseigne et où l'on en est (« 〜てもいい · N4 · Leçon 5 · … — à venir ») ; un
+   morphème y reprend sa glose, jamais l'homographe du dictionnaire (歯 « dent »), et n'a pas de
+   statut « jamais marqué ». Le rapprochement (`lib/morphemeGrammar.ts`) cherche la FORME de
+   chaque point dans la phrase, token par token : une forme en plusieurs tokens se reconnaît
+   comme un tout (ませ|ん|でし|た, て|も|いい), une forme à trou exige toutes ses pièces
+   (しか〜ない), la plus spécifique l'emporte (le は de 〜てはいけない n'est pas le thème). La
+   catégorie IPADIC départage quand elle est fiable (から provenance ou cause, いる ou 〜ている) ;
+   sinon le contexte : と (citation après 」 ou devant 言う/思う, « et » entre deux noms, « avec »,
+   condition après un verbe — `lib/toRole.ts`, partagé avec la glose), そう (ouï-dire après une
+   forme finie, apparence après un radical). Quelques points sans forme écrite (adjectif -い ou
+   -な, nom + する, nombres, impératif) se lisent sur les catégories. Une forme à plusieurs
+   emplois que le texte ne départage pas (に : lieu, moment, destination) les liste tous.
+   Vérifié sur les ~1 000 phrases d'exemple du référentiel : chaque point est retrouvé dans ses
+   propres exemples, sauf trois cas où kuromoji découpe mal (よっつ, 読めます).
+   Les formes que les histoires emploient tôt et que le programme n'enseignait pas ont reçu
+   leur point, dans une leçon qui avait déjà une étape Grammaire (la voie ne se renumérote
+   pas) : と de citation (leçon 11), や et など (8), だけ et ずつ (24), l'adjectif en -くて (34),
+   〜んです (38), けど / が « mais » (56), et nom + ばかり (N3, leçon 3).
 2. **Traduction française fluide (LLM, secondaire)** — pour vérifier le sens global, affichée en
    complément. Tolère l'erreur (jugée par l'utilisateur).
 
@@ -354,8 +373,20 @@ ensuite.
 - **Le flux ne se termine pas de lui-même.** Après chaque étape, il y en a toujours une suivante :
   l'étape suivante de la leçon, ou la première de la leçon d'après. Il n'y a plus de « Terminer
   pour aujourd'hui » imposé, ni de plafond de blocs de renforcement.
-- **Chaque fin d'étape est un point de sortie** (le checkpoint actuel) : on s'arrête quand on veut,
-  et on reprend exactement là où on s'était arrêté, au début de l'étape interrompue.
+- **Chaque fin d'étape est un point de sortie** : le bilan de l'exercice propose « Continuer »
+  (l'étape suivante s'enchaîne directement, sans écran intermédiaire ni bande des stations : on
+  reste concentré sur l'exercice) et « Arrêter ici » (l'étape est créditée, le parcours se ferme).
+  Toutes les étapes finissent sur cette même paire : le cours, l'histoire (au bilan de ses
+  exercices, ou sous le texte pour qui s'en tient à la lecture), la copie corrigée du contrôle,
+  une étape vide (« rien à travailler ici »). La couverture du contrôle propose « Arrêter ici »
+  au lieu de « Retour ».
+  « Arrêter » reste aussi dans l'en-tête : on s'arrête quand on veut, et on reprend exactement là
+  où on s'était arrêté, au début de l'étape interrompue. Le checkpoint ne subsiste que pour le
+  bilan d'une relecture-miroir, ou quand il n'y a plus rien à proposer.
+- **Un détour dit pourquoi il est là.** Une révision insérée, une révision ciblée avant un
+  rattrapage ou une station de repos s'ouvre sur sa raison en une ligne, et, quand la leçon est
+  mise en pause, sur « La leçon reprend ensuite où tu l'avais laissée » : sans écran entre deux
+  blocs, rien d'autre ne le disait.
 - **L'objectif du jour devient un repère**, compté en **étapes** (défaut : 3, soit environ
   15 minutes). Il nourrit la série de jours, les rappels et l'omikuji ; une fois atteint, on le
   signale et le parcours continue.
@@ -385,8 +416,11 @@ ensuite.
   Une étape terminée peut toujours être refaite, sans effet sur la répétition espacée (§5.5).
   La page d'une leçon donne en plus un accès libre à son cours, à ses histoires et à
   l'entraînement.
-- **Une jauge par étapes.** La carte de leçon affiche les étapes faites (« 3 / 7 ») au lieu de la
-  part d'éléments stabilisés. La **maîtrise** (intervalle ≥ 21 jours) reste affichée à part, comme
+- **Les étapes se nomment par leur numéro de la voie** (§5c.2), partout : la carte de leçon du
+  Catalogue situe la leçon comme le bandeau de l'accueil (« Étapes 8 à 14 ») et, en cours, nomme
+  l'étape à faire (« À faire : 9 · Vocabulaire ») ; le parcours et les rappels disent « Étape 9 »,
+  plus « 2/7 ». *Remplace la jauge par étapes* (« 3 / 7 », une case par étape), qui doublait la
+  voie avec une autre numérotation. La **maîtrise** (intervalle ≥ 21 jours) reste affichée à part, comme
   objectif à long terme.
 
 ### 5.3 Trois réussites par élément
@@ -432,8 +466,13 @@ freiner le neuf, elle remplit les étapes Révision.
   normalement, et fait moins progresser la stabilité qu'une révision à l'échéance.
 - **Révision insérée.** Quand plus de 20 cartes sont dues (plus de deux étapes de retard), le
   parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6),
-  et l'affiche comme telle (« Révision · 34 cartes en attente »). **Au plus une insertion par étape
-  de contenu** : un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais.
+  et l'affiche comme telle, avec l'effort réel (« Révision · 10 cartes (34 en retard) ») : un
+  petit 復 sans numéro devant l'étape qu'elle précède, dans la voie de l'accueil.
+  **Au plus une insertion par étape
+  de contenu**, retenue d'une séance à l'autre (meta `reviewInsert.<leçon>.<étape>`) : quitter
+  puis revenir ne la repropose pas, et de nouvelles cartes dues chaque jour ne bloquent jamais
+  la leçon — un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais. Faite, elle
+  compte dans l'objectif du jour, même si la leçon n'avance pas.
 
 **2. Les rappels portés par les leçons suivantes.** Comme les unités d'un parcours de type
 Duolingo font revenir les mots des précédentes, la leçon N rappelle les éléments de la leçon N−1
@@ -757,9 +796,10 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 - **Bandeau de leçon**, collé en haut de l'écran : la leçon visible à l'écran (« Leçon 12 · étapes 78
   à 84 », son titre) et un bouton pour relire son cours. Il change quand une autre leçon passe
   au centre de l'écran.
-- **La bande de ciel** (§5c.6b), collée sous le bandeau : le ciel, ses repères et le décor qui
-  défile ; la voie passe dessous.
-- **La voie** (§5c.2), qui occupe tout le reste de la page.
+- **La bande de ciel** (§5c.6b), sous le bandeau : le ciel, ses repères et le décor qui défile.
+- **La voie** (§5c.2), qui occupe tout le reste de l'écran. L'accueil tient dans l'écran : la
+  page ne défile pas, la voie défile dans sa propre zone, du bas de la fenêtre du ciel au bas de
+  l'écran (barre d'onglets, lecteur). Les en-têtes, le bandeau et la fenêtre restent en place.
 - **Ce qui quitte l'accueil** :
   - la bande du Tōkaidō : la voie la remplace, et le Voyage garde la vue d'ensemble ;
   - la carte « Parcours » : la bulle de l'étape à faire la remplace (§5c.2) ;
@@ -784,7 +824,7 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 | Histoire | oui | 話 | 話 はなし · Histoire |
 | Produire | oui | 書 | 書く かく · Produire |
 | Contrôle | oui | 関 (carré) | 関所 せきしょ · Contrôle |
-| Révision insérée (§5.4) | non | 復 | 復習 ふくしゅう · Révision insérée · 34 cartes |
+| Révision insérée (§5.4) | non | 復 | 復習 ふくしゅう · Révision insérée · 10 cartes (34 en retard) |
 | Révision ciblée (après un contrôle échoué) | non | 復 | 復習 ふくしゅう · Révision ciblée |
 | Station de repos (§5.4) | non | 休 | 休憩 きゅうけい · Station de repos |
 | Ville du voyage | non | selon sa taille (§5c.4) | nom en kanji, lecture, « Ville 5 · Totsuka » |
@@ -843,6 +883,10 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
   ancien arrêt au nouveau (environ 1,6 s, départ et arrivée en douceur). Les rails passent en
   vermillon derrière lui. S'il dépasse une ville, elle passe à « passée » et son tampon se pose
   (§5c.5).
+- **La voie accompagne le trajet.** Elle s'ouvre sur l'ancien arrêt (au tiers haut de la voie
+  visible) et défile au pas du train jusqu'à l'étape à faire : sur un téléphone, la voie visible
+  ne fait guère plus de 300 px, et l'ancien arrêt tombait sinon au-dessus du cadre — le trajet
+  passait hors de vue. Toucher la voie reprend la main.
 - **Plusieurs étapes d'un coup** donnent un seul trajet, plafonné à 3 s.
 - **L'arrêt vu en dernier** est mémorisé : c'est le point de départ du trajet suivant.
 - Sous `prefers-reduced-motion`, le train se pose directement à son arrêt.
@@ -886,18 +930,37 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
 ### 5c.5 Les tampons
 
 - **Le tampon de ville.** Chaque ville atteinte donne son tampon de gare (駅スタンプ) :
-  - un carré vermillon à double filet, avec un motif et le nom ;
+  - un contour vermillon à double filet, avec un motif et le nom ;
+  - chaque ville a sa forme, stable, tirée au hasard et jamais celle des deux villes qui la
+    précèdent : carré, rond, plaque votive (絵馬), octogone, fenêtre en cloche (花頭窓),
+    hexagone, ovale de pièce d'or (小判), carré aux coins rentrés (入隅), fleur (花形),
+    éventail (扇) ;
   - le motif vient du repère principal de la ville (château, mont, vague, pont, temple, lac,
     rizière, pins) ;
   - les grandes villes et les lieux uniques ont un tampon dessiné pour eux.
 - **Sur la voie**, le tampon est posé à côté de sa ville, du côté libre, légèrement de biais.
+  Un tampon obtenu depuis la dernière visite s'y pose sous les yeux (il descend, s'appuie, une
+  onde d'encre s'élargit) : après le passage du train, ou à la fermeture de la fiche d'arrivée
+  qui le cachait.
 - **L'arrivée en gare** (`ui/StationArrival.tsx`) :
   - la fiche montre le tampon qui se pose (révélé à l'encre, sans animation sous
     `prefers-reduced-motion`), puis la note de la ville ;
   - quand plusieurs villes sont franchies d'un coup, une seule fiche s'ouvre : elle montre la
     dernière ville et cite les autres.
 - **Le carnet** est dans le Voyage :
-  - la grille des tampons de chaque route, ceux à venir en pointillés ;
+  - un vrai carnet ouvert : deux pages côte à côte reliées au centre, six tampons par page
+    (2 × 3, sans grille, le nom de la ville sous chacun). Il contient les cinq routes jusqu'à
+    N1, puis les tampons de fortune ; chaque section commence sur une double page, avec la
+    route et son niveau en haut à gauche, et le compte de ses tampons (« 9/54 ») en haut à
+    droite ;
+  - la feuille de droite tourne autour de la reliure en se courbant comme du papier. Tirée
+    lentement, elle suit le doigt et, lâchée, finit sa course ou retombe (le même geste à
+    l'envers) selon qu'elle a passé la moitié ; un glissé rapide ou les flèches la tournent
+    seuls ;
+  - des marque-pages, rubans à la couleur du train de chaque niveau (et un pour l'omikuji),
+    dépassent du haut du carnet : en toucher un fait tourner les pages en cascade jusqu'à sa
+    section. Il s'ouvre sur la double page du dernier tampon obtenu ;
+  - les tampons à venir sont un simple rond pointillé (la forme reste une surprise) ;
   - toucher un tampon ouvre la fiche de sa ville ;
   - les tampons de fortune de l'omikuji (大吉, 吉…) ont leur page.
 - **Le tampon de fortune.** Le défi de l'omikuji accompli donne le tampon de la fortune du jour,
@@ -937,6 +1000,9 @@ la largeur), qui réserve sa place sur la voie :
 | Nakasendō | Nihonbashi, le col d'Usui et le volcan Asama, la vallée du Kiso (Tsumago, Magome), le lac Biwa, Kyōto |
 | Oku no Hosomichi | Edo (Fukagawa, départ de Bashō), Nikkō, Matsushima, Hiraizumi, Yamadera, Kisakata, Ōgaki |
 | Shikoku henro | les tourbillons de Naruto, le cap Muroto, le pont de lianes d'Iya, la pagode de Zentsū-ji, Ōkubo-ji |
+
+Une illustration unique porte le nom de son lieu (kanji · romaji), discret, à son pied et du
+côté loin de la voie ; le même nom paraît sur son repère dans la bande de ciel (§5c.6b).
 
 Une illustration unique est peinte par plans opaques, du fond vers l'avant : chaque plan cache
 celui qu'il recouvre, sans transparence croisée. Aucun plan ne s'arrête sur un bord droit de sa
@@ -1000,44 +1066,104 @@ décor (DESIGN.md).
 
 Maquettes de référence : **D · Panorama qui se replie** et **G · Les repères se lèvent derrière la
 crête, décor qui défile** (canevas « Ciel séparé — propositions »). Le ciel ne se mélange plus à
-la voie : il a sa bande, opaque, collée sous le bandeau de leçon, et la voie passe dessous.
-La bande ne contient aucun bouton.
+la voie : il a sa bande, opaque, sous le bandeau de leçon, et la voie s'arrête à la fenêtre :
+elle défile dans sa propre zone, dessous, et rien d'elle ne passe sous la bande. Tout se mesure
+dans cette zone : le bas de la fenêtre, la voie visible (du bas de la fenêtre au bas de la
+zone), la place de l'étape à faire et le bouton de retour. La bande ne contient aucun bouton :
+la molette y fait défiler la voie.
+
+- **Le repli.** La zone commence par la place du panorama déplié (280 − 120 px), sans voie ; la
+  fenêtre dépliée la couvre et se replie au même pas que la voie monte : le bas de la fenêtre
+  reste collé au départ de la voie, jusqu'à 120 px.
+
+- **La fenêtre du train.** La bande se regarde par une vitre : un cadre fin aux coins arrondis,
+  en retrait de 4 px sous le bandeau et de 8 px sur les côtés et en bas, et dont le rebord jette
+  une ombre légère sur le haut de la voie. Le décor qui glisse de côté est le paysage vu du
+  train ; la voie, dessous, est la carte. Rien ne déborde du cadre.
 
 - **Le panorama du départ.** Tout en haut de la voie, avant la première étape, le ciel est grand
   (280 px) et porte le nom de la route en kanji et son sous-titre. Au défilement, il se replie
   jusqu'à 120 px, et y reste.
 - **Le ciel et le sol.** L'horizon partage la bande : le ciel au-dessus, un sol en dessous, qui
-  prend 40 % de la bande (entre 50 et 112 px) et se fond vers le bas dans le fond de la voie. Les
+  prend 40 % de la bande (entre 50 et 112 px), opaque, un peu plus sombre vers le bas de la vitre. Les
   plans s'étagent sur ce sol, du plus loin (en haut, contre l'horizon) au plus proche (en bas) :
   l'eau des repères se pose sur le sol, devant les monts, jamais sur eux.
 - **Les plans**, du plus loin au plus proche :
   1. le fond du ciel, teinté selon l'heure, avec le soleil, la lune et les étoiles ;
-  2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,08 px par px
+  2. une crête lointaine dressée sur l'horizon, qui défile le plus lentement (0,02 px par px
      défilé) ;
-  3. le **plan moyen** qui défile (monts, forêts, temples), aux 6/10 du sol ;
-  4. les **repères** des villes, au quart du sol ;
-  5. le **plan proche** qui défile (arbres, champs, maisons, bateaux), au bas de la bande, en
-     silhouettes plus marquées. Il s'écarte devant un repère pour ne pas le cacher.
-  Les deux plans qui défilent rapetissent quand la bande se replie.
+  3. les repères qui sont des monts (le Fuji, l'Asama), tout au fond : posés aux 78/100 du sol,
+     derrière le plan lointain, à 0,04 px par px défilé, plus grands (et rapetissant avec les plans
+     quand la bande se replie), opaques ;
+  4. le **plan lointain** qui défile (monts et collines), aux 78/100 du sol, à 0,06 px par px
+     défilé, à peine plus marqué que la crête ;
+  5. le **plan moyen** qui défile (forêts, temples, bosquets), aux 6/10 du sol ;
+  6. les autres **repères** des villes (châteaux, torii, ponts, lacs…), au quart du sol ;
+  7. le **plan proche** qui défile (arbres, champs, maisons, bateaux), 10 px au-dessus du bas de
+     la vitre — une bande de sol vide et calme sépare ce qui glisse vite de la voie — en
+     silhouettes plus marquées. Devant un repère, il s'efface en partie, en douceur, jusqu'à 30 % d'opacité au
+     milieu du repère, qui se voit au travers ; rien ne paraît ni ne disparaît d'un coup.
+  Les plans qui défilent rapetissent quand la bande se replie.
 - **Les repères des villes.**
-  - Ont un repère : les villes qui ont une illustration unique, et les villes, grandes villes et
-    terminus. Son dessin est le sprite du motif de la ville, tiré du catalogue.
-  - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,35 px par px défilé, entre le plan
+  - Ont un repère : les illustrations uniques, et les villes, grandes villes et terminus. Le
+    repère d'une ville est le sprite de son motif, tiré du catalogue ; celui d'une illustration
+    unique porte le nom de son lieu (芦ノ湖 · lac Ashi, et non la ville d'Hakone) et sa place
+    est celle du dessin sur la voie : il se lève quand le dessin passe sur la voie visible.
+  - Chacun a sa taille fixe et **glisse avec le décor**, derrière le plan proche : à 0,3 px par px défilé, entre le plan
     moyen et le plan proche. Il est à sa place, vers le milieu de l'horizon, quand sa ville passe
-    au tiers haut de la voie visible, et reste dans la bande tant que son nom est affiché.
-  - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par un
-    côté et sort par l'autre. Son nom (kanji · romaji) paraît en fondu au-dessus de lui tant que
-    sa ville est sur la voie visible.
+    au milieu de la voie visible, et reste dans la bande tant que son nom est affiché.
+  - Il traverse le ciel comme le reste du décor, sans apparition ni disparition : il entre par la
+    droite et sort par la gauche. Une ville n'a pas de nom au-dessus de son repère : son panneau
+    de quai le donne. Le repère d'une illustration unique, lui, porte le nom de son lieu
+    (kanji · romaji), qui paraît en fondu au-dessus de lui tant que son dessin est sur la voie
+    visible : la voie s'arrête à la fenêtre, et un dessin passé sous la bande n'a plus de nom
+    affiché. Sa place étant au milieu, il paraît et s'efface au même écart de part et d'autre,
+    avec le même fondu (300 ms).
 - **Le décor qui défile.**
-  - Deux plans glissent de côté au fil du défilement, dans le même sens que les repères : le plan
-    moyen à 0,22 px par px défilé, le plan proche à 0,55 px.
+  - Quand on avance sur la voie (elle défile vers le haut), tout ce qui défile dans la vitre file
+    de droite à gauche, comme le paysage vu d'un train qui roule.
+  - Trois plans glissent de côté au fil du défilement, dans le même sens que les repères, chaque
+    chose sur le plan de sa taille : le plan lointain (monts) à 0,06 px par px défilé, le plan
+    moyen (forêts, temples) à 0,15 px, le plan proche (arbres, maisons) à 0,55 px.
+  - **La profondeur.** Chaque plan a sa distance à la vitre, en distances de poteau : crête 60,
+    monts repères 30, plan lointain 20, plan moyen 8, repères 4, plan proche 2,2, panneau de quai
+    1,2, poteaux 1. Comme vu d'un vrai train, sa vitesse apparente est l'inverse de sa distance
+    (1,2 px par px défilé pour les poteaux).
   - Chaque élément a son rang sur une bande sans fin, d'où se tirent sa place, sa taille et sa
     forme : le décor ne change pas d'une visite à l'autre.
   - Il prend le **paysage du tronçon** (§5c.6, données de la route) où l'on est quand il passe
     au milieu : rizières et maisons en plaine, cèdres et monts en montagne, bateaux sur la
     côte, toits et temples en ville…
+- **Le premier plan, au ras de la vitre** :
+  - des **poteaux télégraphiques** et leurs deux fils, tous les 240 px, qui filent plus vite que
+    tout (1,2 px par px défilé) ; leur tête passe sous le store, leur pied sous la vitre ;
+  - à chaque ville, le **panneau de quai** (駅名標) de sa gare, dans le style de l'app : un panneau
+    `--surface` bordé d'un filet `--hairline-strong`, avec l'ombre `--elev` ; le nom en kana en
+    grand, son kanji au-dessus et son romaji dessous en petites capitales `--text-muted`, puis le
+    filet vermillon de la ligne, et dessous la gare précédente à gauche et la suivante à droite
+    (de la même route ; rien au départ ni au terminus). Ses deux pieds sont des filets. Il glisse
+    à 1 px par px défilé, posé au bas de la vitre : il entre par la droite quand sa ville arrive
+    sur la voie visible, passe au milieu quand elle est au milieu, et sort par la gauche quand
+    elle passe sous la fenêtre.
+- **Le mouvement du train.** Le paysage ne tressaute pas : le mouvement du train se lit à
+  l'intérieur. Le reflet glisse de quelques px sur la vitre, à un rythme lent et irrégulier
+  (11 s), et la surface du thé frémit dans la tasse : elle penche et se redresse au gré des cahots
+  (3,7 s), et une ride la traverse de temps en temps. Coupé sous `prefers-reduced-motion`.
+- **La vitre et l'intérieur**, par-dessus le paysage et fixes :
+  - un reflet en biais, très léger, qui glisse un peu ;
+  - en saison des pluies, des traînées de pluie qui filent à l'horizontale vers l'arrière du
+    train (de droite à gauche), poussées par la course ;
+  - la nuit, le reflet du wagon éclairé : la lueur de la lampe et l'ombre des dossiers ;
+  - un store replié en haut de la vitre (8 px), sous lequel aucun nom ne passe ;
+  - la tablette sous la vitre, en bas à droite, et une tasse de thé posée dessus, dont la surface
+    frémit.
 - **Le soleil, la lune, les étoiles**, la brume du matin, les oiseaux et les pétales gardent leur
-  logique (ci-dessus).
+  logique (ci-dessus). Le soleil, la lune et les étoiles restent derrière le paysage ; ce qui vole
+  (oiseaux, pétales, lucioles) passe devant les monts et tous les plans. Au défilement, ce qui
+  passe dans le ciel glisse avec son plan, en plus de son propre mouvement, et fait le tour de la
+  vitre sans saut : la brume avec la crête (0,02 px par px défilé), les oiseaux avec le plan moyen
+  (0,15), les pétales et les lucioles avec le plan proche (0,55). Le soleil, la lune et les
+  étoiles, à l'infini, ne glissent pas.
 - **Le défilement.** La bande se recalcule une fois par image de défilement ; seul le nom des
   repères paraît et s'efface en fondu. L'ouverture, le bandeau de leçon et le bouton de retour
   tiennent compte de la bande : l'étape à faire se place au tiers haut de la voie visible.
@@ -1088,7 +1214,8 @@ La bande ne contient aucun bouton.
 - `ui/Home.tsx` est réécrit autour de la voie.
 - `ui/TokaidoStrip.tsx` quitte l'accueil ; sa logique du ciel (heure, phase de la lune, étoiles)
   passe dans le décor.
-- `ui/LessonPath.tsx` garde sa variante bande pour le checkpoint.
+- `ui/LessonPath.tsx` est supprimé : la voie de l'accueil est le seul affichage du parcours
+  (ni bande au checkpoint, ni liste des étapes sur la page de la leçon).
 - `lib/tokaido.ts` : position par étapes, villes fixées par étape, tampons (§5c.4, §5c.5).
 - `lib/omikuji.ts` et `ui/OmikujiSheet.tsx` : tampon de fortune au lieu du bonus de station ;
   `bonusFr` devient le nom du tampon.

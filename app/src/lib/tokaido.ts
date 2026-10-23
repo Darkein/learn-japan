@@ -172,7 +172,7 @@ async function migrateLegacyMeta(): Promise<void> {
 
 /**
  * Position courante, arrivée éventuelle et tampons. Prend les leçons en argument pour
- * réutiliser le listLessons() que l'appelant (Home, checkpoint) a déjà payé.
+ * réutiliser le listLessons() que l'appelant (Home, FlowSession) a déjà payé.
  */
 export async function tokaidoStatus(lessons: TokaidoLessonLike[]): Promise<TokaidoStatus> {
   await migrateLegacyMeta();

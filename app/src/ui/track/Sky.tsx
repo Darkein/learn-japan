@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SKY_MARGIN, SKY_SPEED, skyShift } from "../../lib/horizon";
 import type { Season } from "../../lib/scenery";
 import { moonLitPath, skyAt, type SkyState } from "../../lib/sky";
 
@@ -60,9 +61,25 @@ function Birds({ kind }: { kind: "swallows" | "geese" | "crane" }) {
     );
   }
   return (
-    <svg className="sky-birds absolute" style={{ top: 10, left: 0 }} width={80} height={60} viewBox="-50 -30 80 60" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.3} strokeLinecap="round">
+    <svg className="sky-birds absolute" style={{ top: 10, left: SKY_MARGIN }} width={80} height={60} viewBox="-50 -30 80 60" fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.3} strokeLinecap="round">
       {body}
     </svg>
+  );
+}
+
+/**
+ * Ce qui passe dans le ciel, sur une bande qui fait la vitre et ses marges (`span`), décalée de
+ * `shift` : deux copies, un tour l'une de l'autre, pour que l'une entre quand l'autre sort.
+ */
+function Passing({ shift, span, children }: { shift: number; span: number; children: ReactNode }) {
+  return (
+    <>
+      {[shift, shift - span].map((left) => (
+        <div key={left === shift ? "a" : "b"} className="absolute inset-y-0" style={{ left: left - SKY_MARGIN, width: span }}>
+          {children}
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -82,15 +99,37 @@ export function useSky(season: Season): SkyState {
  * Le ciel de la voie (SPEC §5c.6), en haut de la bande d'horizon (§5c.6b), sur son propre fond.
  * Le soleil suit l'heure (à demi caché derrière une crête à l'aube et au crépuscule), la nuit
  * la lune a sa phase réelle et les étoiles scintillent ; brume du matin, oiseaux et pétales
- * selon la saison. `ground` est la profondeur du sol sous l'horizon ; `children` se dessine
- * par-dessus (le sol et ses plans).
+ * selon la saison. `ground` est la profondeur du sol sous l'horizon ; `children` (le sol et ses
+ * plans) se dessine par-dessus le ciel, et ce qui vole par-dessus le tout. Quand la voie est à
+ * `pos`, la brume, les oiseaux, les pétales et les lucioles glissent chacun avec son plan
+ * (`SKY_SPEED`), sur une vitre de `width` px ; le soleil, la lune et les étoiles restent.
  */
-export function Sky({ sky, height, ground, children }: { sky: SkyState; height: number; ground: number; children?: ReactNode }) {
+export function Sky({
+  sky,
+  height,
+  ground,
+  width,
+  pos,
+  children,
+}: {
+  sky: SkyState;
+  height: number;
+  ground: number;
+  width: number;
+  pos: number;
+  children?: ReactNode;
+}) {
   const horizon = height - ground;
+  const span = width + 2 * SKY_MARGIN;
   const body = sky.sun ?? sky.moon;
   const bodyTop = body ? horizon - 8 - body.alt * Math.max(20, horizon - 30) : 0;
   return (
-    <div aria-hidden="true" data-sky={sky.time} className="horizon-sky absolute inset-x-0 top-0 overflow-hidden text-text" style={{ height }}>
+    <div
+      aria-hidden="true"
+      data-sky={sky.time}
+      className="horizon-sky absolute inset-x-0 top-0 overflow-hidden text-text"
+      style={{ height, ["--sky-span" as string]: `${span}px` }}
+    >
       {sky.stars &&
         STARS.map((s, i) => (
           <span
@@ -120,31 +159,41 @@ export function Sky({ sky, height, ground, children }: { sky: SkyState; height: 
       )}
 
       {sky.mist && (
-        <>
+        <Passing shift={skyShift(pos, SKY_SPEED.mist, width)} span={span}>
           <span className="sky-mist absolute" style={{ top: horizon - 26, left: "-20%", width: "70%" }} />
           <span className="sky-mist absolute" style={{ top: horizon - 46, left: "40%", width: "60%", animationDelay: "-20s" }} />
-        </>
+        </Passing>
       )}
 
-      {sky.birds && <Birds kind={sky.birds} />}
-
-      {sky.petals &&
-        PETALS.map((p, i) => (
-          <span
-            key={i}
-            className="sky-petal absolute rounded-full"
-            style={{ left: `${p.x}%`, width: p.size, height: p.size * 0.7, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }}
-          />
-        ))}
-      {sky.fireflies &&
-        FIREFLIES.map((f, i) => (
-          <span
-            key={i}
-            className="sky-firefly absolute rounded-full"
-            style={{ left: `${f.x}%`, top: f.y * horizon, animationDuration: `${f.dur}s`, animationDelay: `${f.delay}s` }}
-          />
-        ))}
       {children}
+      {/* Ce qui vole passe devant le paysage, et glisse avec son plan. */}
+      {sky.birds && (
+        <Passing shift={skyShift(pos, SKY_SPEED.birds, width)} span={span}>
+          <Birds kind={sky.birds} />
+        </Passing>
+      )}
+      {sky.petals && (
+        <Passing shift={skyShift(pos, SKY_SPEED.petals, width)} span={span}>
+          {PETALS.map((p, i) => (
+            <span
+              key={i}
+              className="sky-petal absolute rounded-full"
+              style={{ left: `${p.x}%`, width: p.size, height: p.size * 0.7, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }}
+            />
+          ))}
+        </Passing>
+      )}
+      {sky.fireflies && (
+        <Passing shift={skyShift(pos, SKY_SPEED.fireflies, width)} span={span}>
+          {FIREFLIES.map((f, i) => (
+            <span
+              key={i}
+              className="sky-firefly absolute rounded-full"
+              style={{ left: `${f.x}%`, top: f.y * horizon, animationDuration: `${f.dur}s`, animationDelay: `${f.delay}s` }}
+            />
+          ))}
+        </Passing>
+      )}
     </div>
   );
 }

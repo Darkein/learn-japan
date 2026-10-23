@@ -15,6 +15,9 @@ interface Props {
   onExit?: () => void;
   /** Libellé de la sortie du bilan (le parcours : « Continuer »), cf. SessionSummary. */
   exitLabel?: string;
+  /** Seconde sortie du bilan, à côté de `exitLabel` (le parcours : « Arrêter ici »). */
+  onStop?: () => void;
+  stopLabel?: string;
   /**
    * Étape du parcours (SPEC §5.5) : les ratés sont REJOUÉS d'office à la fin, jusqu'à être
    * tous réussis — pas de cœurs, pas d'étape « ratée ». La relance n'écrit rien dans le SRS
@@ -25,7 +28,7 @@ interface Props {
 
 type Result = { card: Exercise; grade: SrsGrade; daysBefore: number };
 
-export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
+export function ReviewSession({ opts, onExit, exitLabel, onStop, stopLabel, autoReplay }: Props) {
   const { settings, update } = useSettings();
   // Un nom par entrée : l'étape du parcours (« Vocabulaire », « Produire »…), « Révision »
   // (étape Révision, scope "due") ou « Question » (entraînement libre, scope "all").
@@ -106,9 +109,16 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
         </p>
         {/* Dans le parcours, une étape vide se valide d'un geste : jamais de cul-de-sac. */}
         {onExit && (
-          <Button variant="primary" className="self-start" onClick={onExit}>
-            Continuer
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={onExit}>
+              Continuer
+            </Button>
+            {onStop && stopLabel && (
+              <Button variant="ghost" onClick={onStop}>
+                {stopLabel}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -139,6 +149,8 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
         onReplayMissed={autoReplay ? undefined : (missed) => restart(missed)}
         onClose={onExit}
         closeLabel={exitLabel}
+        onStop={onStop}
+        stopLabel={stopLabel}
       />
     );
   }
@@ -181,8 +193,14 @@ export function ReviewSession({ opts, onExit, exitLabel, autoReplay }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <span className="text-xs uppercase tracking-wider text-muted">
-        {sessionName} {i + 1} / {cards.length} ·{" "}
-        <span className="text-accent-2">{TRACK_FR[card.track]}</span>
+        {sessionName} {i + 1} / {cards.length}
+        {/* L'étape Vocabulaire (ou Grammaire) se nomme déjà par sa piste. */}
+        {sessionName.toLowerCase() !== TRACK_FR[card.track] && (
+          <>
+            {" · "}
+            <span className="text-accent-2">{TRACK_FR[card.track]}</span>
+          </>
+        )}
       </span>
       {practice && (
         <p className="m-0 text-xs text-muted">{checkup ? PRACTICE_HINT : REPLAY_HINT}</p>

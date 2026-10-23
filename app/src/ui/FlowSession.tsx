@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bumpSrsDaily, getSrsDaily, getStory, localDateString, putMeta } from "../lib/db";
-import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/flow";
+import { gatherFlowState, insertKey, pickNext, restKey, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
 import { startLessonJob } from "../lib/genJobs";
 import { getLesson, markLessonCourseRead, markStepDone, type Lesson } from "../lib/lessons";
@@ -26,6 +26,7 @@ import { Card } from "./kit/Card";
 import { LoadingScreen } from "./kit/LoadingScreen";
 import { SectionLabel } from "./kit/SectionLabel";
 import { useFlowClock } from "./useFlowClock";
+import { useNotify } from "./useNotify";
 import { useSettings } from "./useSettings";
 
 type Phase =
@@ -33,15 +34,18 @@ type Phase =
   // Bandelette du jour pas encore vue (entrée directe par la notification) : on la
   // présente avant tout, et le premier bloc n'est choisi qu'une fois refermée.
   | { name: "omikuji" }
-  | { name: "activity"; activity: FlowActivity }
+  | {
+      name: "activity";
+      activity: FlowActivity;
+      /** Numéro du bloc dans la séance : deux blocs du même genre ne partagent pas d'état. */
+      seq: number;
+    }
   | {
       name: "checkpoint";
       result: FlowBlockResult | null;
       next: FlowActivity;
-      /** Ce que demande l'activité suivante (« 8 exercices · ~3 min »), et la leçon en
-       *  cours pour en montrer les stations. */
+      /** Ce que demande l'activité suivante (« 8 exercices · ~3 min »). */
       estimate?: string;
-      lesson?: Lesson;
     };
 
 interface Props {
@@ -52,8 +56,10 @@ interface Props {
 
 /**
  * Session de flux continu : enchaîne les activités choisies par le moteur (lib/flow.ts),
- * avec un checkpoint entre chaque bloc (récap + une suggestion + sortie). ReviewSession et
- * Reader sont embarqués tels quels — l'orchestration vit au-dessus.
+ * directement l'une après l'autre. Chaque bloc finit sur les mêmes deux sorties,
+ * « Continuer » et « Arrêter ici » (SPEC §5.1) ; le checkpoint ne reste que pour le bilan
+ * d'une relecture-miroir ou quand il n'y a plus rien à proposer. ReviewSession, Reader et
+ * ExamSession sont embarqués tels quels — l'orchestration vit au-dessus.
  */
 export function FlowSession({ onExit, forced }: Props) {
   const { settings } = useSettings();
@@ -64,6 +70,8 @@ export function FlowSession({ onExit, forced }: Props) {
   const reviewedAtBlockStart = useRef(0);
   // Contexte de la séance : une relecture-miroir au plus. État de séance UI, jamais persisté.
   const flowCtx = useRef({ mirrorDoneThisFlow: false });
+  const blockSeq = useRef(0);
+  const { notify } = useNotify();
 
   // Réservation de l'ouverture auto mémorisée : un effet rejoué (StrictMode) doit relire la
   // même réponse, pas re-réserver — il obtiendrait `false` et lancerait le flux par-dessus.
@@ -96,23 +104,33 @@ export function FlowSession({ onExit, forced }: Props) {
       setPhase(
         first.kind === "done"
           ? { name: "checkpoint", result: null, next: first }
-          : { name: "activity", activity: first },
+          : activityPhase(first),
       );
     })();
   }
 
+  function activityPhase(activity: FlowActivity): Phase {
+    return { name: "activity", activity, seq: ++blockSeq.current };
+  }
+
   // Une étape finie ne laisse jamais l'écran en attente : si le bilan échoue (une lecture en
   // base qui lève), le parcours repart de l'état courant plutôt que de rester figé.
-  async function toCheckpoint(finished: FlowActivity) {
+  // `stop` : on quitte depuis le bilan — l'étape est créditée, puis le parcours se ferme.
+  async function afterBlock(finished: FlowActivity, stop = false) {
     try {
-      await checkpointAfter(finished);
+      await advanceAfter(finished, stop);
     } catch (e) {
       console.error("Bilan d'étape impossible", e);
       start();
     }
   }
 
-  async function checkpointAfter(finished: FlowActivity) {
+  /**
+   * Bloc fini → crédite la progression puis enchaîne DIRECTEMENT le bloc suivant : chaque
+   * exercice a déjà son écran de fin. Le checkpoint ne reste que s'il a quelque chose à
+   * montrer — le bilan d'une relecture-miroir — ou plus rien à proposer.
+   */
+  async function advanceAfter(finished: FlowActivity, stop = false) {
     setPhase({ name: "loading" });
     // Après une relecture-miroir : calcule le delta (à l'époque / aujourd'hui) et
     // déclenche le refroidissement de 14 jours AVANT de re-collecter l'état.
@@ -133,6 +151,12 @@ export function FlowSession({ onExit, forced }: Props) {
     if (finished.step && finished.lessonId && finished.step !== "exam") {
       await markStepDone(finished.lessonId, finished.step);
     }
+    // Une révision insérée ne repasse pas devant la même étape, et compte dans l'objectif du
+    // jour : l'exercice a été fait, même si la leçon n'avance pas.
+    if (finished.kind === "review" && finished.before && finished.lessonId) {
+      await putMeta(insertKey(finished.lessonId, finished.before), Date.now());
+      await bumpSrsDaily(localDateString(), { steps: 1 });
+    }
     // La station de repos ne se refait pas : elle est marquée faite pour son bloc de leçons.
     if (finished.kind === "rest" && finished.lessonIds?.length) {
       await putMeta(restKey(finished.lessonIds[finished.lessonIds.length - 1]), Date.now());
@@ -144,13 +168,8 @@ export function FlowSession({ onExit, forced }: Props) {
       lastActivity: finished.kind,
       ...flowCtx.current,
     });
-    const recap = await recapFor(
-      finished,
-      reviewedAtBlockStart.current,
-      omikuji?.completedNow ?? false,
-    );
-    if (mirrorExtra) recap.extra = mirrorExtra;
-    // Une arrivée de station se fête au checkpoint (la progression vient d'être créditée).
+    if (omikuji?.completedNow) notify({ message: "Omikuji accompli — un peu de chemin gagné sur la route." });
+    // Une arrivée de station se fête tout de suite (la progression vient d'être créditée).
     const tokaido = await tokaidoStatus(lessons);
     if (tokaido.newlyArrived) setArrival(tokaido.newlyArrived);
     // Une leçon s'ouvre : on prépare déjà la suivante (cours, première histoire), pour
@@ -160,22 +179,29 @@ export function FlowSession({ onExit, forced }: Props) {
       const following = i >= 0 ? lessons[i + 1] : undefined;
       if (following?.state === "to-generate") void startLessonJob(following);
     }
+    if (stop) {
+      onExit();
+      return;
+    }
     const next = pickNext(state);
-    const lesson = lessons.find((l) => l.id === state.currentLesson?.id);
+    if (!mirrorExtra && next.kind !== "done") {
+      await startNext(next);
+      return;
+    }
+    const recap = await recapFor(finished, reviewedAtBlockStart.current);
+    if (mirrorExtra) recap.extra = mirrorExtra;
     setPhase({
       name: "checkpoint",
       result: recap,
       next,
       estimate: estimateFor(next, lessons, await loadFormDurations()),
-      ...(lesson ? { lesson } : {}),
     });
   }
 
-  function startNext(next: FlowActivity) {
-    void getSrsDaily(localDateString()).then((d) => {
-      reviewedAtBlockStart.current = d?.reviewed ?? 0;
-    });
-    setPhase({ name: "activity", activity: next });
+  async function startNext(next: FlowActivity) {
+    const d = await getSrsDaily(localDateString());
+    reviewedAtBlockStart.current = d?.reviewed ?? 0;
+    setPhase(activityPhase(next));
   }
 
   return (
@@ -196,11 +222,15 @@ export function FlowSession({ onExit, forced }: Props) {
 
       {phase.name === "omikuji" && <OmikujiSheet onClose={start} />}
 
+      {phase.name === "activity" && <DetourNote key={`n${phase.seq}`} activity={phase.activity} />}
+
       {phase.name === "activity" && (
         <ActivityBlock
+          key={phase.seq}
           activity={phase.activity}
           furigana={settings.furiganaDefault}
-          onDone={() => void toCheckpoint(phase.activity)}
+          onDone={() => void afterBlock(phase.activity)}
+          onStop={() => void afterBlock(phase.activity, true)}
         />
       )}
 
@@ -209,8 +239,7 @@ export function FlowSession({ onExit, forced }: Props) {
           result={phase.result}
           next={phase.next}
           estimate={phase.estimate}
-          lesson={phase.lesson}
-          onContinue={() => startNext(phase.next)}
+          onContinue={() => void startNext(phase.next)}
           onExit={onExit}
         />
       )}
@@ -251,44 +280,59 @@ function estimateFor(next: FlowActivity, lessons: Lesson[], ms: Map<string, numb
 
 const EMPTY_PLAN = { vocabToLearn: 0, grammarToLearn: 0, vocabCount: 0, grammarCount: 0 };
 
-async function recapFor(
-  activity: FlowActivity,
-  reviewedBefore: number,
-  omikujiDone: boolean,
-): Promise<FlowBlockResult> {
-  const suffix = omikujiDone ? " Omikuji accompli — un peu de chemin gagné sur la route." : "";
+async function recapFor(activity: FlowActivity, reviewedBefore: number): Promise<FlowBlockResult> {
   const daily = await getSrsDaily(localDateString());
   const answered = Math.max(0, (daily?.reviewed ?? 0) - reviewedBefore);
   const answers = answered > 0 ? ` — ${answered} réponse${answered > 1 ? "s" : ""}.` : ".";
   if (activity.kind === "exam") {
-    return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." + suffix };
+    return { kind: activity.kind, recap: "Copie rendue — la note est dans la page de la leçon." };
   }
   if (activity.kind === "mirror") {
-    return { kind: activity.kind, recap: "Histoire relue — chaque page recroise tes acquis." + suffix };
+    return { kind: activity.kind, recap: "Histoire relue — chaque page recroise tes acquis." };
   }
   if (activity.step) {
-    return { kind: activity.kind, recap: `Étape validée : ${STEP_LABEL[activity.step]}${answers}` + suffix };
+    return { kind: activity.kind, recap: `Étape validée : ${STEP_LABEL[activity.step]}${answers}` };
   }
   if (activity.kind === "review") {
-    return { kind: activity.kind, recap: `Révision faite${answers}` + suffix };
+    return { kind: activity.kind, recap: `Révision faite${answers}` };
   }
   if (activity.kind === "rest") {
-    return { kind: activity.kind, recap: `Station de repos faite${answers}` + suffix };
+    return { kind: activity.kind, recap: `Station de repos faite${answers}` };
   }
   return { kind: activity.kind };
 }
 
 // ---- Rendu d'un bloc d'activité ------------------------------------------------
 
+/**
+ * Un détour hors des étapes de la leçon (révision insérée ou ciblée, station de repos) dit
+ * pourquoi il est là : sans écran entre deux blocs, on passait d'une étape à « Révision 1 / 10 »
+ * sans savoir que la leçon reprendrait ensuite — on croyait avoir piétiné.
+ */
+function DetourNote({ activity }: { activity: FlowActivity }) {
+  if (activity.step || (activity.kind !== "review" && activity.kind !== "rest")) return null;
+  const resumes = activity.before || activity.itemIds ? " La leçon reprend ensuite où tu l'avais laissée." : "";
+  return (
+    <p className="m-0 -mb-2 text-sm text-muted">
+      {activity.reason}
+      {resumes}
+    </p>
+  );
+}
+
 function ActivityBlock({
   activity,
   furigana,
   onDone,
+  onStop,
 }: {
   activity: FlowActivity;
   furigana: boolean;
   onDone: () => void;
+  /** Quitter depuis le bilan, l'étape une fois créditée. */
+  onStop: () => void;
 }) {
+  const stop = { onStop, stopLabel: "Arrêter ici" };
   switch (activity.kind) {
     case "review":
       return (
@@ -296,12 +340,19 @@ function ActivityBlock({
           opts={{ scope: "due", itemIds: activity.itemIds, lessonId: activity.lessonId }}
           onExit={onDone}
           exitLabel="Continuer"
+          {...stop}
           autoReplay
         />
       );
     case "rest":
       return (
-        <ReviewSession opts={{ scope: "rest", lessonIds: activity.lessonIds }} onExit={onDone} exitLabel="Continuer" autoReplay />
+        <ReviewSession
+          opts={{ scope: "rest", lessonIds: activity.lessonIds }}
+          onExit={onDone}
+          exitLabel="Continuer"
+          {...stop}
+          autoReplay
+        />
       );
     case "vocab":
     case "grammar":
@@ -312,21 +363,25 @@ function ActivityBlock({
           opts={{ scope: "step", lessonId: activity.lessonId, step: activity.kind }}
           onExit={onDone}
           exitLabel="Continuer"
+          {...stop}
           autoReplay
         />
       );
     case "read-story":
       return activity.lessonId ? (
-        <StoryStep lessonId={activity.lessonId} storyId={activity.refId} onDone={onDone} />
+        <StoryStep lessonId={activity.lessonId} storyId={activity.refId} onDone={onDone} onStop={onStop} />
       ) : null;
     case "mirror":
+      // La relecture-miroir n'a qu'une sortie : son bilan (le chemin parcouru) vient après.
       return <StoryBlock storyId={activity.refId} onDone={onDone} />;
     case "lesson":
-      return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} />;
+      return <LessonBlock lessonId={activity.refId} furigana={furigana} onDone={onDone} onStop={onStop} />;
     case "exam":
       // Le contrôle vit dans le flux comme les autres blocs : il porte son en-tête de copie
-      // et sa correction, et rend la main au checkpoint une fois la copie rendue.
-      return activity.refId ? <ExamSession lessonId={activity.refId} onExit={onDone} /> : null;
+      // et sa correction, et sa copie corrigée sort comme un bilan d'étape.
+      return activity.refId ? (
+        <ExamSession lessonId={activity.refId} onExit={onDone} onStop={onStop} />
+      ) : null;
     default:
       return null;
   }
@@ -337,7 +392,17 @@ function ActivityBlock({
  * de toutes). Une leçon sans histoire en reçoit une ICI — téléchargée si elle est
  * pré-générée, générée sinon — plutôt que de renvoyer l'utilisateur hors du parcours.
  */
-function StoryStep({ lessonId, storyId, onDone }: { lessonId: string; storyId?: string; onDone: () => void }) {
+function StoryStep({
+  lessonId,
+  storyId,
+  onDone,
+  onStop,
+}: {
+  lessonId: string;
+  storyId?: string;
+  onDone: () => void;
+  onStop: () => void;
+}) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const reload = useCallback(async () => {
     const l = await getLesson(lessonId);
@@ -349,7 +414,7 @@ function StoryStep({ lessonId, storyId, onDone }: { lessonId: string; storyId?: 
 
   if (!lesson) return <LoadingScreen />;
   const id = storyId && storyId !== lessonId ? storyId : lesson.stories[0]?.id;
-  if (id) return <StoryBlock storyId={id} onDone={onDone} />;
+  if (id) return <StoryBlock storyId={id} onDone={onDone} onStop={onStop} />;
   return <StoryGeneration lesson={lesson} onReload={reload} />;
 }
 
@@ -391,7 +456,7 @@ function StoryGeneration({ lesson, onReload }: { lesson: Lesson; onReload: () =>
   );
 }
 
-function StoryBlock({ storyId, onDone }: { storyId?: string; onDone: () => void }) {
+function StoryBlock({ storyId, onDone, onStop }: { storyId?: string; onDone: () => void; onStop?: () => void }) {
   const [incoming, setIncoming] = useState<IncomingStory | null>(null);
   useEffect(() => {
     if (!storyId) return;
@@ -408,10 +473,10 @@ function StoryBlock({ storyId, onDone }: { storyId?: string; onDone: () => void 
           <p className="m-0 font-serif text-lg text-text">{incoming.title}</p>
         </div>
       )}
-      <Reader incoming={incoming} />
-      <Button variant="ghost" className="self-start" onClick={onDone}>
-        J'ai fini ma lecture
-      </Button>
+      <Reader incoming={incoming} flowExits={{ onContinue: onDone, onStop }} />
+      {/* Le bilan des exercices porte les deux sorties ; ici, la même paire pour qui finit
+          sur la lecture seule. « Exercices », plus haut, reste le geste principal. */}
+      <StepExits onContinue={onDone} onStop={onStop} quiet />
     </div>
   );
 }
@@ -420,10 +485,12 @@ function LessonBlock({
   lessonId,
   furigana,
   onDone,
+  onStop,
 }: {
   lessonId?: string;
   furigana: boolean;
   onDone: () => void;
+  onStop: () => void;
 }) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const reload = useCallback(async () => {
@@ -437,11 +504,11 @@ function LessonBlock({
 
   if (!lessonId) return null;
   if (!lesson) return <LoadingScreen />;
-  return <LessonCourse lesson={lesson} furigana={furigana} onReload={reload} onDone={onDone} />;
+  return <LessonCourse lesson={lesson} furigana={furigana} onReload={reload} onDone={onDone} onStop={onStop} />;
 }
 
 /**
- * Le bloc « Leçon » du flux : le cours, puis « Leçon lue ». Le cours peut manquer (leçon
+ * Le bloc « Leçon » du flux : le cours, puis les deux sorties d'étape. Le cours peut manquer (leçon
  * devenue courante sans passer par sa page, contenu pré-généré non matérialisé) — on le
  * génère ICI plutôt que de renvoyer l'utilisateur hors du flux.
  */
@@ -450,11 +517,13 @@ function LessonCourse({
   furigana,
   onReload,
   onDone,
+  onStop,
 }: {
   lesson: Lesson;
   furigana: boolean;
   onReload: () => Promise<void>;
   onDone: () => void;
+  onStop: () => void;
 }) {
   const { busy, error, progress, label, start, retry } = useLessonGen(lesson);
   const missing = !lesson.framing;
@@ -469,12 +538,12 @@ function LessonCourse({
     wasBusy.current = busy;
   }, [busy, onReload]);
 
-  async function finish() {
+  async function finish(then: () => void) {
     // `markLessonCourseRead` et non `markLessonStarted` : c'est ce jalon qui atteste que la
     // leçon a été ENSEIGNÉE — le flux ne re-proposera pas son cours, et son contrôle peut
     // s'ouvrir une fois une histoire lue (voir lib/flow.ts).
     await markLessonCourseRead(lesson.id);
-    onDone();
+    then();
   }
 
   return (
@@ -506,9 +575,23 @@ function LessonCourse({
           </button>
         </Card>
       )}
-      <Button variant="primary" className="self-start" onClick={() => void finish()}>
-        Leçon lue — continuer
+      <StepExits onContinue={() => void finish(onDone)} onStop={() => void finish(onStop)} />
+    </div>
+  );
+}
+
+/** Les deux sorties d'une étape, comme au bilan des exercices (SessionSummary). */
+function StepExits({ onContinue, onStop, quiet }: { onContinue: () => void; onStop?: () => void; quiet?: boolean }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant={quiet ? "ghost" : "primary"} onClick={onContinue}>
+        Continuer
       </Button>
+      {onStop && (
+        <Button variant={quiet ? "quiet" : "ghost"} onClick={onStop}>
+          Arrêter ici
+        </Button>
+      )}
     </div>
   );
 }

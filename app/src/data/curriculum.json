@@ -166,9 +166,9 @@
             {
               "id": "n5-07-mountain-river",
               "order": 8,
-              "rev": 3,
-              "title": "Montagne et rivière : と et ある",
-              "summary": "Relier avec と ; dire qu'une chose existe avec ある.",
+              "rev": 4,
+              "title": "Montagne et rivière : と, や et ある",
+              "summary": "Relier avec と (la liste complète) ou や (des exemples, AやBなど) ; dire qu'une chose existe avec ある.",
               "introduces": {
                 "vocab": [
                   "山|やま",
@@ -181,7 +181,9 @@
                 ],
                 "grammar": [
                   "n5-to-and",
-                  "n5-aru"
+                  "n5-aru",
+                  "n5-ya-list",
+                  "n5-nado"
                 ]
               }
             },
@@ -236,9 +238,9 @@
             {
               "id": "n5-09-talking",
               "order": 11,
-              "rev": 3,
-              "title": "Parler en japonais : で et le passé ました",
-              "summary": "Le moyen avec で (日本語で) et le passé poli ました.",
+              "rev": 4,
+              "title": "Parler en japonais : で, ました et la citation と",
+              "summary": "Le moyen avec で (日本語で), le passé poli ました, et と pour rapporter des paroles (「…」と言いました).",
               "introduces": {
                 "vocab": [
                   "話す|はなす",
@@ -252,7 +254,8 @@
                 ],
                 "grammar": [
                   "n5-de-means",
-                  "n5-mashita-past"
+                  "n5-mashita-past",
+                  "n5-to-quote"
                 ]
               }
             }
@@ -560,9 +563,9 @@
             {
               "id": "n5-19-days-elements",
               "order": 24,
-              "rev": 3,
-              "title": "Compter gens et choses : 人 et つ",
-              "summary": "Le compteur natif 〜つ, les personnes (一人・二人) et l'âge.",
+              "rev": 4,
+              "title": "Compter gens et choses : 人, つ, だけ et ずつ",
+              "summary": "Le compteur natif 〜つ, les personnes (一人・二人) et l'âge ; だけ (seulement) et ずつ (chacun).",
               "introduces": {
                 "vocab": [
                   "月|つき",
@@ -587,7 +590,9 @@
                 ],
                 "grammar": [
                   "n5-counter-nin",
-                  "n5-counter-tsu"
+                  "n5-counter-tsu",
+                  "n5-dake-only",
+                  "n5-zutsu"
                 ]
               }
             },
@@ -830,9 +835,9 @@
             {
               "id": "n5-22-directions-1",
               "order": 34,
-              "rev": 3,
-              "title": "Se repérer : l'adjectif au négatif et au passé",
-              "summary": "くない et かった : conjuguer les adjectifs en -い dans l'espace.",
+              "rev": 4,
+              "title": "Se repérer : l'adjectif au négatif, au passé et en -くて",
+              "summary": "くない, かった et くて : conjuguer et enchaîner les adjectifs en -い dans l'espace.",
               "introduces": {
                 "vocab": [
                   "上|うえ",
@@ -848,7 +853,8 @@
                 ],
                 "grammar": [
                   "n5-iadj-negative",
-                  "n5-iadj-past"
+                  "n5-iadj-past",
+                  "n5-iadj-te"
                 ]
               }
             },
@@ -940,8 +946,9 @@
             {
               "id": "n5-40-na-adjectives",
               "order": 38,
-              "title": "Les adjectifs en な : 静か, 好き…",
-              "summary": "La deuxième famille d'adjectifs : 静かな町、日本語が好きです。",
+              "rev": 2,
+              "title": "Les adjectifs en な : 静か, 好き… et 〜んです",
+              "summary": "La deuxième famille d'adjectifs : 静かな町、日本語が好きです ; et 〜んです pour expliquer (好きなんです).",
               "introduces": {
                 "vocab": [
                   "静か|しずか",
@@ -961,7 +968,8 @@
                   "同じ|おなじ"
                 ],
                 "grammar": [
-                  "n5-naadj"
+                  "n5-naadj",
+                  "n5-ndesu"
                 ]
               }
             },
@@ -1412,9 +1420,9 @@
             {
               "id": "n5-26-family",
               "order": 56,
-              "rev": 3,
-              "title": "La famille : だれ et でも",
-              "summary": "Présenter les siens ; demander « qui » ; opposer avec でも.",
+              "rev": 4,
+              "title": "La famille : だれ, でも et けど",
+              "summary": "Présenter les siens ; demander « qui » ; opposer avec でも et けど (…けど、…).",
               "introduces": {
                 "vocab": [
                   "父|ちち",
@@ -1433,7 +1441,8 @@
                 ],
                 "grammar": [
                   "n5-dare-who",
-                  "n5-demo"
+                  "n5-demo",
+                  "n5-kedo"
                 ]
               }
             },
@@ -3346,8 +3355,9 @@
             {
               "id": "n3-03-bakari",
               "order": 3,
-              "title": "〜たばかり et 〜てばかり : tout juste, et rien que",
-              "summary": "Venir tout juste de faire (買ったばかり) et ne faire que ça (寝てばかりいる).",
+              "rev": 2,
+              "title": "〜たばかり, 〜てばかり et ばかり : tout juste, et rien que",
+              "summary": "Venir tout juste de faire (買ったばかり), ne faire que ça (寝てばかりいる), et n'avoir que ça (本ばかり).",
               "introduces": {
                 "vocab": [
                   "一層|いっそう",
@@ -3360,7 +3370,8 @@
                 ],
                 "grammar": [
                   "n3-ta-bakari",
-                  "n3-te-bakari"
+                  "n3-te-bakari",
+                  "n3-bakari"
                 ]
               }
             },

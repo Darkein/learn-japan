@@ -5,22 +5,22 @@
    "fr": "Le livre, je le lis aujourd'hui."
   },
   {
-   "ja": "今日は本。",
-   "fr": "Aujourd'hui, c'est un livre."
+   "ja": "私は本を読む。",
+   "fr": "Moi, je lis un livre."
   },
   {
-   "ja": "本は今日。",
-   "fr": "Le livre, c'est aujourd'hui."
+   "ja": "猫は水を飲む。",
+   "fr": "Le chat, lui, boit de l'eau."
   }
  ],
  "n5-wo-object": [
   {
-   "ja": "今日を読む。",
-   "fr": "Je lis aujourd'hui."
+   "ja": "日本語を読む。",
+   "fr": "Je lis du japonais."
   },
   {
    "ja": "本を今日読む。",
-   "fr": "Le livre, je le lis aujourd'hui."
+   "fr": "Je lis le livre aujourd'hui."
   },
   {
    "ja": "今日、本を読む。",
@@ -37,8 +37,8 @@
    "fr": "Aujourd'hui, c'est le chat qui boit de l'eau."
   },
   {
-   "ja": "猫が本を読む。",
-   "fr": "C'est le chat qui lit un livre."
+   "ja": "雨が降る。",
+   "fr": "Il pleut."
   }
  ],
  "n5-iadj-predicate": [
@@ -71,8 +71,8 @@
    "fr": "Aujourd'hui, j'étudie l'anglais."
   },
   {
-   "ja": "猫は水を飲む。",
-   "fr": "Le chat boit de l'eau."
+   "ja": "毎日、日本語を勉強する。",
+   "fr": "Chaque jour, j'étudie le japonais."
   }
  ],
  "n5-desu-copula": [
@@ -201,6 +201,20 @@
    "fr": "Il a plu."
   }
  ],
+ "n5-to-quote": [
+  {
+   "ja": "先生は「本を読みます」と言いました。",
+   "fr": "Le professeur a dit : « Je lis un livre. »"
+  },
+  {
+   "ja": "私は「ありがとう」と言いました。",
+   "fr": "J'ai dit « merci »."
+  },
+  {
+   "ja": "母は今日は寒いと言いました。",
+   "fr": "Ma mère a dit qu'il faisait froid aujourd'hui."
+  }
+ ],
  "n5-iru": [
   {
    "ja": "人がいる。",
@@ -281,8 +295,8 @@
    "fr": "Je viens de l'étranger."
   },
   {
-   "ja": "夏から休む。",
-   "fr": "Je me repose depuis l'été."
+   "ja": "駅から歩く。",
+   "fr": "Je marche depuis la gare."
   }
  ],
  "n5-te-form": [
@@ -389,12 +403,12 @@
    "fr": "C'est soixante mille."
   },
   {
-   "ja": "七万の本。",
-   "fr": "Soixante-dix mille livres."
+   "ja": "本は三千円です。",
+   "fr": "Le livre coûte trois mille yens."
   },
   {
-   "ja": "八万を見る。",
-   "fr": "Je vois quatre-vingt mille."
+   "ja": "お金が五万円あります。",
+   "fr": "J'ai cinquante mille yens."
   }
  ],
  "n5-da-copula": [
@@ -442,15 +456,15 @@
  "n5-counter-tsu": [
   {
    "ja": "これを一つ買う。",
-   "fr": "J'achète une de ces choses."
+   "fr": "J'en achète un."
   },
   {
-   "ja": "よっつ食べる。",
-   "fr": "J'en mange quatre."
+   "ja": "パンを四つ買う。",
+   "fr": "J'achète quatre pains."
   },
   {
-   "ja": "いつつ飲む。",
-   "fr": "J'en bois cinq."
+   "ja": "箱が三つある。",
+   "fr": "Il y a trois boîtes."
   }
  ],
  "n5-ni-time": [
@@ -693,12 +707,12 @@
  ],
  "n4-toki": [
   {
-   "ja": "昼休みに寝るとき、電話がかかる。",
-   "fr": "Quand je dors à la pause déjeuner, le téléphone sonne."
+   "ja": "寝るとき、電気を消す。",
+   "fr": "Quand je me couche, j'éteins la lumière."
   },
   {
-   "ja": "電車に乗るとき、切手を買う。",
-   "fr": "Quand je prends le train, j'achète un timbre."
+   "ja": "電車に乗るとき、切符を買う。",
+   "fr": "Quand je prends le train, j'achète un billet."
   },
   {
    "ja": "友達に会うとき、このかばんを持つ。",
@@ -711,8 +725,8 @@
    "fr": "Je prends un médicament avant de dormir."
   },
   {
-   "ja": "旅行の前に切手を買う。",
-   "fr": "J'achète des timbres avant le voyage."
+   "ja": "旅行の前に切符を買う。",
+   "fr": "J'achète les billets avant le voyage."
   },
   {
    "ja": "映画を見る前に宿題をする。",
@@ -862,7 +876,7 @@
   },
   {
    "ja": "新しい店で食べてみる。",
-   "fr": "J'essaie de manger dans le nouveau magasin."
+   "fr": "J'essaie de manger dans le nouveau restaurant."
   },
   {
    "ja": "この服を着てみる。",
@@ -875,12 +889,12 @@
    "fr": "Je finis complètement mes devoirs."
   },
   {
-   "ja": "お金を無くしてしまう。",
-   "fr": "Je perds complètement mon argent."
+   "ja": "財布をなくしてしまいました。",
+   "fr": "J'ai perdu mon portefeuille, hélas."
   },
   {
-   "ja": "電車に遅れてしまう。",
-   "fr": "Je finis par être en retard pour le train."
+   "ja": "電車に遅れてしまいました。",
+   "fr": "Je suis arrivé en retard pour le train, hélas."
   }
  ],
  "n4-teoku": [
@@ -907,8 +921,8 @@
    "fr": "L'oiseau s'envole dans le ciel."
   },
   {
-   "ja": "鳥が飛んでいく。",
-   "fr": "L'oiseau s'envole en s'éloignant."
+   "ja": "寒くなってきました。",
+   "fr": "Il commence à faire froid."
   }
  ],
  "n4-te-kara": [
@@ -917,8 +931,8 @@
    "fr": "Je pars après avoir pris le petit-déjeuner."
   },
   {
-   "ja": "写真を撮ってから見せる。",
-   "fr": "Je montre après avoir pris une photo."
+   "ja": "家に帰ってから、宿題をします。",
+   "fr": "Je fais mes devoirs après être rentré."
   },
   {
    "ja": "手紙を書いてからポストに入れる。",
@@ -931,12 +945,12 @@
    "fr": "Je pars sans prendre le petit-déjeuner."
   },
   {
-   "ja": "写真を撮らないで見せる。",
-   "fr": "Je montre sans prendre de photo."
+   "ja": "傘を持たないで出かけました。",
+   "fr": "Je suis sorti sans prendre de parapluie."
   },
   {
-   "ja": "手紙を書かないでポストに入れる。",
-   "fr": "Je mets dans la boîte sans écrire de lettre."
+   "ja": "辞書を使わないで読みます。",
+   "fr": "Je lis sans dictionnaire."
   }
  ],
  "n4-te-ageru": [
@@ -945,8 +959,8 @@
    "fr": "J'emballe un cadeau pour ma mère."
   },
   {
-   "ja": "友達を空港まで連れてあげる。",
-   "fr": "J'emmène un ami jusqu'à l'aéroport."
+   "ja": "友達を空港まで送ってあげる。",
+   "fr": "Je raccompagne un ami jusqu'à l'aéroport."
   },
   {
    "ja": "弟に写真を撮ってあげる。",
@@ -977,24 +991,32 @@
    "fr": "Je me fais préparer à manger par ma mère."
   },
   {
-   "ja": "先生に漢字を教えてもらう。",
-   "fr": "Je me fais enseigner les kanji par le professeur."
+   "ja": "兄に宿題を見てもらいました。",
+   "fr": "Mon grand frère a relu mes devoirs pour moi."
   }
  ],
  "n4-potential": [
   {
    "ja": "この魚は食べられる。",
    "fr": "Ce poisson est comestible."
+  },
+  {
+   "ja": "朝早く起きられる。",
+   "fr": "Je peux me lever tôt le matin."
+  },
+  {
+   "ja": "漢字が少し書けます。",
+   "fr": "Je sais écrire un peu de kanji."
   }
  ],
  "n4-yasui-nikui": [
   {
    "ja": "この字は書きやすいです。",
-   "fr": "Cette lettre est facile à écrire."
+   "fr": "Ce caractère est facile à écrire."
   },
   {
    "ja": "この文法は間違えにくいです。",
-   "fr": "Cette grammaire est difficile à se tromper."
+   "fr": "Avec cette grammaire, on se trompe rarement."
   },
   {
    "ja": "この本は読みにくいです。",
@@ -1004,7 +1026,7 @@
  "n4-sugiru": [
   {
    "ja": "この字は小さすぎます。",
-   "fr": "Cette lettre est trop petite."
+   "fr": "Ce caractère est trop petit."
   },
   {
    "ja": "この映画は長すぎる。",
@@ -1017,8 +1039,8 @@
  ],
  "n4-shika-nai": [
   {
-   "ja": "お金が百円しかない。",
-   "fr": "Je n'ai que cent yens."
+   "ja": "日本語は少ししか話せない。",
+   "fr": "Je ne parle qu'un peu japonais."
   },
   {
    "ja": "息子は野菜しか食べない。",
@@ -1039,22 +1061,22 @@
    "fr": "J'ai l'intention d'étudier à partir de maintenant."
   },
   {
-   "ja": "来年、日本へ行くつもりだ。",
-   "fr": "J'ai l'intention d'aller au Japon l'année prochaine."
+   "ja": "今晩は早く寝るつもりです。",
+   "fr": "J'ai l'intention de me coucher tôt ce soir."
   }
  ],
  "n4-garu": [
   {
-   "ja": "赤ちゃんが眠がる。",
-   "fr": "Le bébé montre des signes de sommeil."
+   "ja": "子供が眠たがっている。",
+   "fr": "L'enfant a l'air d'avoir sommeil."
   },
   {
    "ja": "息子が行きたがる。",
-   "fr": "Mon fils montre l'envie d'y aller."
+   "fr": "Mon fils a visiblement envie d'y aller."
   },
   {
-   "ja": "妻が寂しがる。",
-   "fr": "Ma femme montre de la solitude."
+   "ja": "妻が寂しがっている。",
+   "fr": "Ma femme a l'air de se sentir seule."
   }
  ],
  "n4-prohibitive": [
@@ -1081,8 +1103,8 @@
    "fr": "Fais tes devoirs."
   },
   {
-   "ja": "野菜を食べなさい。",
-   "fr": "Mange des légumes."
+   "ja": "もっとゆっくり話しなさい。",
+   "fr": "Parle plus lentement."
   }
  ],
  "n4-to-conditional": [
@@ -1095,8 +1117,8 @@
    "fr": "Si on appuie sur ce bouton, la cloche sonne."
   },
   {
-   "ja": "春になると花が咲く。",
-   "fr": "Quand le printemps arrive, les fleurs fleurissent."
+   "ja": "右に曲がると、駅があります。",
+   "fr": "Si vous tournez à droite, il y a la gare."
   }
  ],
  "n4-ba-conditional": [
@@ -1115,8 +1137,8 @@
  ],
  "n4-tara-conditional": [
   {
-   "ja": "雨が降ったら、出発しません。",
-   "fr": "S'il pleut, nous ne partirons pas."
+   "ja": "駅に着いたら、電話してください。",
+   "fr": "Quand tu arrives à la gare, appelle-moi."
   },
   {
    "ja": "ベルが鳴ったら、講堂に入ります。",
@@ -1137,8 +1159,8 @@
    "fr": "Pour ce qui est des ordinateurs, celui-ci est le plus facile à utiliser."
   },
   {
-   "ja": "趣味なら、写真を撮ることです。",
-   "fr": "S'il s'agit de loisirs, c'est prendre des photos."
+   "ja": "コーヒーなら、あの店がおいしいです。",
+   "fr": "Pour le café, ce café-là est bon."
   }
  ],
  "n4-sou-appearance": [
@@ -1151,8 +1173,8 @@
    "fr": "Ce gâteau a l'air bon."
   },
   {
-   "ja": "彼は疲れていそうだ。",
-   "fr": "Il a l'air fatigué."
+   "ja": "このかばんは高そうです。",
+   "fr": "Ce sac a l'air cher."
   }
  ],
  "n4-sou-hearsay": [
@@ -1194,7 +1216,7 @@
   },
   {
    "ja": "彼女は来年結婚するらしい。",
-   "fr": "Apparemment, elle se marierait l'année prochaine."
+   "fr": "Apparemment, elle va se marier l'année prochaine."
   }
  ],
  "n4-kamoshirenai": [
@@ -1214,7 +1236,7 @@
  "n4-hazuda": [
   {
    "ja": "彼はもう着くはずだ。",
-   "fr": "Il devrait déjà arriver."
+   "fr": "Il devrait arriver d'un moment à l'autre."
   },
   {
    "ja": "このパソコンは動くはずだ。",
@@ -1233,8 +1255,8 @@
  ],
  "n4-nagara": [
   {
-   "ja": "音楽を聞きながら勉強します。",
-   "fr": "J'étudie tout en écoutant de la musique."
+   "ja": "テレビを見ながら、ご飯を食べます。",
+   "fr": "Je mange en regardant la télé."
   },
   {
    "ja": "歩きながら会話します。",
@@ -1248,21 +1270,21 @@
  "n4-aida": [
   {
    "ja": "休みのあいだに本を読みます。",
-   "fr": "Je lirai un livre à un moment pendant les vacances."
+   "fr": "Je lirai un livre pendant les vacances."
   },
   {
-   "ja": "子供のあいだ祖父の家に泊まります。",
-   "fr": "Pendant toute mon enfance, je reste chez mon grand-père."
+   "ja": "母が買い物をしているあいだ、私は待っていた。",
+   "fr": "Pendant que ma mère faisait les courses, j'attendais."
   },
   {
-   "ja": "昼のあいだに雨が止みます。",
-   "fr": "La pluie s'arrête à un moment pendant la journée."
+   "ja": "留守のあいだに、友達が来ました。",
+   "fr": "Pendant mon absence, un ami est venu."
   }
  ],
  "n4-noni": [
   {
    "ja": "雨が降っているのに、出かける。",
-   "fr": "Il pleut pourtant je sors."
+   "fr": "Il pleut, et pourtant je sors."
   },
   {
    "ja": "勉強したのに、点が悪い。",
@@ -1279,8 +1301,8 @@
    "fr": "L'air est pur et en plus on voit les étoiles."
   },
   {
-   "ja": "この店は安いし、おいしい。",
-   "fr": "Ce restaurant est bon marché et en plus c'est bon."
+   "ja": "今日は暇だし、映画を見に行こう。",
+   "fr": "Je suis libre aujourd'hui, et puis… allons voir un film."
   },
   {
    "ja": "天気もいいし、散歩する。",
@@ -1289,8 +1311,8 @@
  ],
  "n4-temo": [
   {
-   "ja": "雨が降っても、出かけます。",
-   "fr": "Même s'il pleut, je sortirai."
+   "ja": "何回読んでも、わかりません。",
+   "fr": "J'ai beau le relire, je ne comprends pas."
   },
   {
    "ja": "高くても、このパソコンを買います。",
@@ -1427,8 +1449,8 @@
  ],
  "n3-te-bakari": [
   {
-   "ja": "彼は遊んでばかりいます。",
-   "fr": "Il ne fait que jouer."
+   "ja": "彼はゲームをしてばかりいる。",
+   "fr": "Il ne fait que jouer aux jeux vidéo."
   },
   {
    "ja": "弟は泣いてばかりいます。",
@@ -1459,12 +1481,12 @@
    "fr": "Il a été décidé que la réunion aurait lieu la semaine prochaine."
   },
   {
-   "ja": "彼と一緒に働くことになる。",
-   "fr": "Il se trouve que je vais travailler avec lui."
+   "ja": "彼と一緒に働くことになりました。",
+   "fr": "Il a été décidé que je travaillerais avec lui."
   },
   {
-   "ja": "彼女と結婚することになる。",
-   "fr": "Il se trouve que je vais me marier avec elle."
+   "ja": "来月、引っ越すことになりました。",
+   "fr": "Il a été décidé que je déménagerais le mois prochain."
   }
  ],
  "n3-koto-ni-natte-iru": [
@@ -1473,8 +1495,8 @@
    "fr": "Ici, il est convenu de ne pas fumer."
   },
   {
-   "ja": "この部屋では靴を脱ぐことになっている。",
-   "fr": "Dans cette pièce, il est convenu d'enlever ses chaussures."
+   "ja": "毎朝八時に集まることになっている。",
+   "fr": "Il est convenu qu'on se réunit à huit heures chaque matin."
   },
   {
    "ja": "会議は九時に始まることになっている。",
@@ -1483,8 +1505,8 @@
  ],
  "n3-hitsuyou-ga-aru": [
   {
-   "ja": "急に引っ越す必要がある。",
-   "fr": "Il faut déménager soudainement."
+   "ja": "パスポートを見せる必要がある。",
+   "fr": "Il faut montrer son passeport."
   },
   {
    "ja": "この問題を解決する必要がある。",
@@ -1501,7 +1523,7 @@
    "fr": "Je regarde bien mon sac pour ne rien oublier."
   },
   {
-   "ja": "彼女が聞こえるように、大きい声で話す。",
+   "ja": "彼女に聞こえるように、大きい声で話す。",
    "fr": "Je parle à voix haute pour qu'elle m'entende."
   },
   {
@@ -1511,8 +1533,8 @@
  ],
  "n3-you-ni-suru": [
   {
-   "ja": "毎日運動するようにする。",
-   "fr": "Je fais en sorte de faire de l'exercice tous les jours."
+   "ja": "なるべく階段を使うようにする。",
+   "fr": "Je fais en sorte de prendre l'escalier autant que possible."
   },
   {
    "ja": "野菜を食べるようにする。",
@@ -1543,7 +1565,7 @@
    "fr": "Je fais des efforts pour réussir."
   },
   {
-   "ja": "目標のために毎日訓練する。",
+   "ja": "目標のために毎日練習する。",
    "fr": "Je m'entraîne tous les jours pour mon objectif."
   },
   {
@@ -1571,8 +1593,8 @@
    "fr": "Les étudiants doivent faire leurs devoirs."
   },
   {
-   "ja": "約束は守るべきだ。",
-   "fr": "On doit tenir ses promesses."
+   "ja": "困っている人を助けるべきだ。",
+   "fr": "On doit aider les gens en difficulté."
   },
   {
    "ja": "親の言うことを聞くべきだ。",
@@ -1600,7 +1622,7 @@
   },
   {
    "ja": "彼女は普段から努力しているから、成功したわけだ。",
-   "fr": "Elle fait toujours des efforts, c'est donc qu'elle a réussi."
+   "fr": "Elle fait toujours des efforts : pas étonnant qu'elle ait réussi."
   },
   {
    "ja": "雨が降ったから、道が濡れているわけだ。",
@@ -1655,8 +1677,8 @@
    "fr": "La lumière s'est soudainement coupée en plein milieu de la réunion."
   },
   {
-   "ja": "食事の最中に電話が鳴った。",
-   "fr": "Le téléphone a sonné en plein milieu du repas."
+   "ja": "授業の最中に、地震が起きた。",
+   "fr": "Un séisme s'est produit en plein cours."
   },
   {
    "ja": "試験の最中にお腹が痛くなった。",
@@ -1683,18 +1705,18 @@
    "fr": "Chaque fois que je prends le train, j'oublie quelque chose."
   },
   {
-   "ja": "彼に会うたびに、幸運を感じる。",
-   "fr": "Chaque fois que je le vois, je me sens chanceux."
+   "ja": "彼に会うたびに、元気になる。",
+   "fr": "Chaque fois que je le vois, je reprends courage."
   },
   {
-   "ja": "ミスをするたびに、責任を感じる。",
-   "fr": "Chaque fois que je fais une erreur, je me sens responsable."
+   "ja": "日本へ行くたびに、お土産を買う。",
+   "fr": "Chaque fois que je vais au Japon, j'achète des souvenirs."
   }
  ],
  "n3-mama": [
   {
-   "ja": "窓を開けたまま、寝る。",
-   "fr": "Je dors en laissant la fenêtre ouverte."
+   "ja": "靴をはいたまま、部屋に入らないでください。",
+   "fr": "N'entrez pas dans la pièce avec vos chaussures."
   },
   {
    "ja": "電気をつけたまま、出かける。",
@@ -1739,8 +1761,8 @@
    "fr": "Un accident s'est produit. Alors, j'ai appelé la police."
   },
   {
-   "ja": "電車が遅れた。そこで、タクシーに乗った。",
-   "fr": "Le train était en retard. Alors, j'ai pris un taxi."
+   "ja": "道が分からなかった。そこで、人に聞いた。",
+   "fr": "Je ne connaissais pas le chemin. Alors j'ai demandé à quelqu'un."
   },
   {
    "ja": "雨が降ってきた。そこで、傘を買った。",
@@ -1749,8 +1771,8 @@
  ],
  "n3-tokoroga": [
   {
-   "ja": "彼は正直な人物だ。ところが、犯人だった。",
-   "fr": "C'est une personne honnête. Or, c'était le coupable."
+   "ja": "正直な人だと思っていた。ところが、犯人だった。",
+   "fr": "Je le croyais honnête. Or, c'était le coupable."
   },
   {
    "ja": "成功すると思った。ところが、失敗した。",
@@ -1767,8 +1789,8 @@
    "fr": "Il a réussi l'examen. Au fait, c'est quand le prochain examen ?"
   },
   {
-   "ja": "この本は長い。ところで、明日の予定は？",
-   "fr": "Ce livre est long. À propos, quel est le programme de demain ?"
+   "ja": "ところで、昼ご飯はもう食べた？",
+   "fr": "Au fait, tu as déjà déjeuné ?"
   },
   {
    "ja": "ところで、明日の予定はどうですか。",
@@ -1791,16 +1813,16 @@
  ],
  "n3-ippou": [
   {
-   "ja": "彼は努力する一方で、遊ぶ。",
-   "fr": "D'un côté il fait des efforts, de l'autre il s'amuse."
+   "ja": "彼は仕事をする一方で、大学にも通っている。",
+   "fr": "Il travaille, et en parallèle il va aussi à l'université."
   },
   {
    "ja": "都会は便利な一方で、物価が高い。",
    "fr": "La ville est pratique, tandis que la vie y est chère."
   },
   {
-   "ja": "彼女は優しい一方で、厳しい。",
-   "fr": "Elle est douce, d'un autre côté elle est stricte."
+   "ja": "彼女は優しい一方で、厳しいところもある。",
+   "fr": "Elle est gentille, mais elle a aussi un côté strict."
   }
  ],
  "n3-seide": [
@@ -1813,8 +1835,8 @@
    "fr": "On m'a demandé des comptes à cause de mon erreur."
   },
   {
-   "ja": "犯人のせいで計画が中止になった。",
-   "fr": "Le plan a été annulé à cause du coupable."
+   "ja": "寝坊したせいで、バスに乗り遅れた。",
+   "fr": "À cause de ma grasse matinée, j'ai raté le bus."
   }
  ],
  "n3-okagede": [
@@ -1912,7 +1934,7 @@
   },
   {
    "ja": "時間さえあればもっと練習します。",
-   "fr": "Si seulement j'ai du temps, je m'entraîne davantage."
+   "fr": "Si seulement j'avais le temps, je m'entraînerais davantage."
   }
  ],
  "n3-bakari-denaku": [
@@ -1931,8 +1953,8 @@
  ],
  "n3-ba-hodo": [
   {
-   "ja": "この本は読めば読むほど、面白くなる。",
-   "fr": "Plus je lis ce livre, plus il devient intéressant."
+   "ja": "練習すればするほど、上手になる。",
+   "fr": "Plus on s'entraîne, plus on progresse."
   },
   {
    "ja": "考えれば考えるほど、分からなくなる。",
@@ -1949,8 +1971,8 @@
    "fr": "J'aurais dû acheter à ce moment-là."
   },
   {
-   "ja": "もっと勉強すればよかった。",
-   "fr": "J'aurais dû étudier davantage."
+   "ja": "傘を持ってくればよかった。",
+   "fr": "J'aurais dû prendre un parapluie."
   },
   {
    "ja": "彼に謝ればよかった。",
@@ -1991,8 +2013,8 @@
    "fr": "Parlez-moi de ce livre, s'il vous plaît."
   },
   {
-   "ja": "彼は日本の文化について話しました。",
-   "fr": "Il a parlé de la culture japonaise."
+   "ja": "将来について、両親と話しました。",
+   "fr": "J'ai parlé de mon avenir avec mes parents."
   },
   {
    "ja": "その問題について、考えています。",
@@ -2023,8 +2045,8 @@
    "fr": "Tout le monde était d'accord, à commencer par le président."
   },
   {
-   "ja": "この本は言葉をはじめ、表現が難しい。",
-   "fr": "Dans ce livre, les expressions sont difficiles, à commencer par le vocabulaire."
+   "ja": "彼は日本語をはじめ、五つの言葉が話せる。",
+   "fr": "Il parle cinq langues, à commencer par le japonais."
   }
  ],
  "n3-ni-yoruto": [
@@ -2033,8 +2055,8 @@
    "fr": "D'après la rumeur, il paraît qu'il change d'école."
   },
   {
-   "ja": "天気予報によると明日は雨だそうだ。",
-   "fr": "D'après la météo, il paraît qu'il pleuvra demain."
+   "ja": "ニュースによると、電車が止まっているそうだ。",
+   "fr": "D'après les infos, les trains sont arrêtés."
   },
   {
    "ja": "新聞によると事件が起こったそうだ。",
@@ -2043,8 +2065,8 @@
  ],
  "n3-ni-yotte": [
   {
-   "ja": "国によって習慣が違う。",
-   "fr": "Les coutumes diffèrent selon les pays."
+   "ja": "人によって、考え方が違う。",
+   "fr": "Les façons de penser varient selon les gens."
   },
   {
    "ja": "この記事は記者によって書かれた。",
@@ -2052,7 +2074,7 @@
   },
   {
    "ja": "アンケートによって意見を集める。",
-   "fr": "Recueillir des opinions au moyen d'un questionnaire."
+   "fr": "On recueille des avis au moyen d'un questionnaire."
   }
  ],
  "n3-osore-ga-aru": [
@@ -2093,8 +2115,8 @@
    "fr": "Il a tendance à être en retard."
   },
   {
-   "ja": "この品は壊れがちだ。",
-   "fr": "Ce produit a tendance à se casser facilement."
+   "ja": "この時計は遅れがちだ。",
+   "fr": "Cette montre a tendance à retarder."
   }
  ],
  "n3-ppoi": [
@@ -2107,8 +2129,8 @@
    "fr": "Ce vêtement fait enfantin."
   },
   {
-   "ja": "彼女は怒りっぽい。",
-   "fr": "Elle est du genre à se mettre vite en colère."
+   "ja": "大人っぽい服を買った。",
+   "fr": "J'ai acheté un vêtement qui fait adulte."
   }
  ],
  "n3-causative-passive": [
@@ -2117,36 +2139,36 @@
    "fr": "Je suis forcé de manger des légumes que je déteste."
   },
   {
-   "ja": "私は嫌いな野菜を食べさせられる。",
-   "fr": "Je suis forcé de manger des légumes que je déteste."
+   "ja": "先輩に荷物を持たせられた。",
+   "fr": "Mon aîné m'a fait porter ses bagages."
   }
  ],
  "n3-sasete-morau": [
   {
-   "ja": "マスターに指揮させてもらう。",
-   "fr": "Je me fais permettre par le maître de diriger."
+   "ja": "少し休ませてもらいます。",
+   "fr": "Je vais me permettre de me reposer un peu."
   },
   {
-   "ja": "キャプテンに指導させてもらう。",
-   "fr": "Je me fais permettre par le capitaine de guider."
+   "ja": "この写真を使わせてもらいました。",
+   "fr": "On m'a permis d'utiliser cette photo."
   },
   {
-   "ja": "代表に確認させてもらう。",
-   "fr": "Je me fais permettre par le représentant de vérifier."
+   "ja": "明日は休ませてもらいます。",
+   "fr": "Demain, je prends congé, si vous le permettez."
   }
  ],
  "n3-passive-honorific": [
   {
-   "ja": "マスターが指揮される。",
-   "fr": "Le maître dirige (forme honorifique)."
+   "ja": "社長は何時に来られますか。",
+   "fr": "À quelle heure le président viendra-t-il ?"
   },
   {
-   "ja": "キャプテンが指導される。",
-   "fr": "Le capitaine guide (forme honorifique)."
+   "ja": "先生が本を書かれました。",
+   "fr": "Le professeur a écrit un livre."
   },
   {
-   "ja": "代表が確認される。",
-   "fr": "Le représentant vérifie (forme honorifique)."
+   "ja": "先生は毎朝新聞を読まれます。",
+   "fr": "Le professeur lit le journal chaque matin."
   }
  ],
  "n3-te-itadakemasenka": [
@@ -2169,12 +2191,12 @@
    "fr": "Je veux que mon supérieur approuve cette proposition."
   },
   {
-   "ja": "彼に危険を避けてほしい。",
-   "fr": "Je veux qu'il évite le danger."
+   "ja": "母に元気でいてほしい。",
+   "fr": "Je veux que ma mère reste en bonne santé."
   },
   {
-   "ja": "みんなに事実を確かめてほしい。",
-   "fr": "Je veux que tout le monde vérifie les faits."
+   "ja": "もっとゆっくり話してほしい。",
+   "fr": "J'aimerais que tu parles plus lentement."
   }
  ],
  "n3-toori": [
@@ -2211,12 +2233,12 @@
    "fr": "Il pleut, donc on n'y peut rien."
   },
   {
-   "ja": "もう諦めるしか仕方がない。",
-   "fr": "Je n'ai pas d'autre choix que d'abandonner."
+   "ja": "忘れてしまったなら、仕方がない。",
+   "fr": "Si tu as oublié, tant pis."
   },
   {
-   "ja": "電車が遅れて仕方がない。",
-   "fr": "Le train est en retard, tant pis."
+   "ja": "負けたのは仕方がない。",
+   "fr": "On a perdu, on n'y peut rien."
   }
  ],
  "n3-koto-wa-nai": [
@@ -2231,6 +2253,184 @@
   {
    "ja": "謝ることはない。",
    "fr": "Inutile de t'excuser."
+  }
+ ],
+ "n5-ya-list": [
+  {
+   "ja": "猫は水や牛乳を飲む。",
+   "fr": "Le chat boit de l'eau, du lait…"
+  },
+  {
+   "ja": "私はお茶や牛乳を飲む。",
+   "fr": "Je bois du thé, du lait…"
+  },
+  {
+   "ja": "空や海を見る。",
+   "fr": "Je regarde le ciel, la mer…"
+  }
+ ],
+ "n5-nado": [
+  {
+   "ja": "猫は水や牛乳などを飲む。",
+   "fr": "Le chat boit de l'eau, du lait, etc."
+  },
+  {
+   "ja": "先生は英語や日本語などを勉強する。",
+   "fr": "Le professeur étudie l'anglais, le japonais, etc."
+  },
+  {
+   "ja": "池や川などがある。",
+   "fr": "Il y a des étangs, des rivières, etc."
+  }
+ ],
+ "n5-dake-only": [
+  {
+   "ja": "水だけ飲みます。",
+   "fr": "Je ne bois que de l'eau."
+  },
+  {
+   "ja": "パンを一つだけ食べました。",
+   "fr": "Je n'ai mangé qu'un seul pain."
+  },
+  {
+   "ja": "日本語だけ話します。",
+   "fr": "Je ne parle que japonais."
+  }
+ ],
+ "n5-zutsu": [
+  {
+   "ja": "パンを一つずつ食べました。",
+   "fr": "Nous avons mangé un pain chacun."
+  },
+  {
+   "ja": "一日に一つずつ漢字を覚えます。",
+   "fr": "J'apprends un kanji par jour."
+  },
+  {
+   "ja": "男の子と女の子が一人ずついます。",
+   "fr": "Il y a un garçon et une fille, un de chaque."
+  }
+ ],
+ "n5-iadj-te": [
+  {
+   "ja": "パンは安くて、美味しいです。",
+   "fr": "Le pain est bon marché et bon."
+  },
+  {
+   "ja": "今日は寒くて、雪が降っています。",
+   "fr": "Aujourd'hui, il fait froid et il neige."
+  },
+  {
+   "ja": "海は広くて、冷たいです。",
+   "fr": "La mer est vaste et froide."
+  }
+ ],
+ "n5-ndesu": [
+  {
+   "ja": "日本語が好きなんです。",
+   "fr": "C'est que j'aime le japonais."
+  },
+  {
+   "ja": "今日は寒いんです。",
+   "fr": "C'est qu'il fait froid aujourd'hui."
+  },
+  {
+   "ja": "どうして休むんですか。",
+   "fr": "Pourquoi est-ce que tu te reposes ?"
+  }
+ ],
+ "n5-kedo": [
+  {
+   "ja": "雨ですが、出かけます。",
+   "fr": "Il pleut, mais je sors."
+  },
+  {
+   "ja": "兄は背が高いけど、弟は低いです。",
+   "fr": "Mon grand frère est grand, mais mon petit frère est petit."
+  },
+  {
+   "ja": "昨日は休みでしたが、忙しかったです。",
+   "fr": "Hier, c'était congé, mais j'étais occupé."
+  }
+ ],
+ "n3-bakari": [
+  {
+   "ja": "妹は甘い物ばかり食べます。",
+   "fr": "Ma petite sœur ne mange que des sucreries."
+  },
+  {
+   "ja": "毎日、雨ばかりです。",
+   "fr": "Tous les jours, il ne fait que pleuvoir."
+  },
+  {
+   "ja": "彼はテレビばかり見ている。",
+   "fr": "Il ne fait que regarder la télé."
+  }
+ ],
+ "n5-iadj-negative": [
+  {
+   "ja": "駅は遠くない。",
+   "fr": "La gare n'est pas loin."
+  },
+  {
+   "ja": "今日は寒くないです。",
+   "fr": "Il ne fait pas froid aujourd'hui."
+  },
+  {
+   "ja": "パンは高くない。",
+   "fr": "Le pain n'est pas cher."
+  }
+ ],
+ "n5-iadj-past": [
+  {
+   "ja": "昨日は寒かった。",
+   "fr": "Il faisait froid hier."
+  },
+  {
+   "ja": "パンは美味しかったです。",
+   "fr": "Le pain était bon."
+  },
+  {
+   "ja": "学校は遠かった。",
+   "fr": "L'école était loin."
+  }
+ ],
+ "n4-volitional": [
+  {
+   "ja": "もう帰ろう。",
+   "fr": "Rentrons maintenant."
+  },
+  {
+   "ja": "一緒に食べよう。",
+   "fr": "Mangeons ensemble."
+  },
+  {
+   "ja": "明日、海へ行こう。",
+   "fr": "Allons à la mer demain."
+  }
+ ],
+ "n4-you-to-omou": [
+  {
+   "ja": "明日から毎日走ろうと思います。",
+   "fr": "Je compte courir tous les jours à partir de demain."
+  },
+  {
+   "ja": "新しいかばんを買おうと思う。",
+   "fr": "Je pense acheter un nouveau sac."
+  }
+ ],
+ "n4-imperative": [
+  {
+   "ja": "早く来い。",
+   "fr": "Viens vite !"
+  },
+  {
+   "ja": "静かにしろ。",
+   "fr": "Tais-toi !"
+  },
+  {
+   "ja": "もっと食べろ。",
+   "fr": "Mange plus !"
   }
  ]
 }

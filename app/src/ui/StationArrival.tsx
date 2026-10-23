@@ -27,7 +27,7 @@ export function StationArrival({ arrival, onClose }: Props) {
         <SectionLabel>
           {last ? `Terme du ${route.name}` : `Ville ${station.index} · ${route.name}`}
         </SectionLabel>
-        <span className="stamp-pose" style={{ animationDelay: "0.25s" }}>
+        <span className="stamp-pose relative" style={{ animationDelay: "0.25s" }}>
           <CityStamp city={city} size={last ? 104 : 88} />
         </span>
         <p className="text-sm text-muted">

@@ -1,12 +1,12 @@
 // Flux d'étude : le PARCOURS (SPEC §5). L'app enchaîne les étapes de la leçon en cours —
 // cours, vocabulaire, grammaire, révision, histoire, produire, contrôle — puis celles de la
-// leçon suivante, avec un point de sortie à chaque checkpoint. La séance n'a pas de fin
+// leçon suivante, avec un point de sortie à la fin de chaque étape. La séance n'a pas de fin
 // imposée : il y a toujours une étape suivante, on s'arrête quand on veut. L'omikuji du jour
 // n'en fait PAS partie : la bandelette s'ouvre d'elle-même au lancement de l'app (voir
 // lib/omikuji.ts, ui/Home.tsx).
 //
 // RÈGLE DURE : `pickNext` est PURE et DÉTERMINISTE — aucun Math.random, aucun accès IO.
-// Même FlowState → même activité, entre l'accueil et le checkpoint, et dans les tests.
+// Même FlowState → même activité, entre l'accueil et la fin d'une étape, et dans les tests.
 // Tout l'IO vit dans `gatherFlowState` (collecteur mince, non testé unitairement).
 
 import {
@@ -26,6 +26,7 @@ import {
   STEP_LABEL,
   nextStep,
   stepNumber,
+  stepNumberBases,
   type PathStep,
 } from "./path";
 import { sessionStats } from "./reviewSession";
@@ -52,13 +53,15 @@ export interface FlowActivity {
   /** L'étape que l'activité VALIDE une fois finie ; absente pour une révision insérée,
    *  une révision ciblée ou un miroir, qui ne font pas avancer le parcours. */
   step?: PathStep;
+  /** Révision insérée : l'étape de la leçon devant laquelle elle passe (au plus une fois). */
+  before?: PathStep;
   /** Révision ciblée : les éléments à repasser (les ratés d'un contrôle). */
   itemIds?: string[];
   /** Station de repos : les leçons qu'elle révise. */
   lessonIds?: string[];
-  /** Libellé du bouton « Continuer avec : … ». */
+  /** Nom de l'activité (« Continuer avec : … » du checkpoint, voie de l'accueil). */
   title: string;
-  /** Justification courte affichée au checkpoint. */
+  /** Justification courte : au checkpoint, et au-dessus d'un détour (révision, repos). */
   reason: string;
 }
 
@@ -77,6 +80,9 @@ export interface FlowState {
     steps: PathStep[];
     /** Étapes déjà faites. */
     stepsDone: PathStep[];
+    /** Étapes des leçons qui la précèdent : sa première étape porte le n° `stepBase + 1` sur la
+     *  voie (numérotation globale, SPEC §5c.2). */
+    stepBase?: number;
     /** Première histoire de la leçon jamais ouverte (meta storyRead absent). */
     unreadStoryId?: string;
     unreadStoryTitle?: string;
@@ -84,6 +90,9 @@ export interface FlowState {
     anyStoryId?: string;
     /** Ratés du dernier contrôle échoué pas encore repassés : la révision ciblée d'abord. */
     retakePending?: string[];
+    /** Une révision a déjà été insérée devant la prochaine étape (persisté, meta
+     *  `insertKey`) : elle ne repasse pas, même d'une séance à l'autre. */
+    reviewInserted?: boolean;
   };
   nextLesson?: { id: string; title: string; ready: boolean };
   /** Station de repos due (SPEC §5.4) : après le contrôle d'une 5e leçon, avant le cours
@@ -120,7 +129,8 @@ const STEP_REASON: Record<PathStep, string> = {
  * ① relecture-miroir, au plus une fois par séance, entre deux étapes ;
  * ② après un contrôle échoué, la révision CIBLÉE de ses ratés, puis le rattrapage ;
  * ③ une révision INSÉRÉE devant une étape de contenu nouveau quand le retard dépasse deux
- *    étapes Révision — au plus une par étape : le neuf ralentit, il ne gèle jamais ;
+ *    étapes Révision — au plus UNE par étape, retenue d'une séance à l'autre : le neuf
+ *    ralentit, il ne gèle jamais, même avec de nouvelles cartes dues chaque jour ;
  * ④ l'étape suivante de la leçon en cours ;
  * ⑤ entre deux leçons, la station de repos quand elle est due (toutes les 5 leçons) ;
  * ⑥ le cours de la prochaine leçon débloquée (il la commence) ;
@@ -154,11 +164,17 @@ export function pickNext(state: FlowState): FlowActivity {
       };
     }
     if (step) {
-      if (CONTENT_STEPS.has(step) && s.dueCount > REVIEW_INSERT_THRESHOLD && s.lastActivity !== "review") {
+      if (
+        CONTENT_STEPS.has(step) &&
+        s.dueCount > REVIEW_INSERT_THRESHOLD &&
+        !cur.reviewInserted &&
+        s.lastActivity !== "review"
+      ) {
         return {
           kind: "review",
           lessonId: cur.id,
-          title: `Révision · ${s.dueCount} cartes en attente`,
+          before: step,
+          title: `Révision · ${REVIEW_STEP_SIZE} cartes (${s.dueCount} en retard)`,
           reason: "Le retard monte : un tour de révision avant la suite de la leçon.",
         };
       }
@@ -206,14 +222,15 @@ export function pickNext(state: FlowState): FlowActivity {
 
 /** L'activité d'une étape de la leçon en cours, avec son rang dans le parcours. */
 function stepActivity(cur: NonNullable<FlowState["currentLesson"]>, step: PathStep): FlowActivity {
-  const n = stepNumber(cur.steps, step);
+  // Le numéro de la voie, pas le rang dans la leçon : « Étape 80 » partout où l'étape se nomme.
+  const n = (cur.stepBase ?? 0) + stepNumber(cur.steps, step);
   const storyId = step === "story" ? (cur.unreadStoryId ?? cur.anyStoryId) : undefined;
   return {
     kind: STEP_KIND[step],
     refId: storyId ?? cur.id,
     lessonId: cur.id,
     step,
-    title: `Étape ${n}/${cur.steps.length} · ${STEP_LABEL[step]} — ${cur.title}`,
+    title: `Étape ${n} · ${STEP_LABEL[step]} — ${cur.title}`,
     reason: STEP_REASON[step],
   };
 }
@@ -258,6 +275,7 @@ export function previewFlow(state: FlowState, n = 3): FlowPreviewStep[] {
     if (a.step && sim.currentLesson && a.lessonId === sim.currentLesson.id) {
       steps.push({ kind: a.kind, label: PREVIEW_LABEL[a.step] });
       sim.currentLesson.stepsDone.push(a.step);
+      sim.currentLesson.reviewInserted = false; // le marqueur valait pour l'étape faite
       if (a.step === "exam") break; // l'issue du contrôle n'est pas connue d'avance
     } else if (a.kind === "lesson") {
       steps.push({ kind: a.kind, label: "une nouvelle leçon" });
@@ -294,6 +312,11 @@ async function storyReadState(stories: StoryRecord[]): Promise<{ unread?: StoryR
     if (!read) return { unread: s };
   }
   return {};
+}
+
+/** Clé meta d'une révision insérée devant une étape d'une leçon (la valeur est sa date). */
+export function insertKey(lessonId: string, step: PathStep): string {
+  return `reviewInsert.${lessonId}.${step}`;
 }
 
 /** Une station de repos toutes les `REST_EVERY` leçons (SPEC §5.4). */
@@ -346,6 +369,9 @@ export async function gatherFlowState(
   // Après un contrôle échoué, les ratés pas encore repassés commandent la révision ciblée.
   const retake =
     current && current.examAttempts > 0 && !current.examPassed ? await examStatus(current.id) : undefined;
+  const upcoming = current ? nextStep(current.steps, new Set(current.stepsDone)) : undefined;
+  const inserted =
+    current && upcoming ? (await getMeta<number>(insertKey(current.id, upcoming))) != null : false;
   const next = lessons.find((l) => !l.startedAt && !l.completedAt && !l.locked);
   const mirror = await currentMirrorCandidate(stories, now);
   const restDue = current ? undefined : await pendingRest(lessons);
@@ -362,10 +388,12 @@ export async function gatherFlowState(
           title: current.title,
           steps: current.steps,
           stepsDone: current.stepsDone,
+          stepBase: stepNumberBases(lessons).get(current.id) ?? 0,
           unreadStoryId: unread?.id,
           unreadStoryTitle: unread ? (unread.titleFr ?? unread.title) : undefined,
           anyStoryId: current.stories[0]?.id,
           ...(retake?.pendingItems.length ? { retakePending: retake.pendingItems } : {}),
+          ...(inserted ? { reviewInserted: true } : {}),
         }
       : undefined,
     nextLesson: next ? { id: next.id, title: next.title, ready: next.state === "ready" } : undefined,
