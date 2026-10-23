@@ -38,6 +38,8 @@ const ALIASES: Record<string, string[]> = {
   "n5-dare-who": ["誰"],
   "n4-ichiban": ["一番"],
   "n4-shika-nai": ["しか"],
+  "n5-kedo": ["けれど", "けれども", "が"],
+  "n5-ndesu": ["のです", "んだ", "のだ"],
 };
 
 /** Formes qui REMPLACENT celles du nom : « AはBより » se reconnaît à より seul. */
@@ -63,6 +65,7 @@ const RULE_ONLY = new Set([
   "n4-kata",
   "n4-question-embed",
   "n4-o-go-nouns",
+  "n5-iadj-te",
 ]);
 
 /**
@@ -92,6 +95,9 @@ const POS: Record<string, string> = {
   "n4-shika-nai": "/係助詞",
   "n5-da-copula": "助動詞",
   "n4-shi": "助詞/接続助詞",
+  "n5-kedo": "/接続助詞",
+  "n5-ya-list": "/並立助詞",
+  "n3-bakari": "/副助詞",
   "n5-kosoado-kore": "名詞/代名詞",
   "n5-kosoado-koko": "名詞/代名詞",
   "n5-kosoado-kono": "連体詞",
@@ -111,14 +117,18 @@ const ONE_WORD = new Set([
   "n5-dare-who", "n5-doko-where", "n5-itsu-when", "n4-ichiban",
 ]);
 
-/** Ce que doit être le mot d'avant : le な d'interdiction suit un verbe au dictionnaire (行くな), pas か (晴れるかな). */
+/** Ce que doit être le mot d'avant une forme : le な d'interdiction suit un verbe au dictionnaire (行くな), pas か (晴れるかな). */
 const PREV_OK: Record<string, (prev?: KuromojiToken) => boolean> = {
   "n4-prohibitive": (prev) => prev?.pos === "動詞" && prev.conjugated_form === "基本形",
+  // 行くんです, 寒いんです, 好きなんです : après une forme conjuguée ; 私のです (« le mien ») n'explique rien.
+  "n5-ndesu": (prev) => prev?.pos === "動詞" || prev?.pos === "形容詞" || prev?.pos === "助動詞",
 };
 
 /** Même chose pour une forme en plusieurs tokens, sur son premier token : そう|です. */
 const HEAD_POS: Record<string, string> = {
   "n4-youda": "名詞/非自立",
+  // 好きなんです : ん/の nominalisateur ; pas 私のです (« c'est le mien »).
+  "n5-ndesu": "名詞/非自立",
 };
 
 /**
@@ -352,6 +362,7 @@ const ECLIPSES: Record<string, string[]> = {
   "n4-question-embed": ["n5-ka-question"],
   "n5-iadj-negative": ["n5-nai-negative"],
   "n5-iadj-past": ["n5-ta-past"],
+  "n5-iadj-te": ["n5-te-form"],
   "n5-itsu-when": ["n5-iru"],
 };
 
@@ -366,10 +377,13 @@ function ruleMatches(tokens: KuromojiToken[], i: number): string[] {
   const prev = tokens[i - 1];
   const next = tokens[i + 1];
   const ids: string[] = [];
-  // La forme en く (安くて, 早く寝る) n'a pas de point : ni prédicat ni négation, sauf devant ない.
+  // La forme en く : négation devant ない, liaison devant て (安くて) ; seule (早く寝る), un adverbe.
   const iadj = (a: KuromojiToken, after?: KuromojiToken): string | null => {
     if (a.conjugated_form.startsWith("連用タ")) return "n5-iadj-past";
-    if (a.conjugated_form.startsWith("連用テ")) return after?.basic_form === "ない" ? "n5-iadj-negative" : null;
+    if (a.conjugated_form.startsWith("連用テ")) {
+      if (after?.basic_form === "ない") return "n5-iadj-negative";
+      return after?.surface_form === "て" ? "n5-iadj-te" : null;
+    }
     if (after?.pos === "名詞") return "n5-iadj-attributive";
     return a.conjugated_form === "基本形" ? "n5-iadj-predicate" : null;
   };
@@ -381,6 +395,7 @@ function ruleMatches(tokens: KuromojiToken[], i: number): string[] {
   if (prev?.pos === "形容詞" && prev.pos_detail_1 === "自立") {
     if (t.basic_form === "ない" && prev.conjugated_form.startsWith("連用テ")) ids.push("n5-iadj-negative");
     if (t.basic_form === "た" && prev.conjugated_form.startsWith("連用タ")) ids.push("n5-iadj-past");
+    if (t.surface_form === "て" && prev.conjugated_form.startsWith("連用テ")) ids.push("n5-iadj-te");
   }
   const naStem = (a?: KuromojiToken) => a?.pos_detail_1 === "形容動詞語幹";
   const naLink = (a?: KuromojiToken) => a?.pos === "助動詞" && a.surface_form === "な";

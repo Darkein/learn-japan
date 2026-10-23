@@ -90,7 +90,23 @@ describe("grammarPointsAt — le point de grammaire d'un mot dans sa phrase", ()
     expect(at("明日は晴れるかな。", "な")).toEqual([]);
     expect(at("行くな。", "な")).toEqual(["n4-prohibitive"]);
     expect(at("誰かが窓をたたいています。", "か")).toEqual([]);
-    expect(at("この店は安くて、おいしいです。", "安く")).toEqual([]);
+    expect(at("早く寝ます。", "早く")).toEqual([]);
+  });
+
+  it("reconnaît les points ajoutés au programme", () => {
+    expect(at("山や川がある。", "や")).toEqual(["n5-ya-list"]);
+    expect(at("山や海などがある。", "など")).toEqual(["n5-nado"]);
+    expect(at("水だけ飲みます。", "だけ")).toEqual(["n5-dake-only"]);
+    expect(at("学生は二人ずつ来ました。", "ずつ")).toEqual(["n5-zutsu"]);
+    expect(at("学校は近くて、広いです。", "近く")).toEqual(["n5-iadj-te"]);
+    expect(at("学校は近くて、広いです。", "て")).toEqual(["n5-iadj-te"]);
+    expect(at("猫が大好きなんです。", "ん")).toEqual(["n5-ndesu"]);
+    expect(at("これは私のです。", "の")).not.toContain("n5-ndesu");
+    expect(at("日本語は難しいけど、面白いです。", "けど")).toEqual(["n5-kedo"]);
+    expect(at("雨ですが、出かけます。", "が")).toEqual(["n5-kedo"]);
+    expect(at("猫が水を飲む。", "が")).toEqual(["n5-ga-subject"]);
+    expect(at("弟は本ばかり読んでいます。", "ばかり")).toEqual(["n3-bakari"]);
+    expect(at("日本に来たばかりです。", "ばかり")).toEqual(["n3-ta-bakari"]);
   });
 
   it("répare les interrogatifs en kana que kuromoji découpe mal", () => {

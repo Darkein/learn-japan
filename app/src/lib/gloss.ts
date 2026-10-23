@@ -64,6 +64,10 @@ export function glossToken(token: KuromojiToken, dict: ContentDict): GlossSegmen
       }
       return g(lookupContent(token, dict));
     }
+    case "名詞":
+      // 好きなんです : ん (ou の) nominalisateur devant です — l'explication.
+      if (token.pos_detail_1 === "非自立" && surface === "ん") return g("[explication]", true);
+      return g(lookupContent(token, dict));
     default:
       return g(lookupContent(token, dict));
   }

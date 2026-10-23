@@ -120,6 +120,8 @@ export const AUX_VERB_GLOSS: Record<string, string> = {
 export const PARTICLE_ROLE_GLOSS: Record<string, string> = {
   // 静かに : に fait de l'adjectif -な un adverbe, il ne situe rien.
   "に|副詞化": "[adverbe]",
+  // 雨ですが、出かけます : が relie deux propositions, il ne marque pas de sujet.
+  "が|接続助詞": "mais",
 };
 
 /** Connecteur particulier : la forme て / で (lien). */
