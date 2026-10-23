@@ -236,9 +236,9 @@
             {
               "id": "n5-09-talking",
               "order": 11,
-              "rev": 3,
-              "title": "Parler en japonais : で et le passé ました",
-              "summary": "Le moyen avec で (日本語で) et le passé poli ました.",
+              "rev": 4,
+              "title": "Parler en japonais : で, ました et la citation と",
+              "summary": "Le moyen avec で (日本語で), le passé poli ました, et と pour rapporter des paroles (「…」と言いました).",
               "introduces": {
                 "vocab": [
                   "話す|はなす",
@@ -252,7 +252,8 @@
                 ],
                 "grammar": [
                   "n5-de-means",
-                  "n5-mashita-past"
+                  "n5-mashita-past",
+                  "n5-to-quote"
                 ]
               }
             }

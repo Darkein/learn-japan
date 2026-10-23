@@ -30,6 +30,7 @@
     { "id": "n5-masu-polite", "level": 5, "name": "ます (poli)", "ruleFr": "Terminaison verbale polie au présent/futur.", "exampleJa": "読みます。", "exampleFr": "Je lis." },
     { "id": "n5-masen-negative", "level": 5, "name": "ません (négation polie)", "ruleFr": "Négation polie du verbe : ます → ません.", "exampleJa": "読みません。", "exampleFr": "Je ne lis pas.", "requires": ["n5-masu-polite"] },
     { "id": "n5-mashita-past", "level": 5, "name": "ました (passé poli)", "ruleFr": "Passé poli du verbe : ます → ました.", "exampleJa": "読みました。", "exampleFr": "J'ai lu.", "requires": ["n5-masu-polite"] },
+    { "id": "n5-to-quote", "level": 5, "name": "と (citation)", "ruleFr": "と cite des paroles ou une pensée : 「…」と言う (dire « … »), …と思う (penser que…). Ce qui est cité vient devant と, entre 「」 pour des paroles rapportées mot pour mot.", "exampleJa": "「おはよう」と言いました。", "exampleFr": "Il a dit « bonjour ».", "requires": ["n5-masu-polite"] },
     { "id": "n5-masen-deshita", "level": 5, "name": "ませんでした (passé négatif poli)", "ruleFr": "Passé négatif poli : ません → ませんでした.", "exampleJa": "読みませんでした。", "exampleFr": "Je n'ai pas lu.", "requires": ["n5-masen-negative", "n5-mashita-past"] },
     { "id": "n5-mashou", "level": 5, "name": "ましょう (invitation)", "ruleFr": "Propose ou invite à faire ensemble : « faisons… ».", "exampleJa": "行きましょう。", "exampleFr": "Allons-y !", "requires": ["n5-masu-polite"] },
     { "id": "n5-nai-negative", "level": 5, "name": "ない (négation neutre)", "ruleFr": "Forme neutre négative du verbe.", "exampleJa": "読まない。", "exampleFr": "Je ne lis pas." },

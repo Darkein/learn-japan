@@ -201,6 +201,20 @@
    "fr": "Il a plu."
   }
  ],
+ "n5-to-quote": [
+  {
+   "ja": "先生は「本を読みます」と言いました。",
+   "fr": "Le professeur a dit : « Je lis un livre. »"
+  },
+  {
+   "ja": "「おはよう」と言いました。",
+   "fr": "Il a dit « bonjour »."
+  },
+  {
+   "ja": "猫は水を飲むと言いました。",
+   "fr": "Il a dit que le chat boit de l'eau."
+  }
+ ],
  "n5-iru": [
   {
    "ja": "人がいる。",
