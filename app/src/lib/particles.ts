@@ -40,6 +40,18 @@ export const PARTICLE_GLOSS: Record<string, string> = {
   ほど: "au point de",
   こそ: "justement",
   って: "[citation/thème]",
+  かも: "peut-être",
+  ながら: "tout en",
+  つつ: "tout en",
+  さえ: "même",
+  ずつ: "chacun",
+  だり: "et autres",
+  にとって: "pour",
+  について: "au sujet de",
+  によって: "par/selon",
+  として: "en tant que",
+  に対して: "envers",
+  という: "appelé/dit",
 };
 
 /** Gloss français des auxiliaires et de la copule (助動詞). */
@@ -71,6 +83,16 @@ export const AUX_GLOSS: Record<string, string> = {
   させる: "[causatif]",
   う: "[volitif]",
   まい: "ne...pas(volonté)",
+  ん: "ne-pas",
+  ましょ: "[invitation]",
+  でしょ: "sans doute(poli)",
+  だろ: "sans doute",
+  べき: "devoir",
+  べし: "devoir",
+  なら: "si(c'est)",
+  たら: "si/quand",
+  だら: "si/quand",
+  な: "[forme -na]",
 };
 
 /** Gloss français de quelques verbes/auxiliaires de support fréquents (par basic_form). */
@@ -85,20 +107,22 @@ export const AUX_VERB_GLOSS: Record<string, string> = {
   くれる: "[donner-à-moi]",
   あげる: "[donner]",
   もらう: "[recevoir]",
+  くださる: "[s'il-te-plaît]",
+  なさる: "[ordre poli]",
+  すぎる: "[trop]",
+  いける: "[permis]",
+};
+
+/**
+ * Particules dont la catégorie IPADIC (`pos_detail_1/pos_detail_2`) départage les emplois que
+ * la table ci-dessus fond en un seul. (と se départage sur son contexte : lib/toRole.ts.)
+ */
+export const PARTICLE_ROLE_GLOSS: Record<string, string> = {
+  // 静かに : に fait de l'adjectif -な un adverbe, il ne situe rien.
+  "に|副詞化": "[adverbe]",
 };
 
 /** Connecteur particulier : la forme て / で (lien). */
-/**
- * Particules dont la catégorie IPADIC (`pos_detail_1/pos_detail_2`) départage les emplois que
- * la table ci-dessus fond en un seul : と de 「はい」と言った n'est ni « et » ni « avec ».
- */
-export const PARTICLE_ROLE_GLOSS: Record<string, string> = {
-  "と|格助詞|引用": "[citation]",
-  "と|格助詞|一般": "avec",
-  "と|並立助詞": "et",
-  "と|接続助詞": "si/quand",
-};
-
 export const TE_FORMS: Record<string, string> = {
   て: "[lien/te]",
   で: "[lien/te]",

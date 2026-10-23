@@ -319,13 +319,21 @@ Deux couches de traduction, et **la couche littérale est prioritaire** (demande
    sont glosés via **JMdict**, les **particules / auxiliaires / copules** (は, が, を, です, た, ね,
    て, から…) via une **table de gloss fixe** maintenue à la main. C'est de la grammaire → réponse
    déterministe, cohérent avec la philosophie « pas de LLM quand il y a une bonne réponse ».
-   **La fiche d'un morphème** (toucher は, に, ている…) reprend cette glose, jamais l'homographe du
-   dictionnaire (歯 « dent »), et nomme son ou ses points de grammaire avec la leçon qui les
-   enseigne et où l'on en est (« に (lieu statique) · Leçon 12 · … — à venir »). Le
-   rapprochement compare la forme du point à celle du token (`lib/morphemeGrammar.ts`) ; une
-   forme à plusieurs emplois les liste tous, sauf quand la catégorie du token tranche (から
-   provenance ou cause, le で de la forme て, いる de 〜ている). Pas de statut « jamais marqué » :
-   un morphème n'est pas suivi en vocabulaire.
+   **La fiche d'un mot** nomme le ou les points de grammaire qu'il porte dans sa phrase, avec la
+   leçon qui les enseigne et où l'on en est (« 〜てもいい · N4 · Leçon 5 · … — à venir ») ; un
+   morphème y reprend sa glose, jamais l'homographe du dictionnaire (歯 « dent »), et n'a pas de
+   statut « jamais marqué ». Le rapprochement (`lib/morphemeGrammar.ts`) cherche la FORME de
+   chaque point dans la phrase, token par token : une forme en plusieurs tokens se reconnaît
+   comme un tout (ませ|ん|でし|た, て|も|いい), une forme à trou exige toutes ses pièces
+   (しか〜ない), la plus spécifique l'emporte (le は de 〜てはいけない n'est pas le thème). La
+   catégorie IPADIC départage quand elle est fiable (から provenance ou cause, いる ou 〜ている) ;
+   sinon le contexte : と (citation après 」 ou devant 言う/思う, « et » entre deux noms, « avec »,
+   condition après un verbe — `lib/toRole.ts`, partagé avec la glose), そう (ouï-dire après une
+   forme finie, apparence après un radical). Quelques points sans forme écrite (adjectif -い ou
+   -な, nom + する, nombres, impératif) se lisent sur les catégories. Une forme à plusieurs
+   emplois que le texte ne départage pas (に : lieu, moment, destination) les liste tous.
+   Vérifié sur les ~1 000 phrases d'exemple du référentiel : chaque point est retrouvé dans ses
+   propres exemples, sauf trois cas où kuromoji découpe mal (よっつ, 読めます).
 2. **Traduction française fluide (LLM, secondaire)** — pour vérifier le sens global, affichée en
    complément. Tolère l'erreur (jugée par l'utilisateur).
 

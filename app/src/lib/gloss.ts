@@ -6,6 +6,7 @@
 
 import { AUX_GLOSS, AUX_VERB_GLOSS, PARTICLE_GLOSS, PARTICLE_ROLE_GLOSS, TE_FORMS } from "./particles";
 import type { KuromojiToken } from "./tokenizer";
+import { toRole, type ToRole } from "./toRole";
 
 /** Dictionnaire de contenu : forme de base → gloss français court. */
 export type ContentDict = Record<string, string>;
@@ -68,9 +69,33 @@ export function glossToken(token: KuromojiToken, dict: ContentDict): GlossSegmen
   }
 }
 
+/** Interrogatifs qu'un か collé rend indéfinis (誰か, 何か, どこか, いつか). */
+const INDEFINITE_HOSTS = new Set(["誰", "だれ", "何", "なに", "なん", "どこ", "いつ", "どれ", "どちら", "いくつ"]);
+
+const TO_GLOSS: Record<ToRole, string> = {
+  quote: "[citation]",
+  and: "et",
+  with: "avec",
+  "and-or-with": "et/avec",
+  conditional: "si/quand",
+};
+
+/**
+ * Glose le token `i` dans sa phrase : と se lit sur son contexte (「はい」と言った : citation ;
+ * 猫と犬が : « et » ; 母と行く : « avec »), sa catégorie kuromoji n'y suffit pas.
+ */
+export function glossAt(tokens: KuromojiToken[], i: number, dict: ContentDict): GlossSegment {
+  const role = toRole(tokens, i);
+  if (role) return { surface: tokens[i].surface_form, gloss: TO_GLOSS[role], grammatical: true };
+  // 誰か, 何か : « quelqu'un », « quelque chose » — pas la question.
+  if (tokens[i].surface_form === "か" && tokens[i].pos === "助詞" && INDEFINITE_HOSTS.has(tokens[i - 1]?.surface_form ?? ""))
+    return { surface: "か", gloss: "[indéfini]", grammatical: true };
+  return glossToken(tokens[i], dict);
+}
+
 /** Glose une phrase entière (liste de tokens). */
 export function glossTokens(tokens: KuromojiToken[], dict: ContentDict): GlossSegment[] {
-  return tokens.map((t) => glossToken(t, dict));
+  return tokens.map((_, i) => glossAt(tokens, i, dict));
 }
 
 /** Rendu texte compact du gloss : « être-chaud · c'est(poli) · [accord] ». */

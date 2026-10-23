@@ -423,6 +423,7 @@ export function Reader({ incoming, preview = false, flowExits }: Props) {
       {openIdx != null && result && (
         <WordSheet
           token={result.tokens[openIdx].token}
+          sentence={{ tokens: result.tokens.map((t) => t.token), index: openIdx }}
           status={statuses.get(itemIdFor(result.tokens[openIdx].token)) ?? "unknown"}
           onAction={handleAction}
           onClose={() => setOpenIdx(null)}

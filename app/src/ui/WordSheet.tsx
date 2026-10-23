@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { hasJapanese, kataToHira } from "../lib/kana";
 import { getLessonProgress, type ItemStatus } from "../lib/db";
-import { grammarPointsFor, type MorphemePoint } from "../lib/morphemeGrammar";
-import { glossToken } from "../lib/gloss";
+import { grammarPointsAt, type MorphemePoint } from "../lib/morphemeGrammar";
+import { glossAt } from "../lib/gloss";
 import { contentDictSnapshot } from "../lib/data";
 import { encounterInfo, type ReEncounter } from "../lib/encounters";
 import { formatDaysAgo } from "../lib/time";
@@ -72,6 +72,7 @@ type LessonState = keyof typeof LESSON_STATE_FR;
  */
 function GrammarPoints({ points }: { points: MorphemePoint[] }) {
   const [states, setStates] = useState<Map<string, LessonState>>(new Map());
+  const key = points.map((p) => p.id).join(",");
   useEffect(() => {
     let cancelled = false;
     void Promise.all(
@@ -86,7 +87,8 @@ function GrammarPoints({ points }: { points: MorphemePoint[] }) {
     return () => {
       cancelled = true;
     };
-  }, [points]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   return (
     <div className="flex flex-col gap-2 rounded-sm border border-hairline p-3 text-sm">
@@ -101,7 +103,7 @@ function GrammarPoints({ points }: { points: MorphemePoint[] }) {
               <span className="font-jp text-text">{p.name}</span>
               {p.lesson && (
                 <span className="text-muted">
-                  Leçon {p.lesson.order} · {p.lesson.title}
+                  N{p.lesson.level} · Leçon {p.lesson.order} · {p.lesson.title}
                   {state && (
                     <span className={state === "later" ? "" : "text-accent"}> — {LESSON_STATE_FR[state]}</span>
                   )}
@@ -117,18 +119,22 @@ function GrammarPoints({ points }: { points: MorphemePoint[] }) {
 
 export function WordSheet({
   token,
+  sentence,
   status,
   onAction,
   onClose,
 }: {
   token: KuromojiToken;
+  /** Le texte autour du mot : son emploi se lit dans la phrase (と de citation, 〜てもいい). */
+  sentence?: { tokens: KuromojiToken[]; index: number };
   status: ItemStatus;
   onAction: (a: StatusAction) => void;
   onClose: () => void;
 }) {
   const reading = token.reading ? kataToHira(token.reading) : "";
   const content = isContent(token);
-  const points = useMemo(() => (content ? [] : grammarPointsFor(token)), [token, content]);
+  const around = sentence ?? { tokens: [token], index: 0 };
+  const points = useMemo(() => grammarPointsAt(around.tokens, around.index), [around.tokens, around.index]);
   const [mnemonic, setMnemonic] = useState<Mnemonic | undefined>(undefined);
   const [encounter, setEncounter] = useState<ReEncounter | null>(null);
   // Pile référentielle empilée sur la vue du token : kanji du mot → mot lié → kanji…
@@ -209,7 +215,9 @@ export function WordSheet({
 
       {/* Un morphème se glose par son rôle (は → [thème]), comme dans le gloss du Lecteur : le
           dictionnaire n'en connaît que les homographes (歯 « dent », 二 « deux »). */}
-      <div className="text-lg">{content ? meaningFor(token) : glossToken(token, contentDictSnapshot()).gloss}</div>
+      <div className="text-lg">
+        {content ? meaningFor(token) : glossAt(around.tokens, around.index, contentDictSnapshot()).gloss}
+      </div>
       {/* Un mot non suivi n'a pas de statut : « jamais marqué » ne dirait rien. */}
       {content && <div className="text-sm text-muted">Statut : {STATUS_FR[status]}</div>}
       {encounter && encounter.count >= 2 && (
@@ -246,6 +254,9 @@ export function WordSheet({
         reading={reading}
         onOpenKanji={(ch) => nav.push({ kind: "kanji", ch })}
       />
+
+      {/* Un mot de contenu peut porter un point (ある, この, l'adjectif devant un nom). */}
+      {content && points.length > 0 && <GrammarPoints points={points} />}
 
       {content ? (
         <div className="mt-2 flex flex-wrap gap-3">
