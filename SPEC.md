@@ -334,6 +334,10 @@ Deux couches de traduction, et **la couche littérale est prioritaire** (demande
    emplois que le texte ne départage pas (に : lieu, moment, destination) les liste tous.
    Vérifié sur les ~1 000 phrases d'exemple du référentiel : chaque point est retrouvé dans ses
    propres exemples, sauf trois cas où kuromoji découpe mal (よっつ, 読めます).
+   Les formes que les histoires emploient tôt et que le programme n'enseignait pas ont reçu
+   leur point, dans une leçon qui avait déjà une étape Grammaire (la voie ne se renumérote
+   pas) : と de citation (leçon 11), や et など (8), だけ et ずつ (24), l'adjectif en -くて (34),
+   〜んです (38), けど / が « mais » (56), et nom + ばかり (N3, leçon 3).
 2. **Traduction française fluide (LLM, secondaire)** — pour vérifier le sens global, affichée en
    complément. Tolère l'erreur (jugée par l'utilisateur).
 

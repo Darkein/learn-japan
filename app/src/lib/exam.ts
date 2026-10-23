@@ -281,6 +281,9 @@ const INTERCHANGEABLE: Record<string, string[]> = {
   を: ["は", "も", "が"],
   に: ["へ"],
   へ: ["に"],
+  // 山＿川がある : と (la liste) et や (des exemples) y sont justes tous les deux.
+  と: ["や"],
+  や: ["と"],
 };
 
 /** Un mot n'est interrogeable en lecture que s'il porte une graphie ≠ sa lecture. */
