@@ -883,6 +883,10 @@ niveau). Les maquettes fixent le style général ; elles ne valident pas chaque 
   ancien arrêt au nouveau (environ 1,6 s, départ et arrivée en douceur). Les rails passent en
   vermillon derrière lui. S'il dépasse une ville, elle passe à « passée » et son tampon se pose
   (§5c.5).
+- **La voie accompagne le trajet.** Elle s'ouvre sur l'ancien arrêt (au tiers haut de la voie
+  visible) et défile au pas du train jusqu'à l'étape à faire : sur un téléphone, la voie visible
+  ne fait guère plus de 300 px, et l'ancien arrêt tombait sinon au-dessus du cadre — le trajet
+  passait hors de vue. Toucher la voie reprend la main.
 - **Plusieurs étapes d'un coup** donnent un seul trajet, plafonné à 3 s.
 - **L'arrêt vu en dernier** est mémorisé : c'est le point de départ du trajet suivant.
 - Sous `prefers-reduced-motion`, le train se pose directement à son arrêt.

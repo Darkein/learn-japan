@@ -64,6 +64,33 @@ function writeTrain(v: { level: number; dist: number }): void {
   }
 }
 
+/** Le point du tracé `d` à la distance `dist` (coordonnées de la voie). */
+function pointAt(d: string, dist: number): { x: number; y: number } | null {
+  try {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    el.setAttribute("d", d);
+    const p = el.getPointAtLength(dist);
+    return { x: p.x, y: p.y };
+  } catch {
+    return null;
+  }
+}
+
+/** La courbe du trajet du train (cubic-bezier(.45,0,.25,1)) : la voie défile à son pas. */
+function trainEase(t: number): number {
+  const [x1, y1, x2, y2] = [0.45, 0, 0.25, 1];
+  const bez = (u: number, a: number, b: number) => 3 * a * u * (1 - u) ** 2 + 3 * b * u ** 2 * (1 - u) + u ** 3;
+  // u tel que x(u) = t, par dichotomie (x est croissante).
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2;
+    if (bez(mid, x1, x2) < t) lo = mid;
+    else hi = mid;
+  }
+  return bez((lo + hi) / 2, y1, y2);
+}
+
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
@@ -107,6 +134,15 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
   // où le train s'est posé. L'effet reste rejouable (StrictMode, mise en page recalculée) :
   // il ne déplace ce point qu'une fois le trajet fini.
   const lastSeen = useRef(readTrain());
+  // Un trajet attend (retour après une étape) : la voie s'ouvre sur l'ancien arrêt et
+  // accompagne le train jusqu'au nouveau. Sans ça, sur téléphone, la voie s'ouvrait centrée sur
+  // le nouvel arrêt : l'ancien tombait au-dessus du cadre et le trajet passait hors de vue.
+  const tripFrom =
+    train && lastSeen.current && lastSeen.current.level === train.level && lastSeen.current.dist < train.dist && !reducedMotion()
+      ? lastSeen.current.dist
+      : null;
+  /** Défilement qui accompagne le train ; une main sur la voie le reprend. */
+  const camera = useRef<{ raf: number; cancel: () => void } | null>(null);
   const paintedKey = paths.map((p) => `${p.level}:${Math.round(p.painted)}`).join(",");
   useEffect(() => {
     const target = Object.fromEntries(paths.map((p) => [p.level, p.painted]));
@@ -135,22 +171,58 @@ export function Track({ layout, decor, trainColor, bubble, metaOf, onTapNode, re
       setDuration(d);
       setTrainDist(train.dist);
       setPainted(target);
+      follow(d);
     }, 450);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [train?.level, train?.dist, paintedKey]);
 
-  // Ouverture centrée sur l'étape à faire.
+  // Ouverture centrée sur l'étape à faire — ou, si le train doit rouler, sur son ancien arrêt.
   const centered = useRef(false);
   useLayoutEffect(() => {
     const f = frame();
     if (centered.current || !f) return;
     centered.current = true;
     cancelScrollRestore();
-    const target = current ? current.y : 0;
+    const start = tripFrom !== null && trainPath ? pointAt(trainPath, tripFrom) : null;
+    const target = start ? start.y : current ? current.y : 0;
     f.el.scrollTo(0, Math.max(0, f.el.scrollTop + f.top + target - anchorY(f.vh)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
+
+  /**
+   * La voie défile avec le train, au même pas, de l'ancien arrêt (au tiers haut de l'écran) à
+   * l'étape à faire (même place) : on voit le trajet entier, même sur un petit écran.
+   */
+  function follow(seconds: number) {
+    const f = frame();
+    if (!f || !current) return;
+    camera.current?.cancel();
+    const from = f.el.scrollTop;
+    const to = Math.max(0, f.el.scrollTop + f.top + current.y - anchorY(f.vh));
+    if (Math.abs(to - from) < 2) return;
+    const t0 = performance.now();
+    const el = f.el;
+    const stop = () => {
+      if (!camera.current) return;
+      cancelAnimationFrame(camera.current.raf);
+      camera.current = null;
+      el.removeEventListener("wheel", stop);
+      el.removeEventListener("touchstart", stop);
+      el.removeEventListener("pointerdown", stop);
+    };
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / (seconds * 1000));
+      el.scrollTop = from + (to - from) * trainEase(k);
+      if (k < 1 && camera.current) camera.current.raf = requestAnimationFrame(step);
+      else stop();
+    };
+    camera.current = { raf: requestAnimationFrame(step), cancel: stop };
+    el.addEventListener("wheel", stop, { passive: true });
+    el.addEventListener("touchstart", stop, { passive: true });
+    el.addEventListener("pointerdown", stop);
+  }
+  useEffect(() => () => camera.current?.cancel(), []);
 
   // Tranche visible, bandeau collant, bouton de retour.
   useEffect(() => {
