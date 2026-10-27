@@ -10,6 +10,7 @@ import { ContinueButton } from "./ContinueButton";
 import { JpFront } from "./JpFront";
 import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 import { WordFeedback } from "./WordFeedback";
+import { WrongAnswerGloss } from "./WrongAnswerGloss";
 
 interface Props {
   exercise: TypeExercise;
@@ -108,6 +109,11 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
             <div className="text-sm text-accent">
               Ta réponse : <span className="font-jp">{entry}</span>
             </div>
+          )}
+          {/* Piste grammaire exclue : une particule tapée (は, で…) n'a pas de « sens »
+              de dictionnaire, le JMdict y lirait un homophone (は → « dent »). */}
+          {result !== "correct" && entry.trim() && ex.track === "vocab" && (
+            <WrongAnswerGloss answer={entry} meaning={ex.meaning} />
           )}
           {ex.word ? (
             <WordFeedback word={ex.word} />

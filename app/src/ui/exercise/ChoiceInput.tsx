@@ -8,6 +8,7 @@ import { ContinueButton } from "./ContinueButton";
 import { JpFront } from "./JpFront";
 import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 import { WordFeedback } from "./WordFeedback";
+import { WrongAnswerGloss } from "./WrongAnswerGloss";
 
 interface Props {
   exercise: ChoiceExercise;
@@ -81,6 +82,10 @@ export function ChoiceInput({ exercise: ex, onGraded, onNext }: Props) {
       </div>
       {picked !== null && (
         <>
+          {/* Ce que veut dire l'option choisie (piste vocab seulement, cf. TypeInput). */}
+          {picked !== ex.answerIndex && ex.track === "vocab" && (
+            <WrongAnswerGloss answer={ex.choices[picked]} meaning={ex.meaning} />
+          )}
           {ex.word ? (
             <WordFeedback word={ex.word} />
           ) : (
