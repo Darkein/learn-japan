@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toHiragana } from "wanakana";
+import { conjugatedAnswer } from "../../lib/conjugate";
 import { translateExampleFr, type TypeExercise } from "../../lib/exercise";
-import { normalizeReading } from "../../lib/kana";
+import { normalizeReading, primaryForm } from "../../lib/kana";
 import { playSfx } from "../../lib/sfx";
 import type { SrsGrade } from "../../lib/srs";
 import { isNearMiss } from "../../lib/typo";
@@ -10,6 +11,7 @@ import { ContinueButton } from "./ContinueButton";
 import { JpFront } from "./JpFront";
 import { AudioBackButton, SentenceFeedback } from "./SentenceFeedback";
 import { WordFeedback } from "./WordFeedback";
+import { WrongAnswerGloss } from "./WrongAnswerGloss";
 
 interface Props {
   exercise: TypeExercise;
@@ -27,21 +29,35 @@ type TypeResult = "correct" | "almost" | "wrong";
 export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChange }: Props) {
   const [entry, setEntry] = useState("");
   const [result, setResult] = useState<TypeResult | null>(null);
+  /** Forme de dictionnaire quand la saisie en est une forme conjuguée (acceptée). */
+  const [dictForm, setDictForm] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (result === null) inputRef.current?.focus();
   }, [result]);
 
-  function checkType() {
+  async function checkType() {
+    if (checking) return;
     const norm = normalizeReading(toHiragana(entry));
+    // Forme conjuguée du mot demandé (たべます pour たべる) : le mot est trouvé, c'est juste.
+    // Seulement hors phrase : dans un trou, la forme attendue est imposée par la phrase.
+    let conj: string | null = null;
+    if (!ex.answers.includes(norm) && ex.track === "vocab" && !ex.context) {
+      setChecking(true);
+      conj = await conjugatedAnswer(norm, ex.answers, primaryForm(ex.id.split("|")[0]));
+      setChecking(false);
+    }
+    setDictForm(conj);
     // Une réponse à la coquille près est ACCEPTÉE (notée "hard") : elle sonne juste, même
     // si la note est plus sévère — le son dit « c'est bon », pas « c'est facile ».
-    const res: TypeResult = ex.answers.includes(norm)
-      ? "correct"
-      : ex.answers.some((a) => isNearMiss(norm, a))
-        ? "almost"
-        : "wrong";
+    const res: TypeResult =
+      ex.answers.includes(norm) || conj
+        ? "correct"
+        : ex.answers.some((a) => isNearMiss(norm, a))
+          ? "almost"
+          : "wrong";
     setResult(res);
     playSfx(res === "wrong" ? "error" : "success");
   }
@@ -64,7 +80,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
                 setEntry(v);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && entry.trim()) checkType();
+                if (e.key === "Enter" && entry.trim()) void checkType();
               }}
               lang="ja"
               autoComplete="off"
@@ -85,7 +101,7 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
             </button>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button variant="primary" onClick={checkType} disabled={!entry.trim()}>
+            <Button variant="primary" onClick={() => void checkType()} disabled={!entry.trim() || checking}>
               Vérifier
             </Button>
             <Button
@@ -104,10 +120,21 @@ export function TypeInput({ exercise: ex, onGraded, onNext, romaji, onRomajiChan
           <div className={`text-sm ${result === "correct" ? "text-accent-2" : "text-accent"}`}>
             {result === "correct" ? "✓ Correct" : result === "almost" ? "≈ Presque — coquille ?" : "✗ Raté"}
           </div>
+          {dictForm && (
+            <div className="text-sm text-muted">
+              <span className="font-jp text-text">{entry}</span> : forme conjuguée de{" "}
+              <span className="font-jp text-text">{dictForm}</span>
+            </div>
+          )}
           {result !== "correct" && entry.trim() && (
             <div className="text-sm text-accent">
               Ta réponse : <span className="font-jp">{entry}</span>
             </div>
+          )}
+          {/* Piste grammaire exclue : une particule tapée (は, で…) n'a pas de « sens »
+              de dictionnaire, le JMdict y lirait un homophone (は → « dent »). */}
+          {result !== "correct" && entry.trim() && ex.track === "vocab" && (
+            <WrongAnswerGloss answer={entry} meaning={ex.meaning} />
           )}
           {ex.word ? (
             <WordFeedback word={ex.word} />
