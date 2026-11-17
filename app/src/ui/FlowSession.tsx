@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { bumpSrsDaily, getSrsDaily, getStory, localDateString, putMeta } from "../lib/db";
 import { gatherFlowState, pickNext, restKey, type FlowActivity } from "../lib/flow";
 import { checkOmikuji } from "../lib/omikuji";
@@ -306,6 +306,22 @@ function ActivityBlock({
     case "vocab":
     case "grammar":
     case "produce":
+      if (activity.recap && activity.lessonId) {
+        return (
+          <CourseRecap
+            key={`${activity.lessonId}:${activity.kind}:recap`}
+            lessonId={activity.lessonId}
+          >
+            <ReviewSession
+              key={`${activity.lessonId}:${activity.kind}`}
+              opts={{ scope: "step", lessonId: activity.lessonId, step: activity.kind }}
+              onExit={onDone}
+              exitLabel="Continuer"
+              autoReplay
+            />
+          </CourseRecap>
+        );
+      }
       return (
         <ReviewSession
           key={`${activity.lessonId}:${activity.kind}`}
@@ -330,6 +346,35 @@ function ActivityBlock({
     default:
       return null;
   }
+}
+
+/**
+ * Rappel du cours avant les premiers exercices d'une leçon, quand le cours n'a pas été lu
+ * juste avant (autre séance, révision intercalée, page de la leçon) : la matière de la
+ * leçon — ses mots et ses règles — remise sous les yeux, puis les exercices.
+ */
+function CourseRecap({ lessonId, children }: { lessonId: string; children: ReactNode }) {
+  const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    void getLesson(lessonId).then((l) => setLesson(l ?? null));
+  }, [lessonId]);
+
+  if (seen || lesson === null) return <>{children}</>;
+  if (!lesson) return <LoadingScreen />;
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <SectionLabel>Rappel du cours</SectionLabel>
+        <p className="m-0 font-serif text-lg text-text">{lesson.title}</p>
+        <p className="m-0 mt-1 text-sm text-muted">Avant les exercices, un coup d'œil à ce que la leçon enseigne.</p>
+      </div>
+      <LessonObjectives lesson={lesson} />
+      <Button variant="primary" className="self-start" onClick={() => setSeen(true)}>
+        C'est revenu — aux exercices
+      </Button>
+    </div>
+  );
 }
 
 /**

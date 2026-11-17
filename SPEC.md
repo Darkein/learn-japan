@@ -431,9 +431,14 @@ freiner le neuf, elle remplit les étapes Révision.
   (plus faible récupérabilité FSRS). FSRS traite une révision anticipée : elle est notée
   normalement, et fait moins progresser la stabilité qu'une révision à l'échéance.
 - **Révision insérée.** Quand plus de 20 cartes sont dues (plus de deux étapes de retard), le
-  parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6),
+  parcours insère une étape Révision avant la prochaine étape de contenu nouveau (2, 3, 5 ou 6 — sauf celle qui suit le cours, voir ci-dessous),
   et l'affiche comme telle (« Révision · 34 cartes en attente »). **Au plus une insertion par étape
   de contenu** : un gros retard ralentit le neuf de moitié au pire, il ne le gèle jamais.
+  **Jamais entre le cours et ses premiers exercices** : le rattrapage passe avant le cours (et
+  avant d'ouvrir une nouvelle leçon), l'étape qui suit le cours s'enchaîne directement.
+- **Rappel du cours.** Quand les premiers exercices d'une leçon ne suivent pas immédiatement
+  son cours (lu dans une autre séance, sur la page de la leçon, ou avant une révision), l'étape
+  s'ouvre sur la matière de la leçon — ses mots et ses règles — avant le premier exercice.
 
 **2. Les rappels portés par les leçons suivantes.** Comme les unités d'un parcours de type
 Duolingo font revenir les mots des précédentes, la leçon N rappelle les éléments de la leçon N−1

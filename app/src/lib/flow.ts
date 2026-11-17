@@ -56,6 +56,9 @@ export interface FlowActivity {
   itemIds?: string[];
   /** Station de repos : les leçons qu'elle révise. */
   lessonIds?: string[];
+  /** Rappel du cours à afficher avant les premiers exercices de la leçon : le cours a été
+   *  lu ailleurs que juste avant (autre séance, page de la leçon). */
+  recap?: boolean;
   /** Libellé du bouton « Continuer avec : … ». */
   title: string;
   /** Justification courte affichée au checkpoint. */
@@ -154,15 +157,15 @@ export function pickNext(state: FlowState): FlowActivity {
       };
     }
     if (step) {
-      if (CONTENT_STEPS.has(step) && s.dueCount > REVIEW_INSERT_THRESHOLD && s.lastActivity !== "review") {
-        return {
-          kind: "review",
-          lessonId: cur.id,
-          title: `Révision · ${s.dueCount} cartes en attente`,
-          reason: "Le retard monte : un tour de révision avant la suite de la leçon.",
-        };
+      // Le cours et l'étape qui le suit sont SOUDÉS : une révision glissée entre les deux
+      // faisait oublier la leçon avant ses exercices. Le rattrapage passe donc AVANT le
+      // cours, jamais juste après.
+      const opensLesson = step === "course";
+      const insertable = opensLesson || (CONTENT_STEPS.has(step) && !followsCourse(cur.steps, step));
+      if (insertable && reviewBacklog(s)) {
+        return insertedReview(s, cur.id, opensLesson);
       }
-      return stepActivity(cur, step);
+      return stepActivity(cur, step, s.lastActivity);
     }
   }
 
@@ -176,6 +179,7 @@ export function pickNext(state: FlowState): FlowActivity {
   }
 
   if (s.nextLesson) {
+    if (reviewBacklog(s)) return insertedReview(s, undefined, true);
     return {
       kind: "lesson",
       refId: s.nextLesson.id,
@@ -204,10 +208,38 @@ export function pickNext(state: FlowState): FlowActivity {
   };
 }
 
+/** Le retard justifie-t-il une révision insérée ? Au plus une d'affilée (§5.4). */
+function reviewBacklog(s: FlowState): boolean {
+  return s.dueCount > REVIEW_INSERT_THRESHOLD && s.lastActivity !== "review";
+}
+
+function insertedReview(s: FlowState, lessonId: string | undefined, beforeCourse: boolean): FlowActivity {
+  return {
+    kind: "review",
+    ...(lessonId ? { lessonId } : {}),
+    title: `Révision · ${s.dueCount} cartes en attente`,
+    reason: beforeCourse
+      ? "Le retard monte : un tour de révision avant d'ouvrir la leçon."
+      : "Le retard monte : un tour de révision avant la suite de la leçon.",
+  };
+}
+
+/** L'étape vient-elle juste après le cours dans le parcours de la leçon ? */
+function followsCourse(steps: PathStep[], step: PathStep): boolean {
+  return steps[steps.indexOf(step) - 1] === "course";
+}
+
 /** L'activité d'une étape de la leçon en cours, avec son rang dans le parcours. */
-function stepActivity(cur: NonNullable<FlowState["currentLesson"]>, step: PathStep): FlowActivity {
+function stepActivity(
+  cur: NonNullable<FlowState["currentLesson"]>,
+  step: PathStep,
+  lastActivity?: FlowActivityKind,
+): FlowActivity {
   const n = stepNumber(cur.steps, step);
   const storyId = step === "story" ? (cur.unreadStoryId ?? cur.anyStoryId) : undefined;
+  // Premiers exercices de la leçon, mais le cours n'est pas ce qu'on vient de faire (lu
+  // dans une autre séance, ou sur la page de la leçon) : on le rappelle avant d'exercer.
+  const recap = (step === "vocab" || step === "grammar") && followsCourse(cur.steps, step) && lastActivity !== "lesson";
   return {
     kind: STEP_KIND[step],
     refId: storyId ?? cur.id,
@@ -215,6 +247,7 @@ function stepActivity(cur: NonNullable<FlowState["currentLesson"]>, step: PathSt
     step,
     title: `Étape ${n}/${cur.steps.length} · ${STEP_LABEL[step]} — ${cur.title}`,
     reason: STEP_REASON[step],
+    ...(recap ? { recap: true } : {}),
   };
 }
 
