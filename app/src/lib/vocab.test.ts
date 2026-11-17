@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
-import { getVocab, putVocab, type VocabItem } from "./db";
+import { getVocab, putStory, putVocab, type VocabItem } from "./db";
 import {
   addInventoryWordToReview,
   applyStatus,
@@ -11,6 +11,7 @@ import {
   itemIdFor,
   meaningFor,
   mergeSkillCards,
+  purgeArticleExamples,
   purgeIncidentalCards,
   purgeNameVocab,
   refreshStoredMeanings,
@@ -132,6 +133,32 @@ describe("isTrackedWord", () => {
     });
     expect(isTrackedWord(neko)).toBe(true);
     expect(isTrackedWord(kakuugo)).toBe(true);
+  });
+});
+
+describe("purgeArticleExamples", () => {
+  it("retire l'exemple tiré d'un article importé, garde celui d'une histoire", async () => {
+    await putStory({
+      id: "article-1", createdAt: 1, title: "Critique", params: {},
+      text: "ローズが呪いとどう向き合うのか。物語は続く。",
+      source: { kind: "article" },
+    });
+    await putVocab({
+      id: "どう|どう", surface: "どう", reading: "どう", meaning: "comment",
+      tags: [], status: "unknown",
+      example: { ja: "ローズが呪いとどう向き合うのか。", fr: "Comment Rose fera face…" },
+    });
+    await putVocab({
+      id: "犬|いぬ", surface: "犬", reading: "いぬ", meaning: "chien",
+      tags: [], status: "unknown",
+      example: { ja: "犬が走る。" },
+    });
+
+    expect(await purgeArticleExamples()).toBe(1);
+    expect((await getVocab("どう|どう"))!.example).toBeUndefined();
+    expect((await getVocab("犬|いぬ"))!.example).toEqual({ ja: "犬が走る。" });
+    // Passe unique.
+    expect(await purgeArticleExamples()).toBe(0);
   });
 });
 

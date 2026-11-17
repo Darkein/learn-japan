@@ -72,8 +72,17 @@ async function firstSentenceById(sentences: string[]): Promise<Map<string, numbe
   return out;
 }
 
+/** Un article importé (presse, blog) : texte authentique, sans rapport avec la leçon. */
+function isArticle(story: StoryRecord): boolean {
+  return story.source?.kind === "article";
+}
+
 export async function enrollStory(story: StoryRecord): Promise<void> {
   const tokens = await tokenize(story.text);
+  // Un article ne fournit AUCUNE phrase d'exemple : écrit pour des natifs, hors niveau et
+  // hors contexte de leçon, il prenait le pas sur le corpus statique (effectiveExample) —
+  // どう, enseigné avec か et 何, se retrouvait révisé dans une phrase de critique de film.
+  const withExamples = !isArticle(story);
   // Même découpage que la traduction alignée (splitJaSentences) : l'index de la phrase
   // d'exemple donne directement sa traduction FR quand elle existe déjà.
   const sentences = splitJaSentences(story.text);
@@ -90,7 +99,7 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
         // Introuvable (découpage divergent entre texte entier et phrase isolée) : pas
         // d'exemple d'histoire plutôt qu'une phrase douteuse — le corpus statique prend
         // le relais (effectiveExample).
-        const idx = sentenceOf.get(id) ?? -1;
+        const idx = withExamples ? (sentenceOf.get(id) ?? -1) : -1;
         const fr = idx >= 0 ? story.translation?.[idx] : undefined;
 
         const item: VocabItem = {
@@ -128,7 +137,7 @@ export async function enrollStory(story: StoryRecord): Promise<void> {
  * podcast ou traduction du lecteur). Idempotent, n'écrase jamais un `fr` existant.
  */
 export async function backfillExampleFr(story: StoryRecord): Promise<void> {
-  if (!story.translation?.length) return;
+  if (!story.translation?.length || isArticle(story)) return;
   const sentences = splitJaSentences(story.text);
   const items = await allVocab();
   await Promise.all(

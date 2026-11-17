@@ -3,9 +3,10 @@
 
 import { contentDictSnapshot, hasContentDict } from "./data";
 import type { ContentDict } from "./gloss";
-import { hasJapanese, isKanji, kataToHira, normalizeReading } from "./kana";
+import { hasJapanese, isKanji, kataToHira, normalizeReading, splitJaSentences } from "./kana";
 import { unfusedIndexes } from "./wordSpan";
 import {
+  allArticles,
   allVocab,
   deleteVocab,
   getMeta,
@@ -224,6 +225,7 @@ export async function purgeNameVocab(): Promise<number> {
 const INCIDENTAL_PURGE_KEY = "purge.incidentalCards.v2";
 
 const MERGE_CARDS_KEY = "merge.skillCards";
+const ARTICLE_EXAMPLE_PURGE_KEY = "purge.articleExamples";
 
 /**
  * Bases d'avant « un mot, une carte » : trois cartes FSRS par mot (écrit / écoute /
@@ -289,6 +291,30 @@ export async function purgeIncidentalCards(): Promise<number> {
   }
   await putMeta(INCIDENTAL_PURGE_KEY, true);
   return demoted;
+}
+
+/**
+ * Retire les phrases d'exemple tirées d'un ARTICLE importé. `enrollStory` en attachait aux
+ * mots qu'un article matérialisait en base, et `effectiveExample` les préférait au corpus
+ * statique : un mot de leçon N5 (どう) revenait en exercice dans une phrase d'article hors
+ * niveau. L'enrôlement n'en pose plus ; cette passe unique nettoie les bases d'avant — le
+ * mot retombe sur l'exemple du corpus. Renvoie le nombre d'items corrigés.
+ */
+export async function purgeArticleExamples(): Promise<number> {
+  if (await getMeta<boolean>(ARTICLE_EXAMPLE_PURGE_KEY)) return 0;
+  const articleSentences = new Set(
+    (await allArticles()).flatMap((a) => splitJaSentences(a.text).map((s) => s.trim())),
+  );
+  let cleared = 0;
+  if (articleSentences.size) {
+    for (const item of await allVocab()) {
+      if (!item.example || !articleSentences.has(item.example.ja.trim())) continue;
+      await putVocab({ ...item, example: undefined });
+      cleared++;
+    }
+  }
+  await putMeta(ARTICLE_EXAMPLE_PURGE_KEY, true);
+  return cleared;
 }
 
 /**
