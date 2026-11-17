@@ -178,6 +178,15 @@ describe("enrollStory", () => {
     expect(hashiru!.card).toBeUndefined();
   });
 
+  it("un article importé n'impose aucune phrase d'exemple (corpus statique prioritaire)", async () => {
+    const article = { ...makeStory("猫は走る。", ["Le chat court."]), source: { kind: "article" as const } };
+    await enrollStory(article);
+
+    const neko = await getVocab("猫|ねこ");
+    expect(neko).toBeDefined();
+    expect(neko!.example).toBeUndefined();
+  });
+
   it("capture la phrase d'exemple contenant le token", async () => {
     const story = makeStory("猫は走る。");
     await enrollStory(story);

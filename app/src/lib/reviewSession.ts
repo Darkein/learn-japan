@@ -40,7 +40,7 @@ import { SRS } from "./config";
 import { shuffle } from "./random";
 import { isSilentMode, loadSettings } from "./settings";
 import { loadLeechIds } from "./leech";
-import { effectiveExample, mergeSkillCards, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
+import { effectiveExample, mergeSkillCards, purgeArticleExamples, purgeIncidentalCards, purgeNameVocab, repairConjugatedVocab } from "./vocab";
 import { isTrainableVocab } from "./vocabFaces";
 import { KIND_LEVEL, orderDrills, type DrillKind } from "./vocabDrills";
 
@@ -124,6 +124,7 @@ export async function buildSession(
   await repairConjugatedVocab();
   await purgeNameVocab();
   await purgeIncidentalCards();
+  await purgeArticleExamples();
   await purgeComprehension();
 
   // Les éléments difficiles sont connus AVANT la construction : un leech repasse au QCM

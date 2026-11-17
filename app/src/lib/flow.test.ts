@@ -90,25 +90,57 @@ describe("pickNext — le parcours d'une leçon", () => {
 
 describe("pickNext — révision insérée (le retard ralentit le neuf, il ne le gèle jamais)", () => {
   it("plus de deux étapes Révision de retard : une révision devant l'étape nouvelle", () => {
-    const a = pickNext(state({ dueCount: 34, currentLesson: lesson(["course"]) }));
+    const a = pickNext(state({ dueCount: 34, currentLesson: lesson(["course", "vocab"]) }));
     expect(a.kind).toBe("review");
     expect(a.step).toBeUndefined();
     expect(a.title).toContain("34 cartes en attente");
   });
 
   it("au plus une insertion par étape : juste après une révision, l'étape suit", () => {
-    const a = pickNext(state({ dueCount: 90, currentLesson: lesson(["course"]), lastActivity: "review" }));
-    expect(a.step).toBe("vocab");
+    const a = pickNext(state({ dueCount: 90, currentLesson: lesson(["course", "vocab"]), lastActivity: "review" }));
+    expect(a.step).toBe("grammar");
   });
 
   it("sous le seuil, aucune insertion", () => {
-    expect(pickNext(state({ dueCount: 20, currentLesson: lesson(["course"]) })).step).toBe("vocab");
+    expect(pickNext(state({ dueCount: 20, currentLesson: lesson(["course", "vocab"]) })).step).toBe("grammar");
   });
 
-  it("le cours et le contrôle ne sont pas précédés d'une révision insérée", () => {
-    expect(pickNext(state({ dueCount: 90, currentLesson: lesson() })).step).toBe("course");
+  it("le rattrapage passe AVANT le cours, jamais entre le cours et ses premiers exercices", () => {
+    const before = pickNext(state({ dueCount: 90, currentLesson: lesson() }));
+    expect(before.kind).toBe("review");
+    expect(before.reason).toContain("avant d'ouvrir la leçon");
+    expect(pickNext(state({ dueCount: 90, currentLesson: lesson(), lastActivity: "review" })).step).toBe("course");
+    // Cours lu : le vocabulaire suit, quel que soit le retard.
+    expect(pickNext(state({ dueCount: 90, currentLesson: lesson(["course"]) })).step).toBe("vocab");
+    // Leçon sans vocabulaire : c'est la grammaire qui suit le cours.
+    const steps = PATH_STEPS.filter((s) => s !== "vocab");
+    expect(pickNext(state({ dueCount: 90, currentLesson: lesson(["course"], { steps }) })).step).toBe("grammar");
+  });
+
+  it("une nouvelle leçon s'ouvre après le rattrapage", () => {
+    const nextLesson = { id: "n5-25", title: "Aller et venir", ready: true };
+    expect(pickNext(state({ dueCount: 90, nextLesson })).kind).toBe("review");
+    expect(pickNext(state({ dueCount: 90, nextLesson, lastActivity: "review" })).kind).toBe("lesson");
+  });
+
+  it("le contrôle n'est pas précédé d'une révision insérée", () => {
     const beforeExam = lesson(PATH_STEPS.filter((s) => s !== "exam"));
     expect(pickNext(state({ dueCount: 90, currentLesson: beforeExam })).kind).toBe("exam");
+  });
+});
+
+describe("pickNext — rappel du cours avant les premiers exercices", () => {
+  it("juste après le cours, pas de rappel", () => {
+    expect(pickNext(state({ currentLesson: lesson(["course"]), lastActivity: "lesson" })).recap).toBeUndefined();
+  });
+
+  it("cours lu dans une autre séance ou avant une révision : rappel", () => {
+    expect(pickNext(state({ currentLesson: lesson(["course"]) })).recap).toBe(true);
+    expect(pickNext(state({ currentLesson: lesson(["course"]), lastActivity: "review" })).recap).toBe(true);
+  });
+
+  it("seulement sur l'étape qui suit le cours", () => {
+    expect(pickNext(state({ currentLesson: lesson(["course", "vocab"]) })).recap).toBeUndefined();
   });
 });
 
@@ -161,7 +193,7 @@ describe("previewFlow — prévisualisation de la carte d'accueil", () => {
 
   it("annonce la révision insérée quand le retard monte", () => {
     const steps = previewFlow(state({ dueCount: 34, currentLesson: lesson(["course"]) }));
-    expect(steps.map((s) => s.label)).toEqual(["une révision", "le vocabulaire", "une révision"]);
+    expect(steps.map((s) => s.label)).toEqual(["le vocabulaire", "une révision", "la grammaire"]);
   });
 
   it("s'arrête au contrôle : son issue n'est pas connue d'avance", () => {
